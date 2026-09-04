@@ -3,10 +3,12 @@
 from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, File, Query, UploadFile
-from fastapi.responses import Response
+from fastapi import APIRouter, Depends, File, Query, Response, UploadFile, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.dependencies import get_upload_service
 from core.errors import feature_not_ready
+from db.session import get_session
 from domain.enums import IssueCategory
 from schemas.common import ProblemDetail
 from schemas.documents import (
@@ -17,6 +19,7 @@ from schemas.documents import (
     TraceabilitySummaryResponse,
 )
 from schemas.issues import IssueListResponse
+from services.uploads import UploadService
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -40,14 +43,26 @@ async def list_documents(
     "/upload",
     response_model=DocumentUploadResponse,
     status_code=201,
-    responses=NOT_READY,
+    responses={**NOT_READY, 200: {"model": DocumentUploadResponse}},
 )
 async def upload_document(
     file: Annotated[UploadFile, File(description="Native-text PDF or DOCX")],
+    response: Response,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    upload_service: Annotated[UploadService, Depends(get_upload_service)],
 ) -> DocumentUploadResponse:
     """Persist a validated document and enqueue canonical extraction."""
 
-    feature_not_ready("Document upload")
+    result = await upload_service.create_or_reuse(file, session)
+    if result.deduplicated:
+        response.status_code = status.HTTP_200_OK
+    return DocumentUploadResponse(
+        id=result.document.id,
+        filename=result.document.original_filename,
+        status=result.document.status,
+        created_at=result.document.created_at,
+        deduplicated=result.deduplicated,
+    )
 
 
 @router.get("/{document_id}", response_model=DocumentRead, responses=NOT_READY)

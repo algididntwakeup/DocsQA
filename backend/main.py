@@ -12,8 +12,10 @@ from api.standards import router as standards_router
 from core.config import settings
 from core.errors import (
     FeatureNotReadyError,
+    UploadRejectedError,
     feature_not_ready_handler,
     http_error_handler,
+    upload_rejected_handler,
     validation_error_handler,
 )
 
@@ -33,6 +35,7 @@ app.add_middleware(
 )
 
 app.add_exception_handler(FeatureNotReadyError, feature_not_ready_handler)
+app.add_exception_handler(UploadRejectedError, upload_rejected_handler)
 app.add_exception_handler(RequestValidationError, validation_error_handler)
 app.add_exception_handler(HTTPException, http_error_handler)
 

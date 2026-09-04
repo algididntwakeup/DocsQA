@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     MAX_PAGE_COUNT: int = 200
     MAX_BATCH_SIZE: int = 20
     DOCUMENT_RETENTION_DAYS: int = 90
+    MAX_DOCX_ENTRY_COUNT: int = 1_000
+    MAX_DOCX_UNCOMPRESSED_BYTES: int = 200 * 1024 * 1024
+    MAX_DOCX_COMPRESSION_RATIO: int = 100
 
     # ── Authentication ──────────────────────────────────────────────
     AUTH_MODE: Literal["disabled", "required"] = "disabled"

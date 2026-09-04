@@ -447,6 +447,7 @@ export interface components {
          * @description Response after a valid upload is persisted and queued.
          * @example {
          *       "created_at": "2026-09-04T04:00:00Z",
+         *       "deduplicated": false,
          *       "filename": "Inspection_Report_Rev-A.pdf",
          *       "id": "ed846165-102f-49f9-9fd0-f25c0d4cfe6e",
          *       "status": "QUEUED"
@@ -458,6 +459,11 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /**
+             * Deduplicated
+             * @default false
+             */
+            deduplicated: boolean;
             /** Filename */
             filename: string;
             /**
@@ -1084,6 +1090,15 @@ export interface operations {
             };
         };
         responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentUploadResponse"];
+                };
+            };
             /** @description Successful Response */
             201: {
                 headers: {

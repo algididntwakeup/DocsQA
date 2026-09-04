@@ -47,6 +47,7 @@ class DocumentUploadResponse(ApiModel):
     filename: str
     status: DocumentStatus
     created_at: datetime
+    deduplicated: bool = False
 
     model_config = {
         "extra": "forbid",
@@ -58,6 +59,7 @@ class DocumentUploadResponse(ApiModel):
                     "filename": "Inspection_Report_Rev-A.pdf",
                     "status": "QUEUED",
                     "created_at": "2026-09-04T04:00:00Z",
+                    "deduplicated": False,
                 }
             ]
         },

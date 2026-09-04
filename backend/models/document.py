@@ -15,6 +15,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -48,6 +49,12 @@ class Document(TimestampMixin, Base):
             name="page_count_positive",
         ),
         Index("ix_documents_status_created_at", "status", "created_at"),
+        Index(
+            "uq_documents_active_sha256",
+            "sha256",
+            unique=True,
+            postgresql_where=text("status IN ('QUEUED', 'PROCESSING')"),
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)

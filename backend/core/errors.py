@@ -17,6 +17,15 @@ class FeatureNotReadyError(RuntimeError):
         self.feature = feature
 
 
+class UploadRejectedError(ValueError):
+    """Raised when an upload violates a safe, public validation rule."""
+
+    def __init__(self, code: str, detail: str) -> None:
+        super().__init__(detail)
+        self.code = code
+        self.detail = detail
+
+
 def feature_not_ready(feature: str) -> NoReturn:
     """Raise the standard error used by deliberately unfinished endpoints."""
 
@@ -47,6 +56,22 @@ async def feature_not_ready_handler(
             detail=str(exc),
             instance=str(request.url.path),
             code="FEATURE_NOT_READY",
+        )
+    )
+
+
+async def upload_rejected_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Map a safe upload validation failure to a public problem document."""
+
+    assert isinstance(exc, UploadRejectedError)
+    return _problem_response(
+        ProblemDetail(
+            type=f"urn:docqc:error:{exc.code}",
+            title="Upload rejected",
+            status=422,
+            detail=exc.detail,
+            instance=str(request.url.path),
+            code=exc.code,
         )
     )
 
