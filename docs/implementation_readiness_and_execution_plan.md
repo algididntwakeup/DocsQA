@@ -1,18 +1,20 @@
 # Implementation Readiness & Agent Execution Plan
 
 **Audit date:** 2026-09-04  
-**Current readiness:** NOT READY for Sprint 2+ feature work  
-**Next executable milestone:** M0 — Foundation and Contract Gate
+**Current readiness:** M1 COMPLETE locally; ready for deterministic M2 work
+**Next executable milestone:** M2.1 — Revision Sync
 
 This document turns the PRD and the frontend/backend plans into an ordered,
 testable execution queue. The PRD remains the product source of truth. This
-file is the delivery source of truth until the M0 gate is passed.
+file remains the delivery source of truth for milestone ordering and evidence.
 
 ---
 
-## 1. Executive Decision
+## 1. Initial Audit Baseline (historical)
 
-The product direction is coherent, but the implementation is still a scaffold:
+The repository began from the following scaffold state. This section is
+retained as historical audit evidence; use ticket status/evidence below for the
+current state.
 
 - the frontend is the default Create Next App page;
 - the backend exposes only `/health`;
@@ -327,6 +329,7 @@ pass ruff + strict mypy before this ticket.
 #### M1.5 Minimal frontend lifecycle
 
 **Depends on:** M0.3, M0.5, M1.2, M1.4  
+**Status:** COMPLETE locally (2026-09-04, commit `16fd31f`)
 **Files:** providers, generated API types/client, dashboard, upload page,
 document detail/status components  
 **Work:** implement the named Stitch screens using the versioned token snapshot;
@@ -334,6 +337,12 @@ add accessible upload, error states, polling with backoff, document list, and
 per-stage progress. No split-screen or mock issue data yet.  
 **Tests:** component tests for upload/status states; Playwright happy path.  
 **Done when:** a user completes Upload → Processing → Extracted from the UI.
+
+**Evidence:** generated OpenAPI types feed a typed fetch client; the responsive
+Stitch-token shell implements dashboard, document list/empty/error states,
+batch upload with independent results, capped-backoff polling, and per-stage
+telemetry. ESLint, strict TypeScript, four Vitest component tests, production
+build, and a Playwright Upload → Queued → Extracted flow pass locally.
 
 **M1 gate:** native-text PDF and DOCX pass the vertical slice in a clean local
 environment; malformed inputs fail safely; all quality commands are green.

@@ -16,14 +16,18 @@ Stitch screen ID/name:
 - 78e00f74aa8d4baab07ed9448febeff7 (Active Document QC Inspection (Light Mode))
 - 6edbc1734a05464481cee22e2c96387d (Active Document QC Inspection - Specialized Error Panels)
 Fetched at (UTC): 2026-09-04
-Design snapshot commit:
-Target route/components:
-Required responsive states:
-Required loading/empty/error states:
-Known PRD/OpenAPI conflicts:
+Design snapshot commit: `d0b6370`
+Target route/components: `/`, `/upload`, `/documents/[id]`; AppShell,
+Dashboard, DocumentList, DropZone, UploadWorkspace, DocumentStatusView,
+ScanProgress
+Required responsive states: desktop instrument shell, compact rail below
+1000px, bottom navigation and single-column content below 680px
+Required loading/empty/error states: dashboard loading/empty/API error; upload
+validation/per-file success/error; status loading/API error/terminal outcome
+Known PRD/OpenAPI conflicts: none for the M1.5 lifecycle scope
 Resolution owner:
-Browser viewport evidence:
-Implementation commit:
+Browser viewport evidence: Playwright Desktop Chrome happy path
+Implementation commit: `16fd31f`
 ```
 
 ## Conflict Rule

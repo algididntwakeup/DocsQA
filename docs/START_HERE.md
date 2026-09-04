@@ -1,85 +1,84 @@
-# START HERE — Document QC Agent Handoff
+# START HERE — DocsQA Execution Index
 
-Use this file when continuing the project in a new chat, with a new agent, or
-on another computer. Chat history is not required if the complete repository,
-including `/docs`, is available.
+This is the only document every new agent must read in full. The rest of
+`docs/` is a reference corpus: load only the files routed below for the active
+ticket. Repository state always overrides stale prose.
 
-## Current State
+## Current checkpoint
 
-The product direction is documented, but implementation is still a scaffold.
-Do not begin linguistic, traceability, review, or export features until the M0
-and M1 gates in the execution plan are complete.
+- M0 and M1 are complete locally through **M1.5**.
+- Next milestone: **M2.1 Revision Sync**.
+- Latest implementation commit: `16fd31f`.
+- Never push to GitHub; the owner pushes. Local commits are allowed.
+- The application is a monorepo: `backend/` FastAPI and `frontend/` Next.js.
 
-## Required Reading Order
+## Source precedence
 
-1. `docs/START_HERE.md`
-2. `docs/Document_QC_WebApp_PRD.md`
-3. `docs/implementation_readiness_and_execution_plan.md`
-4. `docs/acceptance_matrix.md`
-5. `docs/agent_execution_playbook.md`
-6. `docs/backend_plan.md` or `docs/frontend_plan.md` for the active ticket
-7. Every applicable `AGENTS.md` in the target directory tree
+1. `Document_QC_WebApp_PRD.md` — product behavior and non-functional rules.
+2. `acceptance_matrix.md` — approved limits, states, and release evidence.
+3. `backend/openapi.json` — frontend/backend wire contract.
+4. `implementation_readiness_and_execution_plan.md` — milestone order/gates.
+5. `design_system.md` — versioned Stitch visual tokens only.
 
-The PRD controls product behavior. The implementation readiness plan controls
-execution order and milestone gates. OpenAPI controls FE/BE data contracts.
-Stitch controls visual design only.
+If these conflict, record the conflict. Do not silently blend them.
 
-## First Ticket
+## Minimal reading route
 
-M0.1 was completed on 2026-09-04: the nested frontend repository was flattened
-into the product-root monorepo while retaining the frontend commit as merge
-history. Runtime pins are Node.js 24.20.0 and Python 3.13.15. Start with the next
-unblocked M0 ticket shown in the execution plan and verify actual Git state
-before relying on this handoff note.
+For every continuation:
 
-## Stitch MCP Prerequisite
+1. Read this file and `AGENT_HANDOFF_LATEST.md`.
+2. Run `git status --short` and `git log --oneline -10`.
+3. Read only the active milestone section in
+   `implementation_readiness_and_execution_plan.md`.
+4. Load the relevant plan: `backend_plan.md` for pipeline/API work or
+   `frontend_plan.md` for UI work.
+5. Consult the PRD/acceptance matrix only for the feature being implemented.
+6. Read every applicable `AGENTS.md` before editing that directory.
 
-Before frontend ticket M1.5:
+Do not make agents reread the whole corpus by default. Historical handoffs and
+design notes are evidence, not active instructions.
 
-1. Connect the user's Stitch account through MCP.
-2. Verify the intended Stitch project and screen identifiers.
-3. Create/update `docs/design_system.md` and `docs/design_handoff.md`.
-4. Store the Stitch API key only in MCP/secret configuration—never in the repo.
-5. Use PRD for behavior/accessibility, OpenAPI for data, and Stitch for visuals.
+## Document map
 
-## Bootstrap Prompt for a New Agent
+| File | Use when |
+|---|---|
+| `AGENT_HANDOFF_LATEST.md` | Resuming current work |
+| `implementation_readiness_and_execution_plan.md` | Selecting and closing tickets |
+| `Document_QC_WebApp_PRD.md` | Resolving product behavior |
+| `acceptance_matrix.md` | Limits, lifecycle rules, release tests |
+| `backend_plan.md` | Backend architecture or M2/M4/M5 work |
+| `frontend_plan.md` | Frontend, review UI, responsive behavior |
+| `design_system.md` | Implementing Stitch-derived visuals |
+| `design_handoff.md` | Tracing a screen to implementation evidence |
+| `development_workflow.md` | Local commands and service setup |
+| `agent_execution_playbook.md` | Task-writing and quality conventions |
 
-Copy this prompt into the new task:
+## Required quality commands
 
-```text
-Continue the Document QC project from this repository. Chat history is not
-available and must not be assumed.
+```powershell
+Set-Location backend
+.\scripts\quality.ps1
 
-Read docs/START_HERE.md first, then follow its required reading order. Inspect
-the actual repository before changing anything. Use
-docs/implementation_readiness_and_execution_plan.md as the delivery source of
-truth and work only on the next unblocked ticket. Respect every applicable
-AGENTS.md.
-
-For the active ticket, state its dependencies, allowed file scope, observable
-outcome, tests, definition of done, and non-goals. Preserve existing work. Do
-not skip milestone gates or treat TODO scaffolds as completed functionality.
-Run focused verification and update the execution-plan evidence before handing
-off. For frontend work, use the connected Stitch MCP project as the visual
-source, but never place credentials in the repository.
-
-Start by verifying the M0.1 evidence, then work on the next unblocked M0 ticket.
-Report any decision that requires repository-owner approval before performing
-destructive or history-rewriting Git operations.
+Set-Location ..\frontend
+npm run generate:api
+npm run check
+npm run test:e2e
 ```
 
-## Owner Checklist for a New Laptop
+Use focused tests during development, then the relevant full gate before a
+local commit. Preserve user changes and do not rewrite Git history.
 
-- Copy or clone the entire product root, not only `frontend/`.
-- Confirm these directories exist: `docs/`, `backend/`, and `frontend/`.
-- Install the pinned Node and Python versions once M0.1 records them.
-- Install Docker/compatible containers for PostgreSQL, Redis, and LanguageTool.
-- Configure Stitch MCP locally and keep its API key outside the repository.
-- Create local environment files from committed `.env.example` files after M0.
-- Run the quality commands documented by M0.4 before starting feature work.
+## Stitch and secrets
 
-## Completion Rule
+Stitch project `9978725055094825738` is snapshotted in `design_system.md`.
+Stitch is a development-time visual source, not a runtime dependency. Keep API
+keys in MCP/secret configuration only—never chat, source, logs, or docs.
 
-A new agent is correctly onboarded when it can name the current milestone,
-identify the next unblocked ticket, explain its testable outcome, and locate the
-PRD, API contract, and Stitch design source without relying on chat history.
+## Bootstrap prompt
+
+```text
+Read docs/START_HERE.md and docs/AGENT_HANDOFF_LATEST.md in full. Verify Git
+state, then work only on the next unblocked milestone using the routed source
+documents. Preserve existing changes, run the required quality gate, update
+evidence, and commit locally only. Never push to GitHub or store secrets.
+```
