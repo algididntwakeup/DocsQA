@@ -1,8 +1,8 @@
 # Implementation Readiness & Agent Execution Plan
 
 **Audit date:** 2026-09-04  
-**Current readiness:** M1 COMPLETE locally; ready for deterministic M2 work
-**Next executable milestone:** M2.1 — Revision Sync
+**Current readiness:** M1 and M2.1 COMPLETE locally
+**Next executable milestone:** M2.2 — Standard Traceability
 
 This document turns the PRD and the frontend/backend plans into an ordered,
 testable execution queue. The PRD remains the product source of truth. This
@@ -352,8 +352,12 @@ environment; malformed inputs fail safely; all quality commands are green.
 Prioritize audit-critical deterministic rules before the noisier linguistic
 pipeline, but implement them one vertical slice at a time:
 
-1. **M2.1 Revision sync:** filename, cover, and revision-table extraction;
-   normalize revision tokens; emit evidence-rich mismatches.
+1. **M2.1 Revision sync — COMPLETE locally (commit `61ecb4a`):** filename,
+   cover, and revision-table extraction; versioned normalization and
+   evidence-rich match/mismatch/incomplete outcomes. The worker persists a
+   separate stage artifact and isolates analyzer failure as
+   `COMPLETED_WITH_WARNINGS`. Thirteen parser/comparison tests, a pipeline
+   isolation test, and the opt-in Redis/API vertical slice cover the stage.
 2. **M2.2 Standard traceability:** registry patterns, body/reference section
    boundaries, normalized code + edition matching.
 3. **M2.3 Table math:** `Decimal` parser, units, locale separators, subtotal
