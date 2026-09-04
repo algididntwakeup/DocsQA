@@ -1,6 +1,6 @@
 # MVP Acceptance Matrix
 
-**Status:** PROPOSED — awaiting product-owner approval
+**Status:** APPROVED
 
 **Version:** 0.1
 
@@ -113,23 +113,23 @@ and excluded cases. A percentage without numerator and denominator does not pass
 
 Approve or amend each item before changing this document to `APPROVED`:
 
-- [ ] 50 MiB file limit
-- [ ] 200-page document limit
-- [ ] 20-file batch limit
-- [ ] English-only linguistic quality target for Phase 1
-- [ ] 90-day default document retention
-- [ ] Annotated PDF + two-sheet XLSX as required exports
-- [ ] DOCX tracked changes deferred from Phase 1
-- [ ] RBAC required before any shared deployment
-- [ ] OCR excluded from F10/F11 metric claims
-- [ ] Minimum corpus sizes and measurement formulas
-- [ ] Representative documents can be legally de-identified and used for QA
+- [x] 50 MiB file limit
+- [x] 200-page document limit
+- [x] 20-file batch limit
+- [x] English-only linguistic quality target for Phase 1
+- [x] 90-day default document retention
+- [x] Annotated PDF + two-sheet XLSX as required exports
+- [x] DOCX tracked changes deferred from Phase 1
+- [x] RBAC required before any shared deployment
+- [x] OCR excluded from F10/F11 metric claims
+- [x] Minimum corpus sizes and measurement formulas
+- [x] Representative documents can be legally de-identified and used for QA
 
 Approval record:
 
 ```text
-Owner:
-Date:
-Decision: APPROVED / APPROVED WITH CHANGES / REJECTED
-Changes:
+Owner: Repository product owner
+Date: 2026-09-04
+Decision: APPROVED
+Changes: All proposed approved defaults accepted without changes.
 ```

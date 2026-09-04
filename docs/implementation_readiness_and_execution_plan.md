@@ -160,7 +160,7 @@ rules are present; Node.js and Python versions are pinned.
 
 #### M0.2 Approve MVP decisions and acceptance corpus plan
 
-**Status:** IN REVIEW — proposed matrix created 2026-09-04; owner approval pending
+**Status:** COMPLETE (2026-09-04) — all proposed defaults owner-approved
 
 **Files:** `docs/Document_QC_WebApp_PRD.md`, new `docs/acceptance_matrix.md`  
 **Work:** change PRD status only after owner approval; record native-text input
