@@ -33,6 +33,65 @@ services:
       retries: 10
     restart: unless-stopped
 
+  migrate:
+    build:
+      context: ./backend
+    command: ["python", "-m", "alembic", "upgrade", "head"]
+    environment: &backend-environment
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-docqc}:${POSTGRES_PASSWORD:-docqc}@postgres:5432/${POSTGRES_DB:-docqc}
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      STORAGE_ROOT: /app/data
+      CORS_ORIGINS: '["http://localhost:3000","http://127.0.0.1:3000"]'
+      AUTH_MODE: disabled
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: ./backend
+    environment: *backend-environment
+    ports:
+      - "${API_PORT:-8000}:8000"
+    volumes:
+      - backend-data:/app/data
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ./backend
+    command: ["celery", "-A", "core.celery_app", "worker", "--loglevel=INFO", "--concurrency=2"]
+    environment: *backend-environment
+    volumes:
+      - backend-data:/app/data
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000/api/v1}
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   postgres-data:
   redis-data:
+  backend-data:

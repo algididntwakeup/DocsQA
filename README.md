@@ -5,9 +5,8 @@ engineering PDF and DOCX deliverables.
 
 ## Repository Status
 
-The project is in **M0 — Foundation and Contract Gate**. The existing frontend
-and backend are scaffolds, not a completed Sprint 1 implementation. Do not start
-later pipeline features until their dependencies and milestone gates pass.
+The project is complete locally through **M1 — Upload-to-Extraction Vertical
+Slice**. The next milestone is M2.1 Revision Sync.
 
 Start every new task or machine setup with
 [`docs/START_HERE.md`](docs/START_HERE.md), then use
@@ -31,7 +30,7 @@ Use a backend virtual environment named `backend/.venv`. Existing local
 environments such as `backend/venv` are ignored and must not be copied between
 machines.
 
-## Current Smoke Commands
+## Quality Commands
 
 Frontend:
 
@@ -42,15 +41,36 @@ npm run lint
 npm run build
 ```
 
-Backend dependencies currently exist, but the reproducible backend quality
-gate can be run from `backend/` with:
+The reproducible backend quality gate can be run from `backend/` with:
 
 ```powershell
 .\scripts\quality.ps1
 ```
 
-The frontend equivalent is `npm run check`. Do not treat importing the current
-`/health` scaffold as completion of the backend foundation.
+The frontend equivalent is `npm run check`; its browser happy path is
+`npm run test:e2e`.
+
+## Docker Compose
+
+The Compose stack builds and runs PostgreSQL, Redis, database migrations,
+FastAPI, the Celery extraction worker, and the production Next.js frontend.
+
+```powershell
+Copy-Item .env.docker.example .env
+docker compose up --build
+```
+
+Open `http://localhost:3000` for the application and
+`http://localhost:8000/docs` for the API schema.
+
+```powershell
+docker compose ps
+docker compose logs -f api worker frontend
+docker compose down
+```
+
+The normal `down` command preserves named volumes. Add `--volumes` only when
+you explicitly intend to delete the local database, queue, and uploaded files.
 
 ## Secrets
 
