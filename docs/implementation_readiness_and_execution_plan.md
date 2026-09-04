@@ -1,8 +1,8 @@
 # Implementation Readiness & Agent Execution Plan
 
 **Audit date:** 2026-09-04  
-**Current readiness:** M1 and M2.1 COMPLETE locally
-**Next executable milestone:** M2.2 — Standard Traceability
+**Current readiness:** M1 through M2.2 COMPLETE locally
+**Next executable milestone:** M2.3 — Table Math
 
 This document turns the PRD and the frontend/backend plans into an ordered,
 testable execution queue. The PRD remains the product source of truth. This
@@ -358,8 +358,12 @@ pipeline, but implement them one vertical slice at a time:
    separate stage artifact and isolates analyzer failure as
    `COMPLETED_WITH_WARNINGS`. Thirteen parser/comparison tests, a pipeline
    isolation test, and the opt-in Redis/API vertical slice cover the stage.
-2. **M2.2 Standard traceability:** registry patterns, body/reference section
-   boundaries, normalized code + edition matching.
+2. **M2.2 Standard traceability — COMPLETE locally (commit `2152197`):**
+   bounded ASME/API/ASTM/ISO registry patterns, body/reference-section
+   boundaries, normalized code and edition matching, ambiguity handling, and
+   versioned location evidence. The worker persists an independent stage and
+   isolates analyzer failures. Eight focused analyzer tests and pipeline
+   isolation/integration coverage pass.
 3. **M2.3 Table math:** `Decimal` parser, units, locale separators, subtotal
    scoping, tolerance policy, stated/computed cell locations.
 4. **M2.4 Reference drift:** ToC/LoF/LoT entries, printed-page labels, canonical

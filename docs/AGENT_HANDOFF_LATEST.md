@@ -2,9 +2,9 @@
 
 ## Resume point
 
-M1 and **M2.1 Revision Sync** are complete locally. Resume at **M2.2 Standard
-Traceability**. Read `START_HERE.md` for the compact document routing rules; do
-not load the entire docs corpus by default.
+M1, **M2.1 Revision Sync**, and **M2.2 Standard Traceability** are complete
+locally. Resume at **M2.3 Table Math**. Read `START_HERE.md` for the compact
+document routing rules; do not load the entire docs corpus by default.
 
 ## Verified repository state
 
@@ -24,23 +24,29 @@ not load the entire docs corpus by default.
 - M2.1 implementation: `61ecb4a`. It compares explicit revision values from
   filename, cover page, and the latest revision-table row, persists a versioned
   artifact, and keeps analyzer failures isolated from successful extraction.
-- Backend gate: Ruff and strict mypy pass; 39 tests pass, with the PyMuPDF DLL
+- M2.2 implementation: `2152197`. It extracts bounded ASME/API/ASTM/ISO
+  citations, separates body and reference entries, matches normalized codes and
+  edition years, records location evidence, and isolates the stage in the
+  worker. Unknown bare API numbers are surfaced as ambiguous instead of false
+  missing-reference findings.
+- Backend gate: Ruff and strict mypy pass; 48 tests pass, with the PyMuPDF DLL
   and live Redis/Postgres integration checks skipped in the current host.
 - All commits stay local. Do not run `git push`.
 
-## Next ticket — M2.2 Standard Traceability
+## Next ticket — M2.3 Table Math
 
-Implement deterministic extraction and matching of standards/codes between
-document body citations and the bibliography/reference section:
+Implement deterministic validation of flat-table totals:
 
-1. define bounded registry patterns and normalized code/edition tokens;
-2. identify body vs reference-section boundaries from extraction artifacts;
-3. emit present, missing bibliography, edition mismatch, and ambiguous evidence;
-4. integrate it as an independent versioned worker stage.
+1. parse locale-aware decimal values and explicit units without float math;
+2. identify row/column totals and subtotal scope in extracted flat tables;
+3. apply the approved absolute/percentage tolerance policy;
+4. emit operands, stated value, computed value, delta, tolerance, and locations;
+5. integrate it as an independent versioned worker stage.
 
-Require match/missing/year-mismatch/ambiguous/malformed fixtures, false-positive
-assertions, and pipeline/API integration evidence. Do not start table math,
-reference drift, aggregation, review UI, or linguistic work in the same ticket.
+Require correct/mismatch/rounding-boundary/unit/thousands/decimal-separator and
+malformed-row fixtures, property-style parser tests, false-positive assertions,
+and pipeline/API integration evidence. Do not start reference drift,
+aggregation, review UI, or linguistic work in the same ticket.
 
 ## Operational notes
 
