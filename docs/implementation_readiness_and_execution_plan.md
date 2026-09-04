@@ -211,7 +211,7 @@ generated OpenAPI/frontend contract snapshots are current.
 
 #### M0.5 Connect and baseline Stitch MCP
 
-**Status:** WAITING FOR USER CONNECTION — handoff templates are ready
+**Status:** CONFIGURED, VERIFICATION PENDING — endpoint enabled; authentication/session refresh required
 
 **Depends on:** M0.1; blocks M1.5 and M3 frontend work only  
 **Files:** local MCP configuration (never committed), `docs/design_system.md`,
@@ -226,6 +226,12 @@ token values in the snapshot match Stitch; a browser screenshot comparison is
 defined for dashboard, upload, processing, and review states.  
 **Done when:** frontend agents can implement a named Stitch screen without
 guessing tokens or relying on an unversioned chat response.
+
+**Current evidence:** local Codex configuration lists `stitch` at the expected
+remote MCP endpoint with status enabled. The current task has no callable
+Stitch tools and the local MCP status reports unauthenticated, so project/screen
+listing has not passed yet. Rotate the exposed credential, authenticate through
+the Codex MCP UI, and open a fresh task before re-running this gate.
 
 Stitch is a design-time dependency, not an application runtime dependency. Its
 MCP output controls visual composition and tokens; the PRD controls behavior,
