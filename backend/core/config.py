@@ -1,6 +1,9 @@
 """
 Application configuration — loaded from environment variables.
 """
+from pathlib import Path
+from typing import Literal
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -25,8 +28,14 @@ class Settings(BaseSettings):
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/1"
 
     # ── File Storage ─────────────────────────────────────────────────
-    UPLOAD_DIR: str = "./uploads"
+    STORAGE_ROOT: Path = Path("./data")
     MAX_FILE_SIZE_MB: int = 50
+    MAX_PAGE_COUNT: int = 200
+    MAX_BATCH_SIZE: int = 20
+    DOCUMENT_RETENTION_DAYS: int = 90
+
+    # ── Authentication ──────────────────────────────────────────────
+    AUTH_MODE: Literal["disabled", "required"] = "disabled"
 
     # ── NLP / LanguageTool ───────────────────────────────────────────
     LANGUAGE_TOOL_HOST: str = "http://localhost:8081"

@@ -241,6 +241,8 @@ backend work, but must pass M0.5 before the first frontend lifecycle ticket.
 
 #### M1.1 Infrastructure and persistence
 
+**Status:** IMPLEMENTED locally — PostgreSQL/Redis integration pending Docker installation
+
 **Depends on:** M0  
 **Files:** `compose.yaml`, `backend/.env.example`, DB/session modules, Alembic
 migration  
@@ -249,6 +251,13 @@ storage adapter; upload directory bootstrap.
 **Tests:** migration upgrade/downgrade in an ephemeral DB; storage adapter unit
 tests.  
 **Done when:** a fresh checkout can start dependencies and migrate once.
+
+**Evidence:** Compose services and health checks, environment template, async
+SQLAlchemy session, document/stage-run models, initial Alembic migration, and an
+atomic immutable local-storage adapter are implemented. Ruff and strict mypy
+pass across 32 files; 16 tests and offline PostgreSQL migration generation
+pass. Container startup and live upgrade/downgrade remain unverified because
+Docker is not installed on the current machine.
 
 #### M1.2 Secure upload API
 

@@ -18,7 +18,7 @@ try {
     & $python -m ruff check .
     if ($LASTEXITCODE -ne 0) { throw "Ruff failed." }
 
-    & $python -m mypy main.py api core domain schemas scripts tests
+    & $python -m mypy main.py api core db domain models schemas scripts services/storage tests
     if ($LASTEXITCODE -ne 0) { throw "mypy failed." }
 
     & $python -m pytest
@@ -26,6 +26,9 @@ try {
 
     & $python -m scripts.export_openapi
     if ($LASTEXITCODE -ne 0) { throw "OpenAPI export failed." }
+
+    & $python -m alembic upgrade head --sql | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "Alembic offline migration check failed." }
 } finally {
     Pop-Location
 }
