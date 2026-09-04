@@ -267,6 +267,8 @@ Docker is not installed on the current machine.
 
 #### M1.2 Secure upload API
 
+**Status:** COMPLETE locally (2026-09-04)
+
 **Depends on:** M1.1  
 **Files:** `backend/api/documents.py`, upload service  
 **Work:** stream uploads; enforce byte limit; verify MIME and magic bytes; allow
@@ -275,6 +277,8 @@ empty, malformed, duplicate-in-flight, and DOCX zip-bomb inputs.
 **Tests:** valid PDF/DOCX plus wrong extension, wrong signature, oversize, empty,
 path traversal, and malformed ZIP cases.  
 **Done when:** upload returns `201` with a persisted `QUEUED` document.
+
+**Evidence:** API accepts secure document ingestion, handles deduplication, and returns proper status codes. Locally committed but not pushed.
 
 #### M1.3 Versioned extraction service
 
