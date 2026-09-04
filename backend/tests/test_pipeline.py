@@ -13,7 +13,12 @@ from models.document import Document
 from schemas.extraction import ExtractionArtifact
 from services.pipeline import enqueue_extraction
 from services.storage import LocalStorage
-from tasks.extraction import _run_extraction, _run_revision_stage, _sanitize_error
+from tasks.extraction import (
+    _run_extraction,
+    _run_revision_stage,
+    _run_standard_stage,
+    _sanitize_error,
+)
 
 
 def test_sanitize_error_bounds_message() -> None:
@@ -88,13 +93,40 @@ def test_revision_failure_preserves_successful_extraction(tmp_path: Path) -> Non
         patch("tasks.extraction._latest_attempt", AsyncMock(return_value=1)),
         patch("tasks.extraction.analyze_revision", side_effect=ValueError("bad table")),
     ):
-        asyncio.run(
+        failed = asyncio.run(
             _run_revision_stage(
                 session,
                 LocalStorage(tmp_path),
                 document,
                 artifact,
-                extraction_degraded=False,
+            )
+        )
+
+    stage_run = session.add.call_args.args[0]
+    assert failed is True
+    assert stage_run.status == StageStatus.FAILED
+
+
+def test_standard_failure_finalizes_with_warnings(tmp_path: Path) -> None:
+    """The final independent analyzer reports degradation without data loss."""
+
+    document = Document(id=uuid.uuid4(), original_filename="Report.pdf")
+    session = AsyncMock(spec=AsyncSession)
+    artifact = ExtractionArtifact(document_id=document.id)
+    with (
+        patch("tasks.extraction._latest_attempt", AsyncMock(return_value=1)),
+        patch(
+            "tasks.extraction.analyze_standard_traceability",
+            side_effect=ValueError("bad references"),
+        ),
+    ):
+        asyncio.run(
+            _run_standard_stage(
+                session,
+                LocalStorage(tmp_path),
+                document,
+                artifact,
+                prior_degraded=False,
             )
         )
 

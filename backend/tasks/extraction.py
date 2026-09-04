@@ -19,12 +19,14 @@ from models.document import Document, StageRun
 from schemas.extraction import ExtractionArtifact
 from services.extract import extract_document
 from services.revision_sync import analyze_revision
+from services.standard_traceability import analyze_standard_traceability
 from services.storage import LocalStorage
 
 logger = get_task_logger(__name__)
 
 EXTRACTION_STAGE = "extraction"
 REVISION_STAGE = "revision_sync"
+STANDARD_STAGE = "standard_traceability"
 
 
 def _sanitize_error(exc: Exception) -> tuple[str, str]:
@@ -63,8 +65,7 @@ async def _run_revision_stage(
     storage: LocalStorage,
     document: Document,
     artifact: ExtractionArtifact,
-    extraction_degraded: bool,
-) -> None:
+) -> bool:
     """Persist revision evidence while isolating analyzer failures."""
 
     stage_run = StageRun(
@@ -98,9 +99,53 @@ async def _run_revision_stage(
         logger.exception("Revision sync failed for document %s", document.id)
     finally:
         stage_run.finished_at = datetime.now(UTC)
+        await session.commit()
+    return revision_failed
+
+
+async def _run_standard_stage(
+    session: AsyncSession,
+    storage: LocalStorage,
+    document: Document,
+    artifact: ExtractionArtifact,
+    prior_degraded: bool,
+) -> None:
+    """Persist standard-traceability evidence and finalize visible status."""
+
+    stage_run = StageRun(
+        document_id=document.id,
+        stage_name=STANDARD_STAGE,
+        status=StageStatus.RUNNING,
+        progress_pct=0,
+        attempt=await _latest_attempt(session, document.id, STANDARD_STAGE),
+        started_at=datetime.now(UTC),
+    )
+    session.add(stage_run)
+    await session.commit()
+
+    standard_failed = False
+    try:
+        analysis = analyze_standard_traceability(artifact)
+        stage_run.artifact_uri = _persist_artifact(
+            storage,
+            document.id,
+            STANDARD_STAGE,
+            analysis.model_dump_json().encode("utf-8"),
+        )
+        stage_run.progress_pct = 100
+        stage_run.status = StageStatus.SUCCEEDED
+    except Exception as exc:  # noqa: BLE001 — analyzer failures remain isolated
+        standard_failed = True
+        code, message = _sanitize_error(exc)
+        stage_run.status = StageStatus.FAILED
+        stage_run.error_code = code
+        stage_run.error_message = message
+        logger.exception("Standard traceability failed for document %s", document.id)
+    finally:
+        stage_run.finished_at = datetime.now(UTC)
         document.status = (
             DocumentStatus.COMPLETED_WITH_WARNINGS
-            if extraction_degraded or revision_failed
+            if prior_degraded or standard_failed
             else DocumentStatus.COMPLETED
         )
         document.progress_pct = 100
@@ -164,8 +209,15 @@ async def _run_extraction(document_id: str) -> dict[str, object]:
             await session.commit()
 
         if artifact is not None:
-            await _run_revision_stage(
-                session, storage, document, artifact, extraction_degraded
+            revision_failed = await _run_revision_stage(
+                session, storage, document, artifact
+            )
+            await _run_standard_stage(
+                session,
+                storage,
+                document,
+                artifact,
+                prior_degraded=extraction_degraded or revision_failed,
             )
 
     return {"document_id": document_id, "stage": EXTRACTION_STAGE}
