@@ -78,7 +78,7 @@ Agents should use these defaults unless a product owner changes the PRD:
 
 | Decision | Selected default |
 |---|---|
-| Runtime | Python 3.12; Node 20 LTS; pin exact supported versions in CI |
+| Runtime | Python 3.13.15; Node 24.20.0 LTS; pin the same versions in CI |
 | Frontend | Existing Next.js 16 App Router project; follow local Next docs |
 | API | FastAPI under `/api/v1`; OpenAPI is the canonical FE/BE contract |
 | Database | PostgreSQL + SQLAlchemy async + Alembic |
@@ -141,6 +141,8 @@ or NLP features.
 
 #### M0.1 Normalize repository and runtime
 
+**Status:** COMPLETE (2026-09-04)
+
 **Files:** product-root Git/config, `.gitignore`, `.editorconfig`, runtime version
 files, `README.md`  
 **Work:** establish one product repository boundary; exclude venvs, `.next`,
@@ -150,6 +152,11 @@ normalizing the current nested frontend repository.
 **Tests:** clean fresh-install commands documented and repeatable.  
 **Done when:** `git status` from product root works and generated/runtime files
 are not tracked.
+
+**Evidence:** product-root `main` now contains `backend/`, `frontend/`, and
+`docs/`; the former frontend commit is retained as merge ancestry; `frontend`
+is a normal tracked tree rather than a gitlink; root ignore/attribute/editor
+rules are present; Node.js and Python versions are pinned.
 
 #### M0.2 Approve MVP decisions and acceptance corpus plan
 
@@ -366,7 +373,9 @@ observable behavior and named tests.
 
 Execute in this exact order:
 
-1. M0.1 — normalize repository/runtime boundaries.
+1. M0.1 — normalize repository/runtime boundaries. Repository flattening and
+   local runtime pins were completed on 2026-09-04; CI enforcement remains part
+   of M0.4.
 2. M0.2 — obtain product-owner decisions and freeze the MVP acceptance matrix.
 3. M0.3 and M0.4 — domain/OpenAPI contract and quality pipeline may proceed in
    parallel after M0.1.

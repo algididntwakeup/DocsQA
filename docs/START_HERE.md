@@ -25,14 +25,11 @@ Stitch controls visual design only.
 
 ## First Ticket
 
-Start with **M0.1 — Normalize repository and runtime**. The current audit found
-that Git metadata exists under `frontend/` while the product root is not a Git
-repository. Preserve the existing frontend history when creating one product
-repository containing `backend/`, `frontend/`, and `docs/`.
-
-Do not initialize, move, or delete Git metadata without first inspecting both
-locations and confirming the intended history strategy with the repository
-owner.
+M0.1 was completed on 2026-09-04: the nested frontend repository was flattened
+into the product-root monorepo while retaining the frontend commit as merge
+history. Runtime pins are Node.js 24.20.0 and Python 3.13.15. Start with the next
+unblocked M0 ticket shown in the execution plan and verify actual Git state
+before relying on this handoff note.
 
 ## Stitch MCP Prerequisite
 
@@ -65,8 +62,9 @@ Run focused verification and update the execution-plan evidence before handing
 off. For frontend work, use the connected Stitch MCP project as the visual
 source, but never place credentials in the repository.
 
-Start by auditing M0.1 and report any decision that requires repository-owner
-approval before performing destructive or history-rewriting Git operations.
+Start by verifying the M0.1 evidence, then work on the next unblocked M0 ticket.
+Report any decision that requires repository-owner approval before performing
+destructive or history-rewriting Git operations.
 ```
 
 ## Owner Checklist for a New Laptop

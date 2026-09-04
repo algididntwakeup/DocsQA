@@ -128,8 +128,8 @@ main                    ← production-ready; protected
 
 | Tool | Version | Purpose |
 |---|---|---|
-| Node.js | 20+ | Frontend runtime |
-| Python | 3.11+ | Backend runtime |
+| Node.js | 24.20.0 LTS | Frontend runtime; pinned in `.nvmrc` |
+| Python | 3.13.15 | Backend runtime; pinned in `.python-version` |
 | Docker | Latest | PostgreSQL, Redis, LanguageTool |
 | Git | Latest | Version control |
 
@@ -144,7 +144,8 @@ docker compose up -d  # PostgreSQL, Redis, LanguageTool
 
 # 3. Backend
 cd backend
-python -m venv .venv && .venv\Scripts\activate
+python -m venv .venv
+.venv\Scripts\activate
 pip install -r requirements.txt
 python -m spacy download en_core_web_sm
 uvicorn main:app --reload --port 8000
