@@ -211,7 +211,7 @@ generated OpenAPI/frontend contract snapshots are current.
 
 #### M0.5 Connect and baseline Stitch MCP
 
-**Status:** CONFIGURED, VERIFICATION PENDING — endpoint enabled; authentication/session refresh required
+**Status:** COMPLETE (2026-09-04) — endpoint enabled and authenticated
 
 **Depends on:** M0.1; blocks M1.5 and M3 frontend work only  
 **Files:** local MCP configuration (never committed), `docs/design_system.md`,
@@ -280,10 +280,12 @@ path traversal, and malformed ZIP cases.
 
 **Evidence:** API accepts secure document ingestion, handles deduplication, and returns proper status codes. Locally committed but not pushed.
 
-#### M1.3 Versioned extraction service
+#### M1.3 Versioned Extraction Service (PDF/DOCX)
 
-**Depends on:** M0.3  
-**Files:** `backend/services/extract.py`, format-specific extractors  
+**Status:** COMPLETE (2026-09-04) — extraction pipeline implemented
+
+**Depends on:** M1.1; blocks M2.1  
+**Files:** `backend/services/extract.py`, `backend/schemas/extraction.py`  
 **Work:** PDF text/spans/headings/tables; DOCX structure; headless DOCX-to-PDF
 conversion; text-anchor mapping; warnings for unsupported/encrypted inputs.
 Keep format adapters separate from the normalized artifact model.  
