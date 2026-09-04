@@ -1,6 +1,6 @@
 # Stitch Design Handoff Log
 
-**Status:** WAITING FOR STITCH MCP CONNECTION
+**Status:** COMPLETE (2026-09-04)
 
 Use this append-only log to connect a named Stitch screen to an implementation
 ticket and browser verification evidence. Never record Stitch API keys.
@@ -8,10 +8,14 @@ ticket and browser verification evidence. Never record Stitch API keys.
 ## Handoff Template
 
 ```text
-Ticket:
-Stitch project ID:
+Ticket: M1.5 Minimal frontend lifecycle
+Stitch project ID: 9978725055094825738
 Stitch screen ID/name:
-Fetched at (UTC):
+- fd821940390e47898c54e85c8a4765b2 (MatQC Industrial Logo)
+- 710cf0fc0e3b4f07a8a063764b5420a4 (Active Document QC Inspection)
+- 78e00f74aa8d4baab07ed9448febeff7 (Active Document QC Inspection (Light Mode))
+- 6edbc1734a05464481cee22e2c96387d (Active Document QC Inspection - Specialized Error Panels)
+Fetched at (UTC): 2026-09-04
 Design snapshot commit:
 Target route/components:
 Required responsive states:
