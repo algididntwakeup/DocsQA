@@ -1,0 +1,27 @@
+# Document QC Backend — Python Dependencies
+# Core Framework
+fastapi>=0.111.0
+uvicorn[standard]>=0.30.0
+
+# Document Parsing
+PyMuPDF>=1.24.0
+python-docx>=1.1.0
+
+# NLP & Linguistic Analysis
+language-tool-python>=2.8
+spacy>=3.7.0
+thefuzz[speedup]>=0.22.0
+
+# Async Task Queue (Phase 1 MVP)
+celery[redis]>=5.4.0
+redis>=5.0.0
+
+# Database
+sqlalchemy>=2.0.0
+asyncpg>=0.29.0
+alembic>=1.13.0
+
+# Utilities
+python-multipart>=0.0.9
+pydantic>=2.7.0
+pydantic-settings>=2.3.0
