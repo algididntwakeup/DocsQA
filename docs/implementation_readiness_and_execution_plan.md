@@ -294,7 +294,15 @@ bounds and deterministic output assertions.
 **Done when:** the same logical sample yields a versioned artifact with stable
 pages, text anchors, and tables.
 
+**Note (2026-09-04):** `extract.py`/`extraction.py`/`test_extract.py` were
+repaired to pass ruff + strict mypy (import sorting, deprecated `List`/`Optional`
+typing, `schema_version`/`page_label` defaults, `ParagraphStyle | None`
+narrowing, line-length). The sample PDF content assertion still skips locally on
+missing PyMuPDF VC++ DLLs but the structure is complete.
+
 #### M1.4 Celery orchestration and status API
+
+**Status:** COMPLETE locally (2026-09-04)
 
 **Depends on:** M1.1, M1.3  
 **Files:** Celery app/tasks, status endpoint, retry policy  
@@ -303,6 +311,18 @@ persist stage progress and sanitized failures; make retries idempotent.
 **Tests:** eager-mode task tests plus Redis-backed integration smoke test.  
 **Done when:** state transitions and `COMPLETED_WITH_WARNINGS` behavior match the
 contract.
+
+**Evidence:** `core/celery_app.py` and `tasks/extraction.py` register the
+`docqc.extract` task with `max_retries=2`; `services/pipeline.py` enqueues after
+commit and strands the upload as `FAILED` with an `ENQUEUE_FAILED` stage run when
+the broker is down; `GET /api/v1/documents`, `/{id}`, and `/{id}/status` are
+implemented (list uses `COUNT` + offset pagination, detail/status return 404 for
+unknown ids). `StageRunRead.name` and `DocumentRead.filename` map ORM columns via
+`validation_alias`. Ruff and strict mypy pass; 25 unit/contract tests pass plus a
+Redis-backed `RUN_REDIS_INTEGRATION=1` smoke (opt-in, skipped in CI) that drives
+upload → Celery worker → `COMPLETED_WITH_WARNINGS` with a persisted
+`SUCCEEDED_WITH_WARNINGS` stage run. M1.3's extract module was also repaired to
+pass ruff + strict mypy before this ticket.
 
 #### M1.5 Minimal frontend lifecycle
 
