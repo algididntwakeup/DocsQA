@@ -81,7 +81,8 @@ def test_upload_to_extraction_vertical_slice() -> None:
                 "COMPLETED",
                 "COMPLETED_WITH_WARNINGS",
             }, status_payload
-            assert status_payload["stages"], "no stage run was persisted"
+            stage_names = {stage["name"] for stage in status_payload["stages"]}
+            assert {"extraction", "revision_sync"} <= stage_names
     finally:
         worker.terminate()
         api.terminate()

@@ -3,14 +3,17 @@
 import asyncio
 import uuid
 from dataclasses import dataclass
+from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain.enums import DocumentStatus, StageStatus
 from models.document import Document
+from schemas.extraction import ExtractionArtifact
 from services.pipeline import enqueue_extraction
-from tasks.extraction import _run_extraction, _sanitize_error
+from services.storage import LocalStorage
+from tasks.extraction import _run_extraction, _run_revision_stage, _sanitize_error
 
 
 def test_sanitize_error_bounds_message() -> None:
@@ -72,3 +75,30 @@ def test_enqueue_extraction_failure_records_failed_run() -> None:
     stage_run = session.add.call_args.args[0]
     assert stage_run.status == StageStatus.FAILED
     assert stage_run.error_code == "ENQUEUE_FAILED"
+
+
+def test_revision_failure_preserves_successful_extraction(tmp_path: Path) -> None:
+    """An isolated analyzer failure yields warnings, not document failure."""
+
+    document = Document(id=uuid.uuid4(), original_filename="Report_Rev-A.pdf")
+    session = AsyncMock(spec=AsyncSession)
+    artifact = ExtractionArtifact(document_id=document.id)
+
+    with (
+        patch("tasks.extraction._latest_attempt", AsyncMock(return_value=1)),
+        patch("tasks.extraction.analyze_revision", side_effect=ValueError("bad table")),
+    ):
+        asyncio.run(
+            _run_revision_stage(
+                session,
+                LocalStorage(tmp_path),
+                document,
+                artifact,
+                extraction_degraded=False,
+            )
+        )
+
+    stage_run = session.add.call_args.args[0]
+    assert stage_run.status == StageStatus.FAILED
+    assert document.status == DocumentStatus.COMPLETED_WITH_WARNINGS
+    assert document.progress_pct == 100

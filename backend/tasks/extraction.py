@@ -9,18 +9,22 @@ from uuid import UUID
 
 from celery.utils.log import get_task_logger
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.celery_app import celery_app
 from core.config import settings
 from db.session import async_session_factory
 from domain.enums import DocumentStatus, StageStatus
 from models.document import Document, StageRun
+from schemas.extraction import ExtractionArtifact
 from services.extract import extract_document
+from services.revision_sync import analyze_revision
 from services.storage import LocalStorage
 
 logger = get_task_logger(__name__)
 
 EXTRACTION_STAGE = "extraction"
+REVISION_STAGE = "revision_sync"
 
 
 def _sanitize_error(exc: Exception) -> tuple[str, str]:
@@ -29,10 +33,78 @@ def _sanitize_error(exc: Exception) -> tuple[str, str]:
     return exc.__class__.__name__.upper(), message[:1000]
 
 
-def _persist_artifact(storage: LocalStorage, document_id: UUID, payload: bytes) -> str:
+def _persist_artifact(
+    storage: LocalStorage, document_id: UUID, name: str, payload: bytes
+) -> str:
     """Persist a serialized extraction artifact and return its storage URI."""
-    key = f"artifacts/{document_id}/extraction.json"
+    key = f"artifacts/{document_id}/{name}.json"
     return storage.put_stream(key, BytesIO(payload)).uri
+
+
+async def _latest_attempt(
+    session: AsyncSession, document_id: UUID, stage_name: str
+) -> int:
+    value = (
+        await session.execute(
+            select(StageRun.attempt)
+            .where(
+                StageRun.document_id == document_id,
+                StageRun.stage_name == stage_name,
+            )
+            .order_by(StageRun.attempt.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    return (value or 0) + 1
+
+
+async def _run_revision_stage(
+    session: AsyncSession,
+    storage: LocalStorage,
+    document: Document,
+    artifact: ExtractionArtifact,
+    extraction_degraded: bool,
+) -> None:
+    """Persist revision evidence while isolating analyzer failures."""
+
+    stage_run = StageRun(
+        document_id=document.id,
+        stage_name=REVISION_STAGE,
+        status=StageStatus.RUNNING,
+        progress_pct=0,
+        attempt=await _latest_attempt(session, document.id, REVISION_STAGE),
+        started_at=datetime.now(UTC),
+    )
+    session.add(stage_run)
+    await session.commit()
+
+    revision_failed = False
+    try:
+        analysis = analyze_revision(document.original_filename, artifact)
+        stage_run.artifact_uri = _persist_artifact(
+            storage,
+            document.id,
+            REVISION_STAGE,
+            analysis.model_dump_json().encode("utf-8"),
+        )
+        stage_run.progress_pct = 100
+        stage_run.status = StageStatus.SUCCEEDED
+    except Exception as exc:  # noqa: BLE001 — analyzer failures remain isolated
+        revision_failed = True
+        code, message = _sanitize_error(exc)
+        stage_run.status = StageStatus.FAILED
+        stage_run.error_code = code
+        stage_run.error_message = message
+        logger.exception("Revision sync failed for document %s", document.id)
+    finally:
+        stage_run.finished_at = datetime.now(UTC)
+        document.status = (
+            DocumentStatus.COMPLETED_WITH_WARNINGS
+            if extraction_degraded or revision_failed
+            else DocumentStatus.COMPLETED
+        )
+        document.progress_pct = 100
+        await session.commit()
 
 
 async def _run_extraction(document_id: str) -> dict[str, object]:
@@ -46,25 +118,13 @@ async def _run_extraction(document_id: str) -> dict[str, object]:
             logger.warning("Extraction skipped for missing document %s", document_id)
             return {"document_id": document_id, "skipped": True}
 
-        latest_attempt = (
-            await session.execute(
-                select(StageRun.attempt)
-                .where(
-                    StageRun.document_id == doc_id,
-                    StageRun.stage_name == EXTRACTION_STAGE,
-                )
-                .order_by(StageRun.attempt.desc())
-                .limit(1)
-            )
-        ).scalar_one_or_none()
-        attempt = (latest_attempt or 0) + 1
-
         stage_run = StageRun(
             document_id=doc_id,
             stage_name=EXTRACTION_STAGE,
             status=StageStatus.RUNNING,
             progress_pct=0,
-            attempt=attempt,
+            attempt=await _latest_attempt(session, doc_id, EXTRACTION_STAGE),
+            started_at=datetime.now(UTC),
         )
         session.add(stage_run)
         document.status = DocumentStatus.PROCESSING
@@ -73,20 +133,24 @@ async def _run_extraction(document_id: str) -> dict[str, object]:
 
         storage = LocalStorage(settings.STORAGE_ROOT)
 
+        artifact: ExtractionArtifact | None = None
+        extraction_degraded = False
         try:
             source_path = storage.resolve(document.storage_uri)
             artifact = extract_document(Path(source_path), doc_id, document.media_type)
             artifact_uri = _persist_artifact(
-                storage, doc_id, artifact.model_dump_json().encode("utf-8")
+                storage,
+                doc_id,
+                EXTRACTION_STAGE,
+                artifact.model_dump_json().encode("utf-8"),
             )
             stage_run.artifact_uri = artifact_uri
             stage_run.progress_pct = 100
             if artifact.warnings:
+                extraction_degraded = True
                 stage_run.status = StageStatus.SUCCEEDED_WITH_WARNINGS
-                document.status = DocumentStatus.COMPLETED_WITH_WARNINGS
             else:
                 stage_run.status = StageStatus.SUCCEEDED
-                document.status = DocumentStatus.COMPLETED
             document.page_count = len(artifact.pages) or None
         except Exception as exc:  # noqa: BLE001 — stage failures are recorded, not raised
             code, message = _sanitize_error(exc)
@@ -98,6 +162,11 @@ async def _run_extraction(document_id: str) -> dict[str, object]:
         finally:
             stage_run.finished_at = datetime.now(UTC)
             await session.commit()
+
+        if artifact is not None:
+            await _run_revision_stage(
+                session, storage, document, artifact, extraction_degraded
+            )
 
     return {"document_id": document_id, "stage": EXTRACTION_STAGE}
 
