@@ -4,9 +4,9 @@ Extraction Schema Models
 Defines the normalized artifact format produced by the extraction service.
 """
 
-from typing import Any, List, Optional
-from pydantic import Field
 from uuid import UUID
+
+from pydantic import Field
 
 from schemas.base import ApiModel
 
@@ -16,6 +16,7 @@ class CoordinateContract(ApiModel):
     Canonical bounding box coordinate contract.
     Coordinate system is top-left in points (1/72 inch).
     """
+
     page_index: int = Field(ge=0, description="0-based index of the canonical PDF page.")
     x0: float = Field(description="Left coordinate (points).")
     y0: float = Field(description="Top coordinate (points).")
@@ -29,6 +30,7 @@ class TextSpan(ApiModel):
     """
     A contiguous span of text extracted from the document.
     """
+
     text: str
     bbox: CoordinateContract
 
@@ -37,6 +39,7 @@ class Heading(ApiModel):
     """
     A section heading extracted from the document.
     """
+
     text: str
     level: int = Field(ge=1, description="Heading level (e.g., 1 for H1).")
     bbox: CoordinateContract
@@ -46,40 +49,50 @@ class TableCell(ApiModel):
     """
     A single cell within a table.
     """
+
     text: str
     row_index: int = Field(ge=0)
     col_index: int = Field(ge=0)
     row_span: int = Field(default=1, ge=1)
     col_span: int = Field(default=1, ge=1)
-    bbox: Optional[CoordinateContract] = None
+    bbox: CoordinateContract | None = None
 
 
 class Table(ApiModel):
     """
     An extracted data table.
     """
-    cells: List[TableCell]
-    bbox: Optional[CoordinateContract] = None
+
+    cells: list[TableCell]
+    bbox: CoordinateContract | None = None
 
 
 class PageMetadata(ApiModel):
     """
     Metadata for a single canonical PDF page.
     """
+
     page_index: int = Field(ge=0)
     width: float
     height: float
-    page_label: Optional[str] = Field(None, description="Human-facing page label (e.g., 'iv' or '4').")
+    page_label: str | None = Field(
+        default=None,
+        description="Human-facing page label (e.g., 'iv' or '4').",
+    )
 
 
 class ExtractionArtifact(ApiModel):
     """
     The complete, normalized artifact produced by an extraction pipeline stage.
     """
-    schema_version: str = Field("1.0")
+
+    schema_version: str = Field(default="1.0")
     document_id: UUID
-    pages: List[PageMetadata] = Field(default_factory=list)
-    spans: List[TextSpan] = Field(default_factory=list)
-    headings: List[Heading] = Field(default_factory=list)
-    tables: List[Table] = Field(default_factory=list)
-    warnings: List[str] = Field(default_factory=list, description="Extraction warnings, e.g., missing fonts or damaged structures.")
+    pages: list[PageMetadata] = Field(default_factory=list)
+    spans: list[TextSpan] = Field(default_factory=list)
+    headings: list[Heading] = Field(default_factory=list)
+    tables: list[Table] = Field(default_factory=list)
+    warnings: list[str] = Field(
+        default_factory=list,
+        description="Extraction warnings, e.g., missing fonts or damaged structures.",
+    )
