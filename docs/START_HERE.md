@@ -15,9 +15,10 @@ and M1 gates in the execution plan are complete.
 1. `docs/START_HERE.md`
 2. `docs/Document_QC_WebApp_PRD.md`
 3. `docs/implementation_readiness_and_execution_plan.md`
-4. `docs/agent_execution_playbook.md`
-5. `docs/backend_plan.md` or `docs/frontend_plan.md` for the active ticket
-6. Every applicable `AGENTS.md` in the target directory tree
+4. `docs/acceptance_matrix.md`
+5. `docs/agent_execution_playbook.md`
+6. `docs/backend_plan.md` or `docs/frontend_plan.md` for the active ticket
+7. Every applicable `AGENTS.md` in the target directory tree
 
 The PRD controls product behavior. The implementation readiness plan controls
 execution order and milestone gates. OpenAPI controls FE/BE data contracts.

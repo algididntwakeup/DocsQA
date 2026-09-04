@@ -1,11 +1,13 @@
 """
 Application configuration — loaded from environment variables.
 """
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     """Central configuration for the Document QC API."""
+
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
     # ── Application ──────────────────────────────────────────────────
     APP_NAME: str = "Document QC API"
@@ -32,10 +34,5 @@ class Settings(BaseSettings):
     # ── Table Math Tolerance ─────────────────────────────────────────
     TABLE_MATH_TOLERANCE_PERCENT: float = 0.5
     TABLE_MATH_TOLERANCE_UNIT: float = 1.0
-
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-
 
 settings = Settings()

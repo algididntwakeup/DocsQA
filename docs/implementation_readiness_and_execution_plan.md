@@ -160,6 +160,8 @@ rules are present; Node.js and Python versions are pinned.
 
 #### M0.2 Approve MVP decisions and acceptance corpus plan
 
+**Status:** IN REVIEW — proposed matrix created 2026-09-04; owner approval pending
+
 **Files:** `docs/Document_QC_WebApp_PRD.md`, new `docs/acceptance_matrix.md`  
 **Work:** change PRD status only after owner approval; record native-text input
 boundary, canonical DOCX rendering, RBAC release boundary, retention limits,
@@ -168,7 +170,13 @@ formula/denominator for every success metric.
 **Tests:** document review checklist; no code.  
 **Done when:** no P0 behavior depends on an unresolved product choice.
 
+**Evidence:** `docs/acceptance_matrix.md` defines proposed input/retention/export
+boundaries, labeled corpus composition, exact metric formulas, functional
+release scenarios, and an explicit owner-approval checklist.
+
 #### M0.3 Create the backend domain and API contract
+
+**Status:** COMPLETE (2026-09-04)
 
 **Files:** `backend/domain/`, `backend/schemas/`, router response models,
 `openapi.json` generation script  
@@ -179,7 +187,15 @@ explicit `501 FEATURE_NOT_READY`.
 **Done when:** frontend types can be generated without hand-written duplicate
 interfaces.
 
+**Evidence:** strict domain/API schemas, typed issue evidence, canonical
+coordinate models, optimistic-lock request fields, registered `/api/v1`
+routers, RFC-style problem responses, an exported `backend/openapi.json`, and
+contract smoke tests are present. Ruff passed, strict mypy passed across 22
+source files, and all 5 contract tests passed in the audit environment.
+
 #### M0.4 Add executable quality gates
+
+**Status:** COMPLETE locally (2026-09-04); remote CI confirmation pending push
 
 **Files:** backend and frontend test configs, CI workflow, lint/type configs  
 **Work:** add pytest/httpx, Ruff, mypy/pyright, Vitest/Testing Library, and build
@@ -188,7 +204,14 @@ checks. Avoid fake coverage thresholds until meaningful code exists.
 before merge.  
 **Done when:** one command per app runs lint, typecheck, test, and build.
 
+**Evidence:** backend has Ruff, strict mypy, pytest, a single PowerShell quality
+script, and contract tests; frontend has ESLint, `tsc --noEmit`, Vitest, build,
+and a combined `npm run check`; GitHub Actions runs both jobs and verifies that
+generated OpenAPI/frontend contract snapshots are current.
+
 #### M0.5 Connect and baseline Stitch MCP
+
+**Status:** WAITING FOR USER CONNECTION — handoff templates are ready
 
 **Depends on:** M0.1; blocks M1.5 and M3 frontend work only  
 **Files:** local MCP configuration (never committed), `docs/design_system.md`,

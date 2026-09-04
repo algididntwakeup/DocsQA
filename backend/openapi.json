@@ -1,0 +1,2408 @@
+{
+  "components": {
+    "schemas": {
+      "Body_upload_document_api_v1_documents_upload_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "description": "Native-text PDF or DOCX",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_document_api_v1_documents_upload_post",
+        "type": "object"
+      },
+      "BoundingBox": {
+        "additionalProperties": false,
+        "description": "PDF-point rectangle in the canonical top-left coordinate system.",
+        "properties": {
+          "page_height": {
+            "exclusiveMinimum": 0.0,
+            "title": "Page Height",
+            "type": "number"
+          },
+          "page_index": {
+            "minimum": 0.0,
+            "title": "Page Index",
+            "type": "integer"
+          },
+          "page_width": {
+            "exclusiveMinimum": 0.0,
+            "title": "Page Width",
+            "type": "number"
+          },
+          "x0": {
+            "minimum": 0.0,
+            "title": "X0",
+            "type": "number"
+          },
+          "x1": {
+            "minimum": 0.0,
+            "title": "X1",
+            "type": "number"
+          },
+          "y0": {
+            "minimum": 0.0,
+            "title": "Y0",
+            "type": "number"
+          },
+          "y1": {
+            "minimum": 0.0,
+            "title": "Y1",
+            "type": "number"
+          }
+        },
+        "required": [
+          "page_index",
+          "x0",
+          "y0",
+          "x1",
+          "y1",
+          "page_width",
+          "page_height"
+        ],
+        "title": "BoundingBox",
+        "type": "object"
+      },
+      "Decision": {
+        "description": "QA decision applied to a detected issue.",
+        "enum": [
+          "ACCEPTED",
+          "REJECTED",
+          "EDITED",
+          "FLAGGED"
+        ],
+        "title": "Decision",
+        "type": "string"
+      },
+      "DictionaryTermApprovalRequest": {
+        "additionalProperties": false,
+        "description": "Admin approval or rejection of a proposed term.",
+        "properties": {
+          "comment": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DictionaryTermStatus"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "DictionaryTermApprovalRequest",
+        "type": "object"
+      },
+      "DictionaryTermCreate": {
+        "additionalProperties": false,
+        "description": "Request to propose a term for a project or organization.",
+        "properties": {
+          "rationale": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rationale"
+          },
+          "scope": {
+            "pattern": "^(organization|project:[0-9a-fA-F-]{36})$",
+            "title": "Scope",
+            "type": "string"
+          },
+          "term": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Term",
+            "type": "string"
+          }
+        },
+        "required": [
+          "term",
+          "scope"
+        ],
+        "title": "DictionaryTermCreate",
+        "type": "object"
+      },
+      "DictionaryTermListResponse": {
+        "additionalProperties": false,
+        "description": "Paginated dictionary collection.",
+        "properties": {
+          "pagination": {
+            "$ref": "#/components/schemas/PageInfo"
+          },
+          "terms": {
+            "items": {
+              "$ref": "#/components/schemas/DictionaryTermRead"
+            },
+            "title": "Terms",
+            "type": "array"
+          }
+        },
+        "required": [
+          "terms",
+          "pagination"
+        ],
+        "title": "DictionaryTermListResponse",
+        "type": "object"
+      },
+      "DictionaryTermRead": {
+        "additionalProperties": false,
+        "description": "Governed dictionary entry.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "scope": {
+            "title": "Scope",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DictionaryTermStatus"
+          },
+          "term": {
+            "title": "Term",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "term",
+          "scope",
+          "status",
+          "created_at"
+        ],
+        "title": "DictionaryTermRead",
+        "type": "object"
+      },
+      "DictionaryTermStatus": {
+        "description": "Governance state for a proposed dictionary term.",
+        "enum": [
+          "PROPOSED",
+          "APPROVED",
+          "REJECTED"
+        ],
+        "title": "DictionaryTermStatus",
+        "type": "string"
+      },
+      "Disposition": {
+        "description": "Lead Reviewer disposition for audit-sensitive findings.",
+        "enum": [
+          "JUSTIFIED_EXCEPTION",
+          "REQUIRES_CORRECTION"
+        ],
+        "title": "Disposition",
+        "type": "string"
+      },
+      "DocumentListResponse": {
+        "additionalProperties": false,
+        "description": "Paginated document collection.",
+        "properties": {
+          "documents": {
+            "items": {
+              "$ref": "#/components/schemas/DocumentRead"
+            },
+            "title": "Documents",
+            "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/PageInfo"
+          }
+        },
+        "required": [
+          "documents",
+          "pagination"
+        ],
+        "title": "DocumentListResponse",
+        "type": "object"
+      },
+      "DocumentRead": {
+        "additionalProperties": false,
+        "description": "Safe document metadata returned to clients.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "media_type": {
+            "title": "Media Type",
+            "type": "string"
+          },
+          "page_count": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Count"
+          },
+          "progress_pct": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Progress Pct",
+            "type": "integer"
+          },
+          "review_status": {
+            "$ref": "#/components/schemas/ReviewStatus"
+          },
+          "sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          },
+          "size_bytes": {
+            "minimum": 0.0,
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DocumentStatus"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "filename",
+          "media_type",
+          "size_bytes",
+          "sha256",
+          "status",
+          "review_status",
+          "progress_pct",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "DocumentRead",
+        "type": "object"
+      },
+      "DocumentStatus": {
+        "description": "Processing lifecycle for an uploaded document.",
+        "enum": [
+          "QUEUED",
+          "PROCESSING",
+          "COMPLETED",
+          "COMPLETED_WITH_WARNINGS",
+          "FAILED"
+        ],
+        "title": "DocumentStatus",
+        "type": "string"
+      },
+      "DocumentStatusResponse": {
+        "additionalProperties": false,
+        "description": "Processing and stage status used for polling.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "progress_pct": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Progress Pct",
+            "type": "integer"
+          },
+          "review_status": {
+            "$ref": "#/components/schemas/ReviewStatus"
+          },
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/StageRunRead"
+            },
+            "title": "Stages",
+            "type": "array"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DocumentStatus"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "review_status",
+          "progress_pct",
+          "stages",
+          "updated_at"
+        ],
+        "title": "DocumentStatusResponse",
+        "type": "object"
+      },
+      "DocumentUploadResponse": {
+        "additionalProperties": false,
+        "description": "Response after a valid upload is persisted and queued.",
+        "examples": [
+          {
+            "created_at": "2026-09-04T04:00:00Z",
+            "filename": "Inspection_Report_Rev-A.pdf",
+            "id": "ed846165-102f-49f9-9fd0-f25c0d4cfe6e",
+            "status": "QUEUED"
+          }
+        ],
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DocumentStatus"
+          }
+        },
+        "required": [
+          "id",
+          "filename",
+          "status",
+          "created_at"
+        ],
+        "title": "DocumentUploadResponse",
+        "type": "object"
+      },
+      "FieldViolation": {
+        "additionalProperties": false,
+        "description": "One request-validation failure safe to expose to an API client.",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field",
+          "message",
+          "code"
+        ],
+        "title": "FieldViolation",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "IssueCategory": {
+        "description": "Top-level issue grouping used by API filters and the review UI.",
+        "enum": [
+          "LINGUISTIC",
+          "TRACEABILITY",
+          "SYSTEM"
+        ],
+        "title": "IssueCategory",
+        "type": "string"
+      },
+      "IssueDecisionRequest": {
+        "additionalProperties": false,
+        "description": "Optimistically locked QA decision mutation.",
+        "properties": {
+          "comment": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          },
+          "decision": {
+            "$ref": "#/components/schemas/Decision"
+          },
+          "edited_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Edited Value"
+          },
+          "expected_version": {
+            "minimum": 1.0,
+            "title": "Expected Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "decision",
+          "expected_version"
+        ],
+        "title": "IssueDecisionRequest",
+        "type": "object"
+      },
+      "IssueDispositionRequest": {
+        "additionalProperties": false,
+        "description": "Optimistically locked Lead Reviewer disposition mutation.",
+        "properties": {
+          "disposition": {
+            "$ref": "#/components/schemas/Disposition"
+          },
+          "expected_version": {
+            "minimum": 1.0,
+            "title": "Expected Version",
+            "type": "integer"
+          },
+          "justification": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Justification",
+            "type": "string"
+          }
+        },
+        "required": [
+          "disposition",
+          "expected_version",
+          "justification"
+        ],
+        "title": "IssueDispositionRequest",
+        "type": "object"
+      },
+      "IssueListResponse": {
+        "additionalProperties": false,
+        "description": "Paginated issue collection plus review summary counts.",
+        "properties": {
+          "counts_by_severity": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/Severity"
+            },
+            "title": "Counts By Severity",
+            "type": "object"
+          },
+          "issues": {
+            "items": {
+              "$ref": "#/components/schemas/IssueRead"
+            },
+            "title": "Issues",
+            "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/PageInfo"
+          }
+        },
+        "required": [
+          "issues",
+          "pagination",
+          "counts_by_severity"
+        ],
+        "title": "IssueListResponse",
+        "type": "object"
+      },
+      "IssueRead": {
+        "additionalProperties": false,
+        "description": "Unified issue record consumed by the review UI.",
+        "properties": {
+          "category": {
+            "$ref": "#/components/schemas/IssueCategory"
+          },
+          "confidence": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "decision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Decision"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "disposition": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Disposition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "document_id": {
+            "format": "uuid",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "evidence": {
+            "discriminator": {
+              "mapping": {
+                "LINGUISTIC": "#/components/schemas/LinguisticEvidence",
+                "REFERENCE_DRIFT": "#/components/schemas/ReferenceDriftEvidence",
+                "REVISION": "#/components/schemas/RevisionEvidence",
+                "STAGE_FAILURE": "#/components/schemas/StageFailureEvidence",
+                "STANDARD": "#/components/schemas/StandardEvidence",
+                "TABLE_MATH": "#/components/schemas/TableMathEvidence"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/TableMathEvidence"
+              },
+              {
+                "$ref": "#/components/schemas/ReferenceDriftEvidence"
+              },
+              {
+                "$ref": "#/components/schemas/RevisionEvidence"
+              },
+              {
+                "$ref": "#/components/schemas/StandardEvidence"
+              },
+              {
+                "$ref": "#/components/schemas/LinguisticEvidence"
+              },
+              {
+                "$ref": "#/components/schemas/StageFailureEvidence"
+              }
+            ],
+            "title": "Evidence"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/Severity"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "version": {
+            "minimum": 1.0,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "document_id",
+          "category",
+          "type",
+          "severity",
+          "confidence",
+          "message",
+          "evidence",
+          "version",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "IssueRead",
+        "type": "object"
+      },
+      "LinguisticEvidence": {
+        "additionalProperties": false,
+        "description": "Original span and optional replacement for language findings.",
+        "properties": {
+          "extractor_version": {
+            "title": "Extractor Version",
+            "type": "string"
+          },
+          "kind": {
+            "const": "LINGUISTIC",
+            "default": "LINGUISTIC",
+            "title": "Kind",
+            "type": "string"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BoundingBox"
+              },
+              {
+                "$ref": "#/components/schemas/TextSpan"
+              }
+            ],
+            "title": "Location"
+          },
+          "original_text": {
+            "title": "Original Text",
+            "type": "string"
+          },
+          "rule_version": {
+            "title": "Rule Version",
+            "type": "string"
+          },
+          "suggestion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggestion"
+          }
+        },
+        "required": [
+          "extractor_version",
+          "rule_version",
+          "original_text",
+          "location"
+        ],
+        "title": "LinguisticEvidence",
+        "type": "object"
+      },
+      "PageInfo": {
+        "additionalProperties": false,
+        "description": "Cursor-free pagination metadata for the initial API contract.",
+        "properties": {
+          "page": {
+            "minimum": 1.0,
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "page",
+          "page_size",
+          "total"
+        ],
+        "title": "PageInfo",
+        "type": "object"
+      },
+      "ProblemDetail": {
+        "additionalProperties": false,
+        "description": "RFC 9457-style error response with a stable application code.",
+        "examples": [
+          {
+            "code": "FEATURE_NOT_READY",
+            "detail": "Document upload is not implemented yet.",
+            "errors": [],
+            "instance": "/api/v1/documents/upload",
+            "status": 501,
+            "title": "Feature not ready",
+            "type": "urn:docqc:error:FEATURE_NOT_READY"
+          }
+        ],
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/FieldViolation"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "instance": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instance"
+          },
+          "status": {
+            "maximum": 599.0,
+            "minimum": 400.0,
+            "title": "Status",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "type": {
+            "default": "about:blank",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "status",
+          "code"
+        ],
+        "title": "ProblemDetail",
+        "type": "object"
+      },
+      "ReferenceDriftEvidence": {
+        "additionalProperties": false,
+        "description": "Referenced and actual page evidence for ToC/LoF/LoT drift.",
+        "properties": {
+          "actual_page_label": {
+            "title": "Actual Page Label",
+            "type": "string"
+          },
+          "entry_location": {
+            "$ref": "#/components/schemas/BoundingBox"
+          },
+          "extractor_version": {
+            "title": "Extractor Version",
+            "type": "string"
+          },
+          "kind": {
+            "const": "REFERENCE_DRIFT",
+            "default": "REFERENCE_DRIFT",
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "page_delta": {
+            "title": "Page Delta",
+            "type": "integer"
+          },
+          "referenced_page_label": {
+            "title": "Referenced Page Label",
+            "type": "string"
+          },
+          "rule_version": {
+            "title": "Rule Version",
+            "type": "string"
+          },
+          "target_location": {
+            "$ref": "#/components/schemas/BoundingBox"
+          }
+        },
+        "required": [
+          "extractor_version",
+          "rule_version",
+          "label",
+          "referenced_page_label",
+          "actual_page_label",
+          "page_delta",
+          "entry_location",
+          "target_location"
+        ],
+        "title": "ReferenceDriftEvidence",
+        "type": "object"
+      },
+      "ReviewStatus": {
+        "description": "Human review lifecycle, kept separate from processing status.",
+        "enum": [
+          "PENDING",
+          "IN_REVIEW",
+          "APPROVED",
+          "REVISION_REQUIRED"
+        ],
+        "title": "ReviewStatus",
+        "type": "string"
+      },
+      "RevisionEvidence": {
+        "additionalProperties": false,
+        "description": "Three-way filename, cover, and revision-history evidence.",
+        "properties": {
+          "cover_revision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Revision"
+          },
+          "extractor_version": {
+            "title": "Extractor Version",
+            "type": "string"
+          },
+          "filename_revision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filename Revision"
+          },
+          "kind": {
+            "const": "REVISION",
+            "default": "REVISION",
+            "title": "Kind",
+            "type": "string"
+          },
+          "locations": {
+            "items": {
+              "$ref": "#/components/schemas/BoundingBox"
+            },
+            "title": "Locations",
+            "type": "array"
+          },
+          "revision_sheet_revision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision Sheet Revision"
+          },
+          "rule_version": {
+            "title": "Rule Version",
+            "type": "string"
+          },
+          "sources_disagreeing": {
+            "items": {
+              "enum": [
+                "FILENAME",
+                "COVER",
+                "REVISION_SHEET"
+              ],
+              "type": "string"
+            },
+            "title": "Sources Disagreeing",
+            "type": "array"
+          }
+        },
+        "required": [
+          "extractor_version",
+          "rule_version",
+          "filename_revision",
+          "cover_revision",
+          "revision_sheet_revision",
+          "sources_disagreeing",
+          "locations"
+        ],
+        "title": "RevisionEvidence",
+        "type": "object"
+      },
+      "Severity": {
+        "description": "Ordered human-facing issue severity labels.",
+        "enum": [
+          "CRITICAL",
+          "HIGH",
+          "MEDIUM",
+          "LOW",
+          "INFO"
+        ],
+        "title": "Severity",
+        "type": "string"
+      },
+      "StageFailureEvidence": {
+        "additionalProperties": false,
+        "description": "Sanitized pipeline-stage failure surfaced without losing other results.",
+        "properties": {
+          "error_code": {
+            "title": "Error Code",
+            "type": "string"
+          },
+          "extractor_version": {
+            "title": "Extractor Version",
+            "type": "string"
+          },
+          "kind": {
+            "const": "STAGE_FAILURE",
+            "default": "STAGE_FAILURE",
+            "title": "Kind",
+            "type": "string"
+          },
+          "retryable": {
+            "title": "Retryable",
+            "type": "boolean"
+          },
+          "rule_version": {
+            "title": "Rule Version",
+            "type": "string"
+          },
+          "stage": {
+            "title": "Stage",
+            "type": "string"
+          }
+        },
+        "required": [
+          "extractor_version",
+          "rule_version",
+          "stage",
+          "error_code",
+          "retryable"
+        ],
+        "title": "StageFailureEvidence",
+        "type": "object"
+      },
+      "StageRunRead": {
+        "additionalProperties": false,
+        "description": "Latest observable state for one pipeline stage execution.",
+        "properties": {
+          "attempt": {
+            "minimum": 1.0,
+            "title": "Attempt",
+            "type": "integer"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "progress_pct": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Progress Pct",
+            "type": "integer"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "$ref": "#/components/schemas/StageStatus"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "status",
+          "progress_pct",
+          "attempt"
+        ],
+        "title": "StageRunRead",
+        "type": "object"
+      },
+      "StageStatus": {
+        "description": "Lifecycle of one versioned pipeline stage run.",
+        "enum": [
+          "PENDING",
+          "RUNNING",
+          "SUCCEEDED",
+          "SUCCEEDED_WITH_WARNINGS",
+          "FAILED",
+          "SKIPPED"
+        ],
+        "title": "StageStatus",
+        "type": "string"
+      },
+      "StandardEvidence": {
+        "additionalProperties": false,
+        "description": "Normalized body citation and bibliography evidence.",
+        "properties": {
+          "bibliography_edition_year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bibliography Edition Year"
+          },
+          "bibliography_entry": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bibliography Entry"
+          },
+          "bibliography_location": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BoundingBox"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "body_edition_year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body Edition Year"
+          },
+          "body_location": {
+            "$ref": "#/components/schemas/BoundingBox"
+          },
+          "cited_standard": {
+            "title": "Cited Standard",
+            "type": "string"
+          },
+          "extractor_version": {
+            "title": "Extractor Version",
+            "type": "string"
+          },
+          "kind": {
+            "const": "STANDARD",
+            "default": "STANDARD",
+            "title": "Kind",
+            "type": "string"
+          },
+          "rule_version": {
+            "title": "Rule Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "extractor_version",
+          "rule_version",
+          "cited_standard",
+          "body_location"
+        ],
+        "title": "StandardEvidence",
+        "type": "object"
+      },
+      "StandardPatternCreate": {
+        "additionalProperties": false,
+        "description": "Admin request to register a normalized standards-code pattern.",
+        "properties": {
+          "code_family": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Code Family",
+            "type": "string"
+          },
+          "code_pattern": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Code Pattern",
+            "type": "string"
+          },
+          "description": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Description",
+            "type": "string"
+          },
+          "organization_scope": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Organization Scope",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code_family",
+          "code_pattern",
+          "description",
+          "organization_scope"
+        ],
+        "title": "StandardPatternCreate",
+        "type": "object"
+      },
+      "StandardPatternListResponse": {
+        "additionalProperties": false,
+        "description": "Paginated standards-registry collection.",
+        "properties": {
+          "pagination": {
+            "$ref": "#/components/schemas/PageInfo"
+          },
+          "standards": {
+            "items": {
+              "$ref": "#/components/schemas/StandardPatternRead"
+            },
+            "title": "Standards",
+            "type": "array"
+          }
+        },
+        "required": [
+          "standards",
+          "pagination"
+        ],
+        "title": "StandardPatternListResponse",
+        "type": "object"
+      },
+      "StandardPatternRead": {
+        "additionalProperties": false,
+        "description": "Persisted standards-registry entry.",
+        "properties": {
+          "code_family": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Code Family",
+            "type": "string"
+          },
+          "code_pattern": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Code Pattern",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "description": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Description",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "organization_scope": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Organization Scope",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code_family",
+          "code_pattern",
+          "description",
+          "organization_scope",
+          "id",
+          "created_at"
+        ],
+        "title": "StandardPatternRead",
+        "type": "object"
+      },
+      "TableMathEvidence": {
+        "additionalProperties": false,
+        "description": "Arithmetic operands and locations supporting a table finding.",
+        "properties": {
+          "computed_value": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Computed Value",
+            "type": "string"
+          },
+          "delta": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Delta",
+            "type": "string"
+          },
+          "extractor_version": {
+            "title": "Extractor Version",
+            "type": "string"
+          },
+          "kind": {
+            "const": "TABLE_MATH",
+            "default": "TABLE_MATH",
+            "title": "Kind",
+            "type": "string"
+          },
+          "operand_locations": {
+            "items": {
+              "$ref": "#/components/schemas/BoundingBox"
+            },
+            "title": "Operand Locations",
+            "type": "array"
+          },
+          "rule_version": {
+            "title": "Rule Version",
+            "type": "string"
+          },
+          "stated_value": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Stated Value",
+            "type": "string"
+          },
+          "tolerance": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Tolerance",
+            "type": "string"
+          },
+          "total_location": {
+            "$ref": "#/components/schemas/BoundingBox"
+          }
+        },
+        "required": [
+          "extractor_version",
+          "rule_version",
+          "computed_value",
+          "stated_value",
+          "delta",
+          "tolerance",
+          "operand_locations",
+          "total_location"
+        ],
+        "title": "TableMathEvidence",
+        "type": "object"
+      },
+      "TextSpan": {
+        "additionalProperties": false,
+        "description": "Character offsets within normalized extracted page text.",
+        "properties": {
+          "end": {
+            "exclusiveMinimum": 0.0,
+            "title": "End",
+            "type": "integer"
+          },
+          "page_index": {
+            "minimum": 0.0,
+            "title": "Page Index",
+            "type": "integer"
+          },
+          "start": {
+            "minimum": 0.0,
+            "title": "Start",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "page_index",
+          "start",
+          "end"
+        ],
+        "title": "TextSpan",
+        "type": "object"
+      },
+      "TraceabilitySummaryResponse": {
+        "additionalProperties": false,
+        "description": "Counts required by the audit-focused dashboard.",
+        "properties": {
+          "counts_by_severity": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Counts By Severity",
+            "type": "object"
+          },
+          "counts_by_type": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Counts By Type",
+            "type": "object"
+          },
+          "critical_count": {
+            "minimum": 0.0,
+            "title": "Critical Count",
+            "type": "integer"
+          },
+          "document_id": {
+            "format": "uuid",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "unresolved_count": {
+            "minimum": 0.0,
+            "title": "Unresolved Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "document_id",
+          "counts_by_type",
+          "counts_by_severity",
+          "critical_count",
+          "unresolved_count"
+        ],
+        "title": "TraceabilitySummaryResponse",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "Automated first-pass quality review of engineering documents (PDF/DOCX)",
+    "title": "Document QC API",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/v1/dictionary/terms": {
+      "get": {
+        "description": "List governed dictionary terms with optional scope filtering.",
+        "operationId": "list_dictionary_terms_api_v1_dictionary_terms_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "scope",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Scope"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DictionaryTermListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Feature not implemented"
+          }
+        },
+        "summary": "List Dictionary Terms",
+        "tags": [
+          "dictionary"
+        ]
+      },
+      "post": {
+        "description": "Propose a project- or organization-scoped dictionary term.",
+        "operationId": "create_dictionary_term_api_v1_dictionary_terms_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DictionaryTermCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DictionaryTermRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Feature not implemented"
+          }
+        },
+        "summary": "Create Dictionary Term",
+        "tags": [
+          "dictionary"
+        ]
+      }
+    },
+    "/api/v1/dictionary/terms/{term_id}/approve": {
+      "patch": {
+        "description": "Approve or reject a proposed dictionary term.",
+        "operationId": "approve_dictionary_term_api_v1_dictionary_terms__term_id__approve_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "term_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Term Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DictionaryTermApprovalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DictionaryTermRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Feature not implemented"
+          }
+        },
+        "summary": "Approve Dictionary Term",
+        "tags": [
+          "dictionary"
+        ]
+      }
+    },
+    "/api/v1/documents": {
+      "get": {
+        "description": "List documents visible to the current user.",
+        "operationId": "list_documents_api_v1_documents_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Feature not implemented"
+          }
+        },
+        "summary": "List Documents",
+        "tags": [
+          "documents"
+        ]
+      }
+    },
+    "/api/v1/documents/upload": {
+      "post": {
+        "description": "Persist a validated document and enqueue canonical extraction.",
+        "operationId": "upload_document_api_v1_documents_upload_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_document_api_v1_documents_upload_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentUploadResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Feature not implemented"
+          }
+        },
+        "summary": "Upload Document",
+        "tags": [
+          "documents"
+        ]
+      }
+    },
+    "/api/v1/documents/{document_id}": {
+      "get": {
+        "description": "Return safe metadata for one document.",
+        "operationId": "get_document_api_v1_documents__document_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Document Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Feature not implemented"
+          }
+        },
+        "summary": "Get Document",
+        "tags": [
+          "documents"
+        ]
+      }
+    },
+    "/api/v1/documents/{document_id}/export": {
+      "get": {
+        "description": "Export the annotated rendition or structured issue log.",
+        "operationId": "export_document_api_v1_documents__document_id__export_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Document Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "format",
+            "required": true,
+            "schema": {
+              "pattern": "^(pdf|xlsx|csv)$",
+              "title": "Format",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Feature not implemented"
+          }
+        },
+        "summary": "Export Document",
+        "tags": [
+          "documents"
+        ]
+      }
+    },
+    "/api/v1/documents/{document_id}/issues": {
+      "get": {
+        "description": "List issues with optional canonical category filtering.",
+        "operationId": "list_document_issues_api_v1_documents__document_id__issues_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Document Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "category",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/IssueCategory"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IssueListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Feature not implemented"
+          }
+        },
+        "summary": "List Document Issues",
+        "tags": [
+          "documents"
+        ]
+      }
+    },
+    "/api/v1/documents/{document_id}/status": {
+      "get": {
+        "description": "Return processing progress and latest stage states.",
+        "operationId": "get_document_status_api_v1_documents__document_id__status_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Document Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Feature not implemented"
+          }
+        },
+        "summary": "Get Document Status",
+        "tags": [
+          "documents"
+        ]
+      }
+    },
+    "/api/v1/documents/{document_id}/traceability-summary": {
+      "get": {
+        "description": "Return traceability counts for audit triage.",
+        "operationId": "get_traceability_summary_api_v1_documents__document_id__traceability_summary_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Document Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraceabilitySummaryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Feature not implemented"
+          }
+        },
+        "summary": "Get Traceability Summary",
+        "tags": [
+          "documents"
+        ]
+      }
+    },
+    "/api/v1/issues/{issue_id}/decision": {
+      "patch": {
+        "description": "Apply an optimistically locked QA decision.",
+        "operationId": "decide_issue_api_v1_issues__issue_id__decision_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "issue_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Issue Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IssueDecisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IssueRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Feature not implemented"
+          }
+        },
+        "summary": "Decide Issue",
+        "tags": [
+          "issues"
+        ]
+      }
+    },
+    "/api/v1/issues/{issue_id}/disposition": {
+      "patch": {
+        "description": "Append an optimistically locked Lead Reviewer disposition.",
+        "operationId": "dispose_issue_api_v1_issues__issue_id__disposition_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "issue_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Issue Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IssueDispositionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IssueRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Feature not implemented"
+          }
+        },
+        "summary": "Dispose Issue",
+        "tags": [
+          "issues"
+        ]
+      }
+    },
+    "/api/v1/standards-registry": {
+      "get": {
+        "description": "List configured standards-code patterns.",
+        "operationId": "list_standard_patterns_api_v1_standards_registry_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StandardPatternListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Feature not implemented"
+          }
+        },
+        "summary": "List Standard Patterns",
+        "tags": [
+          "standards"
+        ]
+      },
+      "post": {
+        "description": "Register an organization-scoped standards-code pattern.",
+        "operationId": "create_standard_pattern_api_v1_standards_registry_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StandardPatternCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StandardPatternRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Feature not implemented"
+          }
+        },
+        "summary": "Create Standard Pattern",
+        "tags": [
+          "standards"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "health_check_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Health Check Health Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health Check"
+      }
+    }
+  }
+}

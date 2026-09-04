@@ -46,6 +46,8 @@ backend/
 | Method | Path | Description | Request | Response |
 |---|---|---|---|---|
 | `POST` | `/api/v1/documents/upload` | Upload PDF/DOCX | `multipart/form-data` | `{id, filename, status: QUEUED}` |
+| `GET` | `/api/v1/documents` | Paginated document list | `?page=1&page_size=20` | `{documents, pagination}` |
+| `GET` | `/api/v1/documents/{id}` | Document metadata | — | `DocumentRead` |
 | `GET` | `/api/v1/documents/{id}/status` | Poll scan status | — | `{status, progress_pct, stages: [{name, status}]}` |
 | `GET` | `/api/v1/documents/{id}/issues` | List issues | `?category=linguistic\|traceability` | `{issues: [...], total, by_severity: {}}` |
 | `GET` | `/api/v1/documents/{id}/export` | Export results | `?format=pdf\|xlsx` | Binary file download |

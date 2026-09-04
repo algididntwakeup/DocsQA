@@ -43,7 +43,13 @@ npm run build
 ```
 
 Backend dependencies currently exist, but the reproducible backend quality
-commands will be established by M0.4. Do not treat importing the current
+gate can be run from `backend/` with:
+
+```powershell
+.\scripts\quality.ps1
+```
+
+The frontend equivalent is `npm run check`. Do not treat importing the current
 `/health` scaffold as completion of the backend foundation.
 
 ## Secrets
