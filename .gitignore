@@ -44,3 +44,5 @@ data/
 .cache/
 .turbo/
 .playwright/
+playwright-report/
+test-results/
