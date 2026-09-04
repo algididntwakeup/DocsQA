@@ -18,5 +18,5 @@ show_error_codes = true
 exclude = "(^|/)(venv|\\.venv)/"
 
 [[tool.mypy.overrides]]
-module = ["language_tool_python.*", "spellchecker.*"]
+module = ["language_tool_python.*", "spellchecker.*", "celery.*"]
 ignore_missing_imports = true

@@ -14,7 +14,7 @@ class StageRunRead(ApiModel):
     """Latest observable state for one pipeline stage execution."""
 
     id: UUID
-    name: str = Field(min_length=1, max_length=64)
+    name: str = Field(min_length=1, max_length=64, validation_alias="stage_name")
     status: StageStatus
     progress_pct: int = Field(ge=0, le=100)
     attempt: int = Field(ge=1)
@@ -28,7 +28,7 @@ class DocumentRead(ApiModel):
     """Safe document metadata returned to clients."""
 
     id: UUID
-    filename: str
+    filename: str = Field(validation_alias="original_filename")
     media_type: str
     size_bytes: int = Field(ge=0)
     sha256: str = Field(pattern=r"^[a-f0-9]{64}$")

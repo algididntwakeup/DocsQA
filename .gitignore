@@ -37,6 +37,7 @@ uploads/
 artifacts/
 exports/
 tmp/
+data/
 *.log
 
 # Tool caches
