@@ -2,8 +2,8 @@
 
 ## Resume point
 
-M1, **M2.1 Revision Sync**, **M2.2 Standard Traceability**, and
-**M2.3 Table Math** are complete locally. Resume at **M2.4 Reference Drift**.
+M1, **M2.1 Revision Sync**, **M2.2 Standard Traceability**, **M2.3 Table Math**,
+and **M2.4 Reference Drift** are complete locally. Resume at **M2.5 Aggregation**.
 Read `START_HERE.md` for the compact document routing rules; do not load the
 entire docs corpus by default.
 
@@ -30,27 +30,39 @@ entire docs corpus by default.
   edition years, records location evidence, and isolates the stage in the
   worker. Unknown bare API numbers are surfaced as ambiguous instead of false
   missing-reference findings.
-- M2.3 implementation: parses locale-aware `Decimal` numbers, currency and
+- M2.3 implementation: `20aefc1`. It parses locale-aware `Decimal` numbers, currency and
   engineering units, identifies row/column totals, scopes subtotals and grand
   totals without double counting, evaluates dual-threshold tolerance
   (percentage and unit), surfaces operands/stated/computed/delta/tolerance/location
   evidence, and isolates stage execution in the worker. Forty-nine unit and
   property tests cover parser accuracy, boundaries, units, and malformed rows.
-- Backend gate: Ruff and strict mypy pass; 99 tests pass, with the PyMuPDF DLL
+- M2.4 implementation: extracts structured entries from Table of Contents,
+  List of Figures, and List of Tables; resolves roman numeral preliminary
+  matter (`i`, `ii`, `iv`) and arabic body page numbers; discovers actual
+  targets from headings and captions; computes signed `page_delta`; surfaces
+  dual bounding boxes (entry location on ToC page and target location on body page);
+  detects missing targets and duplicate captions; and isolates stage execution in
+  the worker with `COMPLETED_WITH_WARNINGS` degradation. Thirty-one unit tests
+  and pipeline isolation/degradation tests pass.
+- Backend gate: Ruff and strict mypy pass; 132 tests pass, with the PyMuPDF DLL
   and live Redis/Postgres integration checks skipped in the current host.
 - All commits stay local. Do not run `git push`.
 
-## Next ticket — M2.4 Reference Drift
+## Next ticket — M2.5 Aggregation
 
-Implement deterministic pagination drift detection (F11):
+Implement deterministic finding aggregation and persistence:
 
-1. parse Table of Contents, List of Figures, and List of Tables into structured
-   entries `{label, referenced_page}`;
-2. determine each entry's actual page location via heading and caption detection;
-3. resolve front-matter page numbering offsets (roman vs. arabic body numbering);
-4. emit `REF_DRIFT` findings with referenced page, actual page, page delta, and
-   navigable location bounding boxes;
-5. integrate it as an independent versioned worker stage with failure isolation.
+1. Aggregate raw stage findings from Revision Sync (`revision_sync.json`),
+   Standard Traceability (`standard_traceability.json`), Table Math
+   (`table_math.json`), and Reference Drift (`ref_drift.json`);
+2. Deduplicate findings across stages and normalize evidence anchors to the
+   canonical `Issue` schema;
+3. Map rule IDs deterministically to severity levels (`CRITICAL`, `MAJOR`, `MINOR`,
+   `INFO`) and rule version tags per the PRD and acceptance matrix;
+4. Handle stage-failure events by creating synthetic diagnostic issues so
+   reviewer interfaces surface analyzer failures gracefully;
+5. Persist unified issue records to PostgreSQL and emit the final aggregated
+   document status.
 
 ## Operational notes
 

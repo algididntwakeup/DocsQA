@@ -18,6 +18,7 @@ from domain.enums import DocumentStatus, StageStatus
 from models.document import Document, StageRun
 from schemas.extraction import ExtractionArtifact
 from services.extract import extract_document
+from services.ref_drift import analyze_ref_drift
 from services.revision_sync import analyze_revision
 from services.standard_traceability import analyze_standard_traceability
 from services.storage import LocalStorage
@@ -28,6 +29,7 @@ logger = get_task_logger(__name__)
 EXTRACTION_STAGE = "extraction"
 REVISION_STAGE = "revision_sync"
 TABLE_MATH_STAGE = "table_math"
+REF_DRIFT_STAGE = "ref_drift"
 STANDARD_STAGE = "standard_traceability"
 
 
@@ -148,6 +150,49 @@ async def _run_table_math_stage(
     return table_math_failed
 
 
+async def _run_ref_drift_stage(
+    session: AsyncSession,
+    storage: LocalStorage,
+    document: Document,
+    artifact: ExtractionArtifact,
+) -> bool:
+    """Persist reference drift evidence while isolating analyzer failures."""
+
+    stage_run = StageRun(
+        document_id=document.id,
+        stage_name=REF_DRIFT_STAGE,
+        status=StageStatus.RUNNING,
+        progress_pct=0,
+        attempt=await _latest_attempt(session, document.id, REF_DRIFT_STAGE),
+        started_at=datetime.now(UTC),
+    )
+    session.add(stage_run)
+    await session.commit()
+
+    ref_drift_failed = False
+    try:
+        analysis = analyze_ref_drift(artifact)
+        stage_run.artifact_uri = _persist_artifact(
+            storage,
+            document.id,
+            REF_DRIFT_STAGE,
+            analysis.model_dump_json().encode("utf-8"),
+        )
+        stage_run.progress_pct = 100
+        stage_run.status = StageStatus.SUCCEEDED
+    except Exception as exc:  # noqa: BLE001 — analyzer failures remain isolated
+        ref_drift_failed = True
+        code, message = _sanitize_error(exc)
+        stage_run.status = StageStatus.FAILED
+        stage_run.error_code = code
+        stage_run.error_message = message
+        logger.exception("Reference drift failed for document %s", document.id)
+    finally:
+        stage_run.finished_at = datetime.now(UTC)
+        await session.commit()
+    return ref_drift_failed
+
+
 async def _run_standard_stage(
     session: AsyncSession,
     storage: LocalStorage,
@@ -260,13 +305,19 @@ async def _run_extraction(document_id: str) -> dict[str, object]:
             table_math_failed = await _run_table_math_stage(
                 session, storage, document, artifact
             )
+            ref_drift_failed = await _run_ref_drift_stage(
+                session, storage, document, artifact
+            )
             await _run_standard_stage(
                 session,
                 storage,
                 document,
                 artifact,
                 prior_degraded=(
-                    extraction_degraded or revision_failed or table_math_failed
+                    extraction_degraded
+                    or revision_failed
+                    or table_math_failed
+                    or ref_drift_failed
                 ),
             )
 

@@ -15,6 +15,7 @@ from services.pipeline import enqueue_extraction
 from services.storage import LocalStorage
 from tasks.extraction import (
     _run_extraction,
+    _run_ref_drift_stage,
     _run_revision_stage,
     _run_standard_stage,
     _run_table_math_stage,
@@ -177,6 +178,59 @@ def test_table_math_failure_preserves_successful_extraction(tmp_path: Path) -> N
     ):
         failed = asyncio.run(
             _run_table_math_stage(
+                session,
+                LocalStorage(tmp_path),
+                document,
+                artifact,
+            )
+        )
+
+    stage_run = session.add.call_args.args[0]
+    assert failed is True
+    assert stage_run.status == StageStatus.FAILED
+    assert stage_run.error_code == "VALUEERROR"
+
+
+def test_ref_drift_stage_success(tmp_path: Path) -> None:
+    """Reference drift stage succeeds, sets status, and persists artifact."""
+
+    document = Document(id=uuid.uuid4(), original_filename="Report.pdf")
+    session = AsyncMock(spec=AsyncSession)
+    artifact = ExtractionArtifact(document_id=document.id)
+
+    with patch("tasks.extraction._latest_attempt", AsyncMock(return_value=1)):
+        failed = asyncio.run(
+            _run_ref_drift_stage(
+                session,
+                LocalStorage(tmp_path),
+                document,
+                artifact,
+            )
+        )
+
+    stage_run = session.add.call_args.args[0]
+    assert failed is False
+    assert stage_run.status == StageStatus.SUCCEEDED
+    assert stage_run.progress_pct == 100
+    assert stage_run.artifact_uri is not None
+
+
+def test_ref_drift_failure_preserves_successful_extraction(tmp_path: Path) -> None:
+    """An isolated reference drift failure yields warnings without crashing."""
+
+    document = Document(id=uuid.uuid4(), original_filename="Report.pdf")
+    session = AsyncMock(spec=AsyncSession)
+    artifact = ExtractionArtifact(document_id=document.id)
+
+    with (
+        patch("tasks.extraction._latest_attempt", AsyncMock(return_value=1)),
+        patch(
+            "tasks.extraction.analyze_ref_drift",
+            side_effect=ValueError("corrupted toc"),
+        ),
+    ):
+        failed = asyncio.run(
+            _run_ref_drift_stage(
                 session,
                 LocalStorage(tmp_path),
                 document,

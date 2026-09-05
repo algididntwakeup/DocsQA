@@ -369,8 +369,12 @@ pipeline, but implement them one vertical slice at a time:
    dual-threshold tolerance policy, stated/computed cell bounding-box locations,
    and worker stage failure isolation. Forty-nine parser/table unit and property
    tests plus pipeline isolation and contract checks pass.
-4. **M2.4 Reference drift:** ToC/LoF/LoT entries, printed-page labels, canonical
-   PDF target anchors, roman/arabic sections.
+4. **M2.4 Reference drift — COMPLETE locally:** Table of Contents, List of
+   Figures, and List of Tables structured entries; roman numeral (`i`, `ii`,
+   `iv`) and arabic page resolution; heading and caption actual page matching;
+   signed `page_delta` and dual-navigation bounding box locations; missing
+   target and duplicate caption detection; worker stage failure isolation.
+   Thirty-one unit tests plus pipeline isolation and degradation tests pass.
 5. **M2.5 Aggregation:** versioned rule output, deduplication, deterministic
    severity mapping, stage-failure issues, persistence.
 
