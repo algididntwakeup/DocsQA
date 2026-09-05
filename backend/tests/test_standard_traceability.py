@@ -46,9 +46,7 @@ def test_missing_bibliography_entry_is_reported() -> None:
     result = analyze_standard_traceability(
         _artifact(["Inspection follows ISO 9001:2015."], ["ASTM A240:2020"])
     )
-    assert [finding.kind for finding in result.findings] == [
-        "STANDARD_NOT_IN_BIBLIOGRAPHY"
-    ]
+    assert [finding.kind for finding in result.findings] == ["STANDARD_NOT_IN_BIBLIOGRAPHY"]
     assert result.findings[0].cited_standard == "ISO 9001"
 
 
@@ -64,9 +62,7 @@ def test_edition_year_mismatch_retains_both_locations() -> None:
 
 
 def test_unknown_bare_api_number_is_ambiguous_not_missing() -> None:
-    result = analyze_standard_traceability(
-        _artifact(["The API 200 response is recorded."], [])
-    )
+    result = analyze_standard_traceability(_artifact(["The API 200 response is recorded."], []))
     assert [finding.kind for finding in result.findings] == ["AMBIGUOUS_STANDARD"]
 
 
@@ -87,15 +83,11 @@ def test_malformed_or_unregistered_codes_do_not_match() -> None:
 
 
 def test_reference_heading_boundary_is_not_treated_as_body() -> None:
-    result = analyze_standard_traceability(
-        _artifact([], ["ASME Section VIII Division 1-2021"])
-    )
+    result = analyze_standard_traceability(_artifact([], ["ASME Section VIII Division 1-2021"]))
     assert result.body_citations == []
     assert len(result.reference_entries) == 1
 
 
 def test_normalize_common_labels() -> None:
-    assert normalize_standard_code("ASME Sec. VIII Div. 1") == (
-        "ASME SECTION VIII DIVISION 1"
-    )
+    assert normalize_standard_code("ASME Sec. VIII Div. 1") == ("ASME SECTION VIII DIVISION 1")
     assert normalize_standard_code("EN ISO 9001") == "ISO 9001"

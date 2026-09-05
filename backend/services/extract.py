@@ -229,8 +229,7 @@ def extract_document(file_path: Path, document_id: UUID, mime_type: str) -> Extr
     if mime_type == "application/pdf" or file_path.suffix.lower() == ".pdf":
         return PDFExtractor().extract(file_path, document_id)
     if (
-        mime_type
-        == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        mime_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         or file_path.suffix.lower() == ".docx"
     ):
         return DOCXExtractor().extract(file_path, document_id)

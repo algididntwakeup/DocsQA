@@ -50,7 +50,26 @@ export function DocumentStatusView({ id }: { id: string }) {
       {!document || !scan ? <div className="panel loading-state" role="status">Reading pipeline telemetry…</div> : <>
         <div className="document-hero"><div className="document-icon"><FileText /></div><div><p className="eyebrow">Document inspection</p><h1>{document.filename}</h1><p>{formatBytes(document.size_bytes)} · Uploaded {formatDate(document.created_at)} · {document.page_count ? `${document.page_count} pages` : "Page count pending"}</p></div><div className="hero-status"><StatusBadge status={scan.status} /><button className="icon-button" type="button" onClick={() => void load()} aria-label="Refresh status"><RotateCw size={16} /></button></div></div>
         <ScanProgress scan={scan} />
-        {TERMINAL.has(scan.status) && <section className="panel next-step"><div><p className="eyebrow">Extraction checkpoint</p><h2>{scan.status === "FAILED" ? "Document needs attention" : "Document is extracted"}</h2><p>{scan.status === "FAILED" ? "Review the stage error above before retrying the source document." : "Issue analysis and split-screen review become available in the next milestone."}</p></div></section>}
+        {TERMINAL.has(scan.status) && (
+          <section className="panel next-step">
+            <div>
+              <p className="eyebrow">Quality Inspection</p>
+              <h2>{scan.status === "FAILED" ? "Document needs attention" : "Quality Inspection Complete"}</h2>
+              <p>
+                {scan.status === "FAILED"
+                  ? "Review the stage error above before retrying the source document."
+                  : "Review findings, inspect coordinate overlays on the canonical PDF, and perform QA triage and lead sign-off."}
+              </p>
+            </div>
+            {scan.status !== "FAILED" && (
+              <div className="next-step-actions">
+                <Link className="primary-action-button" href={`/documents/${id}/review`}>
+                  Open Review Workspace
+                </Link>
+              </div>
+            )}
+          </section>
+        )}
       </>}
     </>
   );

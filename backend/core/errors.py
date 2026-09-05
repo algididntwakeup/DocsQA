@@ -42,9 +42,7 @@ def _problem_response(problem: ProblemDetail) -> JSONResponse:
     )
 
 
-async def feature_not_ready_handler(
-    request: Request, exc: Exception
-) -> JSONResponse:
+async def feature_not_ready_handler(request: Request, exc: Exception) -> JSONResponse:
     """Return an explicit 501 response instead of placeholder success data."""
 
     assert isinstance(exc, FeatureNotReadyError)
@@ -76,9 +74,7 @@ async def upload_rejected_handler(request: Request, exc: Exception) -> JSONRespo
     )
 
 
-async def validation_error_handler(
-    request: Request, exc: Exception
-) -> JSONResponse:
+async def validation_error_handler(request: Request, exc: Exception) -> JSONResponse:
     """Normalize FastAPI validation failures into the public error contract."""
 
     assert isinstance(exc, RequestValidationError)

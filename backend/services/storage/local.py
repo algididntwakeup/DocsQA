@@ -69,9 +69,7 @@ class LocalStorage:
             try:
                 os.link(temporary_path, target)
             except FileExistsError as exc:
-                raise ObjectAlreadyExistsError(
-                    f"Storage object already exists: {key}"
-                ) from exc
+                raise ObjectAlreadyExistsError(f"Storage object already exists: {key}") from exc
             temporary_path.unlink()
             temporary_path = None
         finally:

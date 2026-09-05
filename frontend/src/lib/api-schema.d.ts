@@ -4,48 +4,21 @@
  */
 
 export interface paths {
-    "/api/v1/dictionary/terms": {
+    "/health": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /**
-         * List Dictionary Terms
-         * @description List governed dictionary terms with optional scope filtering.
-         */
-        get: operations["list_dictionary_terms_api_v1_dictionary_terms_get"];
-        put?: never;
-        /**
-         * Create Dictionary Term
-         * @description Propose a project- or organization-scoped dictionary term.
-         */
-        post: operations["create_dictionary_term_api_v1_dictionary_terms_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/dictionary/terms/{term_id}/approve": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
+        /** Health Check */
+        get: operations["health_check_health_get"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        /**
-         * Approve Dictionary Term
-         * @description Approve or reject a proposed dictionary term.
-         */
-        patch: operations["approve_dictionary_term_api_v1_dictionary_terms__term_id__approve_patch"];
+        patch?: never;
         trace?: never;
     };
     "/api/v1/documents": {
@@ -108,7 +81,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/documents/{document_id}/export": {
+    "/api/v1/documents/{document_id}/status": {
         parameters: {
             query?: never;
             header?: never;
@@ -116,10 +89,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Export Document
-         * @description Export the annotated rendition or structured issue log.
+         * Get Document Status
+         * @description Return processing progress and latest stage states.
          */
-        get: operations["export_document_api_v1_documents__document_id__export_get"];
+        get: operations["get_document_status_api_v1_documents__document_id__status_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -148,7 +121,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/documents/{document_id}/status": {
+    "/api/v1/documents/{document_id}/pdf": {
         parameters: {
             query?: never;
             header?: never;
@@ -156,10 +129,50 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get Document Status
-         * @description Return processing progress and latest stage states.
+         * Get Document Pdf
+         * @description Stream the canonical PDF rendition of an uploaded document.
          */
-        get: operations["get_document_status_api_v1_documents__document_id__status_get"];
+        get: operations["get_document_pdf_api_v1_documents__document_id__pdf_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/{document_id}/disposition": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set Document Disposition
+         * @description Apply final Lead Reviewer disposition to an audited document.
+         */
+        post: operations["set_document_disposition_api_v1_documents__document_id__disposition_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/{document_id}/audit-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Document Audit Events
+         * @description List immutable audit events for an audited document in chronological order.
+         */
+        get: operations["list_document_audit_events_api_v1_documents__document_id__audit_events_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -180,6 +193,26 @@ export interface paths {
          * @description Return traceability counts for audit triage.
          */
         get: operations["get_traceability_summary_api_v1_documents__document_id__traceability_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/{document_id}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Document
+         * @description Export the annotated rendition or structured issue log.
+         */
+        get: operations["export_document_api_v1_documents__document_id__export_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -228,6 +261,70 @@ export interface paths {
         patch: operations["dispose_issue_api_v1_issues__issue_id__disposition_patch"];
         trace?: never;
     };
+    "/api/v1/issues/bulk-decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk Decide Issues
+         * @description Apply a decision to multiple issues, strictly prohibiting traceability bulk-accept.
+         */
+        post: operations["bulk_decide_issues_api_v1_issues_bulk_decision_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dictionary/terms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Dictionary Terms
+         * @description List governed dictionary terms with optional scope filtering.
+         */
+        get: operations["list_dictionary_terms_api_v1_dictionary_terms_get"];
+        put?: never;
+        /**
+         * Create Dictionary Term
+         * @description Propose a project- or organization-scoped dictionary term.
+         */
+        post: operations["create_dictionary_term_api_v1_dictionary_terms_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dictionary/terms/{term_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Approve Dictionary Term
+         * @description Approve or reject a proposed dictionary term.
+         */
+        patch: operations["approve_dictionary_term_api_v1_dictionary_terms__term_id__approve_patch"];
+        trace?: never;
+    };
     "/api/v1/standards-registry": {
         parameters: {
             query?: never;
@@ -252,27 +349,59 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/health": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Health Check */
-        get: operations["health_check_health_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * AuditEventListResponse
+         * @description Collection of immutable audit events for a document.
+         */
+        AuditEventListResponse: {
+            /** Events */
+            events: components["schemas"]["AuditEventRead"][];
+            /** Total */
+            total: number;
+        };
+        /**
+         * AuditEventRead
+         * @description Immutable audit event record consumed by review and compliance interfaces.
+         */
+        AuditEventRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /** Issue Id */
+            issue_id?: string | null;
+            /** Actor Id */
+            actor_id: string;
+            /** Actor Role */
+            actor_role: string;
+            /** Action */
+            action: string;
+            /** Previous State */
+            previous_state?: {
+                [key: string]: unknown;
+            } | null;
+            /** New State */
+            new_state: {
+                [key: string]: unknown;
+            };
+            /** Notes */
+            notes?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /** Body_upload_document_api_v1_documents_upload_post */
         Body_upload_document_api_v1_documents_upload_post: {
             /**
@@ -286,20 +415,52 @@ export interface components {
          * @description PDF-point rectangle in the canonical top-left coordinate system.
          */
         BoundingBox: {
-            /** Page Height */
-            page_height: number;
             /** Page Index */
             page_index: number;
-            /** Page Width */
-            page_width: number;
             /** X0 */
             x0: number;
-            /** X1 */
-            x1: number;
             /** Y0 */
             y0: number;
+            /** X1 */
+            x1: number;
             /** Y1 */
             y1: number;
+            /** Page Width */
+            page_width: number;
+            /** Page Height */
+            page_height: number;
+        };
+        /**
+         * BulkDecisionRequest
+         * @description Bulk decision applied across multiple eligible findings.
+         */
+        BulkDecisionRequest: {
+            /** Issue Ids */
+            issue_ids: string[];
+            decision: components["schemas"]["Decision"];
+            /** Comment */
+            comment?: string | null;
+            /**
+             * Actor Id
+             * @default reviewer@local
+             */
+            actor_id: string;
+            /**
+             * Actor Role
+             * @default QA_ENGINEER
+             */
+            actor_role: string;
+        };
+        /**
+         * BulkDecisionResponse
+         * @description Outcome of an authorized bulk decision operation.
+         */
+        BulkDecisionResponse: {
+            /** Updated Count */
+            updated_count: number;
+            decision: components["schemas"]["Decision"];
+            /** Updated Issue Ids */
+            updated_issue_ids: string[];
         };
         /**
          * Decision
@@ -312,30 +473,30 @@ export interface components {
          * @description Admin approval or rejection of a proposed term.
          */
         DictionaryTermApprovalRequest: {
+            status: components["schemas"]["DictionaryTermStatus"];
             /** Comment */
             comment?: string | null;
-            status: components["schemas"]["DictionaryTermStatus"];
         };
         /**
          * DictionaryTermCreate
          * @description Request to propose a term for a project or organization.
          */
         DictionaryTermCreate: {
-            /** Rationale */
-            rationale?: string | null;
-            /** Scope */
-            scope: string;
             /** Term */
             term: string;
+            /** Scope */
+            scope: string;
+            /** Rationale */
+            rationale?: string | null;
         };
         /**
          * DictionaryTermListResponse
          * @description Paginated dictionary collection.
          */
         DictionaryTermListResponse: {
-            pagination: components["schemas"]["PageInfo"];
             /** Terms */
             terms: components["schemas"]["DictionaryTermRead"][];
+            pagination: components["schemas"]["PageInfo"];
         };
         /**
          * DictionaryTermRead
@@ -343,20 +504,20 @@ export interface components {
          */
         DictionaryTermRead: {
             /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
              * Id
              * Format: uuid
              */
             id: string;
+            /** Term */
+            term: string;
             /** Scope */
             scope: string;
             status: components["schemas"]["DictionaryTermStatus"];
-            /** Term */
-            term: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /**
          * DictionaryTermStatus
@@ -370,6 +531,25 @@ export interface components {
          * @enum {string}
          */
         Disposition: "JUSTIFIED_EXCEPTION" | "REQUIRES_CORRECTION";
+        /**
+         * DocumentDispositionRequest
+         * @description Lead Reviewer final document-level sign-off.
+         */
+        DocumentDispositionRequest: {
+            disposition: components["schemas"]["ReviewStatus"];
+            /** Justification */
+            justification: string;
+            /**
+             * Actor Id
+             * @default reviewer@local
+             */
+            actor_id: string;
+            /**
+             * Actor Role
+             * @default LEAD_REVIEWER
+             */
+            actor_role: string;
+        };
         /**
          * DocumentListResponse
          * @description Paginated document collection.
@@ -385,29 +565,29 @@ export interface components {
          */
         DocumentRead: {
             /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /** Filename */
-            filename: string;
-            /**
              * Id
              * Format: uuid
              */
             id: string;
+            /** Filename */
+            filename: string;
             /** Media Type */
             media_type: string;
-            /** Page Count */
-            page_count?: number | null;
-            /** Progress Pct */
-            progress_pct: number;
-            review_status: components["schemas"]["ReviewStatus"];
-            /** Sha256 */
-            sha256: string;
             /** Size Bytes */
             size_bytes: number;
+            /** Sha256 */
+            sha256: string;
             status: components["schemas"]["DocumentStatus"];
+            review_status: components["schemas"]["ReviewStatus"];
+            /** Progress Pct */
+            progress_pct: number;
+            /** Page Count */
+            page_count?: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
             /**
              * Updated At
              * Format: date-time
@@ -430,12 +610,12 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            status: components["schemas"]["DocumentStatus"];
+            review_status: components["schemas"]["ReviewStatus"];
             /** Progress Pct */
             progress_pct: number;
-            review_status: components["schemas"]["ReviewStatus"];
             /** Stages */
             stages: components["schemas"]["StageRunRead"][];
-            status: components["schemas"]["DocumentStatus"];
             /**
              * Updated At
              * Format: date-time
@@ -455,6 +635,14 @@ export interface components {
          */
         DocumentUploadResponse: {
             /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Filename */
+            filename: string;
+            status: components["schemas"]["DocumentStatus"];
+            /**
              * Created At
              * Format: date-time
              */
@@ -464,26 +652,18 @@ export interface components {
              * @default false
              */
             deduplicated: boolean;
-            /** Filename */
-            filename: string;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            status: components["schemas"]["DocumentStatus"];
         };
         /**
          * FieldViolation
          * @description One request-validation failure safe to expose to an API client.
          */
         FieldViolation: {
-            /** Code */
-            code: string;
             /** Field */
             field: string;
             /** Message */
             message: string;
+            /** Code */
+            code: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -501,13 +681,23 @@ export interface components {
          * @description Optimistically locked QA decision mutation.
          */
         IssueDecisionRequest: {
-            /** Comment */
-            comment?: string | null;
             decision: components["schemas"]["Decision"];
-            /** Edited Value */
-            edited_value?: string | null;
             /** Expected Version */
             expected_version: number;
+            /** Edited Value */
+            edited_value?: string | null;
+            /** Comment */
+            comment?: string | null;
+            /**
+             * Actor Id
+             * @default reviewer@local
+             */
+            actor_id: string;
+            /**
+             * Actor Role
+             * @default QA_ENGINEER
+             */
+            actor_role: string;
         };
         /**
          * IssueDispositionRequest
@@ -519,59 +709,77 @@ export interface components {
             expected_version: number;
             /** Justification */
             justification: string;
+            /**
+             * Actor Id
+             * @default reviewer@local
+             */
+            actor_id: string;
+            /**
+             * Actor Role
+             * @default LEAD_REVIEWER
+             */
+            actor_role: string;
         };
         /**
          * IssueListResponse
          * @description Paginated issue collection plus review summary counts.
          */
         IssueListResponse: {
+            /** Issues */
+            issues: components["schemas"]["IssueRead"][];
+            pagination: components["schemas"]["PageInfo"];
             /** Counts By Severity */
             counts_by_severity: {
                 [key: string]: number;
             };
-            /** Issues */
-            issues: components["schemas"]["IssueRead"][];
-            pagination: components["schemas"]["PageInfo"];
         };
         /**
          * IssueRead
          * @description Unified issue record consumed by the review UI.
          */
         IssueRead: {
-            category: components["schemas"]["IssueCategory"];
-            /** Confidence */
-            confidence: number;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            decision?: components["schemas"]["Decision"] | null;
-            disposition?: components["schemas"]["Disposition"] | null;
-            /**
-             * Document Id
-             * Format: uuid
-             */
-            document_id: string;
-            /** Evidence */
-            evidence: components["schemas"]["TableMathEvidence"] | components["schemas"]["ReferenceDriftEvidence"] | components["schemas"]["RevisionEvidence"] | components["schemas"]["StandardEvidence"] | components["schemas"]["LinguisticEvidence"] | components["schemas"]["StageFailureEvidence"];
             /**
              * Id
              * Format: uuid
              */
             id: string;
-            /** Message */
-            message: string;
-            severity: components["schemas"]["Severity"];
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            category: components["schemas"]["IssueCategory"];
             /** Type */
             type: string;
+            severity: components["schemas"]["Severity"];
+            /** Confidence */
+            confidence: number;
+            /** Message */
+            message: string;
+            /** Evidence */
+            evidence: components["schemas"]["TableMathEvidence"] | components["schemas"]["ReferenceDriftEvidence"] | components["schemas"]["RevisionEvidence"] | components["schemas"]["StandardEvidence"] | components["schemas"]["LinguisticEvidence"] | components["schemas"]["StageFailureEvidence"];
+            decision?: components["schemas"]["Decision"] | null;
+            /** Decision Comment */
+            decision_comment?: string | null;
+            /** Decision By */
+            decision_by?: string | null;
+            disposition?: components["schemas"]["Disposition"] | null;
+            /** Disposition Justification */
+            disposition_justification?: string | null;
+            /** Disposition By */
+            disposition_by?: string | null;
+            /** Version */
+            version: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
             /**
              * Updated At
              * Format: date-time
              */
             updated_at: string;
-            /** Version */
-            version: number;
         };
         /**
          * LinguisticEvidence
@@ -580,19 +788,19 @@ export interface components {
         LinguisticEvidence: {
             /** Extractor Version */
             extractor_version: string;
+            /** Rule Version */
+            rule_version: string;
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
             kind: "LINGUISTIC";
-            /** Location */
-            location: components["schemas"]["BoundingBox"] | components["schemas"]["TextSpan"];
             /** Original Text */
             original_text: string;
-            /** Rule Version */
-            rule_version: string;
             /** Suggestion */
             suggestion?: string | null;
+            /** Location */
+            location: components["schemas"]["BoundingBox"] | components["schemas"]["TextSpan"];
         };
         /**
          * PageInfo
@@ -620,34 +828,33 @@ export interface components {
          *     }
          */
         ProblemDetail: {
-            /** Code */
-            code: string;
-            /** Detail */
-            detail?: string | null;
-            /** Errors */
-            errors?: components["schemas"]["FieldViolation"][];
-            /** Instance */
-            instance?: string | null;
-            /** Status */
-            status: number;
-            /** Title */
-            title: string;
             /**
              * Type
              * @default about:blank
              */
             type: string;
+            /** Title */
+            title: string;
+            /** Status */
+            status: number;
+            /** Detail */
+            detail?: string | null;
+            /** Instance */
+            instance?: string | null;
+            /** Code */
+            code: string;
+            /** Errors */
+            errors?: components["schemas"]["FieldViolation"][];
         };
         /**
          * ReferenceDriftEvidence
          * @description Referenced and actual page evidence for ToC/LoF/LoT drift.
          */
         ReferenceDriftEvidence: {
-            /** Actual Page Label */
-            actual_page_label: string;
-            entry_location: components["schemas"]["BoundingBox"];
             /** Extractor Version */
             extractor_version: string;
+            /** Rule Version */
+            rule_version: string;
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -655,12 +862,13 @@ export interface components {
             kind: "REFERENCE_DRIFT";
             /** Label */
             label: string;
-            /** Page Delta */
-            page_delta: number;
             /** Referenced Page Label */
             referenced_page_label: string;
-            /** Rule Version */
-            rule_version: string;
+            /** Actual Page Label */
+            actual_page_label: string;
+            /** Page Delta */
+            page_delta: number;
+            entry_location: components["schemas"]["BoundingBox"];
             target_location: components["schemas"]["BoundingBox"];
         };
         /**
@@ -674,25 +882,25 @@ export interface components {
          * @description Three-way filename, cover, and revision-history evidence.
          */
         RevisionEvidence: {
-            /** Cover Revision */
-            cover_revision: string | null;
             /** Extractor Version */
             extractor_version: string;
-            /** Filename Revision */
-            filename_revision: string | null;
+            /** Rule Version */
+            rule_version: string;
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
             kind: "REVISION";
-            /** Locations */
-            locations: components["schemas"]["BoundingBox"][];
+            /** Filename Revision */
+            filename_revision: string | null;
+            /** Cover Revision */
+            cover_revision: string | null;
             /** Revision Sheet Revision */
             revision_sheet_revision: string | null;
-            /** Rule Version */
-            rule_version: string;
             /** Sources Disagreeing */
             sources_disagreeing: ("FILENAME" | "COVER" | "REVISION_SHEET")[];
+            /** Locations */
+            locations: components["schemas"]["BoundingBox"][];
         };
         /**
          * Severity
@@ -705,35 +913,27 @@ export interface components {
          * @description Sanitized pipeline-stage failure surfaced without losing other results.
          */
         StageFailureEvidence: {
-            /** Error Code */
-            error_code: string;
             /** Extractor Version */
             extractor_version: string;
+            /** Rule Version */
+            rule_version: string;
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
             kind: "STAGE_FAILURE";
-            /** Retryable */
-            retryable: boolean;
-            /** Rule Version */
-            rule_version: string;
             /** Stage */
             stage: string;
+            /** Error Code */
+            error_code: string;
+            /** Retryable */
+            retryable: boolean;
         };
         /**
          * StageRunRead
          * @description Latest observable state for one pipeline stage execution.
          */
         StageRunRead: {
-            /** Attempt */
-            attempt: number;
-            /** Error Code */
-            error_code?: string | null;
-            /** Error Message */
-            error_message?: string | null;
-            /** Finished At */
-            finished_at?: string | null;
             /**
              * Id
              * Format: uuid
@@ -741,11 +941,19 @@ export interface components {
             id: string;
             /** Name */
             name: string;
+            status: components["schemas"]["StageStatus"];
             /** Progress Pct */
             progress_pct: number;
+            /** Attempt */
+            attempt: number;
+            /** Error Code */
+            error_code?: string | null;
+            /** Error Message */
+            error_message?: string | null;
             /** Started At */
             started_at?: string | null;
-            status: components["schemas"]["StageStatus"];
+            /** Finished At */
+            finished_at?: string | null;
         };
         /**
          * StageStatus
@@ -758,25 +966,25 @@ export interface components {
          * @description Normalized body citation and bibliography evidence.
          */
         StandardEvidence: {
-            /** Bibliography Edition Year */
-            bibliography_edition_year?: number | null;
-            /** Bibliography Entry */
-            bibliography_entry?: string | null;
-            bibliography_location?: components["schemas"]["BoundingBox"] | null;
-            /** Body Edition Year */
-            body_edition_year?: number | null;
-            body_location: components["schemas"]["BoundingBox"];
-            /** Cited Standard */
-            cited_standard: string;
             /** Extractor Version */
             extractor_version: string;
+            /** Rule Version */
+            rule_version: string;
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
             kind: "STANDARD";
-            /** Rule Version */
-            rule_version: string;
+            /** Cited Standard */
+            cited_standard: string;
+            /** Body Edition Year */
+            body_edition_year?: number | null;
+            /** Bibliography Entry */
+            bibliography_entry?: string | null;
+            /** Bibliography Edition Year */
+            bibliography_edition_year?: number | null;
+            body_location: components["schemas"]["BoundingBox"];
+            bibliography_location?: components["schemas"]["BoundingBox"] | null;
         };
         /**
          * StandardPatternCreate
@@ -797,9 +1005,9 @@ export interface components {
          * @description Paginated standards-registry collection.
          */
         StandardPatternListResponse: {
-            pagination: components["schemas"]["PageInfo"];
             /** Standards */
             standards: components["schemas"]["StandardPatternRead"][];
+            pagination: components["schemas"]["PageInfo"];
         };
         /**
          * StandardPatternRead
@@ -810,45 +1018,45 @@ export interface components {
             code_family: string;
             /** Code Pattern */
             code_pattern: string;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
             /** Description */
             description: string;
+            /** Organization Scope */
+            organization_scope: string;
             /**
              * Id
              * Format: uuid
              */
             id: string;
-            /** Organization Scope */
-            organization_scope: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /**
          * TableMathEvidence
          * @description Arithmetic operands and locations supporting a table finding.
          */
         TableMathEvidence: {
-            /** Computed Value */
-            computed_value: string;
-            /** Delta */
-            delta: string;
             /** Extractor Version */
             extractor_version: string;
+            /** Rule Version */
+            rule_version: string;
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
             kind: "TABLE_MATH";
-            /** Operand Locations */
-            operand_locations: components["schemas"]["BoundingBox"][];
-            /** Rule Version */
-            rule_version: string;
+            /** Computed Value */
+            computed_value: string;
             /** Stated Value */
             stated_value: string;
+            /** Delta */
+            delta: string;
             /** Tolerance */
             tolerance: string;
+            /** Operand Locations */
+            operand_locations: components["schemas"]["BoundingBox"][];
             total_location: components["schemas"]["BoundingBox"];
         };
         /**
@@ -856,48 +1064,48 @@ export interface components {
          * @description Character offsets within normalized extracted page text.
          */
         TextSpan: {
-            /** End */
-            end: number;
             /** Page Index */
             page_index: number;
             /** Start */
             start: number;
+            /** End */
+            end: number;
         };
         /**
          * TraceabilitySummaryResponse
          * @description Counts required by the audit-focused dashboard.
          */
         TraceabilitySummaryResponse: {
-            /** Counts By Severity */
-            counts_by_severity: {
-                [key: string]: number;
-            };
-            /** Counts By Type */
-            counts_by_type: {
-                [key: string]: number;
-            };
-            /** Critical Count */
-            critical_count: number;
             /**
              * Document Id
              * Format: uuid
              */
             document_id: string;
+            /** Counts By Type */
+            counts_by_type: {
+                [key: string]: number;
+            };
+            /** Counts By Severity */
+            counts_by_severity: {
+                [key: string]: number;
+            };
+            /** Critical Count */
+            critical_count: number;
             /** Unresolved Count */
             unresolved_count: number;
         };
         /** ValidationError */
         ValidationError: {
-            /** Context */
-            ctx?: Record<string, never>;
-            /** Input */
-            input?: unknown;
             /** Location */
             loc: (string | number)[];
             /** Message */
             msg: string;
             /** Error Type */
             type: string;
+            /** Input */
+            input?: unknown;
+            /** Context */
+            ctx?: Record<string, never>;
         };
     };
     responses: never;
@@ -908,13 +1116,9 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    list_dictionary_terms_api_v1_dictionary_terms_get: {
+    health_check_health_get: {
         parameters: {
-            query?: {
-                scope?: string | null;
-                page?: number;
-                page_size?: number;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -927,111 +1131,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DictionaryTermListResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-            /** @description Feature not implemented */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    create_dictionary_term_api_v1_dictionary_terms_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DictionaryTermCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DictionaryTermRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-            /** @description Feature not implemented */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    approve_dictionary_term_api_v1_dictionary_terms__term_id__approve_patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                term_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DictionaryTermApprovalRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DictionaryTermRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-            /** @description Feature not implemented */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDetail"];
+                    "application/json": {
+                        [key: string]: string;
+                    };
                 };
             };
         };
@@ -1168,11 +1270,9 @@ export interface operations {
             };
         };
     };
-    export_document_api_v1_documents__document_id__export_get: {
+    get_document_status_api_v1_documents__document_id__status_get: {
         parameters: {
-            query: {
-                format: string;
-            };
+            query?: never;
             header?: never;
             path: {
                 document_id: string;
@@ -1186,7 +1286,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["DocumentStatusResponse"];
+                };
             };
             /** @description Validation Error */
             422: {
@@ -1252,7 +1354,89 @@ export interface operations {
             };
         };
     };
-    get_document_status_api_v1_documents__document_id__status_get: {
+    get_document_pdf_api_v1_documents__document_id__pdf_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Document or canonical PDF not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_document_disposition_api_v1_documents__document_id__disposition_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentDispositionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentRead"];
+                };
+            };
+            /** @description Document not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_document_audit_events_api_v1_documents__document_id__audit_events_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -1269,7 +1453,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DocumentStatusResponse"];
+                    "application/json": components["schemas"]["AuditEventListResponse"];
+                };
+            };
+            /** @description Document not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description Validation Error */
@@ -1279,15 +1472,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-            /** @description Feature not implemented */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
         };
@@ -1311,6 +1495,46 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["TraceabilitySummaryResponse"];
                 };
+            };
+            /** @description Document not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_document_api_v1_documents__document_id__export_get: {
+        parameters: {
+            query: {
+                format: string;
+            };
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -1356,6 +1580,24 @@ export interface operations {
                     "application/json": components["schemas"]["IssueRead"];
                 };
             };
+            /** @description Issue not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Optimistic concurrency conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -1363,15 +1605,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-            /** @description Feature not implemented */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
         };
@@ -1398,6 +1631,176 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IssueRead"];
+                };
+            };
+            /** @description Issue not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Optimistic concurrency conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_decide_issues_api_v1_issues_bulk_decision_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkDecisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkDecisionResponse"];
+                };
+            };
+            /** @description Traceability bulk accept prohibited */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_dictionary_terms_api_v1_dictionary_terms_get: {
+        parameters: {
+            query?: {
+                scope?: string | null;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DictionaryTermListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Feature not implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    create_dictionary_term_api_v1_dictionary_terms_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DictionaryTermCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DictionaryTermRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Feature not implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    approve_dictionary_term_api_v1_dictionary_terms__term_id__approve_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                term_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DictionaryTermApprovalRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DictionaryTermRead"];
                 };
             };
             /** @description Validation Error */
@@ -1499,28 +1902,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    health_check_health_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: string;
-                    };
                 };
             };
         };

@@ -296,4 +296,3 @@ def test_aggregation_stage_handles_failed_stages_with_warnings(tmp_path: Path) -
     issues = session.add_all.call_args.args[0]
     assert len(issues) == 1
     assert issues[0].type == "STAGE_FAILURE"
-

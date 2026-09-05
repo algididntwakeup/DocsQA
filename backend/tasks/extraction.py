@@ -55,17 +55,13 @@ def _sanitize_error(exc: Exception) -> tuple[str, str]:
     return exc.__class__.__name__.upper(), message[:1000]
 
 
-def _persist_artifact(
-    storage: LocalStorage, document_id: UUID, name: str, payload: bytes
-) -> str:
+def _persist_artifact(storage: LocalStorage, document_id: UUID, name: str, payload: bytes) -> str:
     """Persist a serialized extraction artifact and return its storage URI."""
     key = f"artifacts/{document_id}/{name}.json"
     return storage.put_stream(key, BytesIO(payload)).uri
 
 
-async def _latest_attempt(
-    session: AsyncSession, document_id: UUID, stage_name: str
-) -> int:
+async def _latest_attempt(session: AsyncSession, document_id: UUID, stage_name: str) -> int:
     value = (
         await session.execute(
             select(StageRun.attempt)
@@ -310,15 +306,9 @@ async def _run_aggregation_stage(
 
     aggregation_failed = False
     try:
-        revision = _load_stage_artifact(
-            storage, document.id, REVISION_STAGE, RevisionAnalysis
-        )
-        table_math = _load_stage_artifact(
-            storage, document.id, TABLE_MATH_STAGE, TableMathAnalysis
-        )
-        ref_drift = _load_stage_artifact(
-            storage, document.id, REF_DRIFT_STAGE, RefDriftAnalysis
-        )
+        revision = _load_stage_artifact(storage, document.id, REVISION_STAGE, RevisionAnalysis)
+        table_math = _load_stage_artifact(storage, document.id, TABLE_MATH_STAGE, TableMathAnalysis)
+        ref_drift = _load_stage_artifact(storage, document.id, REF_DRIFT_STAGE, RefDriftAnalysis)
         standard = _load_stage_artifact(
             storage, document.id, STANDARD_STAGE, StandardTraceabilityAnalysis
         )
@@ -442,25 +432,16 @@ async def _run_extraction(document_id: str) -> dict[str, object]:
             await session.commit()
 
         if artifact is not None:
-            revision_failed = await _run_revision_stage(
-                session, storage, document, artifact
-            )
-            table_math_failed = await _run_table_math_stage(
-                session, storage, document, artifact
-            )
-            ref_drift_failed = await _run_ref_drift_stage(
-                session, storage, document, artifact
-            )
+            revision_failed = await _run_revision_stage(session, storage, document, artifact)
+            table_math_failed = await _run_table_math_stage(session, storage, document, artifact)
+            ref_drift_failed = await _run_ref_drift_stage(session, storage, document, artifact)
             standard_failed = await _run_standard_stage(
                 session,
                 storage,
                 document,
                 artifact,
                 prior_degraded=(
-                    extraction_degraded
-                    or revision_failed
-                    or table_math_failed
-                    or ref_drift_failed
+                    extraction_degraded or revision_failed or table_math_failed or ref_drift_failed
                 ),
             )
 

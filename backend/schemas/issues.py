@@ -127,7 +127,11 @@ class IssueRead(ApiModel):
     message: str
     evidence: IssueEvidence
     decision: Decision | None = None
+    decision_comment: str | None = None
+    decision_by: str | None = None
     disposition: Disposition | None = None
+    disposition_justification: str | None = None
+    disposition_by: str | None = None
     version: int = Field(ge=1)
     created_at: datetime
     updated_at: datetime
@@ -148,6 +152,8 @@ class IssueDecisionRequest(ApiModel):
     expected_version: int = Field(ge=1)
     edited_value: str | None = None
     comment: str | None = Field(default=None, max_length=4000)
+    actor_id: str = Field(default="reviewer@local", min_length=1, max_length=100)
+    actor_role: str = Field(default="QA_ENGINEER", min_length=1, max_length=50)
 
 
 class IssueDispositionRequest(ApiModel):
@@ -156,3 +162,23 @@ class IssueDispositionRequest(ApiModel):
     disposition: Disposition
     expected_version: int = Field(ge=1)
     justification: str = Field(min_length=1, max_length=4000)
+    actor_id: str = Field(default="reviewer@local", min_length=1, max_length=100)
+    actor_role: str = Field(default="LEAD_REVIEWER", min_length=1, max_length=50)
+
+
+class BulkDecisionRequest(ApiModel):
+    """Bulk decision applied across multiple eligible findings."""
+
+    issue_ids: list[UUID] = Field(min_length=1, max_length=500)
+    decision: Decision
+    comment: str | None = Field(default=None, max_length=4000)
+    actor_id: str = Field(default="reviewer@local", min_length=1, max_length=100)
+    actor_role: str = Field(default="QA_ENGINEER", min_length=1, max_length=50)
+
+
+class BulkDecisionResponse(ApiModel):
+    """Outcome of an authorized bulk decision operation."""
+
+    updated_count: int = Field(ge=0)
+    decision: Decision
+    updated_issue_ids: list[UUID]

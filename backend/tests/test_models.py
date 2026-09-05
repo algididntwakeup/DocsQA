@@ -3,16 +3,17 @@
 from sqlalchemy import Table
 
 from db.base import Base
-from models import Document, Issue, StageRun
+from models import AuditEvent, Document, Issue, StageRun
 
 
 def test_foundation_tables_are_registered() -> None:
     """Alembic metadata includes both M1.1 persistence aggregates."""
 
-    assert set(Base.metadata.tables) == {"documents", "stage_runs", "issues"}
+    assert set(Base.metadata.tables) == {"documents", "stage_runs", "issues", "audit_events"}
     assert Document.__tablename__ == "documents"
     assert StageRun.__tablename__ == "stage_runs"
     assert Issue.__tablename__ == "issues"
+    assert AuditEvent.__tablename__ == "audit_events"
 
 
 def test_stage_attempt_is_unique_per_document_and_stage() -> None:

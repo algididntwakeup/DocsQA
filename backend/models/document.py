@@ -24,6 +24,7 @@ from db.base import Base
 from domain.enums import DocumentStatus, ReviewStatus, StageStatus
 
 if TYPE_CHECKING:
+    from models.audit import AuditEvent
     from models.issue import Issue
 
 
@@ -92,6 +93,11 @@ class Document(TimestampMixin, Base):
         back_populates="document",
         cascade="all, delete-orphan",
         order_by="Issue.created_at",
+    )
+    audit_events: Mapped[list["AuditEvent"]] = relationship(
+        back_populates="document",
+        cascade="all, delete-orphan",
+        order_by="AuditEvent.created_at",
     )
 
 

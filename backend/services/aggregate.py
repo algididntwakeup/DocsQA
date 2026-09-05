@@ -81,11 +81,7 @@ def _normalize_revision(
     sources_map: dict[RevisionSourceName, str | None] = {
         s.source: s.normalized_value for s in revision.sources
     }
-    locations = [
-        to_bounding_box(s.location)
-        for s in revision.sources
-        if s.location is not None
-    ]
+    locations = [to_bounding_box(s.location) for s in revision.sources if s.location is not None]
 
     evidence = RevisionEvidence(
         extractor_version="1.0",
@@ -144,9 +140,7 @@ def _normalize_table_math_finding(
     total_loc = to_bounding_box(finding.total_location)
     operand_locs = [to_bounding_box(loc) for loc in finding.operand_locations]
 
-    computed = (
-        finding.computed_value if finding.computed_value is not None else Decimal("0")
-    )
+    computed = finding.computed_value if finding.computed_value is not None else Decimal("0")
     stated = finding.stated_value if finding.stated_value is not None else Decimal("0")
     delta = finding.delta if finding.delta is not None else Decimal("0")
     tolerance = finding.tolerance if finding.tolerance is not None else Decimal("0")

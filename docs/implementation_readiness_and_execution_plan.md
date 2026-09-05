@@ -1,8 +1,8 @@
 # Implementation Readiness & Agent Execution Plan
 
-**Audit date:** 2026-09-04  
-**Current readiness:** M1 through M2.3 COMPLETE locally
-**Next executable milestone:** M2.4 — Reference Drift
+**Audit date:** 2026-09-05  
+**Current readiness:** M1 through M3 COMPLETE locally
+**Next executable milestone:** M4 — Linguistic Pipeline
 
 This document turns the PRD and the frontend/backend plans into an ordered,
 testable execution queue. The PRD remains the product source of truth. This
@@ -390,17 +390,16 @@ precision/recall/accuracy with corpus version and rule version.
 
 ### M3 — Review and Audit Workflow
 
-1. Read-only canonical PDF viewer with stable page navigation.
-2. Language/Traceability issue tabs, filters, virtualization, and deep links.
-3. Single- and dual-location highlight overlays using normalized coordinates.
-4. Optimistically locked issue decisions and comments.
-5. Lead Reviewer dispositions and append-only audit events.
-6. Authentication/RBAC before shared deployment.
-7. Keyboard and screen-reader flows; no color-only severity semantics.
+1. Read-only canonical PDF viewer with stable page navigation and inline streaming endpoint (`GET /api/v1/documents/{document_id}/pdf`).
+2. Language/Traceability issue tabs, filters, pagination, and finding navigation.
+3. Single- and dual-location highlight overlays using normalized canonical coordinates (`HighlightOverlay`).
+4. Optimistically locked issue decisions and comments (`PATCH /api/v1/issues/{issue_id}/decision` returning HTTP 409 conflict).
+5. Lead Reviewer dispositions (`PATCH /api/v1/issues/{issue_id}/disposition` and `POST /api/v1/documents/{document_id}/disposition`) requiring justification, with append-only audit trail (`AuditEvent` model and `GET /api/v1/documents/{document_id}/audit-events`).
+6. Traceability audit summary endpoint (`GET /api/v1/documents/{document_id}/traceability-summary`).
+7. Strict prohibition of traceability bulk acceptance per PRD §3.2 & Scenario A-10 (`POST /api/v1/issues/bulk-decision` returning 422 for traceability findings, UI banner and button disabled).
+8. Keyboard, screen-reader flows, and accessible severity semantics.
 
-**M3 gate:** two concurrent reviewers cannot silently overwrite each other;
-traceability bulk acceptance is impossible in API and UI; audit history is
-append-only.
+**M3 gate: COMPLETE locally.** Two concurrent reviewers cannot silently overwrite each other (HTTP 409 OCC verified); traceability bulk acceptance is rejected by API (HTTP 422) and blocked by UI; audit history is append-only in PostgreSQL. Backend test suite passes (158 passing, 0 errors, 53 source files strictly typed); frontend quality gate passes (ESLint, strict tsc, 18 Vitest tests passing, Next.js build succeeding).
 
 ### M4 — Linguistic Pipeline
 

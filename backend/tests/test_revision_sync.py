@@ -18,12 +18,16 @@ def _artifact(cover: str | None, sheet: str | None) -> ExtractionArtifact:
     spans = [TextSpan(text=f"Document Revision: {cover}", bbox=_box())] if cover else []
     tables: list[Table] = []
     if sheet:
-        tables.append(Table(cells=[
-            TableCell(text="REV", row_index=0, col_index=0, bbox=_box(1, 10)),
-            TableCell(text="DATE", row_index=0, col_index=1, bbox=_box(1, 10)),
-            TableCell(text="A", row_index=1, col_index=0, bbox=_box(1, 20)),
-            TableCell(text=sheet, row_index=2, col_index=0, bbox=_box(1, 30)),
-        ]))
+        tables.append(
+            Table(
+                cells=[
+                    TableCell(text="REV", row_index=0, col_index=0, bbox=_box(1, 10)),
+                    TableCell(text="DATE", row_index=0, col_index=1, bbox=_box(1, 10)),
+                    TableCell(text="A", row_index=1, col_index=0, bbox=_box(1, 20)),
+                    TableCell(text=sheet, row_index=2, col_index=0, bbox=_box(1, 30)),
+                ]
+            )
+        )
     return ExtractionArtifact(document_id=uuid4(), spans=spans, tables=tables)
 
 

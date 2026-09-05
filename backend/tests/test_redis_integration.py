@@ -16,9 +16,10 @@ import pytest
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 SAMPLE_PDF = (
-    Path(__file__).resolve().parents[2] / "docs" / "testcase" / (
-        "05.MEPG-Asset Life Extension 2026_Static Equipment_RevB.pdf"
-    )
+    Path(__file__).resolve().parents[2]
+    / "docs"
+    / "testcase"
+    / ("05.MEPG-Asset Life Extension 2026_Static Equipment_RevB.pdf")
 )
 API_URL = "http://127.0.0.1:8010"
 

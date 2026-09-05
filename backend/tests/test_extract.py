@@ -8,9 +8,7 @@ from services.extract import extract_document
 
 # Test file location relative to pytest execution directory (assuming execution from backend)
 TESTCASE_DIR = Path(__file__).parent.parent.parent / "docs" / "testcase"
-STATIC_EQUIP_PDF = (
-    TESTCASE_DIR / "05.MEPG-Asset Life Extension 2026_Static Equipment_RevB.pdf"
-)
+STATIC_EQUIP_PDF = TESTCASE_DIR / "05.MEPG-Asset Life Extension 2026_Static Equipment_RevB.pdf"
 
 
 @pytest.fixture
@@ -31,9 +29,7 @@ def test_extract_pdf_valid(sample_pdf_path: Path) -> None:
     # If the environment lacks PyMuPDF dependencies (like VC++ redistributable),
     # fitz will raise a DLL load failure, and our extractor will catch it and
     # return warnings.
-    if artifact.warnings and any(
-        "DLL load failed" in warning for warning in artifact.warnings
-    ):
+    if artifact.warnings and any("DLL load failed" in warning for warning in artifact.warnings):
         pytest.skip(
             "Environment is missing PyMuPDF DLL dependencies. "
             "Skipping assertion of extracted content."

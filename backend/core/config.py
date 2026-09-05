@@ -1,6 +1,7 @@
 """
 Application configuration — loaded from environment variables.
 """
+
 from pathlib import Path
 from typing import Literal
 
@@ -46,5 +47,6 @@ class Settings(BaseSettings):
     # ── Table Math Tolerance ─────────────────────────────────────────
     TABLE_MATH_TOLERANCE_PERCENT: float = 0.5
     TABLE_MATH_TOLERANCE_UNIT: float = 1.0
+
 
 settings = Settings()

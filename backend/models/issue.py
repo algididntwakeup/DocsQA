@@ -21,6 +21,7 @@ from domain.enums import Decision, Disposition, IssueCategory, Severity
 from models.document import TimestampMixin
 
 if TYPE_CHECKING:
+    from models.audit import AuditEvent
     from models.document import Document
 
 
@@ -57,10 +58,19 @@ class Issue(TimestampMixin, Base):
         Enum(Decision, name="decision", native_enum=False),
         nullable=True,
     )
+    decision_comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    decision_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
     disposition: Mapped[Disposition | None] = mapped_column(
         Enum(Disposition, name="disposition", native_enum=False),
         nullable=True,
     )
+    disposition_justification: Mapped[str | None] = mapped_column(Text, nullable=True)
+    disposition_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
     version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
 
     document: Mapped["Document"] = relationship(back_populates="issues")
+    audit_events: Mapped[list["AuditEvent"]] = relationship(
+        back_populates="issue",
+        cascade="all, delete-orphan",
+        order_by="AuditEvent.created_at",
+    )

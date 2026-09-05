@@ -198,6 +198,8 @@ def _build_grid(table: Table) -> list[list[TableCell | None]]:
                 if r < max_r and c < max_c:
                     grid[r][c] = cell
     return grid
+
+
 EvaluationStatus = Literal["CORRECT", "ROUNDING_BOUNDARY", "MISMATCH"]
 AssertionStatus = Literal[
     "CORRECT",
@@ -343,9 +345,7 @@ def _analyze_column_totals(
                                 table_index=table_idx,
                                 label=label_cell.text.strip(),
                                 total_location=target_cell.bbox,
-                                operand_locations=(
-                                    [cell_in_col.bbox] if cell_in_col.bbox else []
-                                ),
+                                operand_locations=([cell_in_col.bbox] if cell_in_col.bbox else []),
                                 message=(
                                     f"Table {table_idx + 1} row {r + 1} column {c + 1} has "
                                     f"unparseable numeric content '{cell_text}'."
@@ -402,12 +402,8 @@ def _analyze_column_totals(
                 (op.numeric_value or Decimal("0") for op in operand_cells),
                 start=Decimal("0"),
             )
-            delta, tolerance, eval_status = _evaluate_total(
-                computed_val, stated_val, settings
-            )
-            final_status: AssertionStatus = (
-                "UNIT_MISMATCH" if unit_mismatch else eval_status
-            )
+            delta, tolerance, eval_status = _evaluate_total(computed_val, stated_val, settings)
+            final_status: AssertionStatus = "UNIT_MISMATCH" if unit_mismatch else eval_status
 
             assertion = TableMathAssertion(
                 kind=(
@@ -581,12 +577,7 @@ def _analyze_row_totals(
             if op.unit != first_unit:
                 unit_mismatch = True
                 break
-        if (
-            not unit_mismatch
-            and eff_unit
-            and first_unit
-            and eff_unit != first_unit
-        ):
+        if not unit_mismatch and eff_unit and first_unit and eff_unit != first_unit:
             unit_mismatch = True
 
         total_math_cell = TableMathCell(
@@ -602,12 +593,8 @@ def _analyze_row_totals(
             (op.numeric_value or Decimal("0") for op in operand_cells),
             start=Decimal("0"),
         )
-        delta, tolerance, eval_status = _evaluate_total(
-            computed_val, stated_val, settings
-        )
-        final_status: AssertionStatus = (
-            "UNIT_MISMATCH" if unit_mismatch else eval_status
-        )
+        delta, tolerance, eval_status = _evaluate_total(computed_val, stated_val, settings)
+        final_status: AssertionStatus = "UNIT_MISMATCH" if unit_mismatch else eval_status
 
         assertion = TableMathAssertion(
             kind="ROW_TOTAL",
@@ -694,12 +681,8 @@ def analyze_table_math(
         if not grid:
             continue
 
-        col_assertions, col_findings = _analyze_column_totals(
-            table_idx, grid, config
-        )
-        row_assertions, row_findings = _analyze_row_totals(
-            table_idx, grid, config
-        )
+        col_assertions, col_findings = _analyze_column_totals(table_idx, grid, config)
+        row_assertions, row_findings = _analyze_row_totals(table_idx, grid, config)
 
         all_assertions.extend(col_assertions)
         all_assertions.extend(row_assertions)
