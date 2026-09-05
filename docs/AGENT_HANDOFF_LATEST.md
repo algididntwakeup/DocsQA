@@ -1,9 +1,10 @@
 # Agent Handoff — Latest
 
 ## Resume point
-
-M1, **M2.1 Revision Sync**, **M2.2 Standard Traceability**, **M2.3 Table Math**,
-and **M2.4 Reference Drift** are complete locally. Resume at **M2.5 Aggregation**.
+ 
+M0, M1, and **M2 Deterministic Traceability Core** (M2.1 Revision Sync,
+M2.2 Standard Traceability, M2.3 Table Math, M2.4 Reference Drift, and
+M2.5 Issue Aggregation & Persistence) are complete locally. Resume at **M3 Review and Audit Workflow**.
 Read `START_HERE.md` for the compact document routing rules; do not load the
 entire docs corpus by default.
 
@@ -36,7 +37,7 @@ entire docs corpus by default.
   (percentage and unit), surfaces operands/stated/computed/delta/tolerance/location
   evidence, and isolates stage execution in the worker. Forty-nine unit and
   property tests cover parser accuracy, boundaries, units, and malformed rows.
-- M2.4 implementation: extracts structured entries from Table of Contents,
+- M2.4 implementation: `311e047`. Extracts structured entries from Table of Contents,
   List of Figures, and List of Tables; resolves roman numeral preliminary
   matter (`i`, `ii`, `iv`) and arabic body page numbers; discovers actual
   targets from headings and captions; computes signed `page_delta`; surfaces
@@ -44,25 +45,39 @@ entire docs corpus by default.
   detects missing targets and duplicate captions; and isolates stage execution in
   the worker with `COMPLETED_WITH_WARNINGS` degradation. Thirty-one unit tests
   and pipeline isolation/degradation tests pass.
-- Backend gate: Ruff and strict mypy pass; 132 tests pass, with the PyMuPDF DLL
-  and live Redis/Postgres integration checks skipped in the current host.
+- M2.5 implementation: unifies findings across Revision Sync, Standard Traceability,
+  Table Math, Reference Drift, and Stage Failure diagnostics into canonical
+  `Issue` models. Normalizes bounding box coordinates, applies deterministic
+  severity mappings and rule IDs (`REVISION_MISMATCH`, `STANDARD_NOT_IN_BIBLIOGRAPHY`,
+  `EDITION_YEAR_MISMATCH`, `AMBIGUOUS_STANDARD`, `TABLE_MATH_MISMATCH`, `TOTAL_NOT_FOUND`,
+  `UNIT_MISMATCH`, `MALFORMED_TABLE_ROW`, `REF_DRIFT`, `MISSING_TARGET`,
+  `DUPLICATE_CAPTION`, `STAGE_FAILURE`), deduplicates identical findings, and persists
+  records into PostgreSQL (`issues` table with Alembic migration `20260905_0003_create_issues_table.py`)
+  and storage artifact (`artifacts/{document_id}/aggregation.json`). Implemented
+  `GET /api/v1/documents/{document_id}/issues` with category filtering, pagination,
+  and severity metric tallies. Ten unit tests, 3 API contract tests, and pipeline
+  stage tests pass.
+- Backend gate: Ruff and strict mypy pass across 50 files; 147 tests pass, with the
+  PyMuPDF DLL and live Redis/Postgres integration checks skipped in the current host.
 - All commits stay local. Do not run `git push`.
 
-## Next ticket — M2.5 Aggregation
+## Next ticket — M3 Review and Audit Workflow
 
-Implement deterministic finding aggregation and persistence:
+Implement the reviewer interface and audit trail (M3.1 - M3.5):
 
-1. Aggregate raw stage findings from Revision Sync (`revision_sync.json`),
-   Standard Traceability (`standard_traceability.json`), Table Math
-   (`table_math.json`), and Reference Drift (`ref_drift.json`);
-2. Deduplicate findings across stages and normalize evidence anchors to the
-   canonical `Issue` schema;
-3. Map rule IDs deterministically to severity levels (`CRITICAL`, `MAJOR`, `MINOR`,
-   `INFO`) and rule version tags per the PRD and acceptance matrix;
-4. Handle stage-failure events by creating synthetic diagnostic issues so
-   reviewer interfaces surface analyzer failures gracefully;
-5. Persist unified issue records to PostgreSQL and emit the final aggregated
-   document status.
+1. **M3.1 PDF Viewer & Review Shell**:
+   - Read-only canonical PDF viewer with PDF.js and stable page navigation;
+   - Responsive split layout (document view + issues panel) adhering to Stitch tokens;
+2. **M3.2 Issue Panel & Navigation**:
+   - Traceability/Language issue tabs, severity/category filters, virtualization;
+   - Single- and dual-location highlight overlays using canonical bounding box coordinates;
+   - Deep linking directly to issues and page coordinates;
+3. **M3.3 Issue Decision & Optimistic Locking**:
+   - Accept/Reject/False Positive decisions with user attribution and reason comments;
+   - Optimistic concurrency control via `version` field;
+4. **M3.4 Lead Reviewer Disposition & Audit Log**:
+   - Disposition lifecycle (Approved / Changes Requested) with permission enforcement;
+   - Immutable append-only audit event stream for all decisions and dispositions.
 
 ## Operational notes
 

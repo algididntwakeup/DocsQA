@@ -1,6 +1,7 @@
 """Persistence models for documents and versioned pipeline stage runs."""
 
 from datetime import datetime
+from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
@@ -21,6 +22,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db.base import Base
 from domain.enums import DocumentStatus, ReviewStatus, StageStatus
+
+if TYPE_CHECKING:
+    from models.issue import Issue
 
 
 class TimestampMixin:
@@ -83,6 +87,11 @@ class Document(TimestampMixin, Base):
         back_populates="document",
         cascade="all, delete-orphan",
         order_by="StageRun.created_at",
+    )
+    issues: Mapped[list["Issue"]] = relationship(
+        back_populates="document",
+        cascade="all, delete-orphan",
+        order_by="Issue.created_at",
     )
 
 

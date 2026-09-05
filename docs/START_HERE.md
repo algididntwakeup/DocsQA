@@ -6,9 +6,10 @@ ticket. Repository state always overrides stale prose.
 
 ## Current checkpoint
 
-- M0, M1, **M2.1 Revision Sync**, **M2.2 Standard Traceability**,
-  **M2.3 Table Math**, and **M2.4 Reference Drift** are complete locally.
-- Next milestone: **M2.5 Aggregation**.
+- M0, M1, and **M2 Deterministic Traceability Core** (M2.1 Revision Sync,
+  M2.2 Standard Traceability, M2.3 Table Math, M2.4 Reference Drift, and
+  M2.5 Issue Aggregation & Persistence) are complete locally.
+- Next milestone: **M3 Review and Audit Workflow**.
 - Never push to GitHub; the owner pushes. Local commits are allowed.
 - The application is a monorepo: `backend/` FastAPI and `frontend/` Next.js.
 

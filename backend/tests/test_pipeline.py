@@ -14,6 +14,7 @@ from schemas.extraction import ExtractionArtifact
 from services.pipeline import enqueue_extraction
 from services.storage import LocalStorage
 from tasks.extraction import (
+    _run_aggregation_stage,
     _run_extraction,
     _run_ref_drift_stage,
     _run_revision_stage,
@@ -242,3 +243,57 @@ def test_ref_drift_failure_preserves_successful_extraction(tmp_path: Path) -> No
     assert failed is True
     assert stage_run.status == StageStatus.FAILED
     assert stage_run.error_code == "VALUEERROR"
+
+
+def test_aggregation_stage_success(tmp_path: Path) -> None:
+    """Aggregation stage executes, persists artifact, and writes issues."""
+    document = Document(id=uuid.uuid4(), original_filename="Report.pdf")
+    session = AsyncMock(spec=AsyncSession)
+
+    with patch("tasks.extraction._latest_attempt", AsyncMock(return_value=1)):
+        failed = asyncio.run(
+            _run_aggregation_stage(
+                session,
+                LocalStorage(tmp_path),
+                document,
+                failed_stages=[],
+                prior_degraded=False,
+            )
+        )
+
+    stage_run = session.add.call_args.args[0]
+    assert failed is False
+    assert stage_run.status == StageStatus.SUCCEEDED
+    assert stage_run.progress_pct == 100
+    assert stage_run.artifact_uri is not None
+    assert document.status == DocumentStatus.COMPLETED
+    assert document.progress_pct == 100
+
+
+def test_aggregation_stage_handles_failed_stages_with_warnings(tmp_path: Path) -> None:
+    """Failed upstream stages produce synthetic issues and degrade document status."""
+    document = Document(id=uuid.uuid4(), original_filename="Report.pdf")
+    session = AsyncMock(spec=AsyncSession)
+
+    with patch("tasks.extraction._latest_attempt", AsyncMock(return_value=1)):
+        failed = asyncio.run(
+            _run_aggregation_stage(
+                session,
+                LocalStorage(tmp_path),
+                document,
+                failed_stages=[("table_math", "TIMEOUT", True)],
+                prior_degraded=True,
+            )
+        )
+
+    stage_run = session.add.call_args.args[0]
+    assert failed is False
+    assert stage_run.status == StageStatus.SUCCEEDED
+    assert document.status == DocumentStatus.COMPLETED_WITH_WARNINGS
+    assert document.progress_pct == 100
+    # Verified that session.add_all was called with persisted issues
+    session.add_all.assert_called_once()
+    issues = session.add_all.call_args.args[0]
+    assert len(issues) == 1
+    assert issues[0].type == "STAGE_FAILURE"
+

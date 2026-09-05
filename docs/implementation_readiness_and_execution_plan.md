@@ -375,8 +375,11 @@ pipeline, but implement them one vertical slice at a time:
    signed `page_delta` and dual-navigation bounding box locations; missing
    target and duplicate caption detection; worker stage failure isolation.
    Thirty-one unit tests plus pipeline isolation and degradation tests pass.
-5. **M2.5 Aggregation:** versioned rule output, deduplication, deterministic
-   severity mapping, stage-failure issues, persistence.
+5. **M2.5 Aggregation — COMPLETE locally:** canonical `Issue` model,
+   versioned rule output, deduplication, deterministic severity mapping,
+   stage-failure issues, persistence to PostgreSQL via Alembic migration, and
+   `GET /api/v1/documents/{document_id}/issues` endpoint. Ten unit tests, 3 API
+   contract tests, and pipeline stage execution tests pass.
 
 For each M2 ticket: require correct/mismatch/malformed fixtures, property tests
 for parsers, false-positive assertions, and an API integration test. A failed

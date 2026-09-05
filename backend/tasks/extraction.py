@@ -8,7 +8,7 @@ from typing import Any
 from uuid import UUID
 
 from celery.utils.log import get_task_logger
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.celery_app import celery_app
@@ -16,7 +16,22 @@ from core.config import settings
 from db.session import async_session_factory
 from domain.enums import DocumentStatus, StageStatus
 from models.document import Document, StageRun
+from models.issue import Issue
+from schemas.base import ApiModel
 from schemas.extraction import ExtractionArtifact
+from schemas.issues import (
+    IssueEvidence,
+    ReferenceDriftEvidence,
+    RevisionEvidence,
+    StageFailureEvidence,
+    StandardEvidence,
+    TableMathEvidence,
+)
+from schemas.ref_drift import RefDriftAnalysis
+from schemas.revision import RevisionAnalysis
+from schemas.standard_traceability import StandardTraceabilityAnalysis
+from schemas.table_math import TableMathAnalysis
+from services.aggregate import aggregate_document_findings
 from services.extract import extract_document
 from services.ref_drift import analyze_ref_drift
 from services.revision_sync import analyze_revision
@@ -31,6 +46,7 @@ REVISION_STAGE = "revision_sync"
 TABLE_MATH_STAGE = "table_math"
 REF_DRIFT_STAGE = "ref_drift"
 STANDARD_STAGE = "standard_traceability"
+AGGREGATION_STAGE = "aggregation"
 
 
 def _sanitize_error(exc: Exception) -> tuple[str, str]:
@@ -199,7 +215,7 @@ async def _run_standard_stage(
     document: Document,
     artifact: ExtractionArtifact,
     prior_degraded: bool,
-) -> None:
+) -> bool:
     """Persist standard-traceability evidence and finalize visible status."""
 
     stage_run = StageRun(
@@ -240,6 +256,133 @@ async def _run_standard_stage(
         )
         document.progress_pct = 100
         await session.commit()
+    return standard_failed
+
+
+def _extract_page_number(evidence: IssueEvidence) -> int | None:
+    """Extract a 1-indexed page number from evidence for database indexing."""
+    if isinstance(evidence, TableMathEvidence):
+        return evidence.total_location.page_index + 1
+    if isinstance(evidence, ReferenceDriftEvidence):
+        return evidence.entry_location.page_index + 1
+    if isinstance(evidence, RevisionEvidence):
+        return evidence.locations[0].page_index + 1 if evidence.locations else 1
+    if isinstance(evidence, StandardEvidence):
+        return evidence.body_location.page_index + 1
+    if isinstance(evidence, StageFailureEvidence):
+        return None
+    return None
+
+
+def _load_stage_artifact[T: ApiModel](
+    storage: LocalStorage, document_id: UUID, stage_name: str, model_cls: type[T]
+) -> T | None:
+    """Safely load and deserialize a previously persisted stage artifact."""
+    key = f"artifacts/{document_id}/{stage_name}.json"
+    try:
+        path = storage._path_for_key(key)
+        if not path.exists():
+            return None
+        data = path.read_text(encoding="utf-8")
+        return model_cls.model_validate_json(data)
+    except Exception:
+        return None
+
+
+async def _run_aggregation_stage(
+    session: AsyncSession,
+    storage: LocalStorage,
+    document: Document,
+    failed_stages: list[tuple[str, str, bool]],
+    prior_degraded: bool,
+) -> bool:
+    """Aggregate all analyzer findings into unified issues and persist to PostgreSQL."""
+    stage_run = StageRun(
+        document_id=document.id,
+        stage_name=AGGREGATION_STAGE,
+        status=StageStatus.RUNNING,
+        progress_pct=0,
+        attempt=await _latest_attempt(session, document.id, AGGREGATION_STAGE),
+        started_at=datetime.now(UTC),
+    )
+    session.add(stage_run)
+    await session.commit()
+
+    aggregation_failed = False
+    try:
+        revision = _load_stage_artifact(
+            storage, document.id, REVISION_STAGE, RevisionAnalysis
+        )
+        table_math = _load_stage_artifact(
+            storage, document.id, TABLE_MATH_STAGE, TableMathAnalysis
+        )
+        ref_drift = _load_stage_artifact(
+            storage, document.id, REF_DRIFT_STAGE, RefDriftAnalysis
+        )
+        standard = _load_stage_artifact(
+            storage, document.id, STANDARD_STAGE, StandardTraceabilityAnalysis
+        )
+
+        result = aggregate_document_findings(
+            document_id=document.id,
+            revision=revision,
+            table_math=table_math,
+            ref_drift=ref_drift,
+            standard_traceability=standard,
+            failed_stages=failed_stages,
+        )
+
+        stage_run.artifact_uri = _persist_artifact(
+            storage,
+            document.id,
+            AGGREGATION_STAGE,
+            result.model_dump_json().encode("utf-8"),
+        )
+
+        # Clear any existing issues for this document to ensure idempotency
+        await session.execute(delete(Issue).where(Issue.document_id == document.id))
+
+        # Persist unified issues to database
+        issue_records = [
+            Issue(
+                id=issue_read.id,
+                document_id=document.id,
+                category=issue_read.category,
+                type=issue_read.type,
+                severity=issue_read.severity,
+                confidence=issue_read.confidence,
+                message=issue_read.message,
+                page_number=_extract_page_number(issue_read.evidence),
+                evidence=issue_read.evidence.model_dump(mode="json"),
+                decision=issue_read.decision,
+                disposition=issue_read.disposition,
+                version=issue_read.version,
+                created_at=issue_read.created_at,
+                updated_at=issue_read.updated_at,
+            )
+            for issue_read in result.issues
+        ]
+        session.add_all(issue_records)
+
+        stage_run.progress_pct = 100
+        stage_run.status = StageStatus.SUCCEEDED
+    except Exception as exc:  # noqa: BLE001 — stage failures remain isolated
+        aggregation_failed = True
+        code, message = _sanitize_error(exc)
+        stage_run.status = StageStatus.FAILED
+        stage_run.error_code = code
+        stage_run.error_message = message
+        logger.exception("Finding aggregation failed for document %s", document.id)
+    finally:
+        stage_run.finished_at = datetime.now(UTC)
+        document.status = (
+            DocumentStatus.COMPLETED_WITH_WARNINGS
+            if prior_degraded or aggregation_failed or bool(failed_stages)
+            else DocumentStatus.COMPLETED
+        )
+        document.progress_pct = 100
+        await session.commit()
+    return aggregation_failed
 
 
 async def _run_extraction(document_id: str) -> dict[str, object]:
@@ -308,7 +451,7 @@ async def _run_extraction(document_id: str) -> dict[str, object]:
             ref_drift_failed = await _run_ref_drift_stage(
                 session, storage, document, artifact
             )
-            await _run_standard_stage(
+            standard_failed = await _run_standard_stage(
                 session,
                 storage,
                 document,
@@ -318,6 +461,30 @@ async def _run_extraction(document_id: str) -> dict[str, object]:
                     or revision_failed
                     or table_math_failed
                     or ref_drift_failed
+                ),
+            )
+
+            failed_stages: list[tuple[str, str, bool]] = []
+            if revision_failed:
+                failed_stages.append((REVISION_STAGE, "REVISION_ANALYSIS_FAILED", True))
+            if table_math_failed:
+                failed_stages.append((TABLE_MATH_STAGE, "TABLE_MATH_ANALYSIS_FAILED", True))
+            if ref_drift_failed:
+                failed_stages.append((REF_DRIFT_STAGE, "REF_DRIFT_ANALYSIS_FAILED", True))
+            if standard_failed:
+                failed_stages.append((STANDARD_STAGE, "STANDARD_TRACEABILITY_FAILED", True))
+
+            await _run_aggregation_stage(
+                session,
+                storage,
+                document,
+                failed_stages=failed_stages,
+                prior_degraded=bool(
+                    extraction_degraded
+                    or revision_failed
+                    or table_math_failed
+                    or ref_drift_failed
+                    or standard_failed
                 ),
             )
 

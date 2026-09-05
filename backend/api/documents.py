@@ -10,8 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.dependencies import get_upload_service
 from core.errors import feature_not_ready
 from db.session import get_session
-from domain.enums import IssueCategory
+from domain.enums import IssueCategory, Severity
 from models.document import Document, StageRun
+from models.issue import Issue
 from schemas.common import PageInfo, ProblemDetail
 from schemas.documents import (
     DocumentListResponse,
@@ -21,7 +22,7 @@ from schemas.documents import (
     StageRunRead,
     TraceabilitySummaryResponse,
 )
-from schemas.issues import IssueListResponse
+from schemas.issues import IssueListResponse, IssueRead
 from services.pipeline import enqueue_extraction
 from services.uploads import UploadService
 
@@ -148,13 +149,54 @@ async def get_document_status(
 )
 async def list_document_issues(
     document_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_session)],
     category: IssueCategory | None = None,
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> IssueListResponse:
     """List issues with optional canonical category filtering."""
 
-    feature_not_ready("Document issue listing")
+    document = (
+        await session.execute(select(Document).where(Document.id == document_id))
+    ).scalar_one_or_none()
+    if document is None:
+        raise HTTPException(status_code=404, detail="Document not found.")
+
+    # Severity counts across all issues for this document
+    counts_result = (
+        await session.execute(
+            select(Issue.severity, func.count(Issue.id))
+            .where(Issue.document_id == document_id)
+            .group_by(Issue.severity)
+        )
+    ).all()
+    counts_by_severity: dict[Severity, int] = {s: 0 for s in Severity}
+    for sev, count in counts_result:
+        counts_by_severity[sev] = count
+
+    # Filtered query for pagination
+    query = select(Issue).where(Issue.document_id == document_id)
+    if category is not None:
+        query = query.where(Issue.category == category)
+
+    total = (
+        await session.execute(select(func.count()).select_from(query.subquery()))
+    ).scalar_one()
+
+    offset = (page - 1) * page_size
+    issues = (
+        await session.execute(
+            query.order_by(Issue.created_at.asc(), Issue.id.asc())
+            .offset(offset)
+            .limit(page_size)
+        )
+    ).scalars().all()
+
+    return IssueListResponse(
+        issues=[IssueRead.model_validate(i) for i in issues],
+        pagination=PageInfo(page=page, page_size=page_size, total=total),
+        counts_by_severity=counts_by_severity,
+    )
 
 
 @router.get(
