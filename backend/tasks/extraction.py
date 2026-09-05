@@ -21,11 +21,13 @@ from services.extract import extract_document
 from services.revision_sync import analyze_revision
 from services.standard_traceability import analyze_standard_traceability
 from services.storage import LocalStorage
+from services.trace_numbers import analyze_table_math
 
 logger = get_task_logger(__name__)
 
 EXTRACTION_STAGE = "extraction"
 REVISION_STAGE = "revision_sync"
+TABLE_MATH_STAGE = "table_math"
 STANDARD_STAGE = "standard_traceability"
 
 
@@ -101,6 +103,49 @@ async def _run_revision_stage(
         stage_run.finished_at = datetime.now(UTC)
         await session.commit()
     return revision_failed
+
+
+async def _run_table_math_stage(
+    session: AsyncSession,
+    storage: LocalStorage,
+    document: Document,
+    artifact: ExtractionArtifact,
+) -> bool:
+    """Persist table math evidence while isolating analyzer failures."""
+
+    stage_run = StageRun(
+        document_id=document.id,
+        stage_name=TABLE_MATH_STAGE,
+        status=StageStatus.RUNNING,
+        progress_pct=0,
+        attempt=await _latest_attempt(session, document.id, TABLE_MATH_STAGE),
+        started_at=datetime.now(UTC),
+    )
+    session.add(stage_run)
+    await session.commit()
+
+    table_math_failed = False
+    try:
+        analysis = analyze_table_math(artifact)
+        stage_run.artifact_uri = _persist_artifact(
+            storage,
+            document.id,
+            TABLE_MATH_STAGE,
+            analysis.model_dump_json().encode("utf-8"),
+        )
+        stage_run.progress_pct = 100
+        stage_run.status = StageStatus.SUCCEEDED
+    except Exception as exc:  # noqa: BLE001 — analyzer failures remain isolated
+        table_math_failed = True
+        code, message = _sanitize_error(exc)
+        stage_run.status = StageStatus.FAILED
+        stage_run.error_code = code
+        stage_run.error_message = message
+        logger.exception("Table math failed for document %s", document.id)
+    finally:
+        stage_run.finished_at = datetime.now(UTC)
+        await session.commit()
+    return table_math_failed
 
 
 async def _run_standard_stage(
@@ -212,12 +257,17 @@ async def _run_extraction(document_id: str) -> dict[str, object]:
             revision_failed = await _run_revision_stage(
                 session, storage, document, artifact
             )
+            table_math_failed = await _run_table_math_stage(
+                session, storage, document, artifact
+            )
             await _run_standard_stage(
                 session,
                 storage,
                 document,
                 artifact,
-                prior_degraded=extraction_degraded or revision_failed,
+                prior_degraded=(
+                    extraction_degraded or revision_failed or table_math_failed
+                ),
             )
 
     return {"document_id": document_id, "stage": EXTRACTION_STAGE}

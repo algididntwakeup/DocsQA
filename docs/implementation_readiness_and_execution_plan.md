@@ -1,8 +1,8 @@
 # Implementation Readiness & Agent Execution Plan
 
 **Audit date:** 2026-09-04  
-**Current readiness:** M1 through M2.2 COMPLETE locally
-**Next executable milestone:** M2.3 — Table Math
+**Current readiness:** M1 through M2.3 COMPLETE locally
+**Next executable milestone:** M2.4 — Reference Drift
 
 This document turns the PRD and the frontend/backend plans into an ordered,
 testable execution queue. The PRD remains the product source of truth. This
@@ -364,8 +364,11 @@ pipeline, but implement them one vertical slice at a time:
    versioned location evidence. The worker persists an independent stage and
    isolates analyzer failures. Eight focused analyzer tests and pipeline
    isolation/integration coverage pass.
-3. **M2.3 Table math:** `Decimal` parser, units, locale separators, subtotal
-   scoping, tolerance policy, stated/computed cell locations.
+3. **M2.3 Table math — COMPLETE locally:** `Decimal` parser, explicit units,
+   thousands/decimal separator handling, subtotal and grand total scoping,
+   dual-threshold tolerance policy, stated/computed cell bounding-box locations,
+   and worker stage failure isolation. Forty-nine parser/table unit and property
+   tests plus pipeline isolation and contract checks pass.
 4. **M2.4 Reference drift:** ToC/LoF/LoT entries, printed-page labels, canonical
    PDF target anchors, roman/arabic sections.
 5. **M2.5 Aggregation:** versioned rule output, deduplication, deterministic

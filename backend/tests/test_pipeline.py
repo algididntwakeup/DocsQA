@@ -17,6 +17,7 @@ from tasks.extraction import (
     _run_extraction,
     _run_revision_stage,
     _run_standard_stage,
+    _run_table_math_stage,
     _sanitize_error,
 )
 
@@ -134,3 +135,56 @@ def test_standard_failure_finalizes_with_warnings(tmp_path: Path) -> None:
     assert stage_run.status == StageStatus.FAILED
     assert document.status == DocumentStatus.COMPLETED_WITH_WARNINGS
     assert document.progress_pct == 100
+
+
+def test_table_math_stage_success(tmp_path: Path) -> None:
+    """Table math stage succeeds, sets status, and persists artifact."""
+
+    document = Document(id=uuid.uuid4(), original_filename="Report.pdf")
+    session = AsyncMock(spec=AsyncSession)
+    artifact = ExtractionArtifact(document_id=document.id)
+
+    with patch("tasks.extraction._latest_attempt", AsyncMock(return_value=1)):
+        failed = asyncio.run(
+            _run_table_math_stage(
+                session,
+                LocalStorage(tmp_path),
+                document,
+                artifact,
+            )
+        )
+
+    stage_run = session.add.call_args.args[0]
+    assert failed is False
+    assert stage_run.status == StageStatus.SUCCEEDED
+    assert stage_run.progress_pct == 100
+    assert stage_run.artifact_uri is not None
+
+
+def test_table_math_failure_preserves_successful_extraction(tmp_path: Path) -> None:
+    """An isolated table math analyzer failure yields warnings without crashing."""
+
+    document = Document(id=uuid.uuid4(), original_filename="Report.pdf")
+    session = AsyncMock(spec=AsyncSession)
+    artifact = ExtractionArtifact(document_id=document.id)
+
+    with (
+        patch("tasks.extraction._latest_attempt", AsyncMock(return_value=1)),
+        patch(
+            "tasks.extraction.analyze_table_math",
+            side_effect=ValueError("bad table structure"),
+        ),
+    ):
+        failed = asyncio.run(
+            _run_table_math_stage(
+                session,
+                LocalStorage(tmp_path),
+                document,
+                artifact,
+            )
+        )
+
+    stage_run = session.add.call_args.args[0]
+    assert failed is True
+    assert stage_run.status == StageStatus.FAILED
+    assert stage_run.error_code == "VALUEERROR"

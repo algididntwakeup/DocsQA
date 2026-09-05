@@ -2,9 +2,10 @@
 
 ## Resume point
 
-M1, **M2.1 Revision Sync**, and **M2.2 Standard Traceability** are complete
-locally. Resume at **M2.3 Table Math**. Read `START_HERE.md` for the compact
-document routing rules; do not load the entire docs corpus by default.
+M1, **M2.1 Revision Sync**, **M2.2 Standard Traceability**, and
+**M2.3 Table Math** are complete locally. Resume at **M2.4 Reference Drift**.
+Read `START_HERE.md` for the compact document routing rules; do not load the
+entire docs corpus by default.
 
 ## Verified repository state
 
@@ -29,24 +30,27 @@ document routing rules; do not load the entire docs corpus by default.
   edition years, records location evidence, and isolates the stage in the
   worker. Unknown bare API numbers are surfaced as ambiguous instead of false
   missing-reference findings.
-- Backend gate: Ruff and strict mypy pass; 48 tests pass, with the PyMuPDF DLL
+- M2.3 implementation: parses locale-aware `Decimal` numbers, currency and
+  engineering units, identifies row/column totals, scopes subtotals and grand
+  totals without double counting, evaluates dual-threshold tolerance
+  (percentage and unit), surfaces operands/stated/computed/delta/tolerance/location
+  evidence, and isolates stage execution in the worker. Forty-nine unit and
+  property tests cover parser accuracy, boundaries, units, and malformed rows.
+- Backend gate: Ruff and strict mypy pass; 99 tests pass, with the PyMuPDF DLL
   and live Redis/Postgres integration checks skipped in the current host.
 - All commits stay local. Do not run `git push`.
 
-## Next ticket — M2.3 Table Math
+## Next ticket — M2.4 Reference Drift
 
-Implement deterministic validation of flat-table totals:
+Implement deterministic pagination drift detection (F11):
 
-1. parse locale-aware decimal values and explicit units without float math;
-2. identify row/column totals and subtotal scope in extracted flat tables;
-3. apply the approved absolute/percentage tolerance policy;
-4. emit operands, stated value, computed value, delta, tolerance, and locations;
-5. integrate it as an independent versioned worker stage.
-
-Require correct/mismatch/rounding-boundary/unit/thousands/decimal-separator and
-malformed-row fixtures, property-style parser tests, false-positive assertions,
-and pipeline/API integration evidence. Do not start reference drift,
-aggregation, review UI, or linguistic work in the same ticket.
+1. parse Table of Contents, List of Figures, and List of Tables into structured
+   entries `{label, referenced_page}`;
+2. determine each entry's actual page location via heading and caption detection;
+3. resolve front-matter page numbering offsets (roman vs. arabic body numbering);
+4. emit `REF_DRIFT` findings with referenced page, actual page, page delta, and
+   navigable location bounding boxes;
+5. integrate it as an independent versioned worker stage with failure isolation.
 
 ## Operational notes
 
