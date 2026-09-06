@@ -1,4 +1,4 @@
-@import \"tailwindcss\";
+@import "tailwindcss";
 
 @theme {
   --color-panel: var(--panel);
@@ -484,6 +484,40 @@ progress::-webkit-progress-value { background: var(--primary-bright); }
   cursor: pointer;
 }
 
+/* Mobile Pane Switcher (hidden on desktop, visible on screens <= 1024px) */
+.mobile-pane-switcher {
+  display: none;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  padding: 6px 12px;
+  gap: 8px;
+}
+
+.mobile-pane-tab {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+  background: var(--panel-raised);
+  color: var(--muted);
+  font: 600 11px/1 "JetBrains Mono", monospace;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.mobile-pane-tab:hover {
+  color: var(--text);
+  border-color: var(--line-strong);
+}
+.mobile-pane-tab.tab-active {
+  background: var(--selected-bg);
+  border-color: var(--primary);
+  color: var(--primary-bright);
+}
+
 /* Split Main Body */
 .workspace-split-body {
   display: grid;
@@ -499,6 +533,7 @@ progress::-webkit-progress-value { background: var(--primary-bright); }
   border-right: 1px solid var(--line);
   background: var(--canvas);
   overflow: hidden;
+  min-height: 0;
 }
 
 .workspace-right-pane {
@@ -506,6 +541,85 @@ progress::-webkit-progress-value { background: var(--primary-bright); }
   flex-direction: column;
   background: var(--surface);
   overflow: hidden;
+  min-height: 0;
+}
+
+@media (max-width: 1080px) {
+  .btn-label {
+    display: none;
+  }
+}
+
+@media (max-width: 1024px) {
+  .mobile-pane-switcher {
+    display: flex;
+  }
+
+  .workspace-split-body {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .workspace-split-body.active-pane-document .workspace-left-pane {
+    display: flex;
+    flex: 1;
+    width: 100%;
+    border-right: none;
+  }
+
+  .workspace-split-body.active-pane-document .workspace-right-pane {
+    display: none;
+  }
+
+  .workspace-split-body.active-pane-findings .workspace-left-pane {
+    display: none;
+  }
+
+  .workspace-split-body.active-pane-findings .workspace-right-pane {
+    display: flex;
+    flex: 1;
+    width: 100%;
+  }
+
+  .workspace-header {
+    padding: 8px 12px;
+  }
+
+  .doc-title {
+    max-width: 260px;
+  }
+
+  .workspace-disposition-footer {
+    padding: 8px 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
+
+@media (max-width: 640px) {
+  .header-actions {
+    gap: 4px;
+  }
+  .doc-title {
+    max-width: 150px;
+    font-size: 13px;
+  }
+  .doc-subtitle {
+    display: none;
+  }
+  .footer-status-label {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .footer-actions {
+    width: 100%;
+    justify-content: stretch;
+    gap: 6px;
+  }
+  .footer-actions .btn {
+    flex: 1;
+    text-align: center;
+  }
 }
 
 /* Document Viewer */
@@ -714,8 +828,9 @@ progress::-webkit-progress-value { background: var(--primary-bright); }
 
 .panel-kpi-strip {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   padding: 8px 16px;
   background: var(--sunken-bg);
   border-bottom: 1px solid var(--line);
@@ -747,6 +862,7 @@ progress::-webkit-progress-value { background: var(--primary-bright); }
 
 .panel-controls {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   padding: 8px 14px;
   background: var(--panel);
@@ -755,6 +871,7 @@ progress::-webkit-progress-value { background: var(--primary-bright); }
 
 .search-box {
   flex: 1;
+  min-width: 160px;
   position: relative;
   display: flex;
   align-items: center;
@@ -776,6 +893,7 @@ progress::-webkit-progress-value { background: var(--primary-bright); }
 
 .filter-dropdowns {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
 }
 .filter-item {
@@ -823,6 +941,8 @@ progress::-webkit-progress-value { background: var(--primary-bright); }
 
 .bulk-action-bar {
   display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   align-items: center;
   justify-content: space-between;
   padding: 8px 14px;

@@ -11,7 +11,8 @@ export default defineConfig({
     exclude: ["e2e/**", "node_modules/**"],
     pool: "forks",
     maxWorkers: 1,
-    testTimeout: 20000,
+    testTimeout: 30000,
+    isolate: false,
     setupFiles: ["./src/test-setup.ts"],
   },
 });

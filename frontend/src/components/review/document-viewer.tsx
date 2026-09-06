@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import {
@@ -12,7 +12,8 @@ import {
   ZoomOut,
 } from "lucide-react";
 import { getPdfUrl, getIssueLocation, type IssueItem } from "@/lib/api";
-import { HighlightOverlay, type HighlightBoxItem } from "./highlight-overlay";
+import { type HighlightBoxItem } from "./highlight-overlay";
+import { PdfCanvasViewer } from "./pdf-canvas-viewer";
 
 interface DocumentViewerProps {
   pdfUrl?: string;
@@ -45,46 +46,6 @@ export function DocumentViewer({
   const effectivePdfUrl = pdfUrl || (documentId ? getPdfUrl(documentId) : "");
   const effectiveTitle = documentTitle || "Document";
 
-  // Derive highlights if activeIssue is provided and highlights array is empty
-  const effectiveHighlights = [...highlights];
-  if (effectiveHighlights.length === 0 && activeIssue) {
-    const loc = getIssueLocation(activeIssue);
-    if (loc.bbox) {
-      effectiveHighlights.push({
-        box: {
-          ...loc.bbox,
-          page_index:
-            loc.bbox.page_index ??
-            (loc.page_number ? loc.page_number - 1 : 0),
-        },
-        label: activeIssue.type,
-        variant: "primary",
-      });
-    }
-    const ev = activeIssue.evidence;
-    if (ev && ev.kind === "TABLE_MATH" && Array.isArray(ev.operand_locations)) {
-      for (const opBox of ev.operand_locations) {
-        effectiveHighlights.push({
-          box: opBox,
-          label: "Operand",
-          variant: "operand",
-        });
-      }
-    } else if (ev && ev.kind === "REFERENCE_DRIFT" && ev.target_location) {
-      effectiveHighlights.push({
-        box: ev.target_location,
-        label: "Target",
-        variant: "target",
-      });
-    } else if (ev && ev.kind === "STANDARD" && ev.bibliography_location) {
-      effectiveHighlights.push({
-        box: ev.bibliography_location,
-        label: "Bibliography",
-        variant: "target",
-      });
-    }
-  }
-
   // Derive jump targets if activeIssue is provided and jumpTargets is empty
   const effectiveJumpTargets = [...jumpTargets];
   if (effectiveJumpTargets.length === 0 && activeIssue) {
@@ -110,8 +71,9 @@ export function DocumentViewer({
   const handleFirst = () => onPageChange(1);
   const handleLast = () => onPageChange(effectiveTotalPages);
 
-  // Keyboard navigation
+  // Keyboard navigation for fallback embedded mode
   useEffect(() => {
+    if (activeTab !== "embedded") return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (
         e.target instanceof HTMLInputElement ||
@@ -127,113 +89,42 @@ export function DocumentViewer({
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [currentPage, effectiveTotalPages, onPageChange]);
+  }, [activeTab, currentPage, effectiveTotalPages, onPageChange]);
 
   return (
-    <div className="flex flex-col h-full bg-sunken border-r border-line select-none">
-      {/* Top Toolbar */}
-      <div className="flex items-center justify-between px-4 py-2.5 bg-panel border-b border-line text-sm text-ink-soft">
+    <div className="flex flex-col h-full bg-sunken border-r border-line select-none min-h-0">
+      {/* Top Header & Tab Controls */}
+      <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-panel border-b border-line text-xs text-ink-soft">
         {/* Document Info */}
-        <div className="flex items-center gap-2 truncate max-w-[280px]">
-          <span className="font-mono text-xs text-muted uppercase">DOC</span>
+        <div className="flex items-center gap-2 truncate max-w-[260px] sm:max-w-[340px]">
+          <span className="font-mono text-[10px] text-muted uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-chip text-chip-ink border border-line">
+            DOC
+          </span>
           <span className="font-medium text-xs text-ink truncate" title={effectiveTitle}>
             {effectiveTitle}
           </span>
         </div>
 
-        {/* Page Navigation Controls */}
-        <div className="flex items-center gap-1.5 bg-panel px-2 py-1 rounded border border-line">
-          <button
-            type="button"
-            onClick={handleFirst}
-            disabled={currentPage <= 1}
-            className="p-1 rounded hover:bg-panel-raised disabled:opacity-30 disabled:cursor-not-allowed text-muted"
-            title="First Page"
-          >
-            <ChevronsLeft className="w-4 h-4" />
-          </button>
-          <button
-            type="button"
-            onClick={handlePrev}
-            disabled={currentPage <= 1}
-            className="p-1 rounded hover:bg-panel-raised disabled:opacity-30 disabled:cursor-not-allowed text-muted"
-            title="Previous Page (Left Arrow)"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-
-          <span className="font-mono text-xs px-2 text-ink">
-            Page {currentPage} of {effectiveTotalPages}
-          </span>
-
-          <button
-            type="button"
-            onClick={handleNext}
-            disabled={currentPage >= effectiveTotalPages}
-            className="p-1 rounded hover:bg-panel-raised disabled:opacity-30 disabled:cursor-not-allowed text-muted"
-            title="Next Page (Right Arrow)"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-          <button
-            type="button"
-            onClick={handleLast}
-            disabled={currentPage >= effectiveTotalPages}
-            className="p-1 rounded hover:bg-panel-raised disabled:opacity-30 disabled:cursor-not-allowed text-muted"
-            title="Last Page"
-          >
-            <ChevronsRight className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Zoom & View Controls */}
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 bg-panel px-2 py-1 rounded border border-line">
-            <button
-              type="button"
-              onClick={() => setZoomLevel((z) => Math.max(z - 15, 50))}
-              className="p-1 rounded hover:bg-panel-raised text-muted"
-              title="Zoom Out"
-            >
-              <ZoomOut className="w-3.5 h-3.5" />
-            </button>
-            <span className="font-mono text-[11px] px-1 text-ink-soft">{zoomLevel}%</span>
-            <button
-              type="button"
-              onClick={() => setZoomLevel((z) => Math.min(z + 15, 200))}
-              className="p-1 rounded hover:bg-panel-raised text-muted"
-              title="Zoom In"
-            >
-              <ZoomIn className="w-3.5 h-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setZoomLevel(100)}
-              className="p-1 rounded hover:bg-panel-raised text-muted"
-              title="Reset Zoom"
-            >
-              <Maximize2 className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          <div className="flex rounded border border-line p-0.5 bg-panel">
+        {/* View Switcher & External Link */}
+        <div className="flex items-center gap-1.5 ml-auto">
+          <div className="flex rounded border border-line p-0.5 bg-panel-raised">
             <button
               type="button"
               onClick={() => setActiveTab("interactive")}
-              className={`px-2 py-0.5 text-xs font-mono rounded ${
+              className={`px-2.5 py-1 text-[11px] font-mono font-semibold rounded transition-colors ${
                 activeTab === "interactive"
-                  ? "bg-primary text-ink"
+                  ? "bg-primary text-white shadow-xs"
                   : "text-muted hover:text-ink"
               }`}
             >
-              Annotated
+              Annotated Canvas
             </button>
             <button
               type="button"
               onClick={() => setActiveTab("embedded")}
-              className={`px-2 py-0.5 text-xs font-mono rounded ${
+              className={`px-2.5 py-1 text-[11px] font-mono font-semibold rounded transition-colors ${
                 activeTab === "embedded"
-                  ? "bg-primary text-ink"
+                  ? "bg-primary text-white shadow-xs"
                   : "text-muted hover:text-ink"
               }`}
             >
@@ -245,19 +136,20 @@ export function DocumentViewer({
             href={effectivePdfUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="p-1.5 rounded hover:bg-panel-raised text-muted hover:text-ink"
-            title="Open canonical PDF in new tab"
+            className="p-1.5 rounded border border-line bg-panel hover:bg-panel-raised text-muted hover:text-ink transition-colors"
+            title="Open canonical PDF in new browser tab"
+            aria-label="Open canonical PDF in new tab"
           >
-            <ExternalLink className="w-4 h-4" />
+            <ExternalLink className="w-3.5 h-3.5" />
           </a>
         </div>
       </div>
 
       {/* Quick Jump Bar for Multi-Location Findings */}
       {effectiveJumpTargets.length > 0 && (
-        <div className="flex items-center gap-2 px-4 py-1.5 bg-selected border-b border-primary/40 text-xs">
-          <span className="font-mono text-accent-soft uppercase text-[11px] font-semibold">
-            Jump to finding anchor:
+        <div className="flex flex-wrap items-center gap-1.5 px-3 py-1.5 bg-selected border-b border-line text-xs">
+          <span className="font-mono text-accent-soft uppercase text-[10px] font-bold">
+            Anchor:
           </span>
           {effectiveJumpTargets.map((t, idx) => (
             <button
@@ -267,52 +159,121 @@ export function DocumentViewer({
                 onPageChange(t.page);
                 if (onJumpToFinding) onJumpToFinding({ page_number: t.page });
               }}
-              className={`px-2.5 py-0.5 rounded text-xs font-medium transition-colors ${
+              className={`px-2 py-0.5 rounded text-[11px] font-medium font-mono transition-colors ${
                 currentPage === t.page
-                  ? "bg-primary text-ink"
-                  : "bg-chip text-accent-soft hover:bg-panel-raised"
+                  ? "bg-primary text-white font-bold"
+                  : "bg-chip text-chip-ink hover:bg-panel-raised border border-line"
               }`}
             >
-              {t.label} (Page {t.page})
+              {t.label} (p. {t.page})
             </button>
           ))}
         </div>
       )}
 
-      {/* Main Document Canvas View */}
-      <div className="flex-1 overflow-auto p-6 flex justify-center items-start bg-sunken">
-        {activeTab === "interactive" ? (
-          <div
-            className="relative bg-white shadow-2xl rounded-sm transition-transform duration-100 origin-top"
-            style={{
-              width: `${(612 * zoomLevel) / 100}px`,
-              minHeight: `${(792 * zoomLevel) / 100}px`,
-              aspectRatio: "612 / 792",
-            }}
-          >
-            {/* Native PDF page embed */}
-            <iframe
-              src={`${effectivePdfUrl}#page=${currentPage}&toolbar=0&navpanes=0`}
-              title={`Page ${currentPage}`}
-              className="w-full h-full border-0 absolute inset-0 pointer-events-auto"
-            />
-
-            {/* Coordinate Highlight Overlay */}
-            <HighlightOverlay
-              highlights={effectiveHighlights}
-              pageIndex={currentPage - 1} // 0-indexed for bounding boxes
-            />
-          </div>
+      {/* Main Viewport */}
+      {activeTab === "interactive" ? (
+        documentId ? (
+          <PdfCanvasViewer
+            documentId={documentId}
+            currentPage={currentPage}
+            onPageChange={onPageChange}
+            totalPages={effectiveTotalPages}
+            highlights={highlights}
+            activeIssue={activeIssue}
+            onJumpToFinding={onJumpToFinding}
+          />
         ) : (
-          <div className="w-full h-full min-h-[600px] rounded border border-line overflow-hidden">
+          <div className="flex flex-1 items-center justify-center bg-sunken text-muted text-sm">
+            No document ID available.
+          </div>
+        )
+      ) : (
+        <div className="flex flex-col flex-1 min-h-0">
+          {/* Embedded Toolbar for Native PDF */}
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-panel px-3 py-1.5 text-xs text-ink-soft">
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={handleFirst}
+                disabled={currentPage <= 1}
+                className="btn btn-secondary btn-sm p-1.5"
+                title="First Page"
+              >
+                <ChevronsLeft className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={handlePrev}
+                disabled={currentPage <= 1}
+                className="btn btn-secondary btn-sm p-1.5"
+                title="Previous Page"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+              <span className="font-mono text-xs px-2 text-ink font-semibold">
+                Page {currentPage} of {effectiveTotalPages}
+              </span>
+              <button
+                type="button"
+                onClick={handleNext}
+                disabled={currentPage >= effectiveTotalPages}
+                className="btn btn-secondary btn-sm p-1.5"
+                title="Next Page"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={handleLast}
+                disabled={currentPage >= effectiveTotalPages}
+                className="btn btn-secondary btn-sm p-1.5"
+                title="Last Page"
+              >
+                <ChevronsRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setZoomLevel((z) => Math.max(z - 15, 50))}
+                className="btn btn-secondary btn-sm p-1.5"
+                title="Zoom Out"
+              >
+                <ZoomOut className="w-3.5 h-3.5" />
+              </button>
+              <span className="font-mono text-xs text-ink-soft w-12 text-center font-semibold">
+                {zoomLevel}%
+              </span>
+              <button
+                type="button"
+                onClick={() => setZoomLevel((z) => Math.min(z + 15, 200))}
+                className="btn btn-secondary btn-sm p-1.5"
+                title="Zoom In"
+              >
+                <ZoomIn className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setZoomLevel(100)}
+                className="btn btn-secondary btn-sm p-1.5"
+                title="Reset Zoom"
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-hidden p-2 bg-sunken">
             <iframe
               src={`${effectivePdfUrl}#page=${currentPage}`}
               title="Full PDF Rendition"
-              className="w-full h-full min-h-[700px] border-0"
+              className="w-full h-full border-0 rounded bg-white shadow-md"
             />
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

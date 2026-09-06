@@ -13,6 +13,8 @@ import {
   AlertTriangle,
   X,
   Download,
+  Eye,
+  ListFilter,
 } from "lucide-react";
 import type { DocumentItem, IssueItem, IssueDecision, IssueDisposition } from "@/lib/api";
 import {
@@ -50,6 +52,9 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
     }
     return 1;
   });
+
+  // Mobile / narrow viewport pane switcher: "document" or "findings"
+  const [mobilePane, setMobilePane] = useState<"document" | "findings">("document");
 
   // Modals
   const [isAuditModalOpen, setIsAuditModalOpen] = useState<boolean>(false);
@@ -223,18 +228,18 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
       {/* Top Navigation & Metadata Bar */}
       <header className="workspace-header">
         <div className="header-left">
-          <Link href={`/documents/${document.id}`} className="workspace-back-link">
+          <Link href={`/documents/${document.id}`} className="workspace-back-link" title="Back to inspection status">
             <ArrowLeft size={16} />
-            <span>Inspection</span>
+            <span className="hidden sm:inline">Inspection</span>
           </Link>
 
           <div className="workspace-doc-meta">
-            <FileText size={18} className="doc-icon" />
-            <div>
-              <h1 className="doc-title">{document.filename}</h1>
-              <p className="doc-subtitle">
+            <FileText size={18} className="doc-icon shrink-0" />
+            <div className="min-w-0">
+              <h1 className="doc-title truncate">{document.filename}</h1>
+              <p className="doc-subtitle truncate">
                 Uploaded {formatDate(document.created_at)} · {document.page_count ?? 1} pages ·{" "}
-                {issues.length} total findings
+                {issues.length} findings
               </p>
             </div>
           </div>
@@ -246,9 +251,10 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
             className="btn btn-secondary btn-sm"
             onClick={() => setIsSummaryModalOpen(true)}
             title="View Traceability Audit Summary"
+            aria-label="Traceability Audit"
           >
             <ShieldCheck size={14} />
-            <span>Traceability Audit</span>
+            <span className="btn-label">Traceability Audit</span>
           </button>
 
           <button
@@ -259,9 +265,10 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
               setIsDictionaryOpen(true);
             }}
             title="View Governed Engineering Dictionary"
+            aria-label="Dictionary"
           >
             <BookOpen size={14} />
-            <span>Dictionary</span>
+            <span className="btn-label">Dictionary</span>
           </button>
 
           <button
@@ -269,9 +276,10 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
             className="btn btn-secondary btn-sm"
             onClick={() => setIsAuditModalOpen(true)}
             title="View Document Audit Trail"
+            aria-label="Audit Trail"
           >
             <History size={14} />
-            <span>Audit Trail</span>
+            <span className="btn-label">Audit Trail</span>
           </button>
 
           <button
@@ -279,10 +287,11 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
             className="btn btn-secondary btn-sm"
             onClick={() => setIsExportModalOpen(true)}
             title="Export Findings and Verification Artifacts"
+            aria-label="Export"
             data-testid="open-export-modal-btn"
           >
             <Download size={14} />
-            <span>Export</span>
+            <span className="btn-label">Export</span>
           </button>
 
           <ThemeToggle />
@@ -293,11 +302,36 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
             onClick={() => void refreshIssues()}
             disabled={isRefreshing}
             aria-label="Refresh issues"
+            title="Refresh issues"
           >
             <RotateCw size={15} className={isRefreshing ? "animate-spin" : ""} />
           </button>
         </div>
       </header>
+
+      {/* Mobile / Tablet Responsive Pane Switcher */}
+      <div className="mobile-pane-switcher" role="tablist" aria-label="Workspace View Mode">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mobilePane === "document"}
+          className={`mobile-pane-tab ${mobilePane === "document" ? "tab-active" : ""}`}
+          onClick={() => setMobilePane("document")}
+        >
+          <Eye size={14} />
+          <span>Document View</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mobilePane === "findings"}
+          className={`mobile-pane-tab ${mobilePane === "findings" ? "tab-active" : ""}`}
+          onClick={() => setMobilePane("findings")}
+        >
+          <ListFilter size={14} />
+          <span>QA Findings ({issues.length})</span>
+        </button>
+      </div>
 
       {/* Global Alert / Conflict Notification */}
       {alertMessage && (
@@ -328,8 +362,8 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
         </div>
       )}
 
-      {/* Split Workspace Body */}
-      <main className="workspace-split-body">
+      {/* Split Workspace Body with responsive mobile pane toggle */}
+      <main className={`workspace-split-body active-pane-${mobilePane}`}>
         {/* Left Pane: Canonical PDF Document Viewer */}
         <div className="workspace-left-pane">
           <DocumentViewer
@@ -341,6 +375,7 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
             onJumpToFinding={(target) => {
               if (target.page_number) {
                 setCurrentPage(target.page_number);
+                setMobilePane("document");
               }
             }}
           />
@@ -351,11 +386,17 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
           <IssuePanel
             issues={issues}
             selectedIssueId={selectedIssueId}
-            onSelectIssue={handleSelectIssue}
+            onSelectIssue={(id) => {
+              handleSelectIssue(id);
+              // On mobile, keep in findings or toggle if user explicitly wants
+            }}
             onDecideIssue={handleDecideIssue}
             onDisposeIssue={handleDisposeIssue}
             onBulkDecideLanguage={handleBulkDecideLanguage}
-            onJumpToPage={(p) => setCurrentPage(p)}
+            onJumpToPage={(p) => {
+              setCurrentPage(p);
+              setMobilePane("document");
+            }}
             onAddToDictionary={(term) => {
               setDictionaryInitialTerm(term);
               setIsDictionaryOpen(true);
