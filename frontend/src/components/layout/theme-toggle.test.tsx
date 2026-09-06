@@ -9,21 +9,21 @@ describe("ThemeToggle", () => {
     document.documentElement.className = "";
   });
 
-  it("defaults to dark and toggles to light mode on click", () => {
+  it("defaults to light and toggles to dark mode on click", () => {
     render(<ThemeToggle />);
 
-    const toggleBtn = screen.getByLabelText("Switch to light theme");
+    const toggleBtn = screen.getByLabelText("Switch to dark theme");
     expect(toggleBtn).toBeDefined();
 
     fireEvent.click(toggleBtn);
 
-    expect(localStorage.getItem("matqc-theme")).toBe("light");
-    expect(document.documentElement.getAttribute("data-theme")).toBe("light");
-    expect(document.documentElement.classList.contains("light")).toBe(true);
-
-    // Click again to toggle back to dark
-    fireEvent.click(screen.getByLabelText("Switch to dark theme"));
     expect(localStorage.getItem("matqc-theme")).toBe("dark");
     expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+    expect(document.documentElement.classList.contains("light")).toBe(false);
+
+    // Click again to toggle back to light
+    fireEvent.click(screen.getByLabelText("Switch to light theme"));
+    expect(localStorage.getItem("matqc-theme")).toBe("light");
+    expect(document.documentElement.getAttribute("data-theme")).toBe("light");
   });
 });

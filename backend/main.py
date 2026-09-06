@@ -47,9 +47,14 @@ async def add_security_headers(
 ) -> Response:
     response: Response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-Frame-Options"] = "SAMEORIGIN"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    # Allow the frontend origin(s) to iframe the canonical PDF (split-screen
+    # review embeds :8000 PDFs inside the :3000 app). X-Frame-Options SAMEORIGIN
+    # would block that cross-origin frame; CSP frame-ancestors is the modern
+    # replacement and is scoped to the configured frontend origins only.
+    frame_origins = " ".join(settings.CORS_ORIGINS)
+    response.headers["Content-Security-Policy"] = f"frame-ancestors 'self' {frame_origins}"
     return response
 
 

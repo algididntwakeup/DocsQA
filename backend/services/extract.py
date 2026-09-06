@@ -33,6 +33,10 @@ _MAX_CELLS_PER_TABLE = 500
 _MAX_ROWS_PER_TABLE = 100
 _MAX_COLS_PER_TABLE = 30
 _PAGE_TIMEOUT_SECONDS = 20.0
+# Pages with more text blocks than this are treated as CAD/drawing raster pages:
+# find_tables() is super-linear here and hangs (measured 25s at ~300 blocks,
+# indefinite at ~900 blocks). Skip table detection entirely on such pages.
+_MAX_TEXT_BLOCKS_FOR_TABLES = 300
 
 
 class PDFExtractor:
@@ -106,6 +110,18 @@ class PDFExtractor:
                     f"Page {page_index}: text extraction exceeded"
                     f" {_PAGE_TIMEOUT_SECONDS}s timeout;"
                     " table extraction skipped for this page."
+                )
+                continue
+
+            # Guard: skip table detection on CAD/drawing pages. find_tables() is a
+            # super-linear, uninterruptible C call that hangs on dense vector pages
+            # (measured 25s at ~300 blocks, indefinite at ~900). Data tables live on
+            # sparse pages; a high block count is a reliable drawing heuristic.
+            num_text_blocks = len(blocks)
+            if num_text_blocks > _MAX_TEXT_BLOCKS_FOR_TABLES:
+                artifact.warnings.append(
+                    f"Page {page_index}: skipped table detection on dense page"
+                    f" ({num_text_blocks} text blocks)."
                 )
                 continue
 

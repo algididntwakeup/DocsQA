@@ -7,9 +7,28 @@ export const metadata: Metadata = {
   description: "Document quality control and traceability audit",
 };
 
+const themeInitScript = `
+(function () {
+  try {
+    var theme = localStorage.getItem("matqc-theme");
+    if (theme !== "dark") theme = "light";
+    document.documentElement.setAttribute("data-theme", theme);
+    if (theme === "light") {
+      document.documentElement.classList.add("light");
+      document.body && document.body.classList.add("light");
+    }
+  } catch (e) {
+    document.documentElement.setAttribute("data-theme", "light");
+  }
+})();
+`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="h-full antialiased">
+    <html lang="en" className="h-full antialiased" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body><AppShell>{children}</AppShell></body>
     </html>
   );

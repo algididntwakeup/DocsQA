@@ -13,13 +13,13 @@ function subscribe(callback: () => void) {
 }
 
 function getSnapshot(): "dark" | "light" {
-  if (typeof window === "undefined") return "dark";
+  if (typeof window === "undefined") return "light";
   const val = localStorage.getItem("matqc-theme");
-  return val === "light" ? "light" : "dark";
+  return val === "dark" ? "dark" : "light";
 }
 
 function getServerSnapshot(): "dark" | "light" {
-  return "dark";
+  return "light";
 }
 
 export function ThemeToggle() {
@@ -28,11 +28,11 @@ export function ThemeToggle() {
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
     if (theme === "light") {
-      document.documentElement.classList.add("light");
-      document.body.classList.add("light");
+      document.documentElement.classList.remove("dark");
+      document.body.classList.remove("dark");
     } else {
-      document.documentElement.classList.remove("light");
-      document.body.classList.remove("light");
+      document.documentElement.classList.add("dark");
+      document.body.classList.add("dark");
     }
   }, [theme]);
 

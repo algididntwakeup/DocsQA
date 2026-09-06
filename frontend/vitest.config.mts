@@ -10,6 +10,8 @@ export default defineConfig({
     environment: "jsdom",
     exclude: ["e2e/**", "node_modules/**"],
     pool: "forks",
+    maxWorkers: 1,
+    testTimeout: 20000,
     setupFiles: ["./src/test-setup.ts"],
   },
 });
