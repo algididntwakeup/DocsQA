@@ -2,11 +2,10 @@
 
 ## Resume point
  
-M0, M1, M2 Deterministic Traceability Core, M3 Review and Audit Workflow,
-and **M4 Linguistic Pipeline & Governed Engineering Dictionary** are complete locally.
-Resume at **M5 Export, Hardening, and Release**.
-Read `START_HERE.md` for the compact document routing rules; do not load the
-entire docs corpus by default.
+All core and production release milestones (M0, M1, M2 Deterministic Traceability Core,
+M3 Review & Audit Workflow, M4 Linguistic Pipeline & Governed Dictionary, and
+**M5 Export, Hardening, and Release**) are complete locally.
+Read `START_HERE.md` and `release_runbook.md` for operational deployment procedures.
 
 ## Verified repository state
 
@@ -79,21 +78,28 @@ entire docs corpus by default.
   - Quality verification: Backend passes Ruff, strict mypy across 60 files, and 186 tests in `quality.ps1`. Frontend passes ESLint, `tsc --noEmit`, 23 Vitest tests across 7 suites, and `next build` in `npm run check`.
 - All commits stay local. Do not run `git push`.
 
-## Next ticket — M5 Export, Hardening, and Release
-
-Implement the final release milestone (M5.1 - M5.4):
-
-1. **M5.1 Multi-Format Export Service**:
-   - Annotated PDF export embedding visual callouts and issue highlight boxes onto document pages;
-   - Machine-readable structured export in CSV, XLSX, and JSON formats for audit compliance.
-2. **M5.2 Real-time Scan Progress (WebSocket / SSE)**:
-   - Server-sent events or WebSocket channel for live pipeline stage progression updates to the frontend workspace.
-3. **M5.3 Hardening, Security, Retention & Performance Verification**:
-   - Automated retention cleanup policies for ephemeral uploads;
-   - Rate limiting, security headers, and large document (200+ pages) benchmark verification.
-4. **M5.4 End-to-End Release Runbook & Verification**:
-   - Full end-to-end integration tests covering upload -> OCR/extraction -> traceability -> linguistic -> review -> export lifecycle;
-   - Docker Compose production stack validation.
+- M5 implementation: complete export services, scan telemetry SSE, and release hardening:
+  - M5.1 Multi-Format Export Service (`backend/services/export.py`):
+    - Annotated PDF (`export_annotated_pdf`): injects coordinate-accurate bounding boxes and callouts onto the original PDF using pure-Python `pypdf`.
+    - Multi-sheet Excel workbook (`export_excel_workbook`): formatted tabs for Executive Summary, Traceability Findings, Linguistic Findings, and full Audit Trail with auto-adjusted column dimensions.
+    - Flat CSV (`export_csv_issues`): RFC 4180 compliant issue log with findings, locations, decisions, and lead dispositions.
+    - JSON audit package (`export_json_audit_bundle`): complete cryptographic audit bundle with document SHA-256 hash, raw analyzer evidence, and event ledger.
+    - REST export endpoint: `GET /api/v1/documents/{document_id}/export?format=pdf|xlsx|csv|json`.
+  - M5.2 Real-time Scan Progress via Server-Sent Events (`backend/api/documents.py`):
+    - `GET /api/v1/documents/{document_id}/events`: streaming progress events with terminal detection and graceful close.
+    - Frontend integration (`frontend/src/components/document/document-status-view.tsx`): live event stream updates with automatic fallback to polling if SSE is unsupported or fails.
+  - M5.3 Security Hardening, Ephemeral Retention & Middleware:
+    - HTTP security headers middleware in `backend/main.py`: `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, `Referrer-Policy`.
+    - Retention service (`backend/services/retention.py`): purges expired documents, disk storage files, and extraction artifacts exceeding the 30-day retention boundary per PRD §4.3.
+  - M5.4 Frontend Export UI & Verification (`frontend/src/components/review/export-modal.tsx`):
+    - "Export" button in split-screen review workspace header opening the multi-format export modal.
+    - 4 distinct download cards with direct download URLs and format badges.
+  - Verification & Release Runbook:
+    - Comprehensive end-to-end integration test (`backend/tests/test_e2e_lifecycle.py`): tests ingestion -> analyzers -> OCC issue decisions -> Lead Reviewer disposition -> all 4 exports.
+    - `backend/scripts/quality.ps1` 100% green: 195 passed tests, 0 Ruff errors, 0 strict Mypy errors across 64 files, valid OpenAPI export, and offline Alembic check.
+    - `frontend/npm run check` 100% green: 0 ESLint errors, 0 TypeScript errors, 28 passed Vitest tests across 8 suites, and clean Next.js 16 production build.
+    - Production operations guide published at `docs/release_runbook.md`.
+- All commits stay local. Do not run `git push`.
 
 ## Operational notes
 

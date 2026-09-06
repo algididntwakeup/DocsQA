@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   AlertTriangle,
   X,
+  Download,
 } from "lucide-react";
 import type { DocumentItem, IssueItem, IssueDecision, IssueDisposition } from "@/lib/api";
 import {
@@ -29,6 +30,7 @@ import { IssuePanel } from "./issue-panel";
 import { AuditTrailModal } from "./audit-trail-modal";
 import { TraceabilitySummaryModal } from "./traceability-summary-modal";
 import { DictionaryModal } from "./dictionary-modal";
+import { ExportModal } from "./export-modal";
 
 interface SplitScreenViewerProps {
   document: DocumentItem;
@@ -52,6 +54,7 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
   const [isAuditModalOpen, setIsAuditModalOpen] = useState<boolean>(false);
   const [isSummaryModalOpen, setIsSummaryModalOpen] = useState<boolean>(false);
   const [isDictionaryOpen, setIsDictionaryOpen] = useState<boolean>(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
   const [dictionaryInitialTerm, setDictionaryInitialTerm] = useState<string | undefined>(undefined);
 
   // Document Disposition State
@@ -272,6 +275,17 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
 
           <button
             type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => setIsExportModalOpen(true)}
+            title="Export Findings and Verification Artifacts"
+            data-testid="open-export-modal-btn"
+          >
+            <Download size={14} />
+            <span>Export</span>
+          </button>
+
+          <button
+            type="button"
             className="icon-button"
             onClick={() => void refreshIssues()}
             disabled={isRefreshing}
@@ -477,6 +491,13 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
           setDictionaryInitialTerm(undefined);
         }}
         onTermCreated={() => void refreshIssues()}
+      />
+
+      <ExportModal
+        documentId={document.id}
+        documentFilename={document.filename}
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
       />
     </div>
   );

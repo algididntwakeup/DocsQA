@@ -3,7 +3,14 @@
 import { AlertTriangle, ArrowLeft, FileText, RotateCw } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ApiError, getDocument, getDocumentStatus, type DocumentItem, type DocumentStatus } from "@/lib/api";
+import {
+  ApiError,
+  getDocument,
+  getDocumentStatus,
+  subscribeDocumentEvents,
+  type DocumentItem,
+  type DocumentStatus,
+} from "@/lib/api";
 import { formatBytes, formatDate } from "@/lib/format";
 import { ScanProgress } from "./scan-progress";
 import { StatusBadge } from "./status-badge";
@@ -18,8 +25,8 @@ export function DocumentStatusView({ id }: { id: string }) {
 
   const load = useCallback(async () => {
     try {
-      setError(null);
       const [nextDocument, nextScan] = await Promise.all([getDocument(id), getDocumentStatus(id)]);
+      setError(null);
       setDocument(nextDocument);
       setScan(nextScan);
       retryRef.current = 1000;
@@ -34,14 +41,66 @@ export function DocumentStatusView({ id }: { id: string }) {
   useEffect(() => {
     let active = true;
     let timer: number | undefined;
-    const poll = async () => {
-      const next = await load();
-      if (!active || (next && TERMINAL.has(next.status))) return;
-      timer = window.setTimeout(() => void poll(), retryRef.current);
+    let unsubscribe: (() => void) | undefined;
+
+    const startPolling = () => {
+      if (!active) return;
+      const poll = async () => {
+        const next = await load();
+        if (!active || (next && TERMINAL.has(next.status))) return;
+        timer = window.setTimeout(() => void poll(), retryRef.current);
+      };
+      void poll();
     };
-    void poll();
-    return () => { active = false; if (timer) window.clearTimeout(timer); };
-  }, [load]);
+
+    const run = async () => {
+      const initial = await load();
+      if (!active || (initial && TERMINAL.has(initial.status))) return;
+
+      if (typeof window !== "undefined" && "EventSource" in window) {
+        try {
+          unsubscribe = subscribeDocumentEvents(
+            id,
+            (event) => {
+              if (!active) return;
+              setScan((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      status: event.status as DocumentStatus["status"],
+                      progress_pct: event.progress_pct,
+                    }
+                  : null
+              );
+              if (TERMINAL.has(event.status)) {
+                void load();
+              }
+            },
+            () => {
+              if (active) void load();
+            },
+            () => {
+              if (active && !timer) {
+                startPolling();
+              }
+            }
+          );
+          return;
+        } catch {
+          // Fall through to polling
+        }
+      }
+      startPolling();
+    };
+
+    void run();
+
+    return () => {
+      active = false;
+      if (timer) window.clearTimeout(timer);
+      if (unsubscribe) unsubscribe();
+    };
+  }, [id, load]);
 
   return (
     <>

@@ -2,7 +2,10 @@
 Document QC & Traceability Audit — FastAPI Application Entry Point
 """
 
-from fastapi import FastAPI, HTTPException
+from collections.abc import Callable
+from typing import Any
+
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -34,6 +37,21 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Security Headers Middleware
+@app.middleware("http")
+async def add_security_headers(
+    request: Request,
+    call_next: Callable[[Request], Any],
+) -> Response:
+    response: Response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
+
 
 app.add_exception_handler(FeatureNotReadyError, feature_not_ready_handler)
 app.add_exception_handler(UploadRejectedError, upload_rejected_handler)

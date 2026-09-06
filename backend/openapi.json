@@ -2344,9 +2344,56 @@
         ]
       }
     },
+    "/api/v1/documents/{document_id}/events": {
+      "get": {
+        "description": "Stream real-time processing progress and stage transitions via Server-Sent Events (SSE).",
+        "operationId": "stream_document_events_api_v1_documents__document_id__events_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Document Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Document not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stream Document Events",
+        "tags": [
+          "documents"
+        ]
+      }
+    },
     "/api/v1/documents/{document_id}/export": {
       "get": {
-        "description": "Export the annotated rendition or structured issue log.",
+        "description": "Export the annotated rendition or structured issue log in PDF, XLSX, CSV, or JSON format.",
         "operationId": "export_document_api_v1_documents__document_id__export_get",
         "parameters": [
           {
@@ -2364,7 +2411,7 @@
             "name": "format",
             "required": true,
             "schema": {
-              "pattern": "^(pdf|xlsx|csv)$",
+              "pattern": "^(pdf|xlsx|csv|json)$",
               "title": "Format",
               "type": "string"
             }
@@ -2373,6 +2420,16 @@
         "responses": {
           "200": {
             "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Document not found"
           },
           "422": {
             "content": {
@@ -2383,16 +2440,6 @@
               }
             },
             "description": "Validation Error"
-          },
-          "501": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description": "Feature not implemented"
           }
         },
         "summary": "Export Document",

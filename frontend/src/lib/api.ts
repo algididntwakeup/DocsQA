@@ -232,4 +232,54 @@ export function approveDictionaryTerm(
   );
 }
 
+export type ExportFormat = "pdf" | "xlsx" | "csv" | "json";
+
+export function getExportUrl(documentId: string, format: ExportFormat): string {
+  return `${API_BASE_URL}/documents/${encodeURIComponent(documentId)}/export?format=${format}`;
+}
+
+export interface DocumentProgressStage {
+  name: string;
+  status: string;
+}
+
+export interface DocumentProgressEvent {
+  document_id: string;
+  status: string;
+  progress_pct: number;
+  stages: DocumentProgressStage[];
+}
+
+export function subscribeDocumentEvents(
+  documentId: string,
+  onProgress: (event: DocumentProgressEvent) => void,
+  onClose?: () => void,
+  onError?: (err: Event) => void
+): () => void {
+  const url = `${API_BASE_URL}/documents/${encodeURIComponent(documentId)}/events`;
+  const eventSource = new EventSource(url);
+
+  eventSource.addEventListener("progress", (e) => {
+    try {
+      const data = JSON.parse(e.data) as DocumentProgressEvent;
+      onProgress(data);
+    } catch {
+      // Ignore malformed progress message
+    }
+  });
+
+  eventSource.addEventListener("close", () => {
+    eventSource.close();
+    onClose?.();
+  });
+
+  eventSource.onerror = (err) => {
+    onError?.(err);
+  };
+
+  return () => {
+    eventSource.close();
+  };
+}
+
 

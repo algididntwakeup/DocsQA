@@ -144,4 +144,19 @@ describe("SplitScreenViewer", () => {
       });
     });
   });
+
+  it("opens export modal when Export button is clicked", async () => {
+    render(<SplitScreenViewer document={mockDoc} initialIssues={mockIssues} />);
+
+    const exportBtn = screen.getByTestId("open-export-modal-btn");
+    fireEvent.click(exportBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText("Export Findings & Audit Package")).toBeDefined();
+      expect(screen.getByTestId("export-pdf-btn")).toBeDefined();
+      expect(screen.getByTestId("export-xlsx-btn")).toBeDefined();
+      expect(screen.getByTestId("export-csv-btn")).toBeDefined();
+      expect(screen.getByTestId("export-json-btn")).toBeDefined();
+    });
+  });
 });

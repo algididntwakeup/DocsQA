@@ -148,6 +148,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/documents/{document_id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stream Document Events
+         * @description Stream real-time processing progress and stage transitions via Server-Sent Events (SSE).
+         */
+        get: operations["stream_document_events_api_v1_documents__document_id__events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/documents/{document_id}/export": {
         parameters: {
             query?: never;
@@ -157,7 +177,7 @@ export interface paths {
         };
         /**
          * Export Document
-         * @description Export the annotated rendition or structured issue log.
+         * @description Export the annotated rendition or structured issue log in PDF, XLSX, CSV, or JSON format.
          */
         get: operations["export_document_api_v1_documents__document_id__export_get"];
         put?: never;
@@ -1471,6 +1491,44 @@ export interface operations {
             };
         };
     };
+    stream_document_events_api_v1_documents__document_id__events_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Document not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     export_document_api_v1_documents__document_id__export_get: {
         parameters: {
             query: {
@@ -1491,6 +1549,15 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Document not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -1498,15 +1565,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-            /** @description Feature not implemented */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
         };

@@ -1,17 +1,16 @@
-"""Contract-first document lifecycle endpoints."""
-
+import json
+from collections.abc import AsyncIterator
 from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.dependencies import get_storage, get_upload_service
-from core.errors import feature_not_ready
 from db.session import get_session
-from domain.enums import IssueCategory, Severity
+from domain.enums import DocumentStatus, IssueCategory, Severity, StageStatus
 from models.audit import AuditEvent
 from models.document import Document, StageRun
 from models.issue import Issue
@@ -30,6 +29,12 @@ from schemas.documents import (
     TraceabilitySummaryResponse,
 )
 from schemas.issues import IssueListResponse, IssueRead
+from services.export import (
+    export_annotated_pdf,
+    export_csv_issues,
+    export_excel_workbook,
+    export_json_audit_bundle,
+)
 from services.pipeline import enqueue_extraction
 from services.storage.local import LocalStorage
 from services.uploads import UploadService
@@ -403,12 +408,153 @@ async def get_traceability_summary(
 @router.get(
     "/{document_id}/export",
     response_class=Response,
-    responses=NOT_READY,
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "model": ProblemDetail,
+            "description": "Document not found",
+        }
+    },
 )
 async def export_document(
     document_id: UUID,
-    format: Annotated[str, Query(pattern=r"^(pdf|xlsx|csv)$")],
+    format: Annotated[str, Query(pattern=r"^(pdf|xlsx|csv|json)$")],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    storage: Annotated[LocalStorage, Depends(get_storage)],
 ) -> Response:
-    """Export the annotated rendition or structured issue log."""
+    """Export the annotated rendition or structured issue log in PDF, XLSX, CSV, or JSON format."""
 
-    feature_not_ready("Document export")
+    document = (
+        await session.execute(select(Document).where(Document.id == document_id))
+    ).scalar_one_or_none()
+    if document is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
+
+    issues = (
+        (
+            await session.execute(
+                select(Issue)
+                .where(Issue.document_id == document_id)
+                .order_by(Issue.created_at.asc(), Issue.id.asc())
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    audit_events = (
+        (
+            await session.execute(
+                select(AuditEvent)
+                .where(AuditEvent.document_id == document_id)
+                .order_by(AuditEvent.created_at.asc(), AuditEvent.id.asc())
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    safe_name = document.safe_filename
+    if format == "pdf":
+        pdf_bytes = export_annotated_pdf(document, list(issues), storage)
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{safe_name}_annotated.pdf"'},
+        )
+    elif format == "xlsx":
+        xlsx_bytes = export_excel_workbook(document, list(issues), list(audit_events))
+        return Response(
+            content=xlsx_bytes,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f'attachment; filename="{safe_name}_issues.xlsx"'},
+        )
+    elif format == "csv":
+        csv_str = export_csv_issues(document, list(issues))
+        return Response(
+            content=csv_str,
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{safe_name}_issues.csv"'},
+        )
+    elif format == "json":
+        bundle = export_json_audit_bundle(document, list(issues), list(audit_events))
+        return JSONResponse(
+            content=bundle,
+            headers={
+                "Content-Disposition": f'attachment; filename="{safe_name}_audit_bundle.json"'
+            },
+        )
+    raise HTTPException(status_code=400, detail=f"Unsupported format: {format}")
+
+
+@router.get(
+    "/{document_id}/events",
+    response_class=StreamingResponse,
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "model": ProblemDetail,
+            "description": "Document not found",
+        }
+    },
+)
+async def stream_document_events(
+    document_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> StreamingResponse:
+    """Stream real-time processing progress and stage transitions via Server-Sent Events (SSE)."""
+
+    document = (
+        await session.execute(select(Document).where(Document.id == document_id))
+    ).scalar_one_or_none()
+    if document is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
+
+    stages_res = (
+        (
+            await session.execute(
+                select(StageRun)
+                .where(StageRun.document_id == document_id)
+                .order_by(StageRun.created_at.asc())
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    completed_stages = sum(
+        1
+        for s in stages_res
+        if s.status in (StageStatus.SUCCEEDED, StageStatus.SUCCEEDED_WITH_WARNINGS)
+    )
+    total_pipeline_stages = 10
+    pct = (
+        100
+        if document.status
+        in (DocumentStatus.COMPLETED, DocumentStatus.COMPLETED_WITH_WARNINGS, DocumentStatus.FAILED)
+        else min(95, int((completed_stages / total_pipeline_stages) * 100))
+    )
+
+    initial_payload = {
+        "document_id": str(document.id),
+        "status": document.status.value,
+        "progress_pct": pct,
+        "stages": [{"name": s.stage_name, "status": s.status.value} for s in stages_res],
+    }
+
+    async def event_generator() -> AsyncIterator[str]:
+        yield f"event: progress\ndata: {json.dumps(initial_payload)}\n\n"
+        if document.status in (
+            DocumentStatus.COMPLETED,
+            DocumentStatus.COMPLETED_WITH_WARNINGS,
+            DocumentStatus.FAILED,
+        ):
+            yield "event: close\ndata: {}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
