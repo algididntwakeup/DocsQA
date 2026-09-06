@@ -18,6 +18,10 @@ vi.mock("@/lib/api", async (importOriginal) => {
   };
 });
 
+vi.mock("./pdf-canvas-viewer", () => ({
+  PdfCanvasViewer: () => <div data-testid="pdf-canvas-viewer-mock">PDF Canvas</div>,
+}));
+
 describe("SplitScreenViewer", () => {
   const mockDoc: DocumentItem = {
     id: "doc-test-123",

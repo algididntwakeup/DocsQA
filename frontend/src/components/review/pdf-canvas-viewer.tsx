@@ -46,31 +46,38 @@ export function PdfCanvasViewer({
   const [loaded, setLoaded] = useState<LoadedDoc | null>(null);
   const [pageCount, setPageCount] = useState<number>(totalPages ?? 1);
   const [zoom, setZoom] = useState<number>(1);
-  const [renderScale, setRenderScale] = useState<number>(1);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [pageSize, setPageSize] = useState<{ width: number; height: number }>({
+  const [containerWidth, setContainerWidth] = useState<number>(0);
+  const [intrinsicSize, setIntrinsicSize] = useState<{ width: number; height: number }>({
     width: 612,
     height: 792,
   });
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Keep the loading task so we can destroy it on unmount / id change.
   const loadingTaskRef = useRef<pdfjsLib.PDFDocumentLoadingTask | null>(null);
 
-  // Resize observer keeps the page fitted comfortably to the pane width.
+  // Resize observer measures scroll pane width without cascading re-renders
   useEffect(() => {
     const scroll = scrollRef.current;
     if (!scroll) return;
     const update = () => {
-      const available = scroll.clientWidth > 0 ? scroll.clientWidth - 48 : 600;
-      const baseWidth = pageSize.width > 0 ? pageSize.width / (renderScale * zoom) : 612;
-      setRenderScale(Math.max(available / baseWidth, 0.35));
+      const w = scroll.clientWidth;
+      if (w > 0) {
+        setContainerWidth((prev) => {
+          // Ignore changes <= 24px (e.g. scrollbar appearing/disappearing) to prevent layout oscillation
+          if (prev === 0 || Math.abs(prev - w) > 24) {
+            return w;
+          }
+          return prev;
+        });
+      }
     };
     update();
     const observer = new ResizeObserver(update);
     observer.observe(scroll);
     return () => observer.disconnect();
-  }, [pageSize.width, renderScale, zoom]);
+  }, []);
 
   // Open the document once; dispose on unmount / id change.
   useEffect(() => {
@@ -92,6 +99,15 @@ export function PdfCanvasViewer({
           void task.destroy();
           return;
         }
+
+        try {
+          const firstPage = await doc.getPage(1);
+          const unscaled = firstPage.getViewport({ scale: 1 });
+          setIntrinsicSize({ width: unscaled.width, height: unscaled.height });
+        } catch {
+          // fallback to initial 612 x 792 if first page unscaled viewport cannot be read
+        }
+
         setPageCount(doc.numPages);
         setLoaded({ doc });
         setIsLoading(false);
@@ -153,11 +169,28 @@ export function PdfCanvasViewer({
     return list;
   }, [highlights, activeIssue]);
 
-  // Render the requested page onto the canvas.
   const effectiveTotalPages = Math.max(totalPages ?? pageCount, 1);
   const pageNumber = Math.min(Math.max(1, currentPage), effectiveTotalPages);
+
+  // Pure derived calculations for fit scale and rendered size
+  const fitScale = useMemo(() => {
+    const available = containerWidth > 48 ? containerWidth - 48 : 600;
+    const base = intrinsicSize.width > 0 ? intrinsicSize.width : 612;
+    return Math.max(available / base, 0.35);
+  }, [containerWidth, intrinsicSize.width]);
+
+  const renderScale = fitScale * zoom;
+
+  const renderedSize = useMemo(() => {
+    return {
+      width: Math.floor((intrinsicSize.width || 612) * renderScale),
+      height: Math.floor((intrinsicSize.height || 792) * renderScale),
+    };
+  }, [intrinsicSize, renderScale]);
+
   const renderTick = useRef(0);
 
+  // Render the requested page onto the canvas.
   useEffect(() => {
     const doc = loaded?.doc;
     const canvas = canvasRef.current;
@@ -175,8 +208,19 @@ export function PdfCanvasViewer({
         const page = await liveDoc.getPage(pageNumber);
         if (cancelled || tick !== renderTick.current) return;
 
-        const scale = renderScale * zoom;
-        const viewport = page.getViewport({ scale });
+        // Check if page intrinsic size differs (e.g. landscape vs portrait)
+        const unscaled = page.getViewport({ scale: 1 });
+        setIntrinsicSize((prev) => {
+          if (
+            Math.abs(prev.width - unscaled.width) < 1 &&
+            Math.abs(prev.height - unscaled.height) < 1
+          ) {
+            return prev;
+          }
+          return { width: unscaled.width, height: unscaled.height };
+        });
+
+        const viewport = page.getViewport({ scale: renderScale });
         const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
 
         const cssWidth = Math.floor(viewport.width);
@@ -187,11 +231,10 @@ export function PdfCanvasViewer({
         liveCanvas.style.width = `${cssWidth}px`;
         liveCanvas.style.height = `${cssHeight}px`;
 
-        setPageSize({ width: cssWidth, height: cssHeight });
-
         const context = liveCanvas.getContext("2d");
         if (!context) return;
         context.setTransform(dpr, 0, 0, dpr, 0, 0);
+
         renderTask = page.render({
           canvasContext: context,
           viewport,
@@ -211,11 +254,15 @@ export function PdfCanvasViewer({
       cancelled = true;
       renderTask?.cancel();
     };
-  }, [loaded, pageNumber, renderScale, zoom, isLoading]);
+  }, [loaded, pageNumber, renderScale, isLoading]);
 
-  // Scroll to top when the requested page changes (jump from issue list).
+  // Scroll to top only when the requested page actually changes
+  const prevPageRef = useRef(pageNumber);
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    if (prevPageRef.current !== pageNumber) {
+      prevPageRef.current = pageNumber;
+      scrollRef.current?.scrollTo({ top: 0, behavior: "instant" });
+    }
   }, [pageNumber]);
 
   // Keyboard navigation
@@ -358,15 +405,15 @@ export function PdfCanvasViewer({
       ) : (
         <div
           ref={scrollRef}
-          className="flex-1 overflow-auto bg-sunken p-4 sm:p-6"
+          className="flex-1 overflow-auto bg-sunken p-4 sm:p-6 [scrollbar-gutter:stable]"
           data-testid="pdf-scroll-area"
         >
           <div className="flex min-h-full items-start justify-center">
             <div
-              className="relative shadow-2xl rounded-sm bg-white transition-transform origin-top"
+              className="relative shadow-2xl rounded-sm bg-white"
               style={{
-                width: `${pageSize.width}px`,
-                height: `${pageSize.height}px`,
+                width: `${renderedSize.width}px`,
+                height: `${renderedSize.height}px`,
               }}
             >
               <canvas
