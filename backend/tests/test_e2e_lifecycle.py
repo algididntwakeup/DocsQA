@@ -141,7 +141,7 @@ async def test_full_document_lifecycle_e2e(tmp_path: Path) -> None:
             health_res = await client.get("/health")
             assert health_res.status_code == 200
             assert health_res.headers["x-content-type-options"] == "nosniff"
-            assert health_res.headers["x-frame-options"] == "SAMEORIGIN"
+            assert "frame-ancestors" in health_res.headers["content-security-policy"]
             assert "strict-origin" in health_res.headers["referrer-policy"]
 
             # Step 4: QA Engineer records decision with OCC

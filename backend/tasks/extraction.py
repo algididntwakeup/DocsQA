@@ -621,6 +621,11 @@ async def _run_extraction(document_id: str) -> dict[str, object]:
             else:
                 stage_run.status = StageStatus.SUCCEEDED
             document.page_count = len(artifact.pages) or None
+        except SoftTimeLimitExceeded:
+            stage_run.status = StageStatus.FAILED
+            stage_run.error_code = "TIMED_OUT"
+            stage_run.error_message = "Extraction exceeded soft time limit."
+            raise
         except Exception as exc:  # noqa: BLE001 — stage failures are recorded, not raised
             code, message = _sanitize_error(exc)
             stage_run.status = StageStatus.FAILED
@@ -699,7 +704,23 @@ async def _mark_timed_out(document_id: str) -> None:
         if document is not None and document.status == DocumentStatus.PROCESSING:
             document.status = DocumentStatus.COMPLETED_WITH_WARNINGS
             document.progress_pct = 100
-            await session.commit()
+
+        # Mark any running stage runs so the UI doesn't spin indefinitely
+        stage_runs = (
+            await session.execute(
+                select(StageRun).where(
+                    StageRun.document_id == doc_id,
+                    StageRun.status == StageStatus.RUNNING,
+                )
+            )
+        ).scalars().all()
+        for sr in stage_runs:
+            sr.status = StageStatus.SUCCEEDED_WITH_WARNINGS
+            sr.error_code = "TIMED_OUT"
+            sr.error_message = "Stage exceeded time limit; partial results preserved."
+            sr.finished_at = datetime.now(UTC)
+
+        await session.commit()
 
 
 @celery_app.task(  # type: ignore[untyped-decorator]
@@ -709,8 +730,8 @@ async def _mark_timed_out(document_id: str) -> None:
     default_retry_delay=5,
     # Do NOT autoretry on Exception — a stuck task would retry and hang again.
     # Only retry on transient infrastructure errors by catching them explicitly below.
-    soft_time_limit=180,  # 3 min soft limit — allows graceful cleanup
-    time_limit=240,       # 4 min hard limit — SIGKILL if still running
+    soft_time_limit=300,  # 5 min soft limit — allows graceful cleanup
+    time_limit=360,       # 6 min hard limit — SIGKILL if still running
 )
 def extract_document_task(self: Any, document_id: str) -> dict[str, object]:
     """Run extraction and persist a failed run before any retry is scheduled."""
@@ -720,7 +741,7 @@ def extract_document_task(self: Any, document_id: str) -> dict[str, object]:
         # Gracefully mark the document as COMPLETED_WITH_WARNINGS so the user can
         # still open the Review Workspace with whatever data was already persisted.
         logger.error(
-            "Document %s extraction exceeded soft time limit (180 s); "
+            "Document %s extraction exceeded soft time limit (300 s); "
             "marking as COMPLETED_WITH_WARNINGS.",
             document_id,
         )

@@ -1,4 +1,4 @@
-﻿# Troubleshooting Guide: Backend Pipeline Extraction Issues
+# Troubleshooting Guide: Backend Pipeline Extraction Issues
 
 > **Status (2026-09-06)**: All bugs below are **FIXED** (commits `3fcc885`,
 > `0b060b3`). This doc is preserved as an incident post-mortem and quick
@@ -62,7 +62,7 @@ until terminal status, then emits `event: close`.
 
 ---
 
-### Bug 4 â€” PyMuPDF CAD table matrix explosion âœ… FIXED `3fcc885`
+### Bug 4 — PyMuPDF CAD table matrix explosion ✅ FIXED `3fcc885`
 
 **File**: `backend/services/extract.py`
 
@@ -74,6 +74,26 @@ until terminal status, then emits `event: close`.
 - Max 20 tables per page (`_MAX_TABLES_PER_PAGE`).
 - Skip any table > 500 cells / 100 rows / 30 cols.
 - Defensive `float()` unpack + degenerate-bbox skip.
+
+---
+
+### Bug 5 — `AttributeError: 'NoneType' object has no attribute 'tables'` & Queue Stuck ✅ FIXED
+
+**Files**: `backend/services/extract.py`, `backend/tasks/extraction.py`, `backend/core/config.py`
+
+**Root cause**:
+1. **Worker Container Down**: The `docsqa-worker-1` container had crashed or exited (`Exited (137)`), so tasks uploaded via API stayed in the Redis queue with status `QUEUED` because no worker consumer was alive.
+2. **PyMuPDF `find_tables()` returned `None`**: On CAD/blueprint pages with dense vector paths (> 500 drawing paths), `page.find_tables()` took > 180s. Celery triggered `SoftTimeLimitExceeded`, which PyMuPDF's C runtime caught internally, causing `page.find_tables()` to return `None`.
+3. **Unchecked `finder.tables`**: `extract.py` accessed `finder.tables` without verifying `finder is not None`, triggering `AttributeError: 'NoneType' object has no attribute 'tables'`.
+4. **Swallowed `SoftTimeLimitExceeded`**: `_run_extraction()` caught `Exception` and marked the document as `FAILED`, preventing the Celery task-level timeout handler from gracefully setting `COMPLETED_WITH_WARNINGS`.
+
+**Fixes**:
+- Started and rebuilt the Celery worker container (`docker compose up -d --build worker`).
+- Added vector drawing guard in `extract.py`: `_MAX_DRAWINGS_FOR_TABLES = 500` (skips table detection on CAD vector schematics with hundreds of paths).
+- Added defensive null-check: `if finder is None: continue` and `all_tables = getattr(finder, "tables", None) or []`.
+- Propagated `SoftTimeLimitExceeded` in `_run_extraction()` and expanded `_mark_timed_out()` to update active `stage_runs`.
+- Increased Celery task limits to `soft_time_limit=300` (5m) and `time_limit=360` (6m).
+- Added `extra="ignore"` to `SettingsConfigDict` in `backend/core/config.py`.
 
 ---
 

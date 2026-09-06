@@ -33,10 +33,11 @@ _MAX_CELLS_PER_TABLE = 500
 _MAX_ROWS_PER_TABLE = 100
 _MAX_COLS_PER_TABLE = 30
 _PAGE_TIMEOUT_SECONDS = 20.0
-# Pages with more text blocks than this are treated as CAD/drawing raster pages:
-# find_tables() is super-linear here and hangs (measured 25s at ~300 blocks,
-# indefinite at ~900 blocks). Skip table detection entirely on such pages.
 _MAX_TEXT_BLOCKS_FOR_TABLES = 300
+# Vector drawings (lines, rects, curves): CAD drawings and P&ID schematics have
+# hundreds/thousands of vector paths. PyMuPDF's find_tables() inspects every path
+# to find line intersections, which hangs or takes minutes per page.
+_MAX_DRAWINGS_FOR_TABLES = 500
 
 
 class PDFExtractor:
@@ -125,6 +126,20 @@ class PDFExtractor:
                 )
                 continue
 
+            # Guard: skip table detection on vector-dense drawing pages (CAD schematics, blueprints)
+            try:
+                drawings = page.get_drawings()
+                num_drawings = len(drawings)
+            except Exception:  # noqa: BLE001
+                num_drawings = 0
+
+            if num_drawings > _MAX_DRAWINGS_FOR_TABLES:
+                artifact.warnings.append(
+                    f"Page {page_index}: skipped table detection on vector-dense page"
+                    f" ({num_drawings} vector paths)."
+                )
+                continue
+
             # Extract tables using PyMuPDF's find_tables.
             # IMPORTANT: page.find_tables() returns a TableFinder object.
             # - finder.tables  → list[Table]  (the table objects to iterate)
@@ -139,7 +154,11 @@ class PDFExtractor:
                 artifact.warnings.append(f"Page {page_index}: find_tables() raised {exc}")
                 continue
 
-            all_tables = finder.tables  # list[Table] — safe attribute, not a generator
+            if finder is None:
+                artifact.warnings.append(f"Page {page_index}: find_tables() returned None.")
+                continue
+
+            all_tables = getattr(finder, "tables", None) or []
             num_found = len(all_tables)
             tables_on_page = all_tables[:_MAX_TABLES_PER_PAGE]
             if num_found > _MAX_TABLES_PER_PAGE:
@@ -149,6 +168,8 @@ class PDFExtractor:
                 )
 
             for table in tables_on_page:
+                if table is None:
+                    continue
                 # Guard: check page-level timeout before each table
                 if time.monotonic() - page_start > _PAGE_TIMEOUT_SECONDS:
                     artifact.warnings.append(
