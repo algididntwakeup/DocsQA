@@ -109,27 +109,35 @@ class PDFExtractor:
                 )
                 continue
 
-            # Extract tables using PyMuPDF's find_tables
-            # Cap number of tables per page to avoid CAD-drawing explosion
+            # Extract tables using PyMuPDF's find_tables.
+            # IMPORTANT: page.find_tables() returns a TableFinder object.
+            # - finder.tables  → list[Table]  (the table objects to iterate)
+            # - Table.cells    → flat list[tuple(x0,y0,x1,y1)] (NOT a 2D grid!)
+            # - Table.rows     → list[TableRow] — the correct 2D row iterator
+            # - TableRow.cells → list[tuple|None] per column slot
+            # Using Table.cells as if it were rows×cols causes TypeError because
+            # each element is already a (x0,y0,x1,y1) tuple, not a row of cells.
             try:
-                raw_tables = page.find_tables()
+                finder = page.find_tables()
             except Exception as exc:  # noqa: BLE001
                 artifact.warnings.append(f"Page {page_index}: find_tables() raised {exc}")
                 continue
 
-            tables_on_page = list(raw_tables)[:_MAX_TABLES_PER_PAGE]
-            if len(list(raw_tables)) > _MAX_TABLES_PER_PAGE:
+            all_tables = finder.tables  # list[Table] — safe attribute, not a generator
+            num_found = len(all_tables)
+            tables_on_page = all_tables[:_MAX_TABLES_PER_PAGE]
+            if num_found > _MAX_TABLES_PER_PAGE:
                 artifact.warnings.append(
-                    f"Page {page_index}: capped at {_MAX_TABLES_PER_PAGE} tables "
-                    f"(found {len(list(raw_tables))})."
+                    f"Page {page_index}: capped at {_MAX_TABLES_PER_PAGE} tables"
+                    f" (found {num_found})."
                 )
 
             for table in tables_on_page:
                 # Guard: check page-level timeout before each table
                 if time.monotonic() - page_start > _PAGE_TIMEOUT_SECONDS:
                     artifact.warnings.append(
-                        f"Page {page_index}: per-page timeout reached during table extraction; "
-                        "remaining tables skipped."
+                        f"Page {page_index}: per-page timeout reached during table"
+                        " extraction; remaining tables skipped."
                     )
                     break
 
@@ -145,62 +153,80 @@ class PDFExtractor:
                     page_height=rect.height,
                 )
 
-                if table.cells:
-                    num_rows = len(table.cells)
-                    num_cols = len(table.cells[0]) if table.cells[0] else 0
-                    total_cells = num_rows * num_cols
+                # Use table.rows for 2D iteration (TableRow.cells is list[tuple|None]).
+                try:
+                    rows = table.rows
+                except Exception as exc:  # noqa: BLE001
+                    artifact.warnings.append(
+                        f"Page {page_index}: table.rows raised {exc}; skipping table."
+                    )
+                    continue
 
-                    # Guard: skip pathological tables (CAD cross-hatching, etc.)
-                    if (
-                        total_cells > _MAX_CELLS_PER_TABLE
-                        or num_rows > _MAX_ROWS_PER_TABLE
-                        or num_cols > _MAX_COLS_PER_TABLE
-                    ):
-                        artifact.warnings.append(
-                            f"Page {page_index}: skipped pathological table with "
-                            f"{num_rows} rows × {num_cols} cols ({total_cells} cells)."
-                        )
-                        continue
+                num_rows = len(rows)
+                num_cols = max((len(r.cells) for r in rows), default=0)
+                total_cells = num_rows * num_cols
 
-                    for row_idx, row in enumerate(table.cells):
-                        for col_idx, cell_rect in enumerate(row):
-                            if cell_rect is None:
-                                continue
+                # Guard: skip pathological tables (CAD cross-hatching, etc.)
+                if (
+                    total_cells > _MAX_CELLS_PER_TABLE
+                    or num_rows > _MAX_ROWS_PER_TABLE
+                    or num_cols > _MAX_COLS_PER_TABLE
+                ):
+                    artifact.warnings.append(
+                        f"Page {page_index}: skipped pathological table with"
+                        f" {num_rows} rows x {num_cols} cols ({total_cells} cells)."
+                    )
+                    continue
 
-                            # Guard: validate bounding box before clip to avoid degenerate rects
-                            if cell_rect[2] <= cell_rect[0] or cell_rect[3] <= cell_rect[1]:
-                                continue
+                for row_idx, table_row in enumerate(rows):
+                    for col_idx, cell_rect in enumerate(table_row.cells):
+                        # cell_rect is None for merged/spanned cells
+                        if cell_rect is None:
+                            continue
 
-                            try:
-                                cell_text = page.get_text("text", clip=cell_rect).strip()
-                            except Exception as exc:  # noqa: BLE001
-                                logger.warning(
-                                    "Error extracting table cell %s,%s: %s",
-                                    row_idx,
-                                    col_idx,
-                                    exc,
+                        # Defensively unpack to validate it is a 4-float bbox
+                        try:
+                            x0 = float(cell_rect[0])
+                            y0 = float(cell_rect[1])
+                            x1 = float(cell_rect[2])
+                            y1 = float(cell_rect[3])
+                        except (TypeError, IndexError, ValueError):
+                            continue
+
+                        # Skip degenerate / inverted bounding boxes
+                        if x1 <= x0 or y1 <= y0:
+                            continue
+
+                        try:
+                            cell_text = page.get_text("text", clip=cell_rect).strip()
+                        except Exception as exc:  # noqa: BLE001
+                            logger.warning(
+                                "Error extracting table cell %s,%s: %s",
+                                row_idx,
+                                col_idx,
+                                exc,
+                            )
+                            continue
+
+                        if cell_text:
+                            cell_bbox = CoordinateContract(
+                                page_index=page_index,
+                                x0=x0,
+                                y0=y0,
+                                x1=x1,
+                                y1=y1,
+                                page_width=rect.width,
+                                page_height=rect.height,
+                            )
+
+                            table_model.cells.append(
+                                TableCell(
+                                    text=cell_text,
+                                    row_index=row_idx,
+                                    col_index=col_idx,
+                                    bbox=cell_bbox,
                                 )
-                                continue
-
-                            if cell_text:
-                                cell_bbox = CoordinateContract(
-                                    page_index=page_index,
-                                    x0=cell_rect[0],
-                                    y0=cell_rect[1],
-                                    x1=cell_rect[2],
-                                    y1=cell_rect[3],
-                                    page_width=rect.width,
-                                    page_height=rect.height,
-                                )
-
-                                table_model.cells.append(
-                                    TableCell(
-                                        text=cell_text,
-                                        row_index=row_idx,
-                                        col_index=col_idx,
-                                        bbox=cell_bbox,
-                                    )
-                                )
+                            )
 
                 if table_model.cells:
                     artifact.tables.append(table_model)
