@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import json
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from typing import Any
+from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
@@ -69,30 +72,46 @@ async def test_stream_document_events_success() -> None:
 
             return MockResult()
 
+        async def __aenter__(self) -> MockAsyncSession:
+            return self
+
+        async def __aexit__(self, *_: Any) -> None:
+            pass
+
+    _mock_session = MockAsyncSession()
+
+    @asynccontextmanager
+    async def mock_session_factory() -> AsyncIterator[MockAsyncSession]:
+        yield _mock_session
+
     async def override_get_session() -> Any:
-        yield MockAsyncSession()
+        yield _mock_session
 
     app.dependency_overrides[get_session] = override_get_session
 
     try:
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            res = await client.get(f"/api/v1/documents/{doc_id}/events")
-            assert res.status_code == 200
-            assert "text/event-stream" in res.headers["content-type"]
+        with patch("api.documents.async_session_factory", mock_session_factory):
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client:
+                res = await client.get(f"/api/v1/documents/{doc_id}/events")
+                assert res.status_code == 200
+                assert "text/event-stream" in res.headers["content-type"]
 
-            content = res.text
-            assert "event: progress" in content
-            assert "event: close" in content
+                content = res.text
+                assert "event: progress" in content
+                assert "event: close" in content
 
-            # Parse SSE data chunk
-            data_line = [line for line in content.splitlines() if line.startswith("data: ")][0]
-            payload = json.loads(data_line[len("data: ") :])
-            assert payload["document_id"] == str(doc_id)
-            assert payload["status"] == "COMPLETED"
-            assert payload["progress_pct"] == 100
-            assert len(payload["stages"]) == 2
+                # Parse SSE data chunk
+                data_line = [line for line in content.splitlines() if line.startswith("data: ")][0]
+                payload = json.loads(data_line[len("data: "):])
+                assert payload["document_id"] == str(doc_id)
+                assert payload["status"] == "COMPLETED"
+                assert payload["progress_pct"] == 100
+                assert len(payload["stages"]) == 2
     finally:
         app.dependency_overrides.clear()
+
 
 
 @pytest.mark.anyio

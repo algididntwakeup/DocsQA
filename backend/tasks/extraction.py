@@ -1,12 +1,14 @@
 """Celery task for the extraction stage of the Document QC pipeline."""
 
 import asyncio
+import contextlib
 from datetime import UTC, datetime
 from io import BytesIO
 from pathlib import Path
 from typing import Any
 from uuid import UUID
 
+from celery.exceptions import SoftTimeLimitExceeded
 from celery.utils.log import get_task_logger
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -687,17 +689,44 @@ async def _run_extraction(document_id: str) -> dict[str, object]:
     return {"document_id": document_id, "stage": EXTRACTION_STAGE}
 
 
+async def _mark_timed_out(document_id: str) -> None:
+    """Set a timed-out document to COMPLETED_WITH_WARNINGS so the UI unblocks."""
+    doc_id = UUID(document_id)
+    async with async_session_factory() as session:
+        document = (
+            await session.execute(select(Document).where(Document.id == doc_id))
+        ).scalar_one_or_none()
+        if document is not None and document.status == DocumentStatus.PROCESSING:
+            document.status = DocumentStatus.COMPLETED_WITH_WARNINGS
+            document.progress_pct = 100
+            await session.commit()
+
+
 @celery_app.task(  # type: ignore[untyped-decorator]
     bind=True,
     name="docqc.extract",
     max_retries=2,
     default_retry_delay=5,
-    autoretry_for=(Exception,),
+    # Do NOT autoretry on Exception — a stuck task would retry and hang again.
+    # Only retry on transient infrastructure errors by catching them explicitly below.
+    soft_time_limit=180,  # 3 min soft limit — allows graceful cleanup
+    time_limit=240,       # 4 min hard limit — SIGKILL if still running
 )
 def extract_document_task(self: Any, document_id: str) -> dict[str, object]:
     """Run extraction and persist a failed run before any retry is scheduled."""
     try:
         return asyncio.run(_run_extraction(document_id))
+    except SoftTimeLimitExceeded:
+        # Gracefully mark the document as COMPLETED_WITH_WARNINGS so the user can
+        # still open the Review Workspace with whatever data was already persisted.
+        logger.error(
+            "Document %s extraction exceeded soft time limit (180 s); "
+            "marking as COMPLETED_WITH_WARNINGS.",
+            document_id,
+        )
+        with contextlib.suppress(Exception):
+            asyncio.run(_mark_timed_out(document_id))
+        return {"document_id": document_id, "timed_out": True}
     except Exception as exc:  # noqa: BLE001 — retry idempotently, artifact state is per-attempt
         request = self.request
         retries = request.retries if request is not None else 0

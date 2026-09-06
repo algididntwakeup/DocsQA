@@ -1,3 +1,4 @@
+import asyncio
 import contextlib
 import json
 import shutil
@@ -11,7 +12,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.dependencies import get_storage, get_upload_service
-from db.session import get_session
+from db.session import async_session_factory, get_session
 from domain.enums import DocumentStatus, IssueCategory, Severity, StageStatus
 from models.audit import AuditEvent
 from models.document import Document, StageRun
@@ -559,46 +560,68 @@ async def stream_document_events(
     if document is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
 
-    stages_res = (
-        (
-            await session.execute(
-                select(StageRun)
-                .where(StageRun.document_id == document_id)
-                .order_by(StageRun.created_at.asc())
-            )
-        )
-        .scalars()
-        .all()
-    )
-
-    completed_stages = sum(
-        1
-        for s in stages_res
-        if s.status in (StageStatus.SUCCEEDED, StageStatus.SUCCEEDED_WITH_WARNINGS)
-    )
-    total_pipeline_stages = 10
-    pct = (
-        100
-        if document.status
-        in (DocumentStatus.COMPLETED, DocumentStatus.COMPLETED_WITH_WARNINGS, DocumentStatus.FAILED)
-        else min(95, int((completed_stages / total_pipeline_stages) * 100))
-    )
-
-    initial_payload = {
-        "document_id": str(document.id),
-        "status": document.status.value,
-        "progress_pct": pct,
-        "stages": [{"name": s.stage_name, "status": s.status.value} for s in stages_res],
+    TERMINAL_STATUSES = {
+        DocumentStatus.COMPLETED,
+        DocumentStatus.COMPLETED_WITH_WARNINGS,
+        DocumentStatus.FAILED,
     }
+    POLL_INTERVAL = 2.0  # seconds between DB polls
+    MAX_POLL_DURATION = 600  # 10 minutes max SSE lifetime
 
     async def event_generator() -> AsyncIterator[str]:
-        yield f"event: progress\ndata: {json.dumps(initial_payload)}\n\n"
-        if document.status in (
-            DocumentStatus.COMPLETED,
-            DocumentStatus.COMPLETED_WITH_WARNINGS,
-            DocumentStatus.FAILED,
-        ):
-            yield "event: close\ndata: {}\n\n"
+        elapsed = 0.0
+        while elapsed < MAX_POLL_DURATION:
+            async with async_session_factory() as poll_session:
+                doc = (
+                    await poll_session.execute(
+                        select(Document).where(Document.id == document_id)
+                    )
+                ).scalar_one_or_none()
+                if doc is None:
+                    yield "event: close\ndata: {}\n\n"
+                    return
+
+                stages_res = (
+                    (
+                        await poll_session.execute(
+                            select(StageRun)
+                            .where(StageRun.document_id == document_id)
+                            .order_by(StageRun.created_at.asc())
+                        )
+                    )
+                    .scalars()
+                    .all()
+                )
+
+            completed_stages = sum(
+                1
+                for s in stages_res
+                if s.status in (StageStatus.SUCCEEDED, StageStatus.SUCCEEDED_WITH_WARNINGS)
+            )
+            total_pipeline_stages = 10
+            pct = (
+                100
+                if doc.status in TERMINAL_STATUSES
+                else min(95, int((completed_stages / total_pipeline_stages) * 100))
+            )
+
+            payload = {
+                "document_id": str(doc.id),
+                "status": doc.status.value,
+                "progress_pct": pct,
+                "stages": [{"name": s.stage_name, "status": s.status.value} for s in stages_res],
+            }
+            yield f"event: progress\ndata: {json.dumps(payload)}\n\n"
+
+            if doc.status in TERMINAL_STATUSES:
+                yield "event: close\ndata: {}\n\n"
+                return
+
+            await asyncio.sleep(POLL_INTERVAL)
+            elapsed += POLL_INTERVAL
+
+        # Timeout — close the SSE stream gracefully
+        yield "event: close\ndata: {}\n\n"
 
     return StreamingResponse(
         event_generator(),
@@ -609,3 +632,4 @@ async def stream_document_events(
             "X-Accel-Buffering": "no",
         },
     )
+

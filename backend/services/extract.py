@@ -10,6 +10,7 @@ Pipeline stage 0 — shared by both Linguistic and Traceability branches.
 import logging
 import subprocess
 import tempfile
+import time
 from contextlib import suppress
 from pathlib import Path
 from uuid import UUID
@@ -25,6 +26,13 @@ from schemas.extraction import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Safety thresholds for pathological PDFs (CAD drawings, blueprints, etc.)
+_MAX_TABLES_PER_PAGE = 20
+_MAX_CELLS_PER_TABLE = 500
+_MAX_ROWS_PER_TABLE = 100
+_MAX_COLS_PER_TABLE = 30
+_PAGE_TIMEOUT_SECONDS = 20.0
 
 
 class PDFExtractor:
@@ -46,6 +54,7 @@ class PDFExtractor:
             return artifact
 
         for page_index in range(len(doc)):
+            page_start = time.monotonic()
             page = doc[page_index]
             rect = page.rect
             page_meta = PageMetadata(
@@ -91,9 +100,39 @@ class PDFExtractor:
                         else:
                             artifact.spans.append(TextSpan(text=text, bbox=bbox))
 
+            # Guard: skip table extraction entirely if page text phase already took too long
+            if time.monotonic() - page_start > _PAGE_TIMEOUT_SECONDS:
+                artifact.warnings.append(
+                    f"Page {page_index}: text extraction exceeded"
+                    f" {_PAGE_TIMEOUT_SECONDS}s timeout;"
+                    " table extraction skipped for this page."
+                )
+                continue
+
             # Extract tables using PyMuPDF's find_tables
-            tables = page.find_tables()
-            for table in tables:
+            # Cap number of tables per page to avoid CAD-drawing explosion
+            try:
+                raw_tables = page.find_tables()
+            except Exception as exc:  # noqa: BLE001
+                artifact.warnings.append(f"Page {page_index}: find_tables() raised {exc}")
+                continue
+
+            tables_on_page = list(raw_tables)[:_MAX_TABLES_PER_PAGE]
+            if len(list(raw_tables)) > _MAX_TABLES_PER_PAGE:
+                artifact.warnings.append(
+                    f"Page {page_index}: capped at {_MAX_TABLES_PER_PAGE} tables "
+                    f"(found {len(list(raw_tables))})."
+                )
+
+            for table in tables_on_page:
+                # Guard: check page-level timeout before each table
+                if time.monotonic() - page_start > _PAGE_TIMEOUT_SECONDS:
+                    artifact.warnings.append(
+                        f"Page {page_index}: per-page timeout reached during table extraction; "
+                        "remaining tables skipped."
+                    )
+                    break
+
                 table_model = Table(cells=[])
                 t_bbox = table.bbox
                 table_model.bbox = CoordinateContract(
@@ -107,9 +146,29 @@ class PDFExtractor:
                 )
 
                 if table.cells:
+                    num_rows = len(table.cells)
+                    num_cols = len(table.cells[0]) if table.cells[0] else 0
+                    total_cells = num_rows * num_cols
+
+                    # Guard: skip pathological tables (CAD cross-hatching, etc.)
+                    if (
+                        total_cells > _MAX_CELLS_PER_TABLE
+                        or num_rows > _MAX_ROWS_PER_TABLE
+                        or num_cols > _MAX_COLS_PER_TABLE
+                    ):
+                        artifact.warnings.append(
+                            f"Page {page_index}: skipped pathological table with "
+                            f"{num_rows} rows × {num_cols} cols ({total_cells} cells)."
+                        )
+                        continue
+
                     for row_idx, row in enumerate(table.cells):
                         for col_idx, cell_rect in enumerate(row):
                             if cell_rect is None:
+                                continue
+
+                            # Guard: validate bounding box before clip to avoid degenerate rects
+                            if cell_rect[2] <= cell_rect[0] or cell_rect[3] <= cell_rect[1]:
                                 continue
 
                             try:
