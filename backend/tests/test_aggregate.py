@@ -349,3 +349,101 @@ def test_aggregation_result_metrics() -> None:
     assert result.issues_by_category[IssueCategory.SYSTEM.value] == 1
     assert result.issues_by_category[IssueCategory.TRACEABILITY.value] == 1
     assert result.issues_by_severity[Severity.HIGH.value] == 2
+
+
+def test_normalize_linguistic_findings() -> None:
+    """Spellcheck, grammar, duplicate, and ambiguity findings normalize to LINGUISTIC issues."""
+    from schemas.issues import BoundingBox, LinguisticEvidence
+    from schemas.linguistic import (
+        AmbiguityAnalysis,
+        DuplicateAnalysis,
+        GrammarAnalysis,
+        LinguisticFinding,
+        SpellcheckAnalysis,
+    )
+
+    doc_id = uuid4()
+    bbox = BoundingBox(
+        page_index=0, x0=50.0, y0=100.0, x1=150.0, y1=120.0, page_width=612.0, page_height=792.0
+    )
+    bbox_orig = BoundingBox(
+        page_index=1, x0=50.0, y0=200.0, x1=150.0, y1=220.0, page_width=612.0, page_height=792.0
+    )
+
+    spellcheck = SpellcheckAnalysis(
+        findings=[
+            LinguisticFinding(
+                type="SPELLING_ERROR",
+                message="Possible typo 'teh'",
+                severity=Severity.LOW,
+                confidence=0.95,
+                original_text="teh",
+                suggestion="the",
+                location=bbox,
+                rule_id="RULE_SPELLING_001",
+            )
+        ]
+    )
+    grammar = GrammarAnalysis(
+        findings=[
+            LinguisticFinding(
+                type="GRAMMAR_ERROR",
+                message="Repeated word 'in in'",
+                severity=Severity.LOW,
+                confidence=0.92,
+                original_text="in in",
+                suggestion="in",
+                location=bbox,
+                rule_id="RULE_GRAMMAR_REPEATED_WORD",
+            )
+        ]
+    )
+    duplicate = DuplicateAnalysis(
+        findings=[
+            LinguisticFinding(
+                type="DUPLICATE_CONTENT",
+                message="Duplicate paragraph",
+                severity=Severity.LOW,
+                confidence=0.90,
+                original_text="All welds must be...",
+                suggestion="Review redundancy",
+                location=bbox,
+                original_location=bbox_orig,
+                rule_id="RULE_DUPLICATE_CONTENT",
+            )
+        ]
+    )
+    ambiguity = AmbiguityAnalysis(
+        findings=[
+            LinguisticFinding(
+                type="AMBIGUOUS_SPECIFICATION",
+                message="Inconsistent material grade 316 vs 316L",
+                severity=Severity.MEDIUM,
+                confidence=0.90,
+                original_text="316",
+                suggestion="Harmonize to single grade",
+                location=bbox,
+                rule_id="RULE_AMBIGUITY_MATERIAL_GRADE",
+            )
+        ]
+    )
+
+    result = aggregate_document_findings(
+        doc_id,
+        spellcheck=spellcheck,
+        grammar=grammar,
+        duplicate=duplicate,
+        ambiguity=ambiguity,
+    )
+
+    assert result.total_issues == 4
+    assert result.issues_by_category[IssueCategory.LINGUISTIC.value] == 4
+    for issue in result.issues:
+        assert isinstance(issue.evidence, LinguisticEvidence)
+        assert issue.evidence.kind == "LINGUISTIC"
+
+    # Verify duplicate finding preserved dual locations
+    dup_issue = next(i for i in result.issues if i.type == "DUPLICATE_CONTENT")
+    assert isinstance(dup_issue.evidence, LinguisticEvidence)
+    assert dup_issue.evidence.original_location is not None
+    assert dup_issue.evidence.original_location.page_index == 1

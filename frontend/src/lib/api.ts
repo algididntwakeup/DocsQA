@@ -151,6 +151,7 @@ export function getIssueLocation(issue: IssueItem): {
   }
   if (ev.kind === "LINGUISTIC") {
     const loc = ev.location;
+    if (!loc) return {};
     if ("page_width" in loc) {
       return { page_number: loc.page_index + 1, bbox: loc };
     }
@@ -158,4 +159,77 @@ export function getIssueLocation(issue: IssueItem): {
   }
   return {};
 }
+
+export interface DictionaryTermItem {
+  id: string;
+  term: string;
+  scope: string;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  rationale?: string | null;
+  approved_at?: string | null;
+  approved_by?: string | null;
+  created_at: string;
+}
+
+export interface DictionaryTermList {
+  terms: DictionaryTermItem[];
+  page_info: {
+    page: number;
+    page_size: number;
+    total: number;
+  };
+}
+
+export interface DictionaryTermCreate {
+  term: string;
+  scope?: string;
+  rationale?: string;
+}
+
+export interface DictionaryTermApproval {
+  status: "APPROVED" | "REJECTED";
+  rationale?: string;
+}
+
+export function listDictionaryTerms(
+  scope?: string,
+  status?: string,
+  page = 1,
+  pageSize = 50
+): Promise<DictionaryTermList> {
+  const params = new URLSearchParams({
+    page: String(page),
+    page_size: String(pageSize),
+  });
+  if (scope) params.append("scope", scope);
+  if (status) params.append("status", status);
+  return request<DictionaryTermList>(`/dictionary/terms?${params.toString()}`, {
+    cache: "no-store",
+  });
+}
+
+export function createDictionaryTerm(
+  payload: DictionaryTermCreate
+): Promise<DictionaryTermItem> {
+  return request<DictionaryTermItem>("/dictionary/terms", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function approveDictionaryTerm(
+  termId: string,
+  payload: DictionaryTermApproval
+): Promise<DictionaryTermItem> {
+  return request<DictionaryTermItem>(
+    `/dictionary/terms/${encodeURIComponent(termId)}/approve`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }
+  );
+}
+
 

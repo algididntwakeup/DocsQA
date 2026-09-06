@@ -1009,6 +1009,16 @@
             ],
             "title": "Location"
           },
+          "original_location": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BoundingBox"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "original_text": {
             "title": "Original Text",
             "type": "string"
@@ -1812,7 +1822,7 @@
   "paths": {
     "/api/v1/dictionary/terms": {
       "get": {
-        "description": "List governed dictionary terms with optional scope filtering.",
+        "description": "List governed dictionary terms with optional scope and status filtering.",
         "operationId": "list_dictionary_terms_api_v1_dictionary_terms_get",
         "parameters": [
           {
@@ -1829,6 +1839,22 @@
                 }
               ],
               "title": "Scope"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/DictionaryTermStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
             }
           },
           {
@@ -1875,16 +1901,6 @@
               }
             },
             "description": "Validation Error"
-          },
-          "501": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description": "Feature not implemented"
           }
         },
         "summary": "List Dictionary Terms",
@@ -1916,6 +1932,26 @@
             },
             "description": "Successful Response"
           },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Dictionary term not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Term already exists for the given scope"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -1925,16 +1961,6 @@
               }
             },
             "description": "Validation Error"
-          },
-          "501": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description": "Feature not implemented"
           }
         },
         "summary": "Create Dictionary Term",
@@ -1980,6 +2006,26 @@
             },
             "description": "Successful Response"
           },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Dictionary term not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Term already exists for the given scope"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -1989,16 +2035,6 @@
               }
             },
             "description": "Validation Error"
-          },
-          "501": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description": "Feature not implemented"
           }
         },
         "summary": "Approve Dictionary Term",

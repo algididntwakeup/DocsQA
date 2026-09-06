@@ -23,12 +23,12 @@ def test_health_is_available() -> None:
 def test_unimplemented_endpoint_uses_problem_details() -> None:
     """Contract-first placeholders fail explicitly with the public error shape."""
 
-    response = client.get("/api/v1/dictionary/terms")
+    response = client.get("/api/v1/standards-registry")
 
     assert response.status_code == 501
     assert response.headers["content-type"].startswith("application/problem+json")
     assert response.json()["code"] == "FEATURE_NOT_READY"
-    assert response.json()["instance"] == "/api/v1/dictionary/terms"
+    assert response.json()["instance"] == "/api/v1/standards-registry"
 
 
 def test_validation_error_uses_problem_details() -> None:

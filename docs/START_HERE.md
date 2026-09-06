@@ -6,9 +6,9 @@ ticket. Repository state always overrides stale prose.
 
 ## Current checkpoint
 
-- M0, M1, M2 Deterministic Traceability Core, and **M3 Review and Audit Workflow**
-  are complete locally.
-- Next milestone: **M4 Linguistic Pipeline**.
+- M0, M1, M2 Deterministic Traceability Core, M3 Review and Audit Workflow,
+  and **M4 Linguistic Pipeline & Governed Engineering Dictionary** are complete locally.
+- Next milestone: **M5 Export, Hardening, and Release**.
 - Never push to GitHub; the owner pushes. Local commits are allowed.
 - The application is a monorepo: `backend/` FastAPI and `frontend/` Next.js.
 

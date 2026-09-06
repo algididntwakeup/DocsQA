@@ -11,6 +11,7 @@ python-docx>=1.1.0
 language-tool-python>=2.8
 spacy>=3.7.0
 thefuzz[speedup]>=0.22.0
+pyspellchecker>=0.8.0
 
 # Async Task Queue (Phase 1 MVP)
 celery[redis]>=5.4.0

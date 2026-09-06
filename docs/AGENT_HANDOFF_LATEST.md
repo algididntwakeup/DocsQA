@@ -2,8 +2,9 @@
 
 ## Resume point
  
-M0, M1, M2 Deterministic Traceability Core, and **M3 Review and Audit Workflow**
-are complete locally. Resume at **M4 Linguistic Pipeline**.
+M0, M1, M2 Deterministic Traceability Core, M3 Review and Audit Workflow,
+and **M4 Linguistic Pipeline & Governed Engineering Dictionary** are complete locally.
+Resume at **M5 Export, Hardening, and Release**.
 Read `START_HERE.md` for the compact document routing rules; do not load the
 entire docs corpus by default.
 
@@ -67,22 +68,32 @@ entire docs corpus by default.
   - Quality verification: Backend passes Ruff, strict mypy across 53 files, and 158 tests in `quality.ps1`. Frontend passes ESLint, `tsc --noEmit`, 18 Vitest tests across 6 suites, and `next build` in `npm run check`.
 - All commits stay local. Do not run `git push`.
 
-## Next ticket — M4 Linguistic Pipeline
+- M4 implementation: complete linguistic analysis pipeline and governed custom dictionary:
+  - M4.2 Governed Custom Engineering Dictionary: `DictionaryTerm` model with composite index `(scope, term)`, Alembic migration `20260906_0005_create_dictionary_terms.py`, REST endpoints `POST /api/v1/dictionary/terms`, `GET /api/v1/dictionary/terms`, `PATCH /api/v1/dictionary/terms/{id}/approve` supporting `PENDING`, `APPROVED`, `REJECTED` workflows.
+  - M4.1a Deterministic Typo & Spelling Detection: `pyspellchecker` integration cross-referenced against approved custom dictionary terms, 100+ standard engineering/metallurgical acronyms (ASME, ASTM, NACE, etc.), chemical elements, and material specifications to guarantee false positives < 5%.
+  - M4.1b Grammar & Style Analysis: LanguageTool integration with circuit-breaker pattern, fallback degradation, suppression of technical writing false positives (imperative instructions, sentence fragments in tables/headings), and deterministic offline rules for repeated words, common homophones, and subject-verb agreement.
+  - M4.3 Near-Duplicate Content Detection: `thefuzz` token sort ratio >= 85% with dual-location bounding box evidence (original occurrence and duplicate occurrence), header/footer suppression, and minimum length threshold.
+  - M4.4 Contextual Ambiguity & Passive Voice: Inconsistent material grades (e.g. 316 vs 316L, 304 vs 304L), vague directive phrases ("as appropriate", "sufficient", "workmanlike"), and passive voice detection with deterministic active voice rewrite suggestions.
+  - Pipeline & Aggregation: Unified linguistic finding aggregation into `IssueRead` records (`category=IssueCategory.LINGUISTIC`, `evidence.kind="LINGUISTIC"`), Celery pipeline stages (`spellcheck`, `grammar`, `duplicate`, `ambiguity`) with isolated failure handling and `COMPLETED_WITH_WARNINGS` degradation.
+  - Frontend: `DictionaryModal` for term management, approval workflows, and status filtering; "Add to Dictionary" CTA button on spelling issue cards pre-filling the submission form; safe location coordinate handling; Language tab bulk acceptance allowed per PRD §3.2.
+  - Quality verification: Backend passes Ruff, strict mypy across 60 files, and 186 tests in `quality.ps1`. Frontend passes ESLint, `tsc --noEmit`, 23 Vitest tests across 7 suites, and `next build` in `npm run check`.
+- All commits stay local. Do not run `git push`.
 
-Implement the deterministic linguistic analysis pipeline (M4.1 - M4.4):
+## Next ticket — M5 Export, Hardening, and Release
 
-1. **M4.1 Grammar & Style Pipeline (LanguageTool Integration)**:
-   - External LanguageTool integration with timeout isolation and fallback degradation (`COMPLETED_WITH_WARNINGS`);
-   - Rule scoping and false-positive reduction filters.
-2. **M4.2 Governed Dictionary System**:
-   - Organization- and project-scoped dictionary entries with approval workflow;
-   - Case-sensitive and regex-based terminology rules.
-3. **M4.3 Duplicate Content & Redundancy Detection**:
-   - Text span comparison across paragraphs and sections;
-   - Similarity thresholding and location bounding box evidence.
-4. **M4.4 Passive Voice & Ambiguity Analyzers**:
-   - Deterministic syntactic pattern detection for ambiguous pronouns and passive constructs;
-   - Suggestion generation and high-confidence tagging for bulk-acceptance eligibility.
+Implement the final release milestone (M5.1 - M5.4):
+
+1. **M5.1 Multi-Format Export Service**:
+   - Annotated PDF export embedding visual callouts and issue highlight boxes onto document pages;
+   - Machine-readable structured export in CSV, XLSX, and JSON formats for audit compliance.
+2. **M5.2 Real-time Scan Progress (WebSocket / SSE)**:
+   - Server-sent events or WebSocket channel for live pipeline stage progression updates to the frontend workspace.
+3. **M5.3 Hardening, Security, Retention & Performance Verification**:
+   - Automated retention cleanup policies for ephemeral uploads;
+   - Rate limiting, security headers, and large document (200+ pages) benchmark verification.
+4. **M5.4 End-to-End Release Runbook & Verification**:
+   - Full end-to-end integration tests covering upload -> OCR/extraction -> traceability -> linguistic -> review -> export lifecycle;
+   - Docker Compose production stack validation.
 
 ## Operational notes
 

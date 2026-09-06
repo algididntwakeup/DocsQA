@@ -93,6 +93,7 @@ class LinguisticEvidence(EvidenceBase):
     original_text: str
     suggestion: str | None = None
     location: BoundingBox | TextSpan
+    original_location: BoundingBox | None = None
 
 
 class StageFailureEvidence(EvidenceBase):

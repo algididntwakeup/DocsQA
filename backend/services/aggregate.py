@@ -19,11 +19,19 @@ from schemas.issues import (
     BoundingBox,
     IssueEvidence,
     IssueRead,
+    LinguisticEvidence,
     ReferenceDriftEvidence,
     RevisionEvidence,
     StageFailureEvidence,
     StandardEvidence,
     TableMathEvidence,
+)
+from schemas.linguistic import (
+    AmbiguityAnalysis,
+    DuplicateAnalysis,
+    GrammarAnalysis,
+    LinguisticFinding,
+    SpellcheckAnalysis,
 )
 from schemas.ref_drift import RefDriftAnalysis, RefDriftFinding
 from schemas.revision import RevisionAnalysis, RevisionSourceName
@@ -328,6 +336,37 @@ def _normalize_stage_failure(
     )
 
 
+def _normalize_linguistic_finding(
+    document_id: UUID,
+    finding: LinguisticFinding,
+    rule_version: str,
+    now: datetime,
+) -> IssueRead:
+    """Normalize one linguistic finding (spelling, grammar, duplicate, ambiguity) to an Issue."""
+    evidence = LinguisticEvidence(
+        extractor_version="1.0",
+        rule_version=rule_version,
+        original_text=finding.original_text,
+        suggestion=finding.suggestion,
+        location=finding.location,
+        original_location=finding.original_location,
+    )
+
+    return IssueRead(
+        id=uuid4(),
+        document_id=document_id,
+        category=IssueCategory.LINGUISTIC,
+        type=finding.type,
+        severity=finding.severity,
+        confidence=finding.confidence,
+        message=finding.message,
+        evidence=evidence,
+        version=1,
+        created_at=now,
+        updated_at=now,
+    )
+
+
 def _dedup_key(issue: IssueRead) -> tuple[Any, ...]:
     """Compute an identity tuple for cross-finding deduplication."""
     ev: IssueEvidence = issue.evidence
@@ -360,6 +399,25 @@ def _dedup_key(issue: IssueRead) -> tuple[Any, ...]:
             ev.body_location.page_index,
             round(ev.body_location.y0, 1),
         )
+    if isinstance(ev, LinguisticEvidence):
+        if isinstance(ev.location, BoundingBox):
+            loc_key = (
+                ev.location.page_index,
+                round(ev.location.x0, 1),
+                round(ev.location.y0, 1),
+            )
+        else:
+            loc_key = (
+                ev.location.page_index,
+                float(ev.location.start),
+                float(ev.location.end),
+            )
+        return (
+            issue.category,
+            issue.type,
+            ev.original_text.lower(),
+            *loc_key,
+        )
     if isinstance(ev, StageFailureEvidence):
         return (issue.category, issue.type, ev.stage)
     return (issue.category, issue.type, issue.message)
@@ -371,6 +429,10 @@ def aggregate_document_findings(
     table_math: TableMathAnalysis | None = None,
     ref_drift: RefDriftAnalysis | None = None,
     standard_traceability: StandardTraceabilityAnalysis | None = None,
+    spellcheck: SpellcheckAnalysis | None = None,
+    grammar: GrammarAnalysis | None = None,
+    duplicate: DuplicateAnalysis | None = None,
+    ambiguity: AmbiguityAnalysis | None = None,
     failed_stages: list[tuple[str, str, bool]] | None = None,
 ) -> AggregationResult:
     """Aggregate, normalize, and deduplicate findings across all pipeline stages."""
@@ -404,7 +466,32 @@ def aggregate_document_findings(
                 )
             )
 
-    # 5. Failed stages
+    # 5. Linguistic analyzers (M4)
+    if spellcheck is not None:
+        for sc_finding in spellcheck.findings:
+            raw_candidates.append(
+                _normalize_linguistic_finding(document_id, sc_finding, spellcheck.rule_version, now)
+            )
+
+    if grammar is not None:
+        for gm_finding in grammar.findings:
+            raw_candidates.append(
+                _normalize_linguistic_finding(document_id, gm_finding, grammar.rule_version, now)
+            )
+
+    if duplicate is not None:
+        for dp_finding in duplicate.findings:
+            raw_candidates.append(
+                _normalize_linguistic_finding(document_id, dp_finding, duplicate.rule_version, now)
+            )
+
+    if ambiguity is not None:
+        for am_finding in ambiguity.findings:
+            raw_candidates.append(
+                _normalize_linguistic_finding(document_id, am_finding, ambiguity.rule_version, now)
+            )
+
+    # 6. Failed stages
     if failed_stages:
         for stage_name, error_code, retryable in failed_stages:
             raw_candidates.append(

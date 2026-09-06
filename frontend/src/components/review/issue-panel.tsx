@@ -23,6 +23,7 @@ interface IssuePanelProps {
   onDisposeIssue: (issueId: string, payload: IssueDisposition) => Promise<void>;
   onBulkDecideLanguage: () => Promise<void>;
   onJumpToPage?: (page: number) => void;
+  onAddToDictionary?: (term: string) => void;
   isLoading?: boolean;
 }
 
@@ -52,6 +53,7 @@ export function IssuePanel({
   onDisposeIssue,
   onBulkDecideLanguage,
   onJumpToPage,
+  onAddToDictionary,
   isLoading = false,
 }: IssuePanelProps) {
   const [activeTab, setActiveTab] = useState<TabType>("traceability");
@@ -315,6 +317,7 @@ export function IssuePanel({
                   onDecide={onDecideIssue}
                   onDispose={onDisposeIssue}
                   onJumpToPage={onJumpToPage}
+                  onAddToDictionary={onAddToDictionary}
                 />
               </div>
             );

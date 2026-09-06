@@ -4,6 +4,7 @@ import { useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
+  BookOpen,
   CheckCircle2,
   FileText,
   History,
@@ -27,6 +28,7 @@ import { DocumentViewer } from "./document-viewer";
 import { IssuePanel } from "./issue-panel";
 import { AuditTrailModal } from "./audit-trail-modal";
 import { TraceabilitySummaryModal } from "./traceability-summary-modal";
+import { DictionaryModal } from "./dictionary-modal";
 
 interface SplitScreenViewerProps {
   document: DocumentItem;
@@ -49,6 +51,8 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
   // Modals
   const [isAuditModalOpen, setIsAuditModalOpen] = useState<boolean>(false);
   const [isSummaryModalOpen, setIsSummaryModalOpen] = useState<boolean>(false);
+  const [isDictionaryOpen, setIsDictionaryOpen] = useState<boolean>(false);
+  const [dictionaryInitialTerm, setDictionaryInitialTerm] = useState<string | undefined>(undefined);
 
   // Document Disposition State
   const [documentDisposition, setDocumentDispositionState] = useState<string | null>(null);
@@ -246,6 +250,19 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
           <button
             type="button"
             className="btn btn-secondary btn-sm"
+            onClick={() => {
+              setDictionaryInitialTerm(undefined);
+              setIsDictionaryOpen(true);
+            }}
+            title="View Governed Engineering Dictionary"
+          >
+            <BookOpen size={14} />
+            <span>Dictionary</span>
+          </button>
+
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
             onClick={() => setIsAuditModalOpen(true)}
             title="View Document Audit Trail"
           >
@@ -322,6 +339,10 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
             onDisposeIssue={handleDisposeIssue}
             onBulkDecideLanguage={handleBulkDecideLanguage}
             onJumpToPage={(p) => setCurrentPage(p)}
+            onAddToDictionary={(term) => {
+              setDictionaryInitialTerm(term);
+              setIsDictionaryOpen(true);
+            }}
           />
         </div>
       </main>
@@ -446,6 +467,16 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
         documentId={document.id}
         isOpen={isSummaryModalOpen}
         onClose={() => setIsSummaryModalOpen(false)}
+      />
+
+      <DictionaryModal
+        isOpen={isDictionaryOpen}
+        initialTerm={dictionaryInitialTerm}
+        onClose={() => {
+          setIsDictionaryOpen(false);
+          setDictionaryInitialTerm(undefined);
+        }}
+        onTermCreated={() => void refreshIssues()}
       />
     </div>
   );

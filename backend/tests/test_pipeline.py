@@ -15,9 +15,13 @@ from services.pipeline import enqueue_extraction
 from services.storage import LocalStorage
 from tasks.extraction import (
     _run_aggregation_stage,
+    _run_ambiguity_stage,
+    _run_duplicate_stage,
     _run_extraction,
+    _run_grammar_stage,
     _run_ref_drift_stage,
     _run_revision_stage,
+    _run_spellcheck_stage,
     _run_standard_stage,
     _run_table_math_stage,
     _sanitize_error,
@@ -296,3 +300,64 @@ def test_aggregation_stage_handles_failed_stages_with_warnings(tmp_path: Path) -
     issues = session.add_all.call_args.args[0]
     assert len(issues) == 1
     assert issues[0].type == "STAGE_FAILURE"
+
+
+def test_spellcheck_stage_success_and_failure_isolation(tmp_path: Path) -> None:
+    """Spellcheck stage executes with isolated failure handling."""
+    document = Document(id=uuid.uuid4(), original_filename="Report.pdf")
+    session = AsyncMock(spec=AsyncSession)
+    artifact = ExtractionArtifact(document_id=document.id)
+
+    with (
+        patch("tasks.extraction._latest_attempt", AsyncMock(return_value=1)),
+        patch("tasks.extraction.get_approved_dictionary_terms", AsyncMock(return_value=set())),
+    ):
+        failed = asyncio.run(
+            _run_spellcheck_stage(
+                session,
+                LocalStorage(tmp_path),
+                document,
+                artifact,
+            )
+        )
+    assert failed is False
+
+    # Failure isolation
+    with (
+        patch("tasks.extraction._latest_attempt", AsyncMock(return_value=1)),
+        patch(
+            "tasks.extraction.get_approved_dictionary_terms",
+            AsyncMock(side_effect=RuntimeError("db error")),
+        ),
+    ):
+        failed = asyncio.run(
+            _run_spellcheck_stage(
+                session,
+                LocalStorage(tmp_path),
+                document,
+                artifact,
+            )
+        )
+    assert failed is True
+
+
+def test_grammar_duplicate_ambiguity_stage_success(tmp_path: Path) -> None:
+    """Grammar, duplicate, and ambiguity stages execute and persist cleanly."""
+    document = Document(id=uuid.uuid4(), original_filename="Report.pdf")
+    session = AsyncMock(spec=AsyncSession)
+    artifact = ExtractionArtifact(document_id=document.id)
+
+    with patch("tasks.extraction._latest_attempt", AsyncMock(return_value=1)):
+        g_failed = asyncio.run(
+            _run_grammar_stage(session, LocalStorage(tmp_path), document, artifact)
+        )
+        d_failed = asyncio.run(
+            _run_duplicate_stage(session, LocalStorage(tmp_path), document, artifact)
+        )
+        a_failed = asyncio.run(
+            _run_ambiguity_stage(session, LocalStorage(tmp_path), document, artifact)
+        )
+
+    assert g_failed is False
+    assert d_failed is False
+    assert a_failed is False

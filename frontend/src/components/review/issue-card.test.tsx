@@ -129,4 +129,52 @@ describe("IssueCard", () => {
 
     expect(onJumpToPage).toHaveBeenCalledWith(4);
   });
+
+  it("renders Add to Dictionary button and triggers callback for spelling issues", () => {
+    const onAddToDictionary = vi.fn();
+    const spellIssue: IssueItem = {
+      id: "iss-spell-1",
+      document_id: "doc-1",
+      category: "LINGUISTIC",
+      type: "SPELLING_ERROR",
+      severity: "LOW",
+      confidence: 0.9,
+      message: "Unrecognized word 'inconel'",
+      version: 1,
+      evidence: {
+        kind: "LINGUISTIC",
+        extractor_version: "1.0",
+        rule_version: "1.0",
+        original_text: "inconel",
+        suggestion: "incline",
+        location: {
+          page_index: 0,
+          x0: 50,
+          y0: 100,
+          x1: 150,
+          y1: 120,
+          page_width: 612,
+          page_height: 792,
+        },
+      },
+      created_at: "2026-09-05T10:00:00Z",
+      updated_at: "2026-09-05T10:00:00Z",
+    };
+
+    render(
+      <IssueCard
+        issue={spellIssue}
+        onDecide={vi.fn()}
+        onDispose={vi.fn()}
+        onJumpToPage={vi.fn()}
+        onAddToDictionary={onAddToDictionary}
+      />
+    );
+
+    const dictBtn = screen.getByRole("button", { name: /add to dictionary/i });
+    expect(dictBtn).toBeDefined();
+    fireEvent.click(dictBtn);
+    expect(onAddToDictionary).toHaveBeenCalledWith("inconel");
+  });
 });
+

@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   AlertCircle,
   AlertTriangle,
+  BookOpen,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
@@ -24,6 +25,7 @@ interface IssueCardProps {
   onDecide: (issueId: string, payload: IssueDecision) => Promise<void>;
   onDispose: (issueId: string, payload: IssueDisposition) => Promise<void>;
   onJumpToPage?: (page: number) => void;
+  onAddToDictionary?: (term: string) => void;
 }
 
 export function IssueCard({
@@ -33,6 +35,7 @@ export function IssueCard({
   onDecide,
   onDispose,
   onJumpToPage,
+  onAddToDictionary,
 }: IssueCardProps) {
   const [isExpanded, setIsExpanded] = useState<boolean>(true);
   const [comment, setComment] = useState<string>("");
@@ -356,6 +359,24 @@ export function IssueCard({
                 <Flag className="w-3.5 h-3.5" />
                 Flag
               </button>
+
+              {issue.category === "LINGUISTIC" &&
+                (issue.type === "SPELLING_ERROR" || issue.type?.includes("SPELL")) &&
+                onAddToDictionary && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const term = String(evidence.original_text ?? issue.message);
+                    onAddToDictionary(term);
+                  }}
+                  className="px-2.5 py-1 rounded bg-sky-800/60 hover:bg-sky-700 text-sky-200 text-xs font-medium transition-colors flex items-center gap-1"
+                  title="Add term to Governed Engineering Dictionary"
+                >
+                  <BookOpen className="w-3.5 h-3.5" />
+                  Add to Dictionary
+                </button>
+              )}
 
               <button
                 type="button"

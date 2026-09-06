@@ -21,20 +21,32 @@ from schemas.base import ApiModel
 from schemas.extraction import ExtractionArtifact
 from schemas.issues import (
     IssueEvidence,
+    LinguisticEvidence,
     ReferenceDriftEvidence,
     RevisionEvidence,
     StageFailureEvidence,
     StandardEvidence,
     TableMathEvidence,
 )
+from schemas.linguistic import (
+    AmbiguityAnalysis,
+    DuplicateAnalysis,
+    GrammarAnalysis,
+    SpellcheckAnalysis,
+)
 from schemas.ref_drift import RefDriftAnalysis
 from schemas.revision import RevisionAnalysis
 from schemas.standard_traceability import StandardTraceabilityAnalysis
 from schemas.table_math import TableMathAnalysis
 from services.aggregate import aggregate_document_findings
+from services.ambiguity import analyze_ambiguity
+from services.dictionary import get_approved_dictionary_terms
+from services.duplicate import analyze_duplicates
 from services.extract import extract_document
+from services.grammar import analyze_grammar
 from services.ref_drift import analyze_ref_drift
 from services.revision_sync import analyze_revision
+from services.spellcheck import analyze_spelling
 from services.standard_traceability import analyze_standard_traceability
 from services.storage import LocalStorage
 from services.trace_numbers import analyze_table_math
@@ -46,6 +58,10 @@ REVISION_STAGE = "revision_sync"
 TABLE_MATH_STAGE = "table_math"
 REF_DRIFT_STAGE = "ref_drift"
 STANDARD_STAGE = "standard_traceability"
+SPELLCHECK_STAGE = "spellcheck"
+GRAMMAR_STAGE = "grammar"
+DUPLICATE_STAGE = "duplicate_content"
+AMBIGUITY_STAGE = "ambiguity"
 AGGREGATION_STAGE = "aggregation"
 
 
@@ -255,6 +271,177 @@ async def _run_standard_stage(
     return standard_failed
 
 
+async def _run_spellcheck_stage(
+    session: AsyncSession,
+    storage: LocalStorage,
+    document: Document,
+    artifact: ExtractionArtifact,
+) -> bool:
+    """Persist spellcheck findings while isolating analyzer failures."""
+    stage_run = StageRun(
+        document_id=document.id,
+        stage_name=SPELLCHECK_STAGE,
+        status=StageStatus.RUNNING,
+        progress_pct=0,
+        attempt=await _latest_attempt(session, document.id, SPELLCHECK_STAGE),
+        started_at=datetime.now(UTC),
+    )
+    session.add(stage_run)
+    await session.commit()
+
+    spellcheck_failed = False
+    try:
+        custom_dict = await get_approved_dictionary_terms(
+            session, project_id=getattr(document, "project_id", None)
+        )
+        analysis = analyze_spelling(artifact, custom_dictionary=custom_dict)
+        stage_run.artifact_uri = _persist_artifact(
+            storage,
+            document.id,
+            SPELLCHECK_STAGE,
+            analysis.model_dump_json().encode("utf-8"),
+        )
+        stage_run.progress_pct = 100
+        stage_run.status = StageStatus.SUCCEEDED
+    except Exception as exc:  # noqa: BLE001 — analyzer failures remain isolated
+        spellcheck_failed = True
+        code, message = _sanitize_error(exc)
+        stage_run.status = StageStatus.FAILED
+        stage_run.error_code = code
+        stage_run.error_message = message
+        logger.exception("Spellcheck failed for document %s", document.id)
+    finally:
+        stage_run.finished_at = datetime.now(UTC)
+        await session.commit()
+    return spellcheck_failed
+
+
+async def _run_grammar_stage(
+    session: AsyncSession,
+    storage: LocalStorage,
+    document: Document,
+    artifact: ExtractionArtifact,
+) -> bool:
+    """Persist grammar findings while isolating analyzer failures."""
+    stage_run = StageRun(
+        document_id=document.id,
+        stage_name=GRAMMAR_STAGE,
+        status=StageStatus.RUNNING,
+        progress_pct=0,
+        attempt=await _latest_attempt(session, document.id, GRAMMAR_STAGE),
+        started_at=datetime.now(UTC),
+    )
+    session.add(stage_run)
+    await session.commit()
+
+    grammar_failed = False
+    try:
+        analysis = analyze_grammar(artifact)
+        stage_run.artifact_uri = _persist_artifact(
+            storage,
+            document.id,
+            GRAMMAR_STAGE,
+            analysis.model_dump_json().encode("utf-8"),
+        )
+        stage_run.progress_pct = 100
+        stage_run.status = StageStatus.SUCCEEDED
+    except Exception as exc:  # noqa: BLE001 — analyzer failures remain isolated
+        grammar_failed = True
+        code, message = _sanitize_error(exc)
+        stage_run.status = StageStatus.FAILED
+        stage_run.error_code = code
+        stage_run.error_message = message
+        logger.exception("Grammar analysis failed for document %s", document.id)
+    finally:
+        stage_run.finished_at = datetime.now(UTC)
+        await session.commit()
+    return grammar_failed
+
+
+async def _run_duplicate_stage(
+    session: AsyncSession,
+    storage: LocalStorage,
+    document: Document,
+    artifact: ExtractionArtifact,
+) -> bool:
+    """Persist duplicate findings while isolating analyzer failures."""
+    stage_run = StageRun(
+        document_id=document.id,
+        stage_name=DUPLICATE_STAGE,
+        status=StageStatus.RUNNING,
+        progress_pct=0,
+        attempt=await _latest_attempt(session, document.id, DUPLICATE_STAGE),
+        started_at=datetime.now(UTC),
+    )
+    session.add(stage_run)
+    await session.commit()
+
+    duplicate_failed = False
+    try:
+        analysis = analyze_duplicates(artifact)
+        stage_run.artifact_uri = _persist_artifact(
+            storage,
+            document.id,
+            DUPLICATE_STAGE,
+            analysis.model_dump_json().encode("utf-8"),
+        )
+        stage_run.progress_pct = 100
+        stage_run.status = StageStatus.SUCCEEDED
+    except Exception as exc:  # noqa: BLE001 — analyzer failures remain isolated
+        duplicate_failed = True
+        code, message = _sanitize_error(exc)
+        stage_run.status = StageStatus.FAILED
+        stage_run.error_code = code
+        stage_run.error_message = message
+        logger.exception("Duplicate analysis failed for document %s", document.id)
+    finally:
+        stage_run.finished_at = datetime.now(UTC)
+        await session.commit()
+    return duplicate_failed
+
+
+async def _run_ambiguity_stage(
+    session: AsyncSession,
+    storage: LocalStorage,
+    document: Document,
+    artifact: ExtractionArtifact,
+) -> bool:
+    """Persist ambiguity findings while isolating analyzer failures."""
+    stage_run = StageRun(
+        document_id=document.id,
+        stage_name=AMBIGUITY_STAGE,
+        status=StageStatus.RUNNING,
+        progress_pct=0,
+        attempt=await _latest_attempt(session, document.id, AMBIGUITY_STAGE),
+        started_at=datetime.now(UTC),
+    )
+    session.add(stage_run)
+    await session.commit()
+
+    ambiguity_failed = False
+    try:
+        analysis = analyze_ambiguity(artifact)
+        stage_run.artifact_uri = _persist_artifact(
+            storage,
+            document.id,
+            AMBIGUITY_STAGE,
+            analysis.model_dump_json().encode("utf-8"),
+        )
+        stage_run.progress_pct = 100
+        stage_run.status = StageStatus.SUCCEEDED
+    except Exception as exc:  # noqa: BLE001 — analyzer failures remain isolated
+        ambiguity_failed = True
+        code, message = _sanitize_error(exc)
+        stage_run.status = StageStatus.FAILED
+        stage_run.error_code = code
+        stage_run.error_message = message
+        logger.exception("Ambiguity analysis failed for document %s", document.id)
+    finally:
+        stage_run.finished_at = datetime.now(UTC)
+        await session.commit()
+    return ambiguity_failed
+
+
 def _extract_page_number(evidence: IssueEvidence) -> int | None:
     """Extract a 1-indexed page number from evidence for database indexing."""
     if isinstance(evidence, TableMathEvidence):
@@ -265,6 +452,8 @@ def _extract_page_number(evidence: IssueEvidence) -> int | None:
         return evidence.locations[0].page_index + 1 if evidence.locations else 1
     if isinstance(evidence, StandardEvidence):
         return evidence.body_location.page_index + 1
+    if isinstance(evidence, LinguisticEvidence):
+        return int(evidence.location.page_index + 1)
     if isinstance(evidence, StageFailureEvidence):
         return None
     return None
@@ -312,6 +501,12 @@ async def _run_aggregation_stage(
         standard = _load_stage_artifact(
             storage, document.id, STANDARD_STAGE, StandardTraceabilityAnalysis
         )
+        spellcheck = _load_stage_artifact(
+            storage, document.id, SPELLCHECK_STAGE, SpellcheckAnalysis
+        )
+        grammar = _load_stage_artifact(storage, document.id, GRAMMAR_STAGE, GrammarAnalysis)
+        duplicate = _load_stage_artifact(storage, document.id, DUPLICATE_STAGE, DuplicateAnalysis)
+        ambiguity = _load_stage_artifact(storage, document.id, AMBIGUITY_STAGE, AmbiguityAnalysis)
 
         result = aggregate_document_findings(
             document_id=document.id,
@@ -319,6 +514,10 @@ async def _run_aggregation_stage(
             table_math=table_math,
             ref_drift=ref_drift,
             standard_traceability=standard,
+            spellcheck=spellcheck,
+            grammar=grammar,
+            duplicate=duplicate,
+            ambiguity=ambiguity,
             failed_stages=failed_stages,
         )
 
@@ -444,6 +643,10 @@ async def _run_extraction(document_id: str) -> dict[str, object]:
                     extraction_degraded or revision_failed or table_math_failed or ref_drift_failed
                 ),
             )
+            spellcheck_failed = await _run_spellcheck_stage(session, storage, document, artifact)
+            grammar_failed = await _run_grammar_stage(session, storage, document, artifact)
+            duplicate_failed = await _run_duplicate_stage(session, storage, document, artifact)
+            ambiguity_failed = await _run_ambiguity_stage(session, storage, document, artifact)
 
             failed_stages: list[tuple[str, str, bool]] = []
             if revision_failed:
@@ -454,6 +657,14 @@ async def _run_extraction(document_id: str) -> dict[str, object]:
                 failed_stages.append((REF_DRIFT_STAGE, "REF_DRIFT_ANALYSIS_FAILED", True))
             if standard_failed:
                 failed_stages.append((STANDARD_STAGE, "STANDARD_TRACEABILITY_FAILED", True))
+            if spellcheck_failed:
+                failed_stages.append((SPELLCHECK_STAGE, "SPELLCHECK_ANALYSIS_FAILED", True))
+            if grammar_failed:
+                failed_stages.append((GRAMMAR_STAGE, "GRAMMAR_ANALYSIS_FAILED", True))
+            if duplicate_failed:
+                failed_stages.append((DUPLICATE_STAGE, "DUPLICATE_ANALYSIS_FAILED", True))
+            if ambiguity_failed:
+                failed_stages.append((AMBIGUITY_STAGE, "AMBIGUITY_ANALYSIS_FAILED", True))
 
             await _run_aggregation_stage(
                 session,
@@ -466,6 +677,10 @@ async def _run_extraction(document_id: str) -> dict[str, object]:
                     or table_math_failed
                     or ref_drift_failed
                     or standard_failed
+                    or spellcheck_failed
+                    or grammar_failed
+                    or duplicate_failed
+                    or ambiguity_failed
                 ),
             )
 
