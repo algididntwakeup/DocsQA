@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import type { components } from "@/lib/api-schema";
 import { getIssueLocation, type IssueItem } from "@/lib/api";
@@ -127,7 +127,7 @@ export function HighlightOverlay({
             title={label ? `${label} (Finding Anchor)` : "Finding Anchor"}
           >
             {label && (
-              <span className="absolute -top-4 left-0 bg-[#0f172a] border border-[#334155] text-[10px] text-white font-mono px-1 py-0.2 rounded shadow whitespace-nowrap highlight-tag">
+              <span className="absolute -top-4 left-0 bg-[#ef4444] text-[10px] text-white font-mono px-1 py-0.2 rounded shadow whitespace-nowrap highlight-tag">
                 {label}
               </span>
             )}

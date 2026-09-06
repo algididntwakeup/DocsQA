@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import {
@@ -130,24 +130,24 @@ export function DocumentViewer({
   }, [currentPage, effectiveTotalPages, onPageChange]);
 
   return (
-    <div className="flex flex-col h-full bg-[#060e20] border-r border-[#1e293b] select-none">
+    <div className="flex flex-col h-full bg-sunken border-r border-line select-none">
       {/* Top Toolbar */}
-      <div className="flex items-center justify-between px-4 py-2.5 bg-[#0b1326] border-b border-[#1e293b] text-sm text-[#cbd5e1]">
+      <div className="flex items-center justify-between px-4 py-2.5 bg-panel border-b border-line text-sm text-ink-soft">
         {/* Document Info */}
         <div className="flex items-center gap-2 truncate max-w-[280px]">
-          <span className="font-mono text-xs text-[#7890b4] uppercase">DOC</span>
-          <span className="font-medium text-xs text-white truncate" title={effectiveTitle}>
+          <span className="font-mono text-xs text-muted uppercase">DOC</span>
+          <span className="font-medium text-xs text-ink truncate" title={effectiveTitle}>
             {effectiveTitle}
           </span>
         </div>
 
         {/* Page Navigation Controls */}
-        <div className="flex items-center gap-1.5 bg-[#0f172a] px-2 py-1 rounded border border-[#1e293b]">
+        <div className="flex items-center gap-1.5 bg-panel px-2 py-1 rounded border border-line">
           <button
             type="button"
             onClick={handleFirst}
             disabled={currentPage <= 1}
-            className="p-1 rounded hover:bg-[#1e293b] disabled:opacity-30 disabled:cursor-not-allowed text-[#94a3b8]"
+            className="p-1 rounded hover:bg-panel-raised disabled:opacity-30 disabled:cursor-not-allowed text-muted"
             title="First Page"
           >
             <ChevronsLeft className="w-4 h-4" />
@@ -156,13 +156,13 @@ export function DocumentViewer({
             type="button"
             onClick={handlePrev}
             disabled={currentPage <= 1}
-            className="p-1 rounded hover:bg-[#1e293b] disabled:opacity-30 disabled:cursor-not-allowed text-[#94a3b8]"
+            className="p-1 rounded hover:bg-panel-raised disabled:opacity-30 disabled:cursor-not-allowed text-muted"
             title="Previous Page (Left Arrow)"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
 
-          <span className="font-mono text-xs px-2 text-white">
+          <span className="font-mono text-xs px-2 text-ink">
             Page {currentPage} of {effectiveTotalPages}
           </span>
 
@@ -170,7 +170,7 @@ export function DocumentViewer({
             type="button"
             onClick={handleNext}
             disabled={currentPage >= effectiveTotalPages}
-            className="p-1 rounded hover:bg-[#1e293b] disabled:opacity-30 disabled:cursor-not-allowed text-[#94a3b8]"
+            className="p-1 rounded hover:bg-panel-raised disabled:opacity-30 disabled:cursor-not-allowed text-muted"
             title="Next Page (Right Arrow)"
           >
             <ChevronRight className="w-4 h-4" />
@@ -179,7 +179,7 @@ export function DocumentViewer({
             type="button"
             onClick={handleLast}
             disabled={currentPage >= effectiveTotalPages}
-            className="p-1 rounded hover:bg-[#1e293b] disabled:opacity-30 disabled:cursor-not-allowed text-[#94a3b8]"
+            className="p-1 rounded hover:bg-panel-raised disabled:opacity-30 disabled:cursor-not-allowed text-muted"
             title="Last Page"
           >
             <ChevronsRight className="w-4 h-4" />
@@ -188,20 +188,20 @@ export function DocumentViewer({
 
         {/* Zoom & View Controls */}
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 bg-[#0f172a] px-2 py-1 rounded border border-[#1e293b]">
+          <div className="flex items-center gap-1 bg-panel px-2 py-1 rounded border border-line">
             <button
               type="button"
               onClick={() => setZoomLevel((z) => Math.max(z - 15, 50))}
-              className="p-1 rounded hover:bg-[#1e293b] text-[#94a3b8]"
+              className="p-1 rounded hover:bg-panel-raised text-muted"
               title="Zoom Out"
             >
               <ZoomOut className="w-3.5 h-3.5" />
             </button>
-            <span className="font-mono text-[11px] px-1 text-[#cbd5e1]">{zoomLevel}%</span>
+            <span className="font-mono text-[11px] px-1 text-ink-soft">{zoomLevel}%</span>
             <button
               type="button"
               onClick={() => setZoomLevel((z) => Math.min(z + 15, 200))}
-              className="p-1 rounded hover:bg-[#1e293b] text-[#94a3b8]"
+              className="p-1 rounded hover:bg-panel-raised text-muted"
               title="Zoom In"
             >
               <ZoomIn className="w-3.5 h-3.5" />
@@ -209,21 +209,21 @@ export function DocumentViewer({
             <button
               type="button"
               onClick={() => setZoomLevel(100)}
-              className="p-1 rounded hover:bg-[#1e293b] text-[#94a3b8]"
+              className="p-1 rounded hover:bg-panel-raised text-muted"
               title="Reset Zoom"
             >
               <Maximize2 className="w-3.5 h-3.5" />
             </button>
           </div>
 
-          <div className="flex rounded border border-[#1e293b] p-0.5 bg-[#0f172a]">
+          <div className="flex rounded border border-line p-0.5 bg-panel">
             <button
               type="button"
               onClick={() => setActiveTab("interactive")}
               className={`px-2 py-0.5 text-xs font-mono rounded ${
                 activeTab === "interactive"
-                  ? "bg-[#2563eb] text-white"
-                  : "text-[#94a3b8] hover:text-white"
+                  ? "bg-primary text-ink"
+                  : "text-muted hover:text-ink"
               }`}
             >
               Annotated
@@ -233,8 +233,8 @@ export function DocumentViewer({
               onClick={() => setActiveTab("embedded")}
               className={`px-2 py-0.5 text-xs font-mono rounded ${
                 activeTab === "embedded"
-                  ? "bg-[#2563eb] text-white"
-                  : "text-[#94a3b8] hover:text-white"
+                  ? "bg-primary text-ink"
+                  : "text-muted hover:text-ink"
               }`}
             >
               Native PDF
@@ -245,7 +245,7 @@ export function DocumentViewer({
             href={effectivePdfUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="p-1.5 rounded hover:bg-[#1e293b] text-[#94a3b8] hover:text-white"
+            className="p-1.5 rounded hover:bg-panel-raised text-muted hover:text-ink"
             title="Open canonical PDF in new tab"
           >
             <ExternalLink className="w-4 h-4" />
@@ -255,8 +255,8 @@ export function DocumentViewer({
 
       {/* Quick Jump Bar for Multi-Location Findings */}
       {effectiveJumpTargets.length > 0 && (
-        <div className="flex items-center gap-2 px-4 py-1.5 bg-[#0b1b38] border-b border-[#2563eb]/30 text-xs">
-          <span className="font-mono text-[#89ceff] uppercase text-[11px] font-semibold">
+        <div className="flex items-center gap-2 px-4 py-1.5 bg-selected border-b border-primary/40 text-xs">
+          <span className="font-mono text-accent-soft uppercase text-[11px] font-semibold">
             Jump to finding anchor:
           </span>
           {effectiveJumpTargets.map((t, idx) => (
@@ -269,8 +269,8 @@ export function DocumentViewer({
               }}
               className={`px-2.5 py-0.5 rounded text-xs font-medium transition-colors ${
                 currentPage === t.page
-                  ? "bg-[#2563eb] text-white"
-                  : "bg-[#172554] text-[#93c5fd] hover:bg-[#1e3a8a]"
+                  ? "bg-primary text-ink"
+                  : "bg-chip text-accent-soft hover:bg-panel-raised"
               }`}
             >
               {t.label} (Page {t.page})
@@ -280,7 +280,7 @@ export function DocumentViewer({
       )}
 
       {/* Main Document Canvas View */}
-      <div className="flex-1 overflow-auto p-6 flex justify-center items-start bg-[#060e20]">
+      <div className="flex-1 overflow-auto p-6 flex justify-center items-start bg-sunken">
         {activeTab === "interactive" ? (
           <div
             className="relative bg-white shadow-2xl rounded-sm transition-transform duration-100 origin-top"
@@ -304,7 +304,7 @@ export function DocumentViewer({
             />
           </div>
         ) : (
-          <div className="w-full h-full min-h-[600px] rounded border border-[#1e293b] overflow-hidden">
+          <div className="w-full h-full min-h-[600px] rounded border border-line overflow-hidden">
             <iframe
               src={`${effectivePdfUrl}#page=${currentPage}`}
               title="Full PDF Rendition"

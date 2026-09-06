@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import {
@@ -108,8 +108,8 @@ export function IssueCard({
       onClick={onSelect}
       className={`rounded border transition-all duration-150 p-4 ${
         isSelected
-          ? "bg-[#131d36] border-[#38bdf8] ring-1 ring-[#38bdf8]/40 shadow-lg"
-          : "bg-[#0f172a] border-[#1e293b] hover:border-[#334155] hover:bg-[#111c34]"
+          ? "bg-selected border-accent ring-1 ring-accent/40 shadow-lg"
+          : "bg-panel border-line hover:border-line-strong hover:bg-panel-raised"
       }`}
     >
       {/* Header Bar */}
@@ -121,7 +121,7 @@ export function IssueCard({
             {issue.severity}
           </span>
 
-          <span className="font-mono text-xs font-bold text-white tracking-wide rule-id-badge">
+          <span className="font-mono text-xs font-bold text-ink tracking-wide rule-id-badge">
             {issue.type || (issue as unknown as { rule_id?: string }).rule_id}
           </span>
 
@@ -134,15 +134,15 @@ export function IssueCard({
                   onJumpToPage(location.page_number);
                 }
               }}
-              className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#1e293b] text-[#94a3b8] hover:text-white text-[11px] font-mono hover:bg-[#2563eb]/20 page-jump-badge"
+              className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-chip text-muted hover:text-ink text-[11px] font-mono hover:bg-primary/20 page-jump-badge"
               title="Jump to page"
             >
-              <MapPin className="w-3 h-3 text-[#38bdf8]" />
+              <MapPin className="w-3 h-3 text-accent" />
               p. {location.page_number}
             </button>
           )}
 
-          <span className="font-mono text-[10px] text-[#64748b]">v{issue.version}</span>
+          <span className="font-mono text-[10px] text-muted">v{issue.version}</span>
         </div>
 
         <button
@@ -151,7 +151,7 @@ export function IssueCard({
             e.stopPropagation();
             setIsExpanded(!isExpanded);
           }}
-          className="text-[#94a3b8] hover:text-white p-0.5"
+          className="text-muted hover:text-ink p-0.5"
           title={isExpanded ? "Collapse" : "Expand"}
         >
           {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -159,13 +159,13 @@ export function IssueCard({
       </div>
 
       {/* Message */}
-      <p className="mt-2 text-sm text-[#e2e8f0] font-normal leading-relaxed">
+      <p className="mt-2 text-sm text-ink font-normal leading-relaxed">
         {issue.message}
       </p>
 
       {/* Existing Decision / Disposition Status */}
       {(issue.decision || issue.disposition) && (
-        <div className="mt-2.5 flex flex-wrap items-center gap-2 pt-2 border-t border-[#1e293b]">
+        <div className="mt-2.5 flex flex-wrap items-center gap-2 pt-2 border-t border-line">
           {issue.decision && (
             <span
               className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold ${
@@ -184,7 +184,7 @@ export function IssueCard({
           )}
 
           {issue.decision_comment && (
-            <span className="text-xs text-[#94a3b8] italic">
+            <span className="text-xs text-muted italic">
               &ldquo;{issue.decision_comment}&rdquo;
             </span>
           )}
@@ -197,7 +197,7 @@ export function IssueCard({
           )}
 
           {issue.disposition_justification && (
-            <span className="text-xs text-[#c084fc] italic">
+            <span className="text-xs text-accent-soft italic">
               [{issue.disposition_justification}]
             </span>
           )}
@@ -214,31 +214,31 @@ export function IssueCard({
 
       {/* Expandable Evidence & Controls */}
       {isExpanded && (
-        <div className="mt-3 pt-3 border-t border-[#1e293b] flex flex-col gap-3">
+        <div className="mt-3 pt-3 border-t border-line flex flex-col gap-3">
           {/* Typed Evidence Details */}
           {(evidence.kind === "TABLE_MATH" || issue.type?.includes("TABLE_MATH") || evidence.stated_value !== undefined) && (
-            <div className="bg-[#0b1326] p-2.5 rounded border border-[#1e293b] text-xs font-mono">
-              <div className="text-[#89ceff] font-bold mb-1.5 flex items-center gap-1.5">
+            <div className="bg-sunken p-2.5 rounded border border-line text-xs font-mono">
+              <div className="text-accent-soft font-bold mb-1.5 flex items-center gap-1.5">
                 <FileSpreadsheet className="w-3.5 h-3.5" />
                 Table Math Reconciliation:
               </div>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[#cbd5e1]">
-                <div>Stated Total: <span className="text-white font-bold">{String(evidence.stated_value)}</span></div>
-                <div>Computed Sum: <span className="text-white font-bold">{String(evidence.computed_value)}</span></div>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-ink-soft">
+                <div>Stated Total: <span className="text-ink font-bold">{String(evidence.stated_value)}</span></div>
+                <div>Computed Sum: <span className="text-ink font-bold">{String(evidence.computed_value)}</span></div>
                 <div>Arithmetic Delta: <span className="text-red-400 font-bold">{String(evidence.delta)}</span></div>
-                <div>Tolerance: <span className="text-[#94a3b8]">±{String(evidence.tolerance)}</span></div>
+                <div>Tolerance: <span className="text-muted">Â±{String(evidence.tolerance)}</span></div>
               </div>
             </div>
           )}
 
           {evidence.kind === "REFERENCE_DRIFT" && (
-            <div className="bg-[#0b1326] p-2.5 rounded border border-[#1e293b] text-xs font-mono">
-              <div className="text-[#89ceff] font-bold mb-1.5 flex items-center gap-1.5">
+            <div className="bg-sunken p-2.5 rounded border border-line text-xs font-mono">
+              <div className="text-accent-soft font-bold mb-1.5 flex items-center gap-1.5">
                 <Layers className="w-3.5 h-3.5" />
                 Pagination Drift Details:
               </div>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[#cbd5e1]">
-                <div>Entry Label: <span className="text-white font-bold">{String(evidence.label)}</span></div>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-ink-soft">
+                <div>Entry Label: <span className="text-ink font-bold">{String(evidence.label)}</span></div>
                 <div>Page Delta: <span className="text-red-400 font-bold">{String(evidence.page_delta)} pages</span></div>
                 <div>
                   ToC Ref Page:{" "}
@@ -251,7 +251,7 @@ export function IssueCard({
                         onJumpToPage(entryBox.page_index + 1);
                       }
                     }}
-                    className="text-[#38bdf8] underline hover:text-white"
+                    className="text-accent underline hover:text-ink"
                   >
                     {String(evidence.referenced_page_label)}
                   </button>
@@ -267,7 +267,7 @@ export function IssueCard({
                         onJumpToPage(targetBox.page_index + 1);
                       }
                     }}
-                    className="text-[#38bdf8] underline hover:text-white"
+                    className="text-accent underline hover:text-ink"
                   >
                     {String(evidence.actual_page_label)}
                   </button>
@@ -277,30 +277,30 @@ export function IssueCard({
           )}
 
           {evidence.kind === "REVISION" && (
-            <div className="bg-[#0b1326] p-2.5 rounded border border-[#1e293b] text-xs font-mono">
-              <div className="text-[#89ceff] font-bold mb-1.5">Three-Way Revision Sync:</div>
-              <div className="flex flex-col gap-1 text-[#cbd5e1]">
-                <div>Filename Rev: <span className="text-white">{String(evidence.filename_revision ?? "N/A")}</span></div>
-                <div>Cover Page Rev: <span className="text-white">{String(evidence.cover_revision ?? "N/A")}</span></div>
-                <div>Revision Sheet Rev: <span className="text-white">{String(evidence.revision_sheet_revision ?? "N/A")}</span></div>
+            <div className="bg-sunken p-2.5 rounded border border-line text-xs font-mono">
+              <div className="text-accent-soft font-bold mb-1.5">Three-Way Revision Sync:</div>
+              <div className="flex flex-col gap-1 text-ink-soft">
+                <div>Filename Rev: <span className="text-ink">{String(evidence.filename_revision ?? "N/A")}</span></div>
+                <div>Cover Page Rev: <span className="text-ink">{String(evidence.cover_revision ?? "N/A")}</span></div>
+                <div>Revision Sheet Rev: <span className="text-ink">{String(evidence.revision_sheet_revision ?? "N/A")}</span></div>
               </div>
             </div>
           )}
 
           {evidence.kind === "STANDARD" && (
-            <div className="bg-[#0b1326] p-2.5 rounded border border-[#1e293b] text-xs font-mono">
-              <div className="text-[#89ceff] font-bold mb-1.5">Standard & Code Citation:</div>
-              <div className="flex flex-col gap-1 text-[#cbd5e1]">
-                <div>Standard: <span className="text-white font-bold">{String(evidence.cited_standard)}</span></div>
-                <div>Body Year: <span className="text-white">{String(evidence.body_edition_year ?? "Not specified")}</span></div>
-                <div>Bibliography Year: <span className="text-white">{String(evidence.bibliography_edition_year ?? "Not in bibliography")}</span></div>
+            <div className="bg-sunken p-2.5 rounded border border-line text-xs font-mono">
+              <div className="text-accent-soft font-bold mb-1.5">Standard & Code Citation:</div>
+              <div className="flex flex-col gap-1 text-ink-soft">
+                <div>Standard: <span className="text-ink font-bold">{String(evidence.cited_standard)}</span></div>
+                <div>Body Year: <span className="text-ink">{String(evidence.body_edition_year ?? "Not specified")}</span></div>
+                <div>Bibliography Year: <span className="text-ink">{String(evidence.bibliography_edition_year ?? "Not in bibliography")}</span></div>
               </div>
             </div>
           )}
 
           {evidence.kind === "LINGUISTIC" && Boolean(evidence.suggestion) && (
-            <div className="bg-[#0b1326] p-2 rounded border border-[#1e293b] text-xs font-mono">
-              <span className="text-[#94a3b8]">Suggested Replacement: </span>
+            <div className="bg-sunken p-2 rounded border border-line text-xs font-mono">
+              <span className="text-muted">Suggested Replacement: </span>
               <span className="text-emerald-400 font-bold">{String(evidence.suggestion)}</span>
             </div>
           )}
@@ -325,7 +325,7 @@ export function IssueCard({
                   e.stopPropagation();
                   handleDecision("ACCEPTED");
                 }}
-                className="px-2.5 py-1 rounded bg-emerald-700/70 hover:bg-emerald-600 text-white text-xs font-medium transition-colors flex items-center gap-1 disabled:opacity-50"
+                className="px-2.5 py-1 rounded bg-emerald-700/70 hover:bg-emerald-600 text-ink text-xs font-medium transition-colors flex items-center gap-1 disabled:opacity-50"
                 title="Accept finding"
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />
@@ -339,7 +339,7 @@ export function IssueCard({
                   e.stopPropagation();
                   handleDecision("REJECTED");
                 }}
-                className="px-2.5 py-1 rounded bg-rose-700/70 hover:bg-rose-600 text-white text-xs font-medium transition-colors flex items-center gap-1 disabled:opacity-50"
+                className="px-2.5 py-1 rounded bg-rose-700/70 hover:bg-rose-600 text-ink text-xs font-medium transition-colors flex items-center gap-1 disabled:opacity-50"
                 title="Reject finding"
               >
                 <XCircle className="w-3.5 h-3.5" />
@@ -353,7 +353,7 @@ export function IssueCard({
                   e.stopPropagation();
                   handleDecision("FLAGGED");
                 }}
-                className="px-2.5 py-1 rounded bg-amber-700/70 hover:bg-amber-600 text-white text-xs font-medium transition-colors flex items-center gap-1 disabled:opacity-50"
+                className="px-2.5 py-1 rounded bg-amber-700/70 hover:bg-amber-600 text-ink text-xs font-medium transition-colors flex items-center gap-1 disabled:opacity-50"
                 title="Flag for lead review"
               >
                 <Flag className="w-3.5 h-3.5" />
@@ -384,7 +384,7 @@ export function IssueCard({
                   e.stopPropagation();
                   setShowCommentInput(!showCommentInput);
                 }}
-                className="p-1 rounded text-[#94a3b8] hover:text-white hover:bg-[#1e293b]"
+                className="p-1 rounded text-muted hover:text-ink hover:bg-chip"
                 title="Add reviewer comment"
               >
                 <MessageSquare className="w-3.5 h-3.5" />
@@ -398,7 +398,7 @@ export function IssueCard({
                 e.stopPropagation();
                 setShowLeadControls(!showLeadControls);
               }}
-              className="text-[11px] font-mono text-[#c084fc] hover:underline flex items-center gap-1"
+              className="text-[11px] font-mono text-accent-soft hover:underline flex items-center gap-1"
             >
               <ShieldCheck className="w-3.5 h-3.5" />
               Lead Disposition
@@ -415,7 +415,7 @@ export function IssueCard({
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
                 placeholder="Optional reviewer notes or justification..."
-                className="w-full text-xs p-2 rounded bg-[#0b1326] border border-[#1e293b] text-white placeholder-[#64748b] focus:outline-none focus:border-[#2563eb]"
+                className="w-full text-xs p-2 rounded bg-sunken border border-line text-ink placeholder-muted focus:outline-none focus:border-primary"
                 rows={2}
               />
             </div>
@@ -424,7 +424,7 @@ export function IssueCard({
           {/* Lead Reviewer Controls */}
           {showLeadControls && (
             <div
-              className="mt-2 p-2.5 rounded bg-[#19112e] border border-purple-900/50 flex flex-col gap-2"
+              className="mt-2 p-2.5 rounded bg-sunken border border-purple-900/50 flex flex-col gap-2"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center gap-1.5 text-xs font-semibold text-purple-300">
@@ -435,7 +435,7 @@ export function IssueCard({
                 value={justification}
                 onChange={(e) => setJustification(e.target.value)}
                 placeholder="Regulatory justification / audit notes (e.g. NCR reference, client waiver, verified source data)..."
-                className="w-full text-xs p-2 rounded bg-[#0b1326] border border-purple-900/60 text-white placeholder-purple-400/40 focus:outline-none focus:border-purple-500"
+                className="w-full text-xs p-2 rounded bg-sunken border border-purple-900/60 text-ink placeholder-purple-400/40 focus:outline-none focus:border-purple-500"
                 rows={2}
               />
               <div className="flex items-center gap-2">
@@ -443,7 +443,7 @@ export function IssueCard({
                   type="button"
                   disabled={isSubmitting}
                   onClick={() => handleDisposition("JUSTIFIED_EXCEPTION")}
-                  className="px-2.5 py-1 rounded bg-purple-700 hover:bg-purple-600 text-white text-xs font-medium disabled:opacity-40"
+                  className="px-2.5 py-1 rounded bg-purple-700 hover:bg-purple-600 text-ink text-xs font-medium disabled:opacity-40"
                 >
                   Justified Exception
                 </button>
@@ -451,7 +451,7 @@ export function IssueCard({
                   type="button"
                   disabled={isSubmitting}
                   onClick={() => handleDisposition("REQUIRES_CORRECTION")}
-                  className="px-2.5 py-1 rounded bg-rose-800 hover:bg-rose-700 text-white text-xs font-medium disabled:opacity-40"
+                  className="px-2.5 py-1 rounded bg-rose-800 hover:bg-rose-700 text-ink text-xs font-medium disabled:opacity-40"
                 >
                   Requires Correction
                 </button>

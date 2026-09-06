@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -141,18 +141,18 @@ export function DictionaryModal({
       aria-labelledby="dictionary-modal-title"
     >
       <div
-        className="w-full max-w-2xl bg-[#0b1326] border border-[#1e293b] rounded-xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden"
+        className="w-full max-w-2xl bg-panel border border-line rounded-xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e293b] bg-[#070d1e]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-line bg-sunken">
           <div className="flex items-center gap-2.5">
-            <BookOpen className="w-5 h-5 text-[#89ceff]" />
+            <BookOpen className="w-5 h-5 text-accent-soft" />
             <div>
-              <h2 id="dictionary-modal-title" className="text-base font-bold text-white">
+              <h2 id="dictionary-modal-title" className="text-base font-bold text-ink">
                 Governed Engineering Dictionary
               </h2>
-              <p className="text-xs text-[#94a3b8]">
+              <p className="text-xs text-muted">
                 Standard terminology, metallurgical grades, and project exemptions
               </p>
             </div>
@@ -160,7 +160,7 @@ export function DictionaryModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-[#94a3b8] hover:text-white hover:bg-[#1e293b] transition-colors"
+            className="p-1.5 rounded-lg text-muted hover:text-ink hover:bg-chip transition-colors"
             title="Close dialog"
           >
             <X className="w-5 h-5" />
@@ -168,15 +168,15 @@ export function DictionaryModal({
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex items-center justify-between px-6 py-2 border-b border-[#1e293b] bg-[#0d162e]">
+        <div className="flex items-center justify-between px-6 py-2 border-b border-line bg-panel-raised">
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => setActiveTab("list")}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 activeTab === "list"
-                  ? "bg-[#1e293b] text-[#89ceff] border border-[#38bdf8]/30 font-bold"
-                  : "text-[#94a3b8] hover:text-white"
+                  ? "bg-chip text-accent-soft border border-accent/40 font-bold"
+                  : "text-muted hover:text-ink"
               }`}
             >
               Approved & Pending Terms ({terms.length})
@@ -186,8 +186,8 @@ export function DictionaryModal({
               onClick={() => setActiveTab("create")}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 ${
                 activeTab === "create"
-                  ? "bg-[#1e293b] text-[#89ceff] border border-[#38bdf8]/30 font-bold"
-                  : "text-[#94a3b8] hover:text-white"
+                  ? "bg-chip text-accent-soft border border-accent/40 font-bold"
+                  : "text-muted hover:text-ink"
               }`}
             >
               <Plus className="w-3.5 h-3.5" />
@@ -197,14 +197,14 @@ export function DictionaryModal({
 
           {activeTab === "list" && (
             <div className="flex items-center gap-2">
-              <label htmlFor="filter-status" className="text-xs text-[#94a3b8]">
+              <label htmlFor="filter-status" className="text-xs text-muted">
                 Status:
               </label>
               <select
                 id="filter-status"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="bg-[#0b1326] border border-[#1e293b] rounded px-2 py-1 text-xs text-[#cbd5e1] focus:outline-none focus:border-[#38bdf8]"
+                className="bg-panel border border-line rounded px-2 py-1 text-xs text-ink-soft focus:outline-none focus:border-accent"
               >
                 <option value="all">All</option>
                 <option value="APPROVED">Approved</option>
@@ -238,7 +238,7 @@ export function DictionaryModal({
           {activeTab === "create" ? (
             <form onSubmit={handleCreateTerm} className="flex flex-col gap-4">
               <div>
-                <label className="block text-xs font-semibold text-[#cbd5e1] mb-1">
+                <label className="block text-xs font-semibold text-ink-soft mb-1">
                   Term / Specification Symbol *
                 </label>
                 <input
@@ -247,21 +247,21 @@ export function DictionaryModal({
                   value={newTerm}
                   onChange={(e) => setNewTerm(e.target.value)}
                   placeholder="e.g. Inconel625, UNS-N06625, ASTM-A516"
-                  className="w-full bg-[#070d1e] border border-[#1e293b] rounded-lg px-3 py-2 text-sm text-white placeholder-[#64748b] focus:outline-none focus:border-[#38bdf8]"
+                  className="w-full bg-sunken border border-line rounded-lg px-3 py-2 text-sm text-ink placeholder-muted focus:outline-none focus:border-accent"
                 />
-                <span className="text-[11px] text-[#64748b] mt-1 block">
+                <span className="text-[11px] text-muted mt-1 block">
                   Once approved, this token will be whitelisted across spellcheck and linguistic audits.
                 </span>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-[#cbd5e1] mb-1">
+                <label className="block text-xs font-semibold text-ink-soft mb-1">
                   Governance Scope *
                 </label>
                 <select
                   value={newScope}
                   onChange={(e) => setNewScope(e.target.value)}
-                  className="w-full bg-[#070d1e] border border-[#1e293b] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#38bdf8]"
+                  className="w-full bg-sunken border border-line rounded-lg px-3 py-2 text-sm text-ink focus:outline-none focus:border-accent"
                 >
                   <option value="organization">Organization (Global Whitelist)</option>
                   <option value="project:default">Project Default</option>
@@ -269,7 +269,7 @@ export function DictionaryModal({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-[#cbd5e1] mb-1">
+                <label className="block text-xs font-semibold text-ink-soft mb-1">
                   Technical Rationale / Justification
                 </label>
                 <textarea
@@ -277,7 +277,7 @@ export function DictionaryModal({
                   onChange={(e) => setNewRationale(e.target.value)}
                   placeholder="Provide engineering standard, alloy specification, or client contract reference..."
                   rows={3}
-                  className="w-full bg-[#070d1e] border border-[#1e293b] rounded-lg px-3 py-2 text-sm text-white placeholder-[#64748b] focus:outline-none focus:border-[#38bdf8]"
+                  className="w-full bg-sunken border border-line rounded-lg px-3 py-2 text-sm text-ink placeholder-muted focus:outline-none focus:border-accent"
                 />
               </div>
 
@@ -285,14 +285,14 @@ export function DictionaryModal({
                 <button
                   type="button"
                   onClick={() => setActiveTab("list")}
-                  className="px-4 py-2 rounded-lg text-xs font-medium text-[#94a3b8] hover:text-white transition-colors"
+                  className="px-4 py-2 rounded-lg text-xs font-medium text-muted hover:text-ink transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-2 rounded-lg text-xs font-semibold bg-[#38bdf8] text-[#070d1e] hover:bg-[#7dd3fc] transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                  className="px-4 py-2 rounded-lg text-xs font-semibold bg-accent text-white hover:bg-accent-soft transition-colors disabled:opacity-50 flex items-center gap-1.5"
                 >
                   <Plus className="w-4 h-4" />
                   {isSubmitting ? "Submitting..." : "Submit to Dictionary"}
@@ -302,9 +302,9 @@ export function DictionaryModal({
           ) : (
             <div>
               {isLoading ? (
-                <div className="py-8 text-center text-xs text-[#94a3b8]">Loading terms...</div>
+                <div className="py-8 text-center text-xs text-muted">Loading terms...</div>
               ) : terms.length === 0 ? (
-                <div className="py-8 text-center text-xs text-[#64748b]">
+                <div className="py-8 text-center text-xs text-muted">
                   No dictionary terms found matching filter.
                 </div>
               ) : (
@@ -312,11 +312,11 @@ export function DictionaryModal({
                   {terms.map((term) => (
                     <div
                       key={term.id}
-                      className="bg-[#070d1e] p-3 rounded-lg border border-[#1e293b] flex items-center justify-between gap-3"
+                      className="bg-sunken p-3 rounded-lg border border-line flex items-center justify-between gap-3"
                     >
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-2">
-                          <span className="font-mono font-bold text-sm text-white">{term.term}</span>
+                          <span className="font-mono font-bold text-sm text-ink">{term.term}</span>
                           <span
                             className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${
                               term.status === "APPROVED"
@@ -328,14 +328,14 @@ export function DictionaryModal({
                           >
                             {term.status}
                           </span>
-                          <span className="text-[11px] text-[#64748b]">[{term.scope}]</span>
+                          <span className="text-[11px] text-muted">[{term.scope}]</span>
                         </div>
                         {term.rationale && (
-                          <div className="text-xs text-[#94a3b8] italic">{term.rationale}</div>
+                          <div className="text-xs text-muted italic">{term.rationale}</div>
                         )}
-                        <div className="text-[10px] text-[#64748b]">
+                        <div className="text-[10px] text-muted">
                           Added {new Date(term.created_at).toLocaleDateString()}
-                          {term.approved_by && ` • Approved by ${term.approved_by}`}
+                          {term.approved_by && ` â€¢ Approved by ${term.approved_by}`}
                         </div>
                       </div>
 
@@ -344,7 +344,7 @@ export function DictionaryModal({
                           <button
                             type="button"
                             onClick={() => handleApprove(term.id, "APPROVED")}
-                            className="p-1.5 rounded bg-emerald-700/60 hover:bg-emerald-600 text-white text-xs transition-colors flex items-center gap-1"
+                            className="p-1.5 rounded bg-emerald-700/60 hover:bg-emerald-600 text-ink text-xs transition-colors flex items-center gap-1"
                             title="Approve Term"
                           >
                             <ShieldCheck className="w-3.5 h-3.5" />
@@ -353,7 +353,7 @@ export function DictionaryModal({
                           <button
                             type="button"
                             onClick={() => handleApprove(term.id, "REJECTED")}
-                            className="p-1.5 rounded bg-rose-700/60 hover:bg-rose-600 text-white text-xs transition-colors"
+                            className="p-1.5 rounded bg-rose-700/60 hover:bg-rose-600 text-ink text-xs transition-colors"
                             title="Reject Term"
                           >
                             <X className="w-3.5 h-3.5" />
