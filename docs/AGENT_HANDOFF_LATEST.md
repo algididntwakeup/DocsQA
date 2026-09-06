@@ -104,7 +104,12 @@ Read `START_HERE.md` and `release_runbook.md` for operational deployment procedu
   - Frontend DocumentList: added Actions column with delete button and confirmation dialog.
   - Frontend DocumentStatusView: added delete button with confirmation dialog.
   - Frontend Light Mode: added `ThemeToggle` component in `AppShell` and `SplitScreenViewer` with full light theme tokens in `globals.css` and `localStorage` persistence (`matqc-theme`).
-  - Pipeline Stuck Troubleshooting Guide: published in `docs/troubleshooting_pipeline_stuck.md` with detailed root-cause analysis (PyMuPDF table cell explosion on CAD vector linework) and step-by-step remediation plan for Celery timeouts and table bounds.
+- Extraction Pipeline Bug Fixes (commits `3fcc885`, `0b060b3`):
+  - **Bug 1 — SSE not real-time** (`3fcc885`): `event_generator()` in `api/documents.py` was one-shot. Fixed to poll DB every 2 s in an `asyncio` loop until terminal status.
+  - **Bug 2 — Celery no timeout** (`3fcc885`): `extract_document_task` had no `soft_time_limit`/`time_limit` and used `autoretry_for=(Exception,)`. Fixed: added `soft_time_limit=180`, `time_limit=240`, removed autoretry, added `SoftTimeLimitExceeded` handler → `COMPLETED_WITH_WARNINGS`.
+  - **Bug 3 — CAD table explosion** (`3fcc885`): `find_tables()` on CAD PDFs produced 30 000+ phantom cells. Fixed: 20 s per-page timeout, cap 20 tables/page, skip tables > 500 cells/100 rows/30 cols.
+  - **Bug 4 — `float` not subscriptable** (`0b060b3`): `Table.cells` is a *flat* `list[tuple]`, not a 2D grid. Iterating it as rows×cols made `cell_rect` a float. Fixed: use `table.rows` → `TableRow.cells` for proper 2D iteration. `finder.tables` replaces `list(TableFinder)`.
+  - Full incident post-mortem + PyMuPDF API reference in `docs/troubleshooting_pipeline_stuck.md`.
 - All commits stay local. Do not run `git push`.
 
 ## Operational notes
@@ -117,5 +122,7 @@ Read `START_HERE.md` and `release_runbook.md` for operational deployment procedu
 - To test containers: ensure Docker Desktop is running and `docker version`
   works, then run `Copy-Item .env.docker.example .env` followed by
   `docker compose up --build` from the repository root.
-- If background pipeline extraction hangs on complex vector drawings, consult `docs/troubleshooting_pipeline_stuck.md`.
-
+- Extraction pipeline bugs are all fixed. `docs/troubleshooting_pipeline_stuck.md`
+  is an incident post-mortem with a PyMuPDF API reference — read it before
+  touching `backend/services/extract.py`.
+- Backend quality gate: 197 passed, 2 skipped (PyMuPDF DLL + Redis integration).

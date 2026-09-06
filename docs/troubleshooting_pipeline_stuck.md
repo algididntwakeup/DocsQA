@@ -1,162 +1,151 @@
-# Troubleshooting Guide: Backend Pipeline Hangs & Long-Running Extraction Tasks
+﻿# Troubleshooting Guide: Backend Pipeline Extraction Issues
 
-This guide provides technical diagnosis, root cause analysis, immediate workarounds, and step-by-step remediation instructions for future agents and engineers when the document extraction pipeline appears stuck or hangs indefinitely in `PROCESSING`.
-
----
-
-## 1. Symptoms & Incident Signature
-
-### User-Visible Symptoms
-- A newly uploaded document remains in `status: "PROCESSING"` with `progress_pct` frozen (often at `10%` to `25%`).
-- Server-Sent Events (SSE) `/api/v1/documents/{id}/events` emit no progress updates for minutes or hours.
-- Inspection register dashboard shows ongoing spinners without transition to `COMPLETED` or `FAILED`.
-
-### Celery Worker Logs
-When inspecting logs via `docker compose logs -f worker`, the worker output exhibits repetitive warnings:
-```text
-[WARNING/ForkPoolWorker-1] Error extracting table cell 2526,0: arg=...
-[WARNING/ForkPoolWorker-1] Error extracting table cell 2527,0: arg=...
-[WARNING/ForkPoolWorker-1] Error extracting table cell 2528,0: arg=...
-```
-The row numbers climb into thousands (`row_idx > 2000`), with the CPU pegged at 100% on one core.
+> **Status (2026-09-06)**: All bugs below are **FIXED** (commits `3fcc885`,
+> `0b060b3`). This doc is preserved as an incident post-mortem and quick
+> reference. If extraction hangs again, jump to Section 3 (Immediate Workaround).
 
 ---
 
-## 2. Root Cause Analysis (RCA)
+## 1. Fixed Bugs & Root Causes
 
-### A. PyMuPDF `find_tables()` on Dense Engineering Vector Drawings
-In `backend/services/extract.py` (`PDFExtractor.extract`):
+### Bug 1 â€” `TypeError: 'float' object is not subscriptable` âœ… FIXED `0b060b3`
+
+**File**: `backend/services/extract.py`, table cell iteration loop.
+
+**Root cause**: `Table.cells` in PyMuPDF is a **flat** `list[tuple(x0,y0,x1,y1)]`
+of all cell bounding boxes â€” one 4-tuple per cell. It is **NOT** a 2D rowÃ—col
+grid. The old code iterated it as a grid:
+
 ```python
-# Extract tables using PyMuPDF's find_tables
-tables = page.find_tables()
-for table in tables:
-    ...
-    if table.cells:
-        for row_idx, row in enumerate(table.cells):
-            for col_idx, cell_rect in enumerate(row):
-                ...
-                cell_text = page.get_text("text", clip=cell_rect).strip()
+for row_idx, row in enumerate(table.cells):      # row = (x0, y0, x1, y1)
+    for col_idx, cell_rect in enumerate(row):    # cell_rect = float (one coord!)
+        if cell_rect[2] <= cell_rect[0]: ...     # TypeError: float not subscriptable
 ```
 
-- **Pathological Input**: PDFs containing CAD drawings, architectural blueprints, cross-hatching, engineering diagrams, or dense vector line work contain thousands of intersecting paths.
-- **Table Matrix Explosion**: PyMuPDF's heuristic table finder interprets overlapping vector lines as a massive table matrix (e.g., 3,000 rows x 10 columns = 30,000 cells).
-- **Synchronous Cell Clipping Overhead**: For every cell in that matrix, `page.get_text("text", clip=cell_rect)` is executed synchronously. Executing 30,000 text extractions per page on complex vector geometry takes tens of minutes or freezes the Python GIL.
-- **Inverted / Degenerate Coordinates**: Intersecting vector lines often produce degenerate or inverted bounding boxes (`x0 >= x1` or `y0 >= y1`), causing PyMuPDF to throw exceptions. The exception handling logs each warning, adding I/O and locking overhead.
+**Fix**: Use `table.rows` â†’ `TableRow.cells` for proper 2D row-major iteration:
 
-### B. Lack of Celery Timeouts & Circuit Breakers
-In `backend/tasks/extraction.py`:
-- `@celery_app.task(name="extract_document_structure")` has **no `soft_time_limit` or `time_limit`** configured.
-- As a consequence, a single worker fork pool process remains locked on a pathological page indefinitely, blocking subsequent tasks in the queue.
+```python
+finder = page.find_tables()
+for table in finder.tables[:_MAX_TABLES_PER_PAGE]:
+    for row_idx, table_row in enumerate(table.rows):
+        for col_idx, cell_rect in enumerate(table_row.cells):
+            if cell_rect is None:        # merged/spanned cell
+                continue
+            x0, y0, x1, y1 = float(cell_rect[0]), float(cell_rect[1]), ...
+```
 
 ---
 
-## 3. Immediate Workaround (Manual Operations)
+### Bug 2 â€” Celery worker stuck forever âœ… FIXED `3fcc885`
 
-If a document is currently stuck in local Docker or production:
+**File**: `backend/tasks/extraction.py`
 
-### 1. Identify Stuck Worker Process
+**Root cause**: Task had no `soft_time_limit` / `time_limit`. `autoretry_for=(Exception,)`
+re-queued the task when it timed out, blocking the worker indefinitely.
+
+**Fix**:
+- Added `soft_time_limit=180`, `time_limit=240` to the task decorator.
+- Removed `autoretry_for`.
+- Added `SoftTimeLimitExceeded` handler â†’ marks document `COMPLETED_WITH_WARNINGS`.
+
+---
+
+### Bug 3 â€” SSE `/events` endpoint not real-time âœ… FIXED `3fcc885`
+
+**File**: `backend/api/documents.py`
+
+**Root cause**: `event_generator()` emitted one snapshot then closed; the frontend
+EventSource reconnected endlessly with no live progress.
+
+**Fix**: `event_generator()` is now an `asyncio` loop polling the DB every 2 s
+until terminal status, then emits `event: close`.
+
+---
+
+### Bug 4 â€” PyMuPDF CAD table matrix explosion âœ… FIXED `3fcc885`
+
+**File**: `backend/services/extract.py`
+
+**Root cause**: Dense CAD linework produces 30 000+ phantom table cells.
+`get_text(clip=...)` per cell blocks the Celery worker indefinitely.
+
+**Fixes**:
+- 20 s per-page monotonic timeout (skip table extraction if text phase overran).
+- Max 20 tables per page (`_MAX_TABLES_PER_PAGE`).
+- Skip any table > 500 cells / 100 rows / 30 cols.
+- Defensive `float()` unpack + degenerate-bbox skip.
+
+---
+
+## 2. Architecture Reference
+
+```
+POST /upload
+  â†’ save file, create Document(status=UPLOADING)
+  â†’ dispatch Celery task: docqc.extract
+
+[Celery Worker â€” docqc.extract]
+  â†’ PDFExtractor.extract(file_path)
+  â†’ per page (20 s budget):
+      page.get_text("blocks")        â†’ text spans + bboxes
+      page.find_tables()             â†’ TableFinder
+      finder.tables[:20]             â†’ capped list[Table]
+      table.rows                     â†’ list[TableRow]  â† correct 2D API
+      table_row.cells                â†’ list[tuple|None]
+  â†’ persist extraction.json to artifacts/{doc_id}/
+  â†’ run analyzers: revision_sync, ref_drift, table_math, â€¦
+  â†’ update Document.status = COMPLETED
+
+GET /api/v1/documents/{id}/events   (SSE)
+  â†’ polls DB every 2 s while PROCESSING
+  â†’ emits: event: progress / data: {status, progress_pct, stages}
+  â†’ emits: event: close when terminal
+```
+
+### PyMuPDF API Quick Reference
+
+| Attribute | Type | Notes |
+|---|---|---|
+| `page.find_tables()` | `TableFinder` | Do not iterate directly; use `.tables` |
+| `TableFinder.tables` | `list[Table]` | âœ… Correct way to get table list |
+| `TableFinder.cells` | `list[tuple]` | Flat list of ALL cells across ALL tables |
+| `Table.cells` | `list[tuple]` | âŒ Flat list of bbox tuples â€” NOT 2D grid |
+| `Table.rows` | `list[TableRow]` | âœ… Use for row-major 2D iteration |
+| `TableRow.cells` | `list[tuple\|None]` | One per column; `None` = merged cell |
+| `Table.bbox` | `tuple(x0,y0,x1,y1)` | Bounding box of the whole table |
+
+---
+
+## 3. Immediate Workaround (if a document is stuck)
+
 ```bash
+# Check what worker is doing
 docker compose logs --tail=50 worker
-```
 
-### 2. Restart Celery Worker to Terminate Hung Task
-Restarting the worker container frees the hung process:
-```bash
+# Restart worker to kill a hung task
 docker compose restart worker
-```
 
-### 3. Mark Stuck Document as FAILED (Optional DB Cleanup)
-If the document remains in `PROCESSING` after restarting:
-```bash
+# Mark stuck document as FAILED (if it stays PROCESSING after restart)
 docker compose exec -T postgres psql -U docsqa -d docsqa -c "
-UPDATE documents 
-SET status = 'FAILED' 
+UPDATE documents
+SET status = 'FAILED'
 WHERE status = 'PROCESSING' AND updated_at < NOW() - INTERVAL '10 minutes';
 "
 ```
-Or delete the document using the UI **Delete** button or `DELETE /api/v1/documents/{document_id}`.
 
 ---
 
-## 4. Remediation Playbook: What To Do Next (For the Next Agent)
+## 4. Verification Checklist
 
-When implementing the permanent fix in the backend, follow these 4 steps:
+```powershell
+# Backend quality gate (197 tests must pass, 0 ruff/mypy errors)
+powershell -ExecutionPolicy Bypass -File backend\scripts\quality.ps1
 
-### Step 1: Add Table & Cell Bounding Thresholds in `backend/services/extract.py`
-In `PDFExtractor.extract` (around lines 94–148):
-1. **Cap Table Count**: Limit `tables` processed per page (e.g., `tables = page.find_tables()[:15]`).
-2. **Cap Cell Count**: Before iterating through `table.cells`, inspect dimensions:
-   ```python
-   num_rows = len(table.cells) if table.cells else 0
-   num_cols = len(table.cells[0]) if (num_rows > 0 and table.cells[0]) else 0
-   total_cells = num_rows * num_cols
-
-   # Guard against CAD cross-hatching table explosion:
-   if total_cells > 600 or num_rows > 300 or num_cols > 30:
-       logger.warning(
-           "Skipping pathological table on page %s with %s rows and %s columns (%s cells)",
-           page_index,
-           num_rows,
-           num_cols,
-           total_cells,
-       )
-       continue
-   ```
-3. **Validate Cell Rect Coordinates Before Extraction**:
-   Ensure `cell_rect` is valid before passing to `get_text`:
-   ```python
-   if not cell_rect or cell_rect[2] <= cell_rect[0] or cell_rect[3] <= cell_rect[1]:
-       continue
-   ```
-
-### Step 2: Implement Page-Level Extraction Timeout
-Add a deadline per page:
-```python
-import time
-
-PAGE_TIMEOUT_SECONDS = 15.0
-
-start_page_time = time.monotonic()
-for page_index, page in enumerate(doc):
-    if time.monotonic() - start_page_time > PAGE_TIMEOUT_SECONDS:
-        logger.warning("Page %s extraction exceeded timeout threshold; proceeding with partial spans.", page_index)
-        break
+# Rebuild worker in Docker and upload a test PDF
+docker compose up -d --build worker
+docker compose logs -f worker
+# â†’ should NOT see "float object is not subscriptable"
+# â†’ should complete in < 4 minutes for a normal engineering PDF
+# â†’ complex CAD PDFs reach COMPLETED_WITH_WARNINGS within 4 minutes
 ```
 
-### Step 3: Configure Celery Task Time Limits in `backend/tasks/extraction.py`
-Decorate `extract_document_structure` with timeouts:
-```python
-from celery.exceptions import SoftTimeLimitExceeded
-
-@celery_app.task(
-    name="extract_document_structure",
-    bind=True,
-    soft_time_limit=180,  # 3 minutes soft limit
-    time_limit=240,       # 4 minutes hard limit
-    autoretry_for=(),     # Do not auto-retry timeouts
-)
-def extract_document_structure(self, document_id: str) -> dict[str, Any]:
-    try:
-        # Run extraction pipeline...
-    except SoftTimeLimitExceeded:
-        logger.error("Document %s extraction exceeded soft time limit.", document_id)
-        # Update stage run to FAILED or SUCCEEDED_WITH_WARNINGS
-        # Update document status to COMPLETED_WITH_WARNINGS
-        ...
-```
-
-### Step 4: Graceful Degradation to `COMPLETED_WITH_WARNINGS`
-If a table extraction fails or times out:
-- Do not fail the entire document if raw text spans are already available.
-- Emit a stage status of `SUCCEEDED_WITH_WARNINGS` with an issue record category `TABLE_DATA` or system warning.
-- Allow the user to view the canonical PDF and remaining document sections in the Review Workspace.
-
----
-
-## 5. Verification Checklist
-
-After applying the changes above, verify:
-1. `pytest backend/tests/test_extract.py -v` passes.
-2. An engineering drawing PDF with dense vector linework finishes extraction in < 15 seconds instead of hanging.
-3. No infinite loops or repetitive `Error extracting table cell X,Y` logs appear in Celery.
-4. `powershell -ExecutionPolicy Bypass -File backend\scripts\quality.ps1` completes with zero errors.
