@@ -1,11 +1,13 @@
+import contextlib
 import json
+import shutil
 from collections.abc import AsyncIterator
 from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.dependencies import get_storage, get_upload_service
@@ -115,6 +117,55 @@ async def get_document(
     if document is None:
         raise HTTPException(status_code=404, detail="Document not found.")
     return DocumentRead.model_validate(document)
+
+
+@router.delete(
+    "/{document_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "model": ProblemDetail,
+            "description": "Document not found",
+        }
+    },
+)
+async def delete_document(
+    document_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    storage: Annotated[LocalStorage, Depends(get_storage)],
+) -> Response:
+    """Permanently delete a document, its database records, storage files, and artifacts."""
+
+    document = (
+        await session.execute(select(Document).where(Document.id == document_id))
+    ).scalar_one_or_none()
+    if document is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
+
+    # 1. Clean up physical files from storage
+    for uri in (document.storage_uri, document.canonical_pdf_uri):
+        if uri:
+            with contextlib.suppress(Exception):
+                if uri.startswith(storage.scheme):
+                    storage.delete(uri)
+                else:
+                    suffix = uri.split("://", 1)[-1] if "://" in uri else uri
+                    target = storage.root / suffix
+                    if target.exists() and target.is_file():
+                        target.unlink()
+
+    # 2. Clean up artifact directory
+    artifacts_dir = storage.root / "artifacts" / str(document.id)
+    if artifacts_dir.exists() and artifacts_dir.is_dir():
+        with contextlib.suppress(OSError):
+            shutil.rmtree(artifacts_dir, ignore_errors=True)
+
+    # 3. Clean up database record (foreign keys cascade to stage_runs, issues, audit_events)
+    await session.execute(delete(Document).where(Document.id == document_id))
+    await session.commit()
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
 
 
 @router.get(

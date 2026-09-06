@@ -218,3 +218,10 @@ DocsQA/
 ## Production Release & Operations Runbook
 
 For detailed deployment instructions, secret management, offline migration execution, and incident response procedures, refer to [`docs/release_runbook.md`](docs/release_runbook.md).
+
+---
+
+## Troubleshooting & Incident Response
+
+- For issues with background pipeline extraction hanging or long-running worker tasks on dense engineering vector drawings, see [`docs/troubleshooting_pipeline_stuck.md`](docs/troubleshooting_pipeline_stuck.md).
+

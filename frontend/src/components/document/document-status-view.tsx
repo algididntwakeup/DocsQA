@@ -1,10 +1,12 @@
 "use client";
 
-import { AlertTriangle, ArrowLeft, FileText, RotateCw } from "lucide-react";
+import { AlertTriangle, ArrowLeft, FileText, RotateCw, Trash2 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ApiError,
+  deleteDocument,
   getDocument,
   getDocumentStatus,
   subscribeDocumentEvents,
@@ -18,10 +20,31 @@ import { StatusBadge } from "./status-badge";
 const TERMINAL = new Set(["COMPLETED", "COMPLETED_WITH_WARNINGS", "FAILED"]);
 
 export function DocumentStatusView({ id }: { id: string }) {
+  const router = useRouter();
   const [document, setDocument] = useState<DocumentItem | null>(null);
   const [scan, setScan] = useState<DocumentStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const retryRef = useRef(1000);
+
+  const handleDelete = async () => {
+    if (!document) return;
+    if (
+      !window.confirm(
+        `Are you sure you want to delete "${document.filename}"?\n\nThis will permanently delete the document, all findings, inspection metrics, and audit records.`
+      )
+    ) {
+      return;
+    }
+    setIsDeleting(true);
+    try {
+      await deleteDocument(id);
+      router.push("/");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to delete document.");
+      setIsDeleting(false);
+    }
+  };
 
   const load = useCallback(async () => {
     try {
@@ -107,7 +130,30 @@ export function DocumentStatusView({ id }: { id: string }) {
       <Link className="back-link" href="/"><ArrowLeft size={15} />Inspection register</Link>
       {error && <div className="alert alert-error" role="alert"><AlertTriangle /><span><strong>Status unavailable</strong>{error}</span><button type="button" onClick={() => void load()}>Retry</button></div>}
       {!document || !scan ? <div className="panel loading-state" role="status">Reading pipeline telemetry…</div> : <>
-        <div className="document-hero"><div className="document-icon"><FileText /></div><div><p className="eyebrow">Document inspection</p><h1>{document.filename}</h1><p>{formatBytes(document.size_bytes)} · Uploaded {formatDate(document.created_at)} · {document.page_count ? `${document.page_count} pages` : "Page count pending"}</p></div><div className="hero-status"><StatusBadge status={scan.status} /><button className="icon-button" type="button" onClick={() => void load()} aria-label="Refresh status"><RotateCw size={16} /></button></div></div>
+        <div className="document-hero">
+          <div className="document-icon"><FileText /></div>
+          <div>
+            <p className="eyebrow">Document inspection</p>
+            <h1>{document.filename}</h1>
+            <p>{formatBytes(document.size_bytes)} · Uploaded {formatDate(document.created_at)} · {document.page_count ? `${document.page_count} pages` : "Page count pending"}</p>
+          </div>
+          <div className="hero-status">
+            <StatusBadge status={scan.status} />
+            <button className="icon-button" type="button" onClick={() => void load()} aria-label="Refresh status" title="Refresh status">
+              <RotateCw size={16} />
+            </button>
+            <button
+              className="icon-button delete-action-btn"
+              type="button"
+              onClick={() => void handleDelete()}
+              disabled={isDeleting}
+              aria-label="Delete document"
+              title="Delete document"
+            >
+              <Trash2 size={16} />
+            </button>
+          </div>
+        </div>
         <ScanProgress scan={scan} />
         {TERMINAL.has(scan.status) && (
           <section className="panel next-step">

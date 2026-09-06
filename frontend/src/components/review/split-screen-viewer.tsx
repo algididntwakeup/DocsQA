@@ -31,6 +31,7 @@ import { AuditTrailModal } from "./audit-trail-modal";
 import { TraceabilitySummaryModal } from "./traceability-summary-modal";
 import { DictionaryModal } from "./dictionary-modal";
 import { ExportModal } from "./export-modal";
+import { ThemeToggle } from "../layout/theme-toggle";
 
 interface SplitScreenViewerProps {
   document: DocumentItem;
@@ -283,6 +284,8 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
             <Download size={14} />
             <span>Export</span>
           </button>
+
+          <ThemeToggle />
 
           <button
             type="button"

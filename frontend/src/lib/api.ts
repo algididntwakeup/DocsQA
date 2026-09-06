@@ -42,6 +42,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     }
     throw new ApiError(message, response.status, code);
   }
+  if (response.status === 204) {
+    return undefined as unknown as T;
+  }
   return (await response.json()) as T;
 }
 
@@ -51,6 +54,12 @@ export function listDocuments(): Promise<DocumentList> {
 
 export function getDocument(id: string): Promise<DocumentItem> {
   return request<DocumentItem>(`/documents/${encodeURIComponent(id)}`, { cache: "no-store" });
+}
+
+export function deleteDocument(id: string): Promise<void> {
+  return request<void>(`/documents/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
 }
 
 export function getDocumentStatus(id: string): Promise<DocumentStatus> {

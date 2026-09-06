@@ -1,6 +1,7 @@
 import { ClipboardCheck, FileStack, Gauge, Settings } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { ThemeToggle } from "./theme-toggle";
 
 const navigation = [
   { href: "/", label: "Documents", icon: FileStack },
@@ -35,7 +36,10 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="main-column">
         <header className="topbar">
           <div><span className="environment-dot" />Local workspace</div>
-          <div className="operator"><span>QA</span><p><strong>QA Engineer</strong><small>Single-user mode</small></p></div>
+          <div className="topbar-actions">
+            <ThemeToggle />
+            <div className="operator"><span>QA</span><p><strong>QA Engineer</strong><small>Single-user mode</small></p></div>
+          </div>
         </header>
         <main className="content">{children}</main>
       </div>

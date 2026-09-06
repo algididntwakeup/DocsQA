@@ -7,8 +7,12 @@ ticket. Repository state always overrides stale prose.
 ## Current checkpoint
 
 - M0, M1, M2 Deterministic Traceability Core, M3 Review and Audit Workflow,
-  and **M4 Linguistic Pipeline & Governed Engineering Dictionary** are complete locally.
-- Next milestone: **M5 Export, Hardening, and Release**.
+  M4 Linguistic Pipeline & Governed Engineering Dictionary, and **M5 Export, Hardening, and Release** are complete locally.
+- **Post-M5 User Experience & Lifecycle Enhancements** (Complete):
+  - **Document Deletion**: `DELETE /api/v1/documents/{document_id}` API endpoint with cascading cleanup of database records (`stage_runs`, `issues`, `audit_events`), physical storage files, and disk artifacts directory (`artifacts/{id}`). Frontend `DocumentList` has an Actions column with a delete button and confirmation modal; `DocumentStatusView` includes a delete action with navigation back to the register.
+  - **Frontend Light Mode**: Full theme toggle (`ThemeToggle` in AppShell and SplitScreenViewer header) with reactive `useSyncExternalStore`, `localStorage` persistence, and comprehensive slate-50/white design tokens in `globals.css`.
+  - **Pipeline Stuck Troubleshooting Documentation**: Root-cause analysis and step-by-step remediation guide for Celery worker extraction loops on complex CAD/vector linework documented in [`docs/troubleshooting_pipeline_stuck.md`](docs/troubleshooting_pipeline_stuck.md).
+- Next ticket / action: Backend extraction timeout and table cell bounds remediation as detailed in `docs/troubleshooting_pipeline_stuck.md`.
 - Never push to GitHub; the owner pushes. Local commits are allowed.
 - The application is a monorepo: `backend/` FastAPI and `frontend/` Next.js.
 

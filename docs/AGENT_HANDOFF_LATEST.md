@@ -99,6 +99,12 @@ Read `START_HERE.md` and `release_runbook.md` for operational deployment procedu
     - `backend/scripts/quality.ps1` 100% green: 195 passed tests, 0 Ruff errors, 0 strict Mypy errors across 64 files, valid OpenAPI export, and offline Alembic check.
     - `frontend/npm run check` 100% green: 0 ESLint errors, 0 TypeScript errors, 28 passed Vitest tests across 8 suites, and clean Next.js 16 production build.
     - Production operations guide published at `docs/release_runbook.md`.
+- Document Deletion & UI Features:
+  - Backend `DELETE /api/v1/documents/{document_id}`: deletes database record (cascading to stage_runs, issues, audit_events), storage files, and disk artifacts directory (`artifacts/{document_id}`).
+  - Frontend DocumentList: added Actions column with delete button and confirmation dialog.
+  - Frontend DocumentStatusView: added delete button with confirmation dialog.
+  - Frontend Light Mode: added `ThemeToggle` component in `AppShell` and `SplitScreenViewer` with full light theme tokens in `globals.css` and `localStorage` persistence (`matqc-theme`).
+  - Pipeline Stuck Troubleshooting Guide: published in `docs/troubleshooting_pipeline_stuck.md` with detailed root-cause analysis (PyMuPDF table cell explosion on CAD vector linework) and step-by-step remediation plan for Celery timeouts and table bounds.
 - All commits stay local. Do not run `git push`.
 
 ## Operational notes
@@ -111,3 +117,5 @@ Read `START_HERE.md` and `release_runbook.md` for operational deployment procedu
 - To test containers: ensure Docker Desktop is running and `docker version`
   works, then run `Copy-Item .env.docker.example .env` followed by
   `docker compose up --build` from the repository root.
+- If background pipeline extraction hangs on complex vector drawings, consult `docs/troubleshooting_pipeline_stuck.md`.
+
