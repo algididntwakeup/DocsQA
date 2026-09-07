@@ -399,6 +399,7 @@ def normalize_reference_findings(
             rule_kind=f.rule_kind,
             detected_parameter=f.detected_parameter,
             detected_value=f.detected_value,
+            compliance_status=f.compliance_status,
             location=loc,
         )
         issues.append(

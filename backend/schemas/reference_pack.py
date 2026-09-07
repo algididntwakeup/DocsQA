@@ -9,6 +9,8 @@ from schemas.base import ApiModel
 
 RuleKind = Literal["range", "unit", "numeric_limit", "terminology", "required_reference"]
 ComparisonOperator = Literal["GE", "LE", "GT", "LT", "EQ"]
+PackStatus = Literal["CONFIGURED", "UNCONFIGURED"]
+ComplianceStatus = Literal["NON_COMPLIANT", "UNRESOLVED", "COMPLIANT"]
 
 
 class RangeParameters(ApiModel):
@@ -80,6 +82,8 @@ class ReferenceRule(ApiModel):
     required_reference_params: RequiredReferenceParameters | None = None
     message_template: str
     recommendation_template: str
+    requires_engineering_judgement: bool = False
+    default_status: ComplianceStatus = "NON_COMPLIANT"
 
 
 class ReferencePackManifest(ApiModel):
@@ -92,6 +96,9 @@ class ReferencePackManifest(ApiModel):
     authority: str
     version: str
     description: str
+    status: PackStatus = "CONFIGURED"
+    source_pdf: str | None = None
+    source_available: bool = False
     rules_count: int = 0
     benchmarks_count: int = 0
 
@@ -151,4 +158,5 @@ class ReferenceFinding(ApiModel):
     detected_fact: str
     detected_parameter: str | None = None
     detected_value: str | None = None
+    compliance_status: ComplianceStatus = "NON_COMPLIANT"
     page_number: int = 1

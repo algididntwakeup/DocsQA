@@ -844,6 +844,11 @@
             "title": "Clause",
             "type": "string"
           },
+          "compliance_status": {
+            "default": "NON_COMPLIANT",
+            "title": "Compliance Status",
+            "type": "string"
+          },
           "detected_parameter": {
             "anyOf": [
               {

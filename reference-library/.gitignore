@@ -1,0 +1,3 @@
+# Ignore official licensed PDFs from version control
+*.pdf
+!README.md

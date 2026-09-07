@@ -106,6 +106,14 @@ def build_review_report(document: Document, issues: list[Issue]) -> bytes:
                 ed = evidence.get("edition", "")
                 cl = evidence.get("clause", "")
                 sp = evidence.get("standard_page", "")
+                comp_status = evidence.get("compliance_status", "NON_COMPLIANT")
+                if comp_status == "UNRESOLVED":
+                    report.add_paragraph(
+                        "Compliance status: UNRESOLVED "
+                        "(Requires Licensed Professional Engineer evaluation)."
+                    )
+                else:
+                    report.add_paragraph("Compliance status: NON-COMPLIANT.")
                 report.add_paragraph(
                     f"Evidence source: Standard {std} ({ed}), Clause {cl}, Standard Page {sp}."
                 )
@@ -119,27 +127,42 @@ def build_review_report(document: Document, issues: list[Issue]) -> bytes:
 
     # Reference Standards Verification
     registry = get_default_registry()
-    packs = registry.list_packs()
+    packs = registry.list_all_packs()
     if packs:
         report.add_heading("Governed Reference Standards Verification", level=1)
         report.add_paragraph(
-            "The following deterministic reference standards packs and rules were active during "
-            "this document evaluation. All active rules are grounded in published code editions "
-            "and pre-validated against benchmark verification suites:"
+            "The following deterministic reference standards packs are registered in the "
+            "DocsQA governance system. Active rules are grounded strictly in published "
+            "standard editions from the reference library and pre-validated against "
+            "benchmark verification suites. Unconfigured packs require official source PDFs "
+            "in the local reference library before deterministic rules can be activated:"
         )
-        pack_table = report.add_table(rows=1, cols=4)
+        pack_table = report.add_table(rows=1, cols=5)
         pack_table.style = "Table Grid"
         hdr = pack_table.rows[0].cells
         hdr[0].text = "Standard"
         hdr[1].text = "Edition"
-        hdr[2].text = "Active Rules"
-        hdr[3].text = "Benchmark Suite Status"
+        hdr[2].text = "Status"
+        hdr[3].text = "Active Rules"
+        hdr[4].text = "Benchmark Suite Status"
         for pack in packs:
             cells = pack_table.add_row().cells
             cells[0].text = pack.manifest.standard_code
             cells[1].text = pack.manifest.edition
-            cells[2].text = f"{len(pack.rules)} rules"
-            cells[3].text = f"{len(pack.benchmarks)} test cases (100% precision, 0% FPR)"
+            cells[2].text = pack.manifest.status
+            if pack.manifest.status == "CONFIGURED":
+                cells[3].text = f"{len(pack.rules)} rules"
+                cells[4].text = f"{len(pack.benchmarks)} test cases (100% precision, 0% FPR)"
+            else:
+                cells[3].text = "0 rules (unconfigured)"
+                cells[4].text = "Pending official source reference in reference-library/"
+
+        report.add_paragraph(
+            "Standards pack evaluations assess strictly verifiable parameters and mandatory "
+            "citations. Any items requiring engineering judgement are designated as "
+            "UNRESOLVED and must be reviewed by a Licensed Professional Engineer. DocsQA does "
+            "not approve designs, verify engineering safety, or validate calculation correctness."
+        )
 
     report.add_heading("What this document does well", level=1)
     report.add_paragraph(

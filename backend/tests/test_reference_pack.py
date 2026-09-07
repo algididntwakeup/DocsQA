@@ -89,14 +89,84 @@ def test_reference_pack_registry() -> None:
     pack_by_id = registry.get_pack("asme_sec_viii_div1")
     assert pack_by_id is not None
     assert pack_by_id.manifest.pack_id == "asme_sec_viii_div1"
+    assert pack_by_id.manifest.status == "CONFIGURED"
 
     pack_by_code = registry.get_pack("ASME BPVC.VIII.1")
     assert pack_by_code is not None
     assert pack_by_code.manifest.pack_id == "asme_sec_viii_div1"
 
-    packs = registry.list_packs()
-    assert len(packs) >= 1
-    assert any(p.manifest.pack_id == "asme_sec_viii_div1" for p in packs)
+    packs = registry.list_all_packs()
+    assert len(packs) >= 4
+    pack_ids = {p.manifest.pack_id for p in packs}
+    assert "asme_sec_viii_div1" in pack_ids
+    assert "api_rp_580" in pack_ids
+    assert "api_510" in pack_ids
+    assert "api_579_1" in pack_ids
+
+    configured_packs = registry.list_configured_packs()
+    assert any(p.manifest.pack_id == "asme_sec_viii_div1" for p in configured_packs)
+    assert not any(p.manifest.pack_id == "api_rp_580" for p in configured_packs)
+
+
+def test_unconfigured_api_packs() -> None:
+    """API packs without source PDFs must be UNCONFIGURED with 0 active rules."""
+    registry = get_default_registry()
+    registry.reload()
+
+    for pack_id, code in [
+        ("api_rp_580", "API RP 580"),
+        ("api_510", "API 510"),
+        ("api_579_1", "API 579-1/ASME FFS-1"),
+    ]:
+        pack = registry.get_pack(pack_id)
+        assert pack is not None, f"Missing pack {pack_id}"
+        assert pack.manifest.standard_code == code
+        assert pack.manifest.status == "UNCONFIGURED"
+        assert len(pack.rules) == 0
+        assert len(pack.benchmarks) == 0
+        assert pack.manifest.rules_count == 0
+        assert pack.manifest.benchmarks_count == 0
+        # Source PDF is not yet in reference-library/
+        assert pack.manifest.source_available is False
+
+
+def test_engineering_judgement_unresolved_status() -> None:
+    """Rules requiring engineering judgement emit UNRESOLVED compliance status."""
+    rule = ReferenceRule(
+        rule_id="RULE-ENG-JUDGEMENT",
+        standard="ASME BPVC.VIII.1",
+        edition="2021",
+        clause="UG-99(f)",
+        standard_page=77,
+        title="Hydrostatic Test Stress Judgement",
+        severity=Severity.HIGH,
+        kind="numeric_limit",
+        requires_engineering_judgement=True,
+        numeric_limit_params=NumericLimitParameters(
+            parameter_name="Coincident test stress ratio",
+            pattern=r"coincident\s+stress\s+ratio\s*[:=]\s*(\d+(?:\.\d+)?)",
+            operator="LE",
+            limit_value=1.5,
+        ),
+        message_template=(
+            "Coincident stress ratio requires professional engineering review: {value}"
+        ),
+        recommendation_template=(
+            "Obtain licensed engineer review of coincident test stresses per {clause}."
+        ),
+    )
+    evaluator = ReferenceRuleEvaluator([rule])
+    findings = evaluator.evaluate_text("Vessel coincident stress ratio = 1.65", page_number=2)
+    assert len(findings) == 1
+    assert findings[0].compliance_status == "UNRESOLVED"
+    assert findings[0].detected_fact
+
+    # Normalization to issue propagates UNRESOLVED status
+    issues = normalize_reference_findings(uuid4(), findings)
+    assert len(issues) == 1
+    ev = issues[0].evidence
+    assert isinstance(ev, ReferenceRuleEvidence)
+    assert ev.compliance_status == "UNRESOLVED"
 
 
 # ── 2. Evaluator Unit Tests Across 5 Rule Kinds ────────────────────────
@@ -430,7 +500,42 @@ def test_docx_report_with_reference_rule_findings() -> None:
         reviewer_note="Confirmed discrepancy with design calculations.",
     )
 
-    docx_bytes = build_review_report(document, [issue_ref])
+    # Add an UNRESOLVED reference rule issue requiring engineering judgement
+    issue_unresolved = Issue(
+        id=uuid4(),
+        document_id=doc,
+        category=IssueCategory.TRACEABILITY,
+        type="RULE-ENG-JUDGEMENT",
+        severity=Severity.HIGH,
+        message="Coincident stress ratio requires professional engineering review: 1.65",
+        page_number=2,
+        evidence={
+            "kind": "REFERENCE_RULE",
+            "extractor_version": "1.0",
+            "rule_version": "ASME BPVC.VIII.1:2021",
+            "standard": "ASME BPVC.VIII.1",
+            "edition": "2021",
+            "clause": "UG-99(f)",
+            "standard_page": 77,
+            "rule_kind": "numeric_limit",
+            "detected_parameter": "Coincident test stress ratio",
+            "detected_value": "1.65",
+            "compliance_status": "UNRESOLVED",
+            "location": {
+                "page_index": 1,
+                "x0": 0.0,
+                "y0": 0.0,
+                "x1": 612.0,
+                "y1": 792.0,
+                "page_width": 612.0,
+                "page_height": 792.0,
+            },
+        },
+        included_in_report=True,
+        reviewer_note="Forward to stress engineering team.",
+    )
+
+    docx_bytes = build_review_report(document, [issue_ref, issue_unresolved])
     assert len(docx_bytes) > 0
 
     word_doc = docx.Document(io.BytesIO(docx_bytes))
@@ -447,14 +552,33 @@ def test_docx_report_with_reference_rule_findings() -> None:
     )
     assert "Align specification and design parameters with ASME BPVC.VIII.1" in full_text
 
-    # Reference standards verification section
+    # UNRESOLVED compliance status rendering
+    assert (
+        "Compliance status: UNRESOLVED (Requires Licensed Professional Engineer evaluation)."
+        in full_text
+    )
+    assert "Compliance status: NON-COMPLIANT." in full_text
+
+    # Reference standards verification section contains all 4 standards
     assert "Governed Reference Standards Verification" in full_text
-    assert "ASME BPVC.VIII.1" in full_text
-    assert "2021" in full_text
+    all_table_text = "\n".join(
+        " ".join(cell.text for cell in row.cells)
+        for t in word_doc.tables
+        for row in t.rows
+    )
+    assert "ASME BPVC.VIII.1" in all_table_text
+    assert "API RP 580" in all_table_text
+    assert "API 510" in all_table_text
+    assert "API 579-1/ASME FFS-1" in all_table_text
+    assert "CONFIGURED" in all_table_text
+    assert "UNCONFIGURED" in all_table_text
+
+    # Disclaimer against approval/safety certification
+    assert "DocsQA does not approve designs, verify engineering safety" in full_text
 
     # Scorecard table
     table = word_doc.tables[0]
     data = {row.cells[0].text: row.cells[1].text for row in table.rows[1:]}
-    assert data["Included findings"] == "1"
-    assert data["Blockers"] == "1"
-    assert data["Reference standard violations"] == "1"
+    assert data["Included findings"] == "2"
+    assert data["Blockers"] == "2"
+    assert data["Reference standard violations"] == "2"

@@ -106,6 +106,38 @@ class ReferenceRuleEvaluator:
 
         return self._deduplicate(all_findings)
 
+    def _create_finding(
+        self,
+        rule: ReferenceRule,
+        message: str,
+        recommendation: str,
+        detected_fact: str,
+        detected_parameter: str | None,
+        detected_value: str | None,
+        page_number: int,
+    ) -> ReferenceFinding:
+        compliance_status = (
+            "UNRESOLVED"
+            if rule.requires_engineering_judgement
+            else rule.default_status
+        )
+        return ReferenceFinding(
+            rule_id=rule.rule_id,
+            standard=rule.standard,
+            edition=rule.edition,
+            clause=rule.clause,
+            standard_page=rule.standard_page,
+            rule_kind=rule.kind,
+            severity=rule.severity,
+            message=message,
+            recommendation=recommendation,
+            detected_fact=detected_fact,
+            detected_parameter=detected_parameter,
+            detected_value=detected_value,
+            compliance_status=compliance_status,
+            page_number=page_number,
+        )
+
     # ── Rule Kind Evaluators ──────────────────────────────────────────
 
     def _eval_range(
@@ -167,14 +199,8 @@ class ReferenceRuleEvaluator:
                 ) if "{" in rule.recommendation_template else rule.recommendation_template
 
                 findings.append(
-                    ReferenceFinding(
-                        rule_id=rule.rule_id,
-                        standard=rule.standard,
-                        edition=rule.edition,
-                        clause=rule.clause,
-                        standard_page=rule.standard_page,
-                        rule_kind=rule.kind,
-                        severity=rule.severity,
+                    self._create_finding(
+                        rule=rule,
                         message=msg,
                         recommendation=rec,
                         detected_fact=fact,
@@ -228,14 +254,8 @@ class ReferenceRuleEvaluator:
                 ) if "{" in rule.recommendation_template else rule.recommendation_template
 
                 findings.append(
-                    ReferenceFinding(
-                        rule_id=rule.rule_id,
-                        standard=rule.standard,
-                        edition=rule.edition,
-                        clause=rule.clause,
-                        standard_page=rule.standard_page,
-                        rule_kind=rule.kind,
-                        severity=rule.severity,
+                    self._create_finding(
+                        rule=rule,
                         message=msg,
                         recommendation=rec,
                         detected_fact=fact,
@@ -303,14 +323,8 @@ class ReferenceRuleEvaluator:
                 ) if "{" in rule.recommendation_template else rule.recommendation_template
 
                 findings.append(
-                    ReferenceFinding(
-                        rule_id=rule.rule_id,
-                        standard=rule.standard,
-                        edition=rule.edition,
-                        clause=rule.clause,
-                        standard_page=rule.standard_page,
-                        rule_kind=rule.kind,
-                        severity=rule.severity,
+                    self._create_finding(
+                        rule=rule,
                         message=msg,
                         recommendation=rec,
                         detected_fact=fact,
@@ -357,14 +371,8 @@ class ReferenceRuleEvaluator:
                 ) if "{" in rule.recommendation_template else rule.recommendation_template
 
                 findings.append(
-                    ReferenceFinding(
-                        rule_id=rule.rule_id,
-                        standard=rule.standard,
-                        edition=rule.edition,
-                        clause=rule.clause,
-                        standard_page=rule.standard_page,
-                        rule_kind=rule.kind,
-                        severity=rule.severity,
+                    self._create_finding(
+                        rule=rule,
                         message=msg,
                         recommendation=rec,
                         detected_fact=fact,
@@ -425,14 +433,8 @@ class ReferenceRuleEvaluator:
             ) if "{" in rule.recommendation_template else rule.recommendation_template
 
             findings.append(
-                ReferenceFinding(
-                    rule_id=rule.rule_id,
-                    standard=rule.standard,
-                    edition=rule.edition,
-                    clause=rule.clause,
-                    standard_page=rule.standard_page,
-                    rule_kind=rule.kind,
-                    severity=rule.severity,
+                self._create_finding(
+                    rule=rule,
                     message=msg,
                     recommendation=rec,
                     detected_fact=fact,

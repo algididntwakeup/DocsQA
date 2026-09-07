@@ -1,0 +1,11 @@
+{
+  "pack_id": "api_510",
+  "standard_code": "API 510",
+  "standard_name": "Pressure Vessel Inspection Code: In-service Inspection, Rating, Repair, and Alteration",
+  "edition": "11th Edition (2022)",
+  "authority": "American Petroleum Institute (API)",
+  "version": "1.0.0",
+  "description": "Deterministic reference pack for in-service pressure vessel inspection, rating, repair, and alteration requirements. Status is UNCONFIGURED pending installation of official source reference in reference-library/.",
+  "status": "UNCONFIGURED",
+  "source_pdf": "API_510.pdf"
+}

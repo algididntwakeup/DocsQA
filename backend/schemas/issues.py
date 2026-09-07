@@ -116,6 +116,7 @@ class ReferenceRuleEvidence(EvidenceBase):
     rule_kind: str
     detected_parameter: str | None = None
     detected_value: str | None = None
+    compliance_status: str = "NON_COMPLIANT"
     location: BoundingBox
 
 

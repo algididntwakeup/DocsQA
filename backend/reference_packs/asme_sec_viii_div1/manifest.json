@@ -5,5 +5,7 @@
   "edition": "2021",
   "authority": "American Society of Mechanical Engineers (ASME)",
   "version": "1.0.0",
-  "description": "Deterministic engineering reference pack for pressure vessel specification rules covering hydrotest factor, pneumatic test factor, joint efficiency bounds, design temperature limits, pressure/temperature units, technical terminology, and mandatory normative citations."
+  "description": "Deterministic engineering reference pack for pressure vessel specification rules covering hydrotest factor, pneumatic test factor, joint efficiency bounds, design temperature limits, pressure/temperature units, technical terminology, and mandatory normative citations.",
+  "status": "CONFIGURED",
+  "source_pdf": "ASME_BPVC_VIII_1_2021.pdf"
 }

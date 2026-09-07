@@ -45,13 +45,25 @@ class ReferencePackLoader:
         rules_raw = json.loads(rules_file.read_text(encoding="utf-8"))
         benchmarks_raw = json.loads(benchmarks_file.read_text(encoding="utf-8"))
 
+        # Resolve whether source PDF exists in reference-library
+        ref_lib_dir = Path(__file__).resolve().parents[3] / "reference-library"
+        source_pdf_name = manifest_raw.get("source_pdf")
+        source_available = bool(source_pdf_name and (ref_lib_dir / source_pdf_name).is_file())
+
         rules = [ReferenceRule.model_validate(r) for r in rules_raw]
         benchmarks = [BenchmarkCase.model_validate(b) for b in benchmarks_raw]
 
         manifest_data = dict(manifest_raw)
         manifest_data["rules_count"] = len(rules)
         manifest_data["benchmarks_count"] = len(benchmarks)
+        manifest_data["source_available"] = source_available
         manifest = ReferencePackManifest.model_validate(manifest_data)
+
+        # Configured packs require at least one rule and benchmark
+        if manifest.status == "CONFIGURED" and not rules:
+            raise ValueError(
+                f"Configured reference pack '{manifest.pack_id}' must have at least one rule."
+            )
 
         # Validate that each rule has parameters appropriate for its kind
         for rule in rules:
@@ -105,6 +117,10 @@ class ReferencePackRegistry:
         return self._packs.get(identifier)
 
     def list_packs(self) -> list[ReferencePack]:
+        """Return all unique discovered reference packs (configured and unconfigured)."""
+        return self.list_all_packs()
+
+    def list_all_packs(self) -> list[ReferencePack]:
         """Return all unique discovered reference packs."""
         if not self._loaded:
             self.reload()
@@ -116,6 +132,10 @@ class ReferencePackRegistry:
                 seen.add(pack.manifest.pack_id)
                 result.append(pack)
         return result
+
+    def list_configured_packs(self) -> list[ReferencePack]:
+        """Return only packs that are marked CONFIGURED with active rules."""
+        return [p for p in self.list_all_packs() if p.manifest.status == "CONFIGURED"]
 
 
 def get_default_registry() -> ReferencePackRegistry:

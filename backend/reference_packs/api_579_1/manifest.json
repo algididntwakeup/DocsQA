@@ -1,0 +1,11 @@
+{
+  "pack_id": "api_579_1",
+  "standard_code": "API 579-1/ASME FFS-1",
+  "standard_name": "Fitness-For-Service",
+  "edition": "3rd Edition (2021)",
+  "authority": "American Petroleum Institute (API) / American Society of Mechanical Engineers (ASME)",
+  "version": "1.0.0",
+  "description": "Deterministic reference pack for fitness-for-service assessment procedures covering brittle fracture, general/local metal loss, and pitting. Status is UNCONFIGURED pending installation of official source reference in reference-library/.",
+  "status": "UNCONFIGURED",
+  "source_pdf": "API_579_1.pdf"
+}
