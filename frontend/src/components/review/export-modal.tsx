@@ -99,14 +99,14 @@ export function ExportModal({
       >
         <header className="modal-header">
           <div className="flex items-center gap-2">
-            <Download size={18} className="text-sky-400" />
-            <h2 id="export-modal-title" className="text-base font-semibold text-slate-100">
+            <Download size={18} className="text-sky-500 dark:text-sky-400" />
+            <h2 id="export-modal-title" className="text-base font-semibold text-ink">
               Export Findings & Audit Package
             </h2>
           </div>
           <button
             type="button"
-            className="icon-button"
+            className="icon-button text-muted hover:text-ink transition-colors"
             onClick={onClose}
             aria-label="Close export modal"
           >
@@ -115,8 +115,9 @@ export function ExportModal({
         </header>
 
         <div className="modal-body p-5 space-y-4">
-          <p className="text-xs text-slate-400">
-            Select an export format for document <strong className="text-slate-200">{documentFilename}</strong>. All exports reflect current QA decisions, dispositions, and the complete audit trail.
+          <p className="text-xs text-muted">
+            Select an export format for document{" "}
+            <strong className="text-ink font-semibold">{documentFilename}</strong>. All exports reflect current QA decisions, dispositions, and the complete audit trail.
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
@@ -127,28 +128,28 @@ export function ExportModal({
                 download
                 target="_blank"
                 rel="noreferrer"
-                className="flex flex-col justify-between p-4 rounded-md border border-slate-800 bg-slate-900/60 hover:bg-slate-800/80 hover:border-sky-500/50 transition-colors group cursor-pointer"
+                className="flex flex-col justify-between p-4 rounded-lg border border-line bg-panel hover:bg-panel-raised hover:border-primary/50 shadow-xs hover:shadow-md transition-all group cursor-pointer"
                 data-testid={`export-${opt.format}-btn`}
               >
                 <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="p-2 rounded bg-slate-800/80 border border-slate-700/60">
+                  <div className="flex items-center justify-between mb-2.5">
+                    <div className="p-2 rounded-md bg-chip text-chip-ink border border-line">
                       {opt.icon}
                     </div>
-                    <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
+                    <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded bg-chip text-chip-ink border border-line font-medium">
                       {opt.badge}
                     </span>
                   </div>
-                  <h3 className="text-sm font-medium text-slate-200 group-hover:text-sky-300 transition-colors flex items-center gap-1.5">
+                  <h3 className="text-sm font-semibold text-ink group-hover:text-primary transition-colors flex items-center gap-1.5">
                     {opt.title}
-                    <span className="text-xs text-slate-500 font-mono">{opt.extension}</span>
+                    <span className="text-xs text-muted font-mono">{opt.extension}</span>
                   </h3>
-                  <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+                  <p className="text-xs text-muted mt-1.5 leading-relaxed">
                     {opt.description}
                   </p>
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-sky-400 font-medium group-hover:text-sky-300">
+                <div className="mt-4 pt-3 border-t border-line flex items-center justify-between text-xs text-primary font-medium group-hover:text-primary-bright">
                   <span>Download file</span>
                   <ExternalLink size={13} />
                 </div>
@@ -157,10 +158,10 @@ export function ExportModal({
           </div>
         </div>
 
-        <footer className="modal-footer flex items-center justify-end p-4 border-t border-slate-800 bg-slate-950/40">
+        <footer className="modal-footer flex items-center justify-end p-4 border-t border-line bg-panel-raised">
           <button
             type="button"
-            className="btn btn-secondary btn-sm"
+            className="btn btn-secondary btn-sm px-4"
             onClick={onClose}
           >
             Close

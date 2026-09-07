@@ -8,6 +8,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Maximize2,
+  Minimize2,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
@@ -32,6 +33,9 @@ interface LoadedDoc {
   doc: pdfjsLib.PDFDocumentProxy;
 }
 
+const MIN_ZOOM = 0.4;
+const MAX_ZOOM = 10.0; // 1000% zoom allows inspecting dense CAD & micro-tables
+
 export function PdfCanvasViewer({
   documentId,
   currentPage,
@@ -41,11 +45,13 @@ export function PdfCanvasViewer({
   activeIssue,
   onJumpToFinding,
 }: PdfCanvasViewerProps) {
+  const viewerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [loaded, setLoaded] = useState<LoadedDoc | null>(null);
   const [pageCount, setPageCount] = useState<number>(totalPages ?? 1);
   const [zoom, setZoom] = useState<number>(1);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [containerWidth, setContainerWidth] = useState<number>(0);
   const [intrinsicSize, setIntrinsicSize] = useState<{ width: number; height: number }>({
     width: 612,
@@ -53,6 +59,37 @@ export function PdfCanvasViewer({
   });
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  // Keep a ref to the latest zoom for native event handlers
+  const zoomRef = useRef<number>(zoom);
+  useEffect(() => {
+    zoomRef.current = zoom;
+  }, [zoom]);
+
+  // Sync fullscreen state
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    };
+  }, []);
+
+  const toggleFullscreen = async () => {
+    const el = viewerRef.current;
+    if (!el) return;
+    try {
+      if (!document.fullscreenElement) {
+        await el.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch {
+      // Ignore if fullscreen is not permitted by browser context
+    }
+  };
 
   // Keep the loading task so we can destroy it on unmount / id change.
   const loadingTaskRef = useRef<pdfjsLib.PDFDocumentLoadingTask | null>(null);
@@ -284,8 +321,64 @@ export function PdfCanvasViewer({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [currentPage, effectiveTotalPages, onPageChange]);
 
+  // Enable trackpad pinch-to-zoom and Ctrl+wheel zooming
+  useEffect(() => {
+    const scrollEl = scrollRef.current;
+    if (!scrollEl) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      // Trackpad pinch-to-zoom or mouse Ctrl+wheel
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+
+        // Natural exponential scaling based on deltaY
+        const delta = -e.deltaY;
+        const factor = Math.exp(delta * 0.005);
+
+        const currentZoom = zoomRef.current;
+        const nextZoom = Math.min(Math.max(currentZoom * factor, MIN_ZOOM), MAX_ZOOM);
+        const roundedZoom = Math.round(nextZoom * 100) / 100;
+
+        if (roundedZoom !== currentZoom) {
+          const rect = scrollEl.getBoundingClientRect();
+          const mouseX = e.clientX - rect.left;
+          const mouseY = e.clientY - rect.top;
+          const scrollLeft = scrollEl.scrollLeft;
+          const scrollTop = scrollEl.scrollTop;
+          const ratio = roundedZoom / currentZoom;
+
+          setZoom(roundedZoom);
+
+          requestAnimationFrame(() => {
+            if (scrollRef.current) {
+              scrollRef.current.scrollLeft = (scrollLeft + mouseX) * ratio - mouseX;
+              scrollRef.current.scrollTop = (scrollTop + mouseY) * ratio - mouseY;
+            }
+          });
+        }
+      }
+    };
+
+    const handleGesture = (e: Event) => {
+      e.preventDefault();
+    };
+
+    scrollEl.addEventListener("wheel", handleWheel, { passive: false });
+    scrollEl.addEventListener("gesturestart", handleGesture, { passive: false });
+    scrollEl.addEventListener("gesturechange", handleGesture, { passive: false });
+
+    return () => {
+      scrollEl.removeEventListener("wheel", handleWheel);
+      scrollEl.removeEventListener("gesturestart", handleGesture);
+      scrollEl.removeEventListener("gesturechange", handleGesture);
+    };
+  }, []);
+
   const changeZoom = (multiplier: number) => {
-    setZoom((z) => Math.min(Math.max(z * multiplier, 0.4), 3));
+    setZoom((z) => {
+      const next = Math.min(Math.max(z * multiplier, MIN_ZOOM), MAX_ZOOM);
+      return Math.round(next * 100) / 100;
+    });
   };
 
   if (loadError) {
@@ -309,7 +402,7 @@ export function PdfCanvasViewer({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-sunken">
+    <div ref={viewerRef} className="flex h-full min-h-0 flex-col bg-sunken">
       {/* Top Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-panel px-3 py-2 text-sm text-ink-soft shadow-xs">
         {/* Page Navigation */}
@@ -370,9 +463,15 @@ export function PdfCanvasViewer({
           >
             <ZoomOut className="w-3.5 h-3.5" />
           </button>
-          <span className="font-mono text-xs text-ink-soft w-12 text-center select-none font-semibold">
+          <button
+            type="button"
+            onClick={() => setZoom(1)}
+            className="font-mono text-xs text-ink-soft hover:text-primary w-14 text-center select-none font-semibold cursor-pointer rounded px-1 py-0.5 hover:bg-panel-raised transition-colors"
+            title="Click to reset zoom to 100%"
+            aria-label={`Current zoom ${Math.round(zoom * 100)}%, click to reset to 100%`}
+          >
             {Math.round(zoom * 100)}%
-          </span>
+          </button>
           <button
             type="button"
             className="btn btn-secondary btn-sm p-1.5"
@@ -384,12 +483,19 @@ export function PdfCanvasViewer({
           </button>
           <button
             type="button"
-            className="btn btn-secondary btn-sm p-1.5"
-            onClick={() => setZoom(1)}
-            aria-label="Reset zoom (100%)"
-            title="Reset zoom (100%)"
+            className={`btn btn-secondary btn-sm p-1.5 transition-colors ${
+              isFullscreen ? "bg-accent/20 text-accent border-accent/40" : ""
+            }`}
+            onClick={toggleFullscreen}
+            aria-label={isFullscreen ? "Exit fullscreen" : "Full screen"}
+            title={isFullscreen ? "Exit fullscreen (Esc)" : "Full screen"}
+            data-testid="pdf-fullscreen-btn"
           >
-            <Maximize2 className="w-3.5 h-3.5" />
+            {isFullscreen ? (
+              <Minimize2 className="w-3.5 h-3.5" />
+            ) : (
+              <Maximize2 className="w-3.5 h-3.5" />
+            )}
           </button>
         </div>
       </div>

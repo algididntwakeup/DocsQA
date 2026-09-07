@@ -12,9 +12,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="app-frame">
       <aside className="sidebar">
-        <Link className="brand" href="/" aria-label="MatQC home">
-          <span className="brand-mark" aria-hidden="true">M</span>
-          <span><strong>MATQC</strong><small>Document assurance</small></span>
+        <Link className="brand" href="/" aria-label="REKSOLINDOQA home">
+          <span className="brand-mark" aria-hidden="true">R</span>
+          <span><strong>REKSOLINDO</strong><small>Document assurance</small></span>
         </Link>
         <nav aria-label="Primary navigation">
           <p className="nav-label">Workspace</p>

@@ -14,6 +14,18 @@
   --color-accent-soft: var(--accent-soft);
   --color-chip: var(--chip-bg);
   --color-chip-ink: var(--chip-ink);
+  --color-primary: var(--primary);
+  --color-primary-bright: var(--primary-bright);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+}
+
+.bg-primary {
+  background-color: var(--primary);
+}
+.text-primary {
+  color: var(--primary);
 }
 
 :root {
