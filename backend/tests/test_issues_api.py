@@ -115,9 +115,8 @@ def test_list_document_issues_with_populated_issues() -> None:
         message="Table column calculation mismatch",
         page_number=1,
         evidence=evidence_payload,
-        decision=None,
-        disposition=None,
-        version=1,
+        included_in_report=True,
+        reviewer_note=None,
         created_at=now,
         updated_at=now,
     )

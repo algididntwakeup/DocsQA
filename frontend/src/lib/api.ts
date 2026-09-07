@@ -6,19 +6,12 @@ export type DocumentStatus = components["schemas"]["DocumentStatusResponse"];
 export type DocumentUpload = components["schemas"]["DocumentUploadResponse"];
 export type IssueItem = components["schemas"]["IssueRead"];
 export type IssueList = components["schemas"]["IssueListResponse"];
-export type IssueDecision = components["schemas"]["IssueDecisionRequest"];
-export type IssueDisposition = components["schemas"]["IssueDispositionRequest"];
-export type BulkDecision = components["schemas"]["BulkDecisionRequest"];
-export type BulkDecisionResult = components["schemas"]["BulkDecisionResponse"];
-export type DocumentDisposition = components["schemas"]["DocumentDispositionRequest"];
-export type AuditEventItem = components["schemas"]["AuditEventRead"];
-export type AuditEventList = components["schemas"]["AuditEventListResponse"];
+export type IssueCuration = components["schemas"]["IssueCurationRequest"];
+export type ReviewReportPreview = components["schemas"]["ReviewReportPreview"];
 export type TraceabilitySummary = components["schemas"]["TraceabilitySummaryResponse"];
 
 export function getApiBaseUrl(): string {
   if (typeof window !== "undefined") {
-    // In browser: use relative /api/v1 to route through Next.js proxy rewrites
-    // unless an explicit non-localhost base URL is provided.
     const custom = process.env.NEXT_PUBLIC_API_BASE_URL;
     if (custom && !custom.includes("localhost:8000") && !custom.includes("127.0.0.1:8000")) {
       return custom.replace(/\/+$/, "");
@@ -26,14 +19,12 @@ export function getApiBaseUrl(): string {
     return "/api/v1";
   }
 
-  // In Node.js / SSR:
   const internal = process.env.INTERNAL_API_URL;
   if (internal) {
     return `${internal.replace(/\/+$/, "")}/api/v1`;
   }
   return (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api/v1").replace(/\/+$/, "");
 }
-
 
 export class ApiError extends Error {
   constructor(message: string, readonly status: number, readonly code?: string) {
@@ -55,7 +46,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       message = problem.detail ?? message;
       code = problem.code;
     } catch {
-      // Keep the safe fallback for a non-JSON upstream error.
+      // Keep fallback
     }
     throw new ApiError(message, response.status, code);
   }
@@ -106,43 +97,16 @@ export function listDocumentIssues(
   );
 }
 
-export function decideIssue(issueId: string, payload: IssueDecision): Promise<IssueItem> {
-  return request<IssueItem>(`/issues/${encodeURIComponent(issueId)}/decision`, {
+export function curateIssue(issueId: string, payload: IssueCuration): Promise<IssueItem> {
+  return request<IssueItem>(`/issues/${encodeURIComponent(issueId)}/curation`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
 }
 
-export function disposeIssue(issueId: string, payload: IssueDisposition): Promise<IssueItem> {
-  return request<IssueItem>(`/issues/${encodeURIComponent(issueId)}/disposition`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-}
-
-export function bulkDecideIssues(payload: BulkDecision): Promise<BulkDecisionResult> {
-  return request<BulkDecisionResult>("/issues/bulk-decision", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-}
-
-export function setDocumentDisposition(
-  documentId: string,
-  payload: DocumentDisposition
-): Promise<DocumentItem> {
-  return request<DocumentItem>(`/documents/${encodeURIComponent(documentId)}/disposition`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-}
-
-export function listAuditEvents(documentId: string): Promise<AuditEventList> {
-  return request<AuditEventList>(`/documents/${encodeURIComponent(documentId)}/audit-events`, {
+export function getReportPreview(documentId: string): Promise<ReviewReportPreview> {
+  return request<ReviewReportPreview>(`/documents/${encodeURIComponent(documentId)}/report`, {
     cache: "no-store",
   });
 }
@@ -212,11 +176,6 @@ export interface DictionaryTermCreate {
   rationale?: string;
 }
 
-export interface DictionaryTermApproval {
-  status: "APPROVED" | "REJECTED";
-  rationale?: string;
-}
-
 export function listDictionaryTerms(
   scope?: string,
   status?: string,
@@ -244,21 +203,7 @@ export function createDictionaryTerm(
   });
 }
 
-export function approveDictionaryTerm(
-  termId: string,
-  payload: DictionaryTermApproval
-): Promise<DictionaryTermItem> {
-  return request<DictionaryTermItem>(
-    `/dictionary/terms/${encodeURIComponent(termId)}/approve`,
-    {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    }
-  );
-}
-
-export type ExportFormat = "pdf" | "xlsx" | "csv" | "json";
+export type ExportFormat = "pdf" | "docx";
 
 export function getExportUrl(documentId: string, format: ExportFormat): string {
   return `${getApiBaseUrl()}/documents/${encodeURIComponent(documentId)}/export?format=${format}`;
@@ -307,5 +252,3 @@ export function subscribeDocumentEvents(
     eventSource.close();
   };
 }
-
-

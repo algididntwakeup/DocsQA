@@ -13,15 +13,6 @@ class DocumentStatus(StrEnum):
     FAILED = "FAILED"
 
 
-class ReviewStatus(StrEnum):
-    """Human review lifecycle, kept separate from processing status."""
-
-    PENDING = "PENDING"
-    IN_REVIEW = "IN_REVIEW"
-    APPROVED = "APPROVED"
-    REVISION_REQUIRED = "REVISION_REQUIRED"
-
-
 class StageStatus(StrEnum):
     """Lifecycle of one versioned pipeline stage run."""
 
@@ -49,19 +40,3 @@ class Severity(StrEnum):
     MEDIUM = "MEDIUM"
     LOW = "LOW"
     INFO = "INFO"
-
-
-class Decision(StrEnum):
-    """QA decision applied to a detected issue."""
-
-    ACCEPTED = "ACCEPTED"
-    REJECTED = "REJECTED"
-    EDITED = "EDITED"
-    FLAGGED = "FLAGGED"
-
-
-class Disposition(StrEnum):
-    """Lead Reviewer disposition for audit-sensitive findings."""
-
-    JUSTIFIED_EXCEPTION = "JUSTIFIED_EXCEPTION"
-    REQUIRES_CORRECTION = "REQUIRES_CORRECTION"

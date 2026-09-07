@@ -12,6 +12,8 @@ describe("IssueCard", () => {
     severity: "CRITICAL",
     confidence: 0.95,
     message: "Column sum mismatch in Table 3.2",
+    included_in_report: true,
+    reviewer_note: null,
     version: 1,
     evidence: {
       kind: "TABLE_MATH",
@@ -40,8 +42,7 @@ describe("IssueCard", () => {
     render(
       <IssueCard
         issue={tableMathIssue}
-        onDecide={vi.fn()}
-        onDispose={vi.fn()}
+        onCurate={vi.fn()}
         onJumpToPage={vi.fn()}
       />
     );
@@ -51,65 +52,78 @@ describe("IssueCard", () => {
     expect(screen.getByText("Column sum mismatch in Table 3.2")).toBeDefined();
     expect(screen.getByText("1,250.00")).toBeDefined();
     expect(screen.getByText("1,350.00")).toBeDefined();
+    expect(screen.getByText("In Report")).toBeDefined();
   });
 
-  it("triggers onDecide with ACCEPTED and expected_version when Accept button is clicked", async () => {
-    const onDecide = vi.fn().mockResolvedValue(undefined);
+  it("triggers onCurate with included_in_report: false when Exclude from Report button is clicked", async () => {
+    const onCurate = vi.fn().mockResolvedValue(undefined);
     render(
       <IssueCard
         issue={tableMathIssue}
-        onDecide={onDecide}
-        onDispose={vi.fn()}
+        onCurate={onCurate}
         onJumpToPage={vi.fn()}
       />
     );
 
-    const acceptBtn = screen.getByRole("button", { name: /accept/i });
-    fireEvent.click(acceptBtn);
+    const excludeBtn = screen.getByRole("button", { name: /exclude from report/i });
+    fireEvent.click(excludeBtn);
 
-    expect(onDecide).toHaveBeenCalledWith("iss-math-1", {
-      decision: "ACCEPTED",
-      expected_version: 1,
-      comment: undefined,
-      actor_id: "reviewer@local",
-      actor_role: "QA_ENGINEER",
+    expect(onCurate).toHaveBeenCalledWith("iss-math-1", {
+      included_in_report: false,
+      reviewer_note: null,
     });
   });
 
-  it("requires justification before submitting Lead Reviewer disposition", async () => {
-    const onDispose = vi.fn().mockResolvedValue(undefined);
+  it("triggers onCurate with included_in_report: true when Include in Report button is clicked", async () => {
+    const onCurate = vi.fn().mockResolvedValue(undefined);
+    const excludedIssue: IssueItem = {
+      ...tableMathIssue,
+      included_in_report: false,
+    };
+
     render(
       <IssueCard
-        issue={tableMathIssue}
-        onDecide={vi.fn()}
-        onDispose={onDispose}
+        issue={excludedIssue}
+        onCurate={onCurate}
         onJumpToPage={vi.fn()}
       />
     );
 
-    // Expand lead controls
-    const leadToggle = screen.getByRole("button", { name: /lead disposition/i });
-    fireEvent.click(leadToggle);
+    expect(screen.getByText("Excluded")).toBeDefined();
+    const includeBtn = screen.getByRole("button", { name: /include in report/i });
+    fireEvent.click(includeBtn);
 
-    // Click Justified Exception without justification
-    const justifyBtn = screen.getByRole("button", { name: /justified exception/i });
-    fireEvent.click(justifyBtn);
+    expect(onCurate).toHaveBeenCalledWith("iss-math-1", {
+      included_in_report: true,
+      reviewer_note: null,
+    });
+  });
 
-    // Disposition should NOT be called without justification
-    expect(onDispose).not.toHaveBeenCalled();
-    expect(screen.getByText(/justification note is required/i)).toBeDefined();
+  it("allows adding a reviewer note and calls onCurate with updated note", async () => {
+    const onCurate = vi.fn().mockResolvedValue(undefined);
+    render(
+      <IssueCard
+        issue={tableMathIssue}
+        onCurate={onCurate}
+        onJumpToPage={vi.fn()}
+      />
+    );
 
-    // Type justification and retry
-    const textarea = screen.getByPlaceholderText(/regulatory justification/i);
-    fireEvent.change(textarea, { target: { value: "Approved under engineering waiver #402" } });
-    fireEvent.click(justifyBtn);
+    // Click Add Note
+    const addNoteBtn = screen.getByRole("button", { name: /add note/i });
+    fireEvent.click(addNoteBtn);
 
-    expect(onDispose).toHaveBeenCalledWith("iss-math-1", {
-      disposition: "JUSTIFIED_EXCEPTION",
-      justification: "Approved under engineering waiver #402",
-      expected_version: 1,
-      actor_id: "lead_reviewer@local",
-      actor_role: "LEAD_REVIEWER",
+    // Textarea appears
+    const textarea = screen.getByPlaceholderText(/engineering clarification/i);
+    fireEvent.change(textarea, { target: { value: "Discrepancy verified against sensor log." } });
+
+    // Save note
+    const saveBtn = screen.getByRole("button", { name: /save note/i });
+    fireEvent.click(saveBtn);
+
+    expect(onCurate).toHaveBeenCalledWith("iss-math-1", {
+      included_in_report: true,
+      reviewer_note: "Discrepancy verified against sensor log.",
     });
   });
 
@@ -118,8 +132,7 @@ describe("IssueCard", () => {
     render(
       <IssueCard
         issue={tableMathIssue}
-        onDecide={vi.fn()}
-        onDispose={vi.fn()}
+        onCurate={vi.fn()}
         onJumpToPage={onJumpToPage}
       />
     );
@@ -140,6 +153,8 @@ describe("IssueCard", () => {
       severity: "LOW",
       confidence: 0.9,
       message: "Unrecognized word 'inconel'",
+      included_in_report: true,
+      reviewer_note: null,
       version: 1,
       evidence: {
         kind: "LINGUISTIC",
@@ -164,17 +179,15 @@ describe("IssueCard", () => {
     render(
       <IssueCard
         issue={spellIssue}
-        onDecide={vi.fn()}
-        onDispose={vi.fn()}
+        onCurate={vi.fn()}
         onJumpToPage={vi.fn()}
         onAddToDictionary={onAddToDictionary}
       />
     );
 
-    const dictBtn = screen.getByRole("button", { name: /add to dictionary/i });
+    const dictBtn = screen.getByRole("button", { name: /add .* to dictionary/i });
     expect(dictBtn).toBeDefined();
     fireEvent.click(dictBtn);
     expect(onAddToDictionary).toHaveBeenCalledWith("inconel");
   });
 });
-

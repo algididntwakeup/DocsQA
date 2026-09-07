@@ -18,7 +18,7 @@ describe("ExportModal", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("renders all 4 export format cards with correct download links when isOpen is true", () => {
+  it("renders both export format cards (DOCX and PDF) with correct download links when isOpen is true", () => {
     const handleClose = vi.fn();
     render(
       <ExportModal
@@ -30,20 +30,19 @@ describe("ExportModal", () => {
     );
 
     expect(screen.getByRole("dialog")).toBeDefined();
-    expect(screen.getByText("Export Findings & Audit Package")).toBeDefined();
+    expect(screen.getByText("Export Review Deliverables")).toBeDefined();
 
     // Verify format cards
+    const docxCard = screen.getByTestId("export-docx-btn");
+    expect(docxCard.getAttribute("href")).toContain("/documents/test-doc-999/export?format=docx");
+
     const pdfCard = screen.getByTestId("export-pdf-btn");
     expect(pdfCard.getAttribute("href")).toContain("/documents/test-doc-999/export?format=pdf");
 
-    const xlsxCard = screen.getByTestId("export-xlsx-btn");
-    expect(xlsxCard.getAttribute("href")).toContain("/documents/test-doc-999/export?format=xlsx");
-
-    const csvCard = screen.getByTestId("export-csv-btn");
-    expect(csvCard.getAttribute("href")).toContain("/documents/test-doc-999/export?format=csv");
-
-    const jsonCard = screen.getByTestId("export-json-btn");
-    expect(jsonCard.getAttribute("href")).toContain("/documents/test-doc-999/export?format=json");
+    // Legacy formats should not exist
+    expect(screen.queryByTestId("export-xlsx-btn")).toBeNull();
+    expect(screen.queryByTestId("export-csv-btn")).toBeNull();
+    expect(screen.queryByTestId("export-json-btn")).toBeNull();
   });
 
   it("calls onClose when Close button is clicked", () => {

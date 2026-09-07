@@ -1,89 +1,66 @@
 # START HERE — DocsQA Execution Index
 
-This is the only document every new agent must read in full. The rest of
-`docs/` is a reference corpus: load only the files routed below for the active
-ticket. Repository state always overrides stale prose.
+This is the central index every new agent must read in full. Repository state always overrides stale prose.
 
 ## Current checkpoint
 
-- M0, M1, M2 Deterministic Traceability Core, M3 Review and Audit Workflow,
-  M4 Linguistic Pipeline & Governed Engineering Dictionary, and **M5 Export, Hardening, and Release** are complete locally.
-- **Post-M5 User Experience & Lifecycle Enhancements** (Complete):
-  - **Document Deletion**: `DELETE /api/v1/documents/{document_id}` with cascading cleanup. Frontend delete buttons in DocumentList and DocumentStatusView.
-  - **Frontend Light Mode**: Full theme toggle with `ThemeToggle` in AppShell and SplitScreenViewer, `localStorage` persistence.
-  - **Extraction Pipeline Fixes** (commits `3fcc885`, `0b060b3`): 4 root causes fixed — SSE one-shot pattern, Celery no-timeout, CAD table explosion, and `float` not subscriptable from wrong PyMuPDF API. Full post-mortem in `docs/troubleshooting_pipeline_stuck.md`.
-- **Status**: All known bugs fixed. Backend quality gate: **197 passed, 2 skipped, 0 failed**. Docker stack running with fixed worker image.
-- Next ticket: No outstanding tasks. The product is feature-complete through M5. Consider taking on user feedback or new milestone work.
-- Never push to GitHub; the owner pushes. Local commits are allowed.
-- The application is a monorepo: `backend/` FastAPI and `frontend/` Next.js.
+- **Product Orientation**: Reoriented from an approval/audit system to a deterministic engineering-document review report generator.
+- **Core Deliverables**:
+  1. Formal DOCX review report (`python-docx`).
+  2. Annotated source PDF with highlight bounding boxes and notes (`pypdf`).
+- **Curation Workflow**:
+  - Finding curation is strictly binary inclusion (`included_in_report: bool`, default `True`) and an optional engineering clarification (`reviewer_note: str | None`).
+  - Completely removed: issue decisions (`ACCEPTED`/`REJECTED`), lead dispositions, audit trail events, and bulk decision workflows.
+- **Delivery Plan Progress**:
+  - **Item 1 (Complete)**: Replaced approval and audit workflow with report curation across database models, Alembic migration `20260907_0006_report_curation`, FastAPI endpoints, and UI.
+  - **Item 2 (Complete)**: Added deterministic DOCX report builder (`backend/services/report.py`), report preview endpoint/modal, and restricted export panel to DOCX and annotated PDF.
+- **Quality Status**:
+  - Backend: **195 passed, 1 skipped, 0 failed** (Ruff check clean, Mypy clean with 64 files, Alembic offline upgrade valid).
+  - Frontend: **39 passed, 0 failed** across 11 test suites (TypeScript clean, ESLint clean, Next.js Turbopack build succeeds).
+- **Never push to GitHub**; the owner pushes. Local commits are allowed only after quality gates pass.
 
 ## Source precedence
 
-1. `Document_QC_WebApp_PRD.md` — product behavior and non-functional rules.
-2. `acceptance_matrix.md` — approved limits, states, and release evidence.
-3. `backend/openapi.json` — frontend/backend wire contract.
-4. `implementation_readiness_and_execution_plan.md` — milestone order/gates.
-5. `design_system.md` — versioned Stitch visual tokens only.
+1. `docs/PRODUCT_SPEC.md` — product behavior, scope, and non-goals.
+2. `docs/REPORT_SPEC.md` — deterministic DOCX review report structure.
+3. `docs/UI_SPEC.md` — review workspace, curation UI, and export panels.
+4. `docs/ARCHITECTURE.md` — extraction, evidence, and report generators.
+5. `docs/DELIVERY_PLAN.md` — active delivery roadmap.
+6. `docs/TEST_CORPUS.md` — synthetic and de-identified fixture policies.
+7. `backend/openapi.json` — frontend/backend wire contract.
 
 If these conflict, record the conflict. Do not silently blend them.
-
-## Minimal reading route
-
-For every continuation:
-
-1. Read this file and `AGENT_HANDOFF_LATEST.md`.
-2. Run `git status --short` and `git log --oneline -10`.
-3. Read only the active milestone section in
-   `implementation_readiness_and_execution_plan.md`.
-4. Load the relevant plan: `backend_plan.md` for pipeline/API work or
-   `frontend_plan.md` for UI work.
-5. Consult the PRD/acceptance matrix only for the feature being implemented.
-6. Read every applicable `AGENTS.md` before editing that directory.
-
-Do not make agents reread the whole corpus by default. Historical handoffs and
-design notes are evidence, not active instructions.
 
 ## Document map
 
 | File | Use when |
 |---|---|
-| `AGENT_HANDOFF_LATEST.md` | Resuming current work |
-| `implementation_readiness_and_execution_plan.md` | Selecting and closing tickets |
-| `Document_QC_WebApp_PRD.md` | Resolving product behavior |
-| `acceptance_matrix.md` | Limits, lifecycle rules, release tests |
-| `backend_plan.md` | Backend architecture or M2/M4/M5 work |
-| `frontend_plan.md` | Frontend, review UI, responsive behavior |
-| `design_system.md` | Implementing Stitch-derived visuals |
-| `design_handoff.md` | Tracing a screen to implementation evidence |
-| `development_workflow.md` | Local commands and service setup |
-| `agent_execution_playbook.md` | Task-writing and quality conventions |
+| `docs/PRODUCT_SPEC.md` | Resolving product scope, rules, and boundaries |
+| `docs/REPORT_SPEC.md` | Building or validating DOCX review report sections |
+| `docs/UI_SPEC.md` | Updating review workspace, findings panel, or modals |
+| `docs/ARCHITECTURE.md` | Pipeline, analyzer, evidence, or storage design |
+| `docs/DELIVERY_PLAN.md` | Tracking milestones and roadmap execution |
+| `docs/TEST_CORPUS.md` | Adding or managing test fixtures and documents |
+| `docs/design_system.md` | Styling components according to design tokens |
 
 ## Required quality commands
 
 ```powershell
+# Backend quality gate
 Set-Location backend
 .\scripts\quality.ps1
 
+# Frontend quality gate
 Set-Location ..\frontend
 npm run generate:api
-npm run check
-npm run test:e2e
+npm run typecheck
+npm run lint
+npm run test
+npm run build
 ```
 
-Use focused tests during development, then the relevant full gate before a
-local commit. Preserve user changes and do not rewrite Git history.
+## Commitments & Rules
 
-## Stitch and secrets
-
-Stitch project `9978725055094825738` is snapshotted in `design_system.md`.
-Stitch is a development-time visual source, not a runtime dependency. Keep API
-keys in MCP/secret configuration only—never chat, source, logs, or docs.
-
-## Bootstrap prompt
-
-```text
-Read docs/START_HERE.md and docs/AGENT_HANDOFF_LATEST.md in full. Verify Git
-state, then work only on the next unblocked milestone using the routed source
-documents. Preserve existing changes, run the required quality gate, update
-evidence, and commit locally only. Never push to GitHub or store secrets.
-```
+- **Zero External AI / LLM APIs**: All analysis, reports, and evidence are 100% deterministic.
+- **Confidentiality**: Never commit client or sample documents; commit only synthetic/de-identified fixtures.
+- **Local Commits Only**: Do not execute `git push`.

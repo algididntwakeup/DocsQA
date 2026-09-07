@@ -1,4 +1,4 @@
-"""Contract smoke tests for M0.3."""
+"""Contract smoke tests for API surface and schema validation."""
 
 from decimal import Decimal
 from uuid import uuid4
@@ -55,8 +55,8 @@ def test_openapi_contains_required_contract_paths() -> None:
         "/api/v1/documents/{document_id}/status",
         "/api/v1/documents/{document_id}/issues",
         "/api/v1/documents/{document_id}/export",
-        "/api/v1/issues/{issue_id}/decision",
-        "/api/v1/issues/{issue_id}/disposition",
+        "/api/v1/documents/{document_id}/report",
+        "/api/v1/issues/{issue_id}/curation",
         "/api/v1/dictionary/terms",
         "/api/v1/standards-registry",
     }.issubset(paths)
@@ -94,6 +94,8 @@ def test_issue_evidence_is_discriminated_and_decimal_safe() -> None:
         "confidence": 1,
         "message": "The stated total does not match the computed value.",
         "evidence": evidence,
+        "included_in_report": True,
+        "reviewer_note": None,
         "version": 1,
         "created_at": "2026-09-04T04:00:00Z",
         "updated_at": "2026-09-04T04:00:00Z",
@@ -103,3 +105,5 @@ def test_issue_evidence_is_discriminated_and_decimal_safe() -> None:
 
     assert issue.evidence.kind == "TABLE_MATH"
     assert issue.evidence.delta == Decimal("0.5")
+    assert issue.included_in_report is True
+    assert issue.reviewer_note is None

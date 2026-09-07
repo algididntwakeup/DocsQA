@@ -14,7 +14,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from db.session import get_session
-from domain.enums import DocumentStatus, ReviewStatus, StageStatus
+from domain.enums import DocumentStatus, StageStatus
 from main import app
 from models.document import Document, StageRun
 
@@ -33,7 +33,6 @@ async def test_stream_document_events_success() -> None:
         size_bytes=1024,
         sha256="abc123hash",
         status=DocumentStatus.COMPLETED,
-        review_status=ReviewStatus.PENDING,
         storage_uri=f"file://documents/{doc_id}.pdf",
         canonical_pdf_uri=f"file://documents/{doc_id}.pdf",
         created_at=now,

@@ -7,7 +7,7 @@ from uuid import UUID
 
 from pydantic import Field
 
-from domain.enums import Decision, Disposition, IssueCategory, Severity
+from domain.enums import IssueCategory, Severity
 from schemas.base import ApiModel
 from schemas.common import PageInfo
 
@@ -127,13 +127,10 @@ class IssueRead(ApiModel):
     confidence: float = Field(ge=0, le=1)
     message: str
     evidence: IssueEvidence
-    decision: Decision | None = None
-    decision_comment: str | None = None
-    decision_by: str | None = None
-    disposition: Disposition | None = None
-    disposition_justification: str | None = None
-    disposition_by: str | None = None
-    version: int = Field(ge=1)
+    included_in_report: bool = True
+    reviewer_note: str | None = None
+    # Compatibility-only response value; curation does not use optimistic locking.
+    version: int = 1
     created_at: datetime
     updated_at: datetime
 
@@ -146,40 +143,8 @@ class IssueListResponse(ApiModel):
     counts_by_severity: dict[Severity, int]
 
 
-class IssueDecisionRequest(ApiModel):
-    """Optimistically locked QA decision mutation."""
+class IssueCurationRequest(ApiModel):
+    """Lightweight report curation; it is not an approval decision."""
 
-    decision: Decision
-    expected_version: int = Field(ge=1)
-    edited_value: str | None = None
-    comment: str | None = Field(default=None, max_length=4000)
-    actor_id: str = Field(default="reviewer@local", min_length=1, max_length=100)
-    actor_role: str = Field(default="QA_ENGINEER", min_length=1, max_length=50)
-
-
-class IssueDispositionRequest(ApiModel):
-    """Optimistically locked Lead Reviewer disposition mutation."""
-
-    disposition: Disposition
-    expected_version: int = Field(ge=1)
-    justification: str = Field(min_length=1, max_length=4000)
-    actor_id: str = Field(default="reviewer@local", min_length=1, max_length=100)
-    actor_role: str = Field(default="LEAD_REVIEWER", min_length=1, max_length=50)
-
-
-class BulkDecisionRequest(ApiModel):
-    """Bulk decision applied across multiple eligible findings."""
-
-    issue_ids: list[UUID] = Field(min_length=1, max_length=500)
-    decision: Decision
-    comment: str | None = Field(default=None, max_length=4000)
-    actor_id: str = Field(default="reviewer@local", min_length=1, max_length=100)
-    actor_role: str = Field(default="QA_ENGINEER", min_length=1, max_length=50)
-
-
-class BulkDecisionResponse(ApiModel):
-    """Outcome of an authorized bulk decision operation."""
-
-    updated_count: int = Field(ge=0)
-    decision: Decision
-    updated_issue_ids: list[UUID]
+    included_in_report: bool
+    reviewer_note: str | None = Field(default=None, max_length=4000)

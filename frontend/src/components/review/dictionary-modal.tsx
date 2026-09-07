@@ -1,16 +1,14 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useState } from "react";
 import {
   BookOpen,
   CheckCircle2,
   Plus,
-  ShieldCheck,
   X,
   XCircle,
 } from "lucide-react";
 import {
-  approveDictionaryTerm,
   createDictionaryTerm,
   listDictionaryTerms,
   type DictionaryTermItem,
@@ -116,20 +114,6 @@ export function DictionaryModal({
       setIsSubmitting(false);
     }
   };
-
-  const handleApprove = async (termId: string, status: "APPROVED" | "REJECTED") => {
-    try {
-      await approveDictionaryTerm(termId, {
-        status,
-        rationale: `Reviewed and set to ${status}`,
-      });
-      await loadTerms();
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to update term status";
-      setFeedback({ type: "error", text: msg });
-    }
-  };
-
   if (!isOpen) return null;
 
   return (
@@ -335,31 +319,9 @@ export function DictionaryModal({
                         )}
                         <div className="text-[10px] text-muted">
                           Added {new Date(term.created_at).toLocaleDateString()}
-                          {term.approved_by && ` â€¢ Approved by ${term.approved_by}`}
+                          {term.approved_by && ` · Approved by ${term.approved_by}`}
                         </div>
                       </div>
-
-                      {term.status === "PENDING" && (
-                        <div className="flex items-center gap-1 shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => handleApprove(term.id, "APPROVED")}
-                            className="p-1.5 rounded bg-emerald-700/60 hover:bg-emerald-600 text-ink text-xs transition-colors flex items-center gap-1"
-                            title="Approve Term"
-                          >
-                            <ShieldCheck className="w-3.5 h-3.5" />
-                            Approve
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleApprove(term.id, "REJECTED")}
-                            className="p-1.5 rounded bg-rose-700/60 hover:bg-rose-600 text-ink text-xs transition-colors"
-                            title="Reject Term"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      )}
                     </div>
                   ))}
                 </div>

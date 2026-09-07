@@ -13,6 +13,8 @@ describe("IssuePanel", () => {
       severity: "CRITICAL",
       confidence: 0.95,
       message: "Total row does not match sum of subtotals",
+      included_in_report: true,
+      reviewer_note: null,
       version: 1,
       evidence: {
         kind: "TABLE_MATH",
@@ -44,6 +46,8 @@ describe("IssuePanel", () => {
       severity: "HIGH",
       confidence: 0.9,
       message: "Missing mandatory ISO citation year",
+      included_in_report: false,
+      reviewer_note: "Excluded because draft reference",
       version: 1,
       evidence: {
         kind: "STANDARD",
@@ -71,6 +75,8 @@ describe("IssuePanel", () => {
       severity: "LOW",
       confidence: 0.85,
       message: "Passive voice construct detected",
+      included_in_report: true,
+      reviewer_note: null,
       version: 1,
       evidence: {
         kind: "LINGUISTIC",
@@ -99,9 +105,7 @@ describe("IssuePanel", () => {
         issues={sampleIssues}
         selectedIssueId={null}
         onSelectIssue={vi.fn()}
-        onDecideIssue={vi.fn()}
-        onDisposeIssue={vi.fn()}
-        onBulkDecideLanguage={vi.fn()}
+        onCurateIssue={vi.fn()}
       />
     );
 
@@ -110,52 +114,12 @@ describe("IssuePanel", () => {
     expect(screen.getByText("RULE_STANDARDS_STRICTNESS_001")).toBeDefined();
     expect(screen.queryByText("RULE_PASSIVE_VOICE")).toBeNull();
 
-    // Switch to Language & Style tab
-    const languageTab = screen.getByRole("tab", { name: /language & style/i });
+    // Switch to Language & Mechanics tab
+    const languageTab = screen.getByRole("tab", { name: /language & mechanics/i });
     fireEvent.click(languageTab);
 
     expect(screen.getByText("RULE_PASSIVE_VOICE")).toBeDefined();
     expect(screen.queryByText("RULE_TABLE_MATH_001")).toBeNull();
-  });
-
-  it("displays PRD §3.2 prohibited banner and disabled bulk button on Traceability tab", () => {
-    render(
-      <IssuePanel
-        issues={sampleIssues}
-        selectedIssueId={null}
-        onSelectIssue={vi.fn()}
-        onDecideIssue={vi.fn()}
-        onDisposeIssue={vi.fn()}
-        onBulkDecideLanguage={vi.fn()}
-      />
-    );
-
-    expect(screen.getByText(/human sign-off enforced \(prd §3\.2\)/i)).toBeDefined();
-    const disabledBtn = screen.getByRole("button", { name: /bulk acceptance prohibited/i });
-    expect(disabledBtn.hasAttribute("disabled")).toBe(true);
-  });
-
-  it("enables bulk accept button on Language tab and calls handler", async () => {
-    const onBulkDecideLanguage = vi.fn().mockResolvedValue(undefined);
-    render(
-      <IssuePanel
-        issues={sampleIssues}
-        selectedIssueId={null}
-        onSelectIssue={vi.fn()}
-        onDecideIssue={vi.fn()}
-        onDisposeIssue={vi.fn()}
-        onBulkDecideLanguage={onBulkDecideLanguage}
-      />
-    );
-
-    const languageTab = screen.getByRole("tab", { name: /language & style/i });
-    fireEvent.click(languageTab);
-
-    const bulkBtn = screen.getByRole("button", { name: /accept all high-confidence/i });
-    expect(bulkBtn.hasAttribute("disabled")).toBe(false);
-
-    fireEvent.click(bulkBtn);
-    expect(onBulkDecideLanguage).toHaveBeenCalled();
   });
 
   it("filters findings by severity dropdown", () => {
@@ -164,9 +128,7 @@ describe("IssuePanel", () => {
         issues={sampleIssues}
         selectedIssueId={null}
         onSelectIssue={vi.fn()}
-        onDecideIssue={vi.fn()}
-        onDisposeIssue={vi.fn()}
-        onBulkDecideLanguage={vi.fn()}
+        onCurateIssue={vi.fn()}
       />
     );
 
@@ -176,5 +138,66 @@ describe("IssuePanel", () => {
 
     expect(screen.queryByText("RULE_TABLE_MATH_001")).toBeNull();
     expect(screen.getByText("RULE_STANDARDS_STRICTNESS_001")).toBeDefined();
+  });
+
+  it("filters findings by curation state (INCLUDED vs EXCLUDED)", () => {
+    render(
+      <IssuePanel
+        issues={sampleIssues}
+        selectedIssueId={null}
+        onSelectIssue={vi.fn()}
+        onCurateIssue={vi.fn()}
+      />
+    );
+
+    const curationSelect = screen.getByLabelText(/filter by report status/i);
+
+    // Filter to INCLUDED
+    fireEvent.change(curationSelect, { target: { value: "INCLUDED" } });
+    expect(screen.getByText("RULE_TABLE_MATH_001")).toBeDefined();
+    expect(screen.queryByText("RULE_STANDARDS_STRICTNESS_001")).toBeNull();
+
+    // Filter to EXCLUDED
+    fireEvent.change(curationSelect, { target: { value: "EXCLUDED" } });
+    expect(screen.queryByText("RULE_TABLE_MATH_001")).toBeNull();
+    expect(screen.getByText("RULE_STANDARDS_STRICTNESS_001")).toBeDefined();
+  });
+
+  it("filters findings by search query", () => {
+    render(
+      <IssuePanel
+        issues={sampleIssues}
+        selectedIssueId={null}
+        onSelectIssue={vi.fn()}
+        onCurateIssue={vi.fn()}
+      />
+    );
+
+    const searchInput = screen.getByPlaceholderText(/filter by rule/i);
+    fireEvent.change(searchInput, { target: { value: "subtotals" } });
+
+    expect(screen.getByText("RULE_TABLE_MATH_001")).toBeDefined();
+    expect(screen.queryByText("RULE_STANDARDS_STRICTNESS_001")).toBeNull();
+  });
+
+  it("propagates curation action to onCurateIssue", async () => {
+    const onCurateIssue = vi.fn().mockResolvedValue(undefined);
+    render(
+      <IssuePanel
+        issues={sampleIssues}
+        selectedIssueId={null}
+        onSelectIssue={vi.fn()}
+        onCurateIssue={onCurateIssue}
+      />
+    );
+
+    // trace-1 is included, so click Exclude
+    const excludeButtons = screen.getAllByRole("button", { name: /exclude from report/i });
+    fireEvent.click(excludeButtons[0]);
+
+    expect(onCurateIssue).toHaveBeenCalledWith("trace-1", {
+      included_in_report: false,
+      reviewer_note: null,
+    });
   });
 });

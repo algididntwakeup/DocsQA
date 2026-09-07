@@ -10,7 +10,7 @@ from uuid import uuid4
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from domain.enums import DocumentStatus, ReviewStatus
+from domain.enums import DocumentStatus
 from models.document import Document
 from services.retention import cleanup_expired_documents, get_retention_metrics
 from services.storage.local import LocalStorage
@@ -33,7 +33,6 @@ async def test_retention_metrics_and_cleanup(tmp_path: Path) -> None:
         size_bytes=1024,
         sha256="recenthash",
         status=DocumentStatus.COMPLETED,
-        review_status=ReviewStatus.APPROVED,
         storage_uri=f"local://documents/{recent_doc_id}.pdf",
         canonical_pdf_uri=None,
         created_at=now - timedelta(days=5),
@@ -48,7 +47,6 @@ async def test_retention_metrics_and_cleanup(tmp_path: Path) -> None:
         size_bytes=1024,
         sha256="expiredhash",
         status=DocumentStatus.COMPLETED,
-        review_status=ReviewStatus.APPROVED,
         storage_uri=f"local://documents/{expired_doc_id}.pdf",
         canonical_pdf_uri=None,
         created_at=now - timedelta(days=45),

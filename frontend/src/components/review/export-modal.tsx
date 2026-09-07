@@ -3,10 +3,8 @@
 import { useEffect } from "react";
 import {
   Download,
-  FileCode,
-  FileSpreadsheet,
+  FileCheck2,
   FileText,
-  Table,
   X,
   ExternalLink,
 } from "lucide-react";
@@ -23,8 +21,8 @@ interface ExportOption {
   format: ExportFormat;
   title: string;
   extension: string;
-  description: string;
   badge: string;
+  description: string;
   icon: React.ReactNode;
 }
 
@@ -48,40 +46,22 @@ export function ExportModal({
 
   const exportOptions: ExportOption[] = [
     {
+      format: "docx",
+      title: "DOCX Review Report",
+      extension: ".docx",
+      badge: "Official Deliverable",
+      description:
+        "Deterministic Word document including summary judgement, scorecard, blockers, next-revision recommendations, language findings, and reviewer notes.",
+      icon: <FileCheck2 size={24} className="text-sky-500 dark:text-sky-400" />,
+    },
+    {
       format: "pdf",
-      title: "Annotated PDF Document",
+      title: "Annotated Source PDF",
       extension: ".pdf",
       badge: "Visual Inspection",
       description:
-        "Canonical PDF document overlaid with color-coded bounding boxes and interactive callout popups indicating exact finding locations.",
-      icon: <FileText size={22} className="text-sky-400" />,
-    },
-    {
-      format: "xlsx",
-      title: "Executive & Engineering Workbook",
-      extension: ".xlsx",
-      badge: "Multi-Sheet Report",
-      description:
-        "Formatted Excel workbook containing Summary KPIs, Traceability issues, Linguistic checks, and the complete tamper-evident Audit Trail.",
-      icon: <FileSpreadsheet size={22} className="text-emerald-400" />,
-    },
-    {
-      format: "csv",
-      title: "Flat Findings Log",
-      extension: ".csv",
-      badge: "Tabular Data",
-      description:
-        "RFC 4180 flat CSV export containing all findings, stated vs computed values, tolerance margins, and recorded reviewer dispositions.",
-      icon: <Table size={22} className="text-amber-400" />,
-    },
-    {
-      format: "json",
-      title: "Audit & Evidence Package",
-      extension: ".json",
-      badge: "Cryptographic Bundle",
-      description:
-        "Comprehensive JSON verification bundle with document SHA-256 hash, raw analyzer evidence payloads, and full append-only audit event history.",
-      icon: <FileCode size={22} className="text-purple-400" />,
+        "Original source PDF overlaid with bounding boxes and callout popups indicating exact finding locations and reviewer notes for included findings.",
+      icon: <FileText size={24} className="text-emerald-500 dark:text-emerald-400" />,
     },
   ];
 
@@ -94,14 +74,14 @@ export function ExportModal({
       aria-labelledby="export-modal-title"
     >
       <div
-        className="modal-container max-w-2xl"
+        className="modal-container max-w-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <header className="modal-header">
           <div className="flex items-center gap-2">
             <Download size={18} className="text-sky-500 dark:text-sky-400" />
             <h2 id="export-modal-title" className="text-base font-semibold text-ink">
-              Export Findings & Audit Package
+              Export Review Deliverables
             </h2>
           </div>
           <button
@@ -117,56 +97,58 @@ export function ExportModal({
         <div className="modal-body p-5 space-y-4">
           <p className="text-xs text-muted">
             Select an export format for document{" "}
-            <strong className="text-ink font-semibold">{documentFilename}</strong>. All exports reflect current QA decisions, dispositions, and the complete audit trail.
+            <strong className="text-ink font-semibold">{documentFilename}</strong>. Generated outputs reflect only findings marked as included in report.
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
-            {exportOptions.map((opt) => (
-              <a
-                key={opt.format}
-                href={getExportUrl(documentId, opt.format)}
-                download
-                target="_blank"
-                rel="noreferrer"
-                className="flex flex-col justify-between p-4 rounded-lg border border-line bg-panel hover:bg-panel-raised hover:border-primary/50 shadow-xs hover:shadow-md transition-all group cursor-pointer"
-                data-testid={`export-${opt.format}-btn`}
-              >
-                <div>
-                  <div className="flex items-center justify-between mb-2.5">
-                    <div className="p-2 rounded-md bg-chip text-chip-ink border border-line">
+          <div className="grid grid-cols-1 gap-3">
+            {exportOptions.map((opt) => {
+              const url = getExportUrl(documentId, opt.format);
+              return (
+                <div
+                  key={opt.format}
+                  className="panel p-4 flex flex-col justify-between hover:border-sky-500/50 transition-colors"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 rounded-lg bg-muted/10 shrink-0">
                       {opt.icon}
                     </div>
-                    <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded bg-chip text-chip-ink border border-line font-medium">
-                      {opt.badge}
-                    </span>
+                    <div className="space-y-1 min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-sm font-semibold text-ink truncate">
+                            {opt.title}
+                          </h3>
+                          <span className="text-[10px] font-mono text-muted bg-muted/20 px-1.5 py-0.5 rounded">
+                            {opt.extension}
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-medium text-sky-600 dark:text-sky-400 bg-sky-500/10 border border-sky-500/20 px-1.5 py-0.5 rounded-full shrink-0">
+                          {opt.badge}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted leading-relaxed">
+                        {opt.description}
+                      </p>
+                    </div>
                   </div>
-                  <h3 className="text-sm font-semibold text-ink group-hover:text-primary transition-colors flex items-center gap-1.5">
-                    {opt.title}
-                    <span className="text-xs text-muted font-mono">{opt.extension}</span>
-                  </h3>
-                  <p className="text-xs text-muted mt-1.5 leading-relaxed">
-                    {opt.description}
-                  </p>
-                </div>
 
-                <div className="mt-4 pt-3 border-t border-line flex items-center justify-between text-xs text-primary font-medium group-hover:text-primary-bright">
-                  <span>Download file</span>
-                  <ExternalLink size={13} />
+                  <div className="mt-4 pt-3 border-t border-border/40 flex justify-end">
+                    <a
+                      href={url}
+                      download
+                      data-testid={`export-${opt.format}-btn`}
+                      className="button button-primary text-xs py-1.5 px-3 flex items-center gap-1.5"
+                    >
+                      <Download size={13} />
+                      <span>Download {opt.extension.toUpperCase().slice(1)}</span>
+                      <ExternalLink size={11} className="opacity-60 ml-0.5" />
+                    </a>
+                  </div>
                 </div>
-              </a>
-            ))}
+              );
+            })}
           </div>
         </div>
-
-        <footer className="modal-footer flex items-center justify-end p-4 border-t border-line bg-panel-raised">
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm px-4"
-            onClick={onClose}
-          >
-            Close
-          </button>
-        </footer>
       </div>
     </div>
   );

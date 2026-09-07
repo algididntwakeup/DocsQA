@@ -1,11 +1,11 @@
-"""End-to-End Release Lifecycle Integration Test (M5.4).
+"""End-to-End Release Lifecycle Integration Test for Report-First Workflow.
 
 Verifies full document lifecycle:
 1. Document ingestion and metadata registration.
-2. Analyzer issue normalization and unified finding persistence.
-3. Reviewer OCC decision recording with version check (HTTP 409 guard).
-4. Lead Reviewer final disposition with mandatory justification.
-5. Multi-format export delivery (Annotated PDF, XLSX, CSV, JSON).
+2. Findings detected and aggregated with included_in_report=True default.
+3. Reviewer curation (include/exclude finding and reviewer note).
+4. Report preview generation (ReviewReportPreview summary).
+5. Deterministic export delivery (Annotated PDF and formal DOCX review report).
 6. Security response headers enforcement.
 """
 
@@ -17,16 +17,15 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-import openpyxl
+import docx
 import pypdf
 import pytest
 from httpx import ASGITransport, AsyncClient
 
 from core.dependencies import get_storage
 from db.session import get_session
-from domain.enums import DocumentStatus, IssueCategory, ReviewStatus, Severity
+from domain.enums import DocumentStatus, IssueCategory, Severity
 from main import app
-from models.audit import AuditEvent
 from models.document import Document
 from models.issue import Issue
 from services.storage.local import LocalStorage
@@ -34,7 +33,7 @@ from services.storage.local import LocalStorage
 
 @pytest.mark.anyio
 async def test_full_document_lifecycle_e2e(tmp_path: Path) -> None:
-    """Validate full end-to-end lifecycle from ingestion through review and export."""
+    """Validate full end-to-end lifecycle from ingestion through curation and report export."""
     storage = LocalStorage(root=tmp_path)
     now = datetime.now(UTC)
     doc_id = uuid4()
@@ -49,7 +48,6 @@ async def test_full_document_lifecycle_e2e(tmp_path: Path) -> None:
         size_bytes=1024,
         sha256="e" * 64,
         status=DocumentStatus.COMPLETED,
-        review_status=ReviewStatus.PENDING,
         progress_pct=100,
         storage_uri=f"local://documents/{doc_id}.pdf",
         canonical_pdf_uri=f"local://documents/{doc_id}.pdf",
@@ -85,14 +83,11 @@ async def test_full_document_lifecycle_e2e(tmp_path: Path) -> None:
                 "page_height": 792.0,
             },
         },
-        decision=None,
-        disposition=None,
-        version=1,
+        included_in_report=True,
+        reviewer_note=None,
         created_at=now,
         updated_at=now,
     )
-
-    audit_log: list[AuditEvent] = []
 
     class MockLifecycleSession:
         async def execute(self, stmt: Any) -> Any:
@@ -109,19 +104,18 @@ async def test_full_document_lifecycle_e2e(tmp_path: Path) -> None:
                 def scalars(self) -> Any:
                     class MockScalars:
                         def all(self) -> list[Any]:
-                            if "from audit_events" in stmt_str:
-                                return audit_log
                             if "from issues" in stmt_str:
+                                if (
+                                    "included_in_report is true" in stmt_str
+                                    and not issue.included_in_report
+                                ):
+                                    return []
                                 return [issue]
                             return []
 
                     return MockScalars()
 
             return MockResult()
-
-        def add(self, obj: Any) -> None:
-            if isinstance(obj, AuditEvent):
-                audit_log.append(obj)
 
         async def commit(self) -> None:
             pass
@@ -144,100 +138,59 @@ async def test_full_document_lifecycle_e2e(tmp_path: Path) -> None:
             assert "frame-ancestors" in health_res.headers["content-security-policy"]
             assert "strict-origin" in health_res.headers["referrer-policy"]
 
-            # Step 4: QA Engineer records decision with OCC
-            decide_res = await client.patch(
-                f"/api/v1/issues/{issue_id}/decision",
+            # Step 4: Curation API (include/exclude + reviewer note)
+            curate_res = await client.patch(
+                f"/api/v1/issues/{issue_id}/curation",
                 json={
-                    "decision": "ACCEPTED",
-                    "expected_version": 1,
-                    "comment": "Confirmed arithmetic discrepancy with engineering lead.",
-                    "actor_id": "qa.engineer@company.com",
-                    "actor_role": "QA_ENGINEER",
+                    "included_in_report": True,
+                    "reviewer_note": "Confirmed calculation discrepancy with lead analyst.",
                 },
             )
-            assert decide_res.status_code == 200
-            issue_data = decide_res.json()
-            assert issue_data["decision"] == "ACCEPTED"
-            assert issue_data["version"] == 2
-            assert issue.decision == "ACCEPTED"
-            assert issue.version == 2
-            assert len(audit_log) == 1
-            assert audit_log[0].action == "ISSUE_DECISION"
+            assert curate_res.status_code == 200
+            issue_data = curate_res.json()
+            assert issue_data["included_in_report"] is True
+            expected_note = "Confirmed calculation discrepancy with lead analyst."
+            assert issue_data["reviewer_note"] == expected_note
+            assert issue.reviewer_note == expected_note
 
-            # Step 5: Verify OCC collision prevention (replaying stale version 1 fails with 409)
-            conflict_res = await client.patch(
-                f"/api/v1/issues/{issue_id}/decision",
-                json={
-                    "decision": "REJECTED",
-                    "expected_version": 1,
-                    "actor_id": "other.reviewer@company.com",
-                    "actor_role": "QA_ENGINEER",
-                },
-            )
-            assert conflict_res.status_code == 409
+            # Step 5: Report Preview API
+            report_res = await client.get(f"/api/v1/documents/{doc_id}/report")
+            assert report_res.status_code == 200
+            report_preview = report_res.json()
+            assert report_preview["document_id"] == str(doc_id)
+            assert report_preview["included_findings"] == 1
+            assert report_preview["blockers"] == 1
+            assert "CRITICAL" in report_preview["counts_by_severity"]
+            assert "Blockers require correction" in report_preview["summary_judgement"]
 
-            # Step 6: Lead Reviewer disposition on issue
-            dispose_res = await client.patch(
-                f"/api/v1/issues/{issue_id}/disposition",
-                json={
-                    "disposition": "JUSTIFIED_EXCEPTION",
-                    "justification": "Approved under technical deviation TD-2026-088.",
-                    "expected_version": 2,
-                    "actor_id": "lead.reviewer@company.com",
-                    "actor_role": "LEAD_REVIEWER",
-                },
-            )
-            assert dispose_res.status_code == 200
-            disp_data = dispose_res.json()
-            assert disp_data["disposition"] == "JUSTIFIED_EXCEPTION"
-            assert disp_data["version"] == 3
-            assert issue.disposition == "JUSTIFIED_EXCEPTION"
-            assert len(audit_log) == 2
-
-            # Step 7: Final Document Sign-off by Lead Reviewer
-            doc_disp_res = await client.post(
-                f"/api/v1/documents/{doc_id}/disposition",
-                json={
-                    "disposition": "APPROVED",
-                    "justification": "All findings resolved or justified under TD-2026-088.",
-                    "actor_id": "lead.reviewer@company.com",
-                    "actor_role": "LEAD_REVIEWER",
-                },
-            )
-            assert doc_disp_res.status_code == 200
-            doc_data = doc_disp_res.json()
-            assert doc_data["review_status"] == "APPROVED"
-            assert len(audit_log) == 3
-
-            # Step 8: Multi-Format Export Verification
-            # 8a: Annotated PDF
+            # Step 6: Export Delivery
+            # 6a: Annotated PDF
             export_pdf = await client.get(f"/api/v1/documents/{doc_id}/export?format=pdf")
             assert export_pdf.status_code == 200
             assert export_pdf.headers["content-type"] == "application/pdf"
+            assert "eng_spec_2026_annotated.pdf" in export_pdf.headers["content-disposition"]
             pdf_reader = pypdf.PdfReader(io.BytesIO(export_pdf.content))
             assert len(pdf_reader.pages) >= 1
             assert "/Annots" in pdf_reader.pages[0]
 
-            # 8b: Excel Workbook (.xlsx)
+            # 6b: DOCX Review Report
+            export_docx = await client.get(f"/api/v1/documents/{doc_id}/export?format=docx")
+            assert export_docx.status_code == 200
+            assert (
+                export_docx.headers["content-type"]
+                == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            )
+            assert "eng_spec_2026_review.docx" in export_docx.headers["content-disposition"]
+            word_doc = docx.Document(io.BytesIO(export_docx.content))
+            doc_text = " ".join(p.text for p in word_doc.paragraphs)
+            assert "DOCUMENT REVIEW ENGINEERING" in doc_text
+            assert "ENG-SPEC-2026.pdf" in doc_text
+            assert "Summary judgement" in doc_text
+            assert "Scorecard" in doc_text
+            assert "TABLE_MATH_MISMATCH" in doc_text
+
+            # 6c: Unsupported legacy formats rejected
             export_xlsx = await client.get(f"/api/v1/documents/{doc_id}/export?format=xlsx")
-            assert export_xlsx.status_code == 200
-            wb = openpyxl.load_workbook(io.BytesIO(export_xlsx.content))
-            assert "Summary" in wb.sheetnames
-            assert "Traceability Issues" in wb.sheetnames
-            assert "Audit Trail" in wb.sheetnames
-
-            # 8c: CSV Issue Log
-            export_csv = await client.get(f"/api/v1/documents/{doc_id}/export?format=csv")
-            assert export_csv.status_code == 200
-            assert "TABLE_MATH_MISMATCH" in export_csv.text
-            assert "JUSTIFIED_EXCEPTION" in export_csv.text
-
-            # 8d: JSON Audit Bundle
-            export_json = await client.get(f"/api/v1/documents/{doc_id}/export?format=json")
-            assert export_json.status_code == 200
-            bundle = export_json.json()
-            assert bundle["document"]["review_status"] == "APPROVED"
-            assert len(bundle["issues"]) == 1
-            assert len(bundle["audit_events"]) == 3
+            assert export_xlsx.status_code == 422
     finally:
         app.dependency_overrides.clear()

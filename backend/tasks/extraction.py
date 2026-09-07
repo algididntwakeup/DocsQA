@@ -545,9 +545,7 @@ async def _run_aggregation_stage(
                 message=issue_read.message,
                 page_number=_extract_page_number(issue_read.evidence),
                 evidence=issue_read.evidence.model_dump(mode="json"),
-                decision=issue_read.decision,
-                disposition=issue_read.disposition,
-                version=issue_read.version,
+                included_in_report=True,
                 created_at=issue_read.created_at,
                 updated_at=issue_read.updated_at,
             )

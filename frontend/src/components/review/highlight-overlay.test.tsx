@@ -12,6 +12,8 @@ describe("HighlightOverlay", () => {
     severity: "CRITICAL",
     confidence: 0.98,
     message: "Table total mismatch: stated 100.00, computed 110.00",
+    included_in_report: true,
+    reviewer_note: null,
     version: 1,
     evidence: {
       kind: "TABLE_MATH",

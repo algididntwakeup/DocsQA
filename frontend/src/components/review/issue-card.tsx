@@ -3,27 +3,25 @@
 import { useState } from "react";
 import {
   AlertCircle,
-  AlertTriangle,
   BookOpen,
+  Check,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
   FileSpreadsheet,
-  Flag,
-  Layers,
   MapPin,
-  MessageSquare,
-  ShieldCheck,
   XCircle,
 } from "lucide-react";
-import { getIssueLocation, type IssueItem, type IssueDecision, type IssueDisposition } from "@/lib/api";
+import { getIssueLocation, type IssueItem } from "@/lib/api";
 
 interface IssueCardProps {
   issue: IssueItem;
   isSelected?: boolean;
   onSelect?: () => void;
-  onDecide: (issueId: string, payload: IssueDecision) => Promise<void>;
-  onDispose: (issueId: string, payload: IssueDisposition) => Promise<void>;
+  onCurate: (
+    issueId: string,
+    payload: { included_in_report: boolean; reviewer_note?: string | null }
+  ) => Promise<void>;
   onJumpToPage?: (page: number) => void;
   onAddToDictionary?: (term: string) => void;
 }
@@ -32,436 +30,306 @@ export function IssueCard({
   issue,
   isSelected = false,
   onSelect,
-  onDecide,
-  onDispose,
+  onCurate,
   onJumpToPage,
   onAddToDictionary,
 }: IssueCardProps) {
   const [isExpanded, setIsExpanded] = useState<boolean>(true);
-  const [comment, setComment] = useState<string>("");
-  const [showCommentInput, setShowCommentInput] = useState<boolean>(false);
-  const [justification, setJustification] = useState<string>("");
-  const [showLeadControls, setShowLeadControls] = useState<boolean>(false);
+  const [isEditingNote, setIsEditingNote] = useState<boolean>(false);
+  const [noteText, setNoteText] = useState<string>(issue.reviewer_note ?? "");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const evidence = (issue.evidence ?? {}) as Record<string, unknown>;
   const location = getIssueLocation(issue);
 
-  const handleDecision = async (decision: "ACCEPTED" | "REJECTED" | "FLAGGED") => {
+  const handleToggleInclude = async () => {
     setIsSubmitting(true);
     setErrorMessage(null);
     try {
-      await onDecide(issue.id, {
-        decision,
-        expected_version: issue.version,
-        comment: comment.trim() || undefined,
-        actor_id: "reviewer@local",
-        actor_role: "QA_ENGINEER",
+      await onCurate(issue.id, {
+        included_in_report: !issue.included_in_report,
+        reviewer_note: issue.reviewer_note,
       });
-      setShowCommentInput(false);
-      setComment("");
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to record decision";
+      const msg = err instanceof Error ? err.message : "Failed to update report inclusion";
       setErrorMessage(msg);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleDisposition = async (disposition: "JUSTIFIED_EXCEPTION" | "REQUIRES_CORRECTION") => {
-    if (!justification.trim()) {
-      setErrorMessage("A justification note is required for lead disposition.");
-      return;
-    }
+  const handleSaveNote = async () => {
     setIsSubmitting(true);
     setErrorMessage(null);
     try {
-      await onDispose(issue.id, {
-        disposition,
-        expected_version: issue.version,
-        justification: justification.trim(),
-        actor_id: "lead_reviewer@local",
-        actor_role: "LEAD_REVIEWER",
+      const cleanNote = noteText.trim() || null;
+      await onCurate(issue.id, {
+        included_in_report: issue.included_in_report,
+        reviewer_note: cleanNote,
       });
-      setShowLeadControls(false);
-      setJustification("");
+      setIsEditingNote(false);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to record disposition";
+      const msg = err instanceof Error ? err.message : "Failed to save reviewer note";
       setErrorMessage(msg);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Severity style mapping with high contrast in both themes
   const severityBadgeClass = {
     CRITICAL: "bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30",
     HIGH: "bg-orange-500/15 text-orange-600 dark:text-orange-400 border-orange-500/30",
-    MEDIUM: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30",
-    LOW: "bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30",
-    INFO: "bg-slate-500/15 text-slate-600 dark:text-slate-300 border-slate-500/30",
-  }[issue.severity] || "bg-slate-500/15 text-slate-600 dark:text-slate-300 border-slate-500/30";
+    MEDIUM: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30",
+    LOW: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
+    INFO: "bg-slate-500/15 text-slate-700 dark:text-slate-300 border-slate-500/30",
+  }[issue.severity] ?? "bg-muted text-ink border-border";
 
   return (
-    <div
-      onClick={onSelect}
-      className={`rounded-md border transition-all duration-150 p-3 sm:p-4 cursor-pointer ${
+    <article
+      data-issue-id={issue.id}
+      className={`border rounded-lg transition-all ${
         isSelected
-          ? "bg-selected border-accent ring-1 ring-accent/40 shadow-sm"
-          : "bg-panel border-line hover:border-line-strong hover:bg-panel-raised"
-      }`}
+          ? "border-sky-500 shadow-md ring-1 ring-sky-500/30 bg-surface"
+          : "border-border/70 hover:border-border bg-panel"
+      } ${!issue.included_in_report ? "opacity-75 bg-muted/5" : ""}`}
+      onClick={onSelect}
     >
-      {/* Header Bar */}
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+      {/* Header */}
+      <header className="p-3.5 pb-2.5 flex items-start justify-between gap-2 border-b border-border/40">
+        <div className="flex flex-wrap items-center gap-1.5 min-w-0">
           <span
-            className={`px-2 py-0.5 rounded text-[10px] sm:text-[11px] font-mono font-bold border ${severityBadgeClass}`}
+            className={`text-[10px] font-bold tracking-wider px-2 py-0.5 rounded border uppercase ${severityBadgeClass}`}
           >
             {issue.severity}
           </span>
-
-          <span className="font-mono text-xs font-bold text-ink tracking-wide rule-id-badge">
-            {issue.type || (issue as unknown as { rule_id?: string }).rule_id}
+          <span className="text-xs font-mono font-medium text-ink bg-muted/20 px-2 py-0.5 rounded border border-border/50 truncate max-w-[200px]">
+            {issue.type}
           </span>
 
-          {location.page_number && (
+          {/* Curation state pill */}
+          {issue.included_in_report ? (
+            <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+              <Check size={10} />
+              <span>In Report</span>
+            </span>
+          ) : (
+            <span className="text-[10px] font-medium text-muted bg-muted/20 border border-border px-2 py-0.5 rounded-full flex items-center gap-1">
+              <XCircle size={10} />
+              <span>Excluded</span>
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1 shrink-0">
+          {location.page_number && onJumpToPage && (
             <button
               type="button"
+              className="text-[11px] font-medium text-muted hover:text-ink px-2 py-1 rounded bg-muted/15 hover:bg-muted/30 transition-colors flex items-center gap-1"
               onClick={(e) => {
                 e.stopPropagation();
-                if (onJumpToPage && location.page_number) {
-                  onJumpToPage(location.page_number);
-                }
+                onJumpToPage(location.page_number!);
               }}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-chip text-chip-ink hover:bg-primary/20 text-[11px] font-mono border border-line transition-colors page-jump-badge"
-              title="Jump to page in PDF"
+              title={`Jump to page ${location.page_number}`}
             >
-              <MapPin className="w-3 h-3 text-accent" />
-              p. {location.page_number}
+              <MapPin size={11} className="text-sky-500" />
+              <span>p. {location.page_number}</span>
             </button>
           )}
 
-          <span className="font-mono text-[10px] text-muted">v{issue.version}</span>
+          <button
+            type="button"
+            className="p-1 text-muted hover:text-ink rounded transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsExpanded(!isExpanded);
+            }}
+            aria-label={isExpanded ? "Collapse finding details" : "Expand finding details"}
+          >
+            {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
         </div>
+      </header>
 
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            setIsExpanded(!isExpanded);
-          }}
-          className="text-muted hover:text-ink p-1 rounded hover:bg-panel-raised transition-colors shrink-0"
-          title={isExpanded ? "Collapse finding" : "Expand finding"}
-          aria-label={isExpanded ? "Collapse finding" : "Expand finding"}
-        >
-          {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-        </button>
-      </div>
+      {/* Body */}
+      <div className="p-3.5 space-y-3">
+        {/* Message */}
+        <p className="text-xs text-ink leading-relaxed">
+          {issue.message}
+        </p>
 
-      {/* Message */}
-      <p className="mt-2 text-xs sm:text-sm text-ink font-normal leading-relaxed">
-        {issue.message}
-      </p>
-
-      {/* Existing Decision / Disposition Status */}
-      {(issue.decision || issue.disposition) && (
-        <div className="mt-2.5 flex flex-wrap items-center gap-2 pt-2 border-t border-line">
-          {issue.decision && (
-            <span
-              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold ${
-                issue.decision === "ACCEPTED"
-                  ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30"
-                  : issue.decision === "REJECTED"
-                  ? "bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30"
-                  : "bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30"
-              }`}
-            >
-              {issue.decision === "ACCEPTED" && <CheckCircle2 className="w-3 h-3 text-emerald-500" />}
-              {issue.decision === "REJECTED" && <XCircle className="w-3 h-3 text-rose-500" />}
-              {issue.decision === "FLAGGED" && <Flag className="w-3 h-3 text-amber-500" />}
-              QA: {issue.decision}
-            </span>
-          )}
-
-          {issue.decision_comment && (
-            <span className="text-xs text-muted italic">
-              &ldquo;{issue.decision_comment}&rdquo;
-            </span>
-          )}
-
-          {issue.disposition && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30">
-              <ShieldCheck className="w-3 h-3 text-purple-500 dark:text-purple-400" />
-              Lead: {issue.disposition}
-            </span>
-          )}
-
-          {issue.disposition_justification && (
-            <span className="text-xs text-accent-soft italic">
-              [{issue.disposition_justification}]
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* Error Alert */}
-      {errorMessage && (
-        <div className="mt-2.5 p-2 rounded bg-rose-500/15 border border-rose-500/30 text-xs text-rose-700 dark:text-rose-300 flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
-          <span>{errorMessage}</span>
-        </div>
-      )}
-
-      {/* Expandable Evidence & Controls */}
-      {isExpanded && (
-        <div className="mt-3 pt-3 border-t border-line flex flex-col gap-3">
-          {/* Typed Evidence Details */}
-          {(evidence.kind === "TABLE_MATH" || issue.type?.includes("TABLE_MATH") || evidence.stated_value !== undefined) && (
-            <div className="bg-sunken p-2.5 rounded border border-line text-xs font-mono">
-              <div className="text-accent-soft font-bold mb-1.5 flex items-center gap-1.5">
-                <FileSpreadsheet className="w-3.5 h-3.5" />
-                Table Math Reconciliation:
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-ink-soft">
-                <div>Stated Total: <span className="text-ink font-bold">{String(evidence.stated_value)}</span></div>
-                <div>Computed Sum: <span className="text-ink font-bold">{String(evidence.computed_value)}</span></div>
-                <div>Arithmetic Delta: <span className="text-rose-600 dark:text-rose-400 font-bold">{String(evidence.delta)}</span></div>
-                <div>Tolerance: <span className="text-muted">±{String(evidence.tolerance)}</span></div>
-              </div>
-            </div>
-          )}
-
-          {evidence.kind === "REFERENCE_DRIFT" && (
-            <div className="bg-sunken p-2.5 rounded border border-line text-xs font-mono">
-              <div className="text-accent-soft font-bold mb-1.5 flex items-center gap-1.5">
-                <Layers className="w-3.5 h-3.5" />
-                Pagination Drift Details:
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-ink-soft">
-                <div>Entry Label: <span className="text-ink font-bold">{String(evidence.label)}</span></div>
-                <div>Page Delta: <span className="text-rose-600 dark:text-rose-400 font-bold">{String(evidence.page_delta)} pages</span></div>
-                <div>
-                  ToC Ref Page:{" "}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const entryBox = evidence.entry_location as { page_index?: number } | undefined;
-                      if (onJumpToPage && entryBox?.page_index !== undefined) {
-                        onJumpToPage(entryBox.page_index + 1);
-                      }
-                    }}
-                    className="text-accent font-semibold underline hover:text-ink"
-                  >
-                    {String(evidence.referenced_page_label)}
-                  </button>
+        {isExpanded && (
+          <div className="space-y-3 pt-1">
+            {/* Table Math Evidence */}
+            {evidence.kind === "TABLE_MATH" && (
+              <div className="p-2.5 rounded bg-muted/10 border border-border/50 space-y-1.5 text-xs">
+                <div className="flex items-center gap-1.5 font-medium text-muted text-[11px] uppercase tracking-wider">
+                  <FileSpreadsheet size={13} className="text-sky-500" />
+                  <span>Calculation Details</span>
                 </div>
-                <div>
-                  Actual Body Page:{" "}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const targetBox = evidence.target_location as { page_index?: number } | undefined;
-                      if (onJumpToPage && targetBox?.page_index !== undefined) {
-                        onJumpToPage(targetBox.page_index + 1);
-                      }
-                    }}
-                    className="text-accent font-semibold underline hover:text-ink"
-                  >
-                    {String(evidence.actual_page_label)}
-                  </button>
+                <div className="grid grid-cols-2 gap-2 text-xs font-mono pt-1">
+                  <div>
+                    <span className="text-muted text-[11px] block">Stated value:</span>
+                    <span className="text-ink font-semibold">{String(evidence.stated_value ?? "—")}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted text-[11px] block">Computed sum:</span>
+                    <span className="text-ink font-semibold">{String(evidence.computed_value ?? "—")}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted text-[11px] block">Discrepancy (delta):</span>
+                    <span className="text-red-500 font-semibold">{String(evidence.delta ?? "—")}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted text-[11px] block">Allowed tolerance:</span>
+                    <span className="text-muted">{String(evidence.tolerance ?? "0.01")}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {evidence.kind === "REVISION" && (
-            <div className="bg-sunken p-2.5 rounded border border-line text-xs font-mono">
-              <div className="text-accent-soft font-bold mb-1.5">Three-Way Revision Sync:</div>
-              <div className="flex flex-col gap-1 text-ink-soft">
-                <div>Filename Rev: <span className="text-ink font-medium">{String(evidence.filename_revision ?? "N/A")}</span></div>
-                <div>Cover Page Rev: <span className="text-ink font-medium">{String(evidence.cover_revision ?? "N/A")}</span></div>
-                <div>Revision Sheet Rev: <span className="text-ink font-medium">{String(evidence.revision_sheet_revision ?? "N/A")}</span></div>
+            {/* Linguistic Evidence & Dictionary Action */}
+            {evidence.kind === "LINGUISTIC" && (
+              <div className="p-2.5 rounded bg-muted/10 border border-border/50 space-y-2 text-xs">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-muted text-[11px] uppercase tracking-wider font-medium">
+                    Linguistic Suggestion
+                  </span>
+                  {Boolean(evidence.original_text) && onAddToDictionary && (
+                    <button
+                      type="button"
+                      className="text-[11px] text-sky-600 dark:text-sky-400 hover:underline flex items-center gap-1"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAddToDictionary(String(evidence.original_text));
+                      }}
+                    >
+                      <BookOpen size={12} />
+                      <span>Add &quot;{String(evidence.original_text)}&quot; to Dictionary</span>
+                    </button>
+                  )}
+                </div>
+                {Boolean(evidence.suggestion) && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted">Recommendation:</span>
+                    <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                      {String(evidence.suggestion)}
+                    </span>
+                  </div>
+                )}
               </div>
-            </div>
-          )}
+            )}
 
-          {evidence.kind === "STANDARD" && (
-            <div className="bg-sunken p-2.5 rounded border border-line text-xs font-mono">
-              <div className="text-accent-soft font-bold mb-1.5">Standard & Code Citation:</div>
-              <div className="flex flex-col gap-1 text-ink-soft">
-                <div>Standard: <span className="text-ink font-bold">{String(evidence.cited_standard)}</span></div>
-                <div>Body Year: <span className="text-ink">{String(evidence.body_edition_year ?? "Not specified")}</span></div>
-                <div>Bibliography Year: <span className="text-ink">{String(evidence.bibliography_edition_year ?? "Not in bibliography")}</span></div>
-              </div>
-            </div>
-          )}
-
-          {evidence.kind === "LINGUISTIC" && Boolean(evidence.suggestion) && (
-            <div className="bg-sunken p-2 rounded border border-line text-xs font-mono">
-              <span className="text-muted">Suggested Replacement: </span>
-              <span className="text-emerald-600 dark:text-emerald-400 font-bold">{String(evidence.suggestion)}</span>
-            </div>
-          )}
-
-          {evidence.kind === "STAGE_FAILURE" && (
-            <div className="bg-rose-500/15 p-2.5 rounded border border-rose-500/30 text-xs font-mono text-rose-700 dark:text-rose-300 flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 shrink-0 text-rose-500" />
-              <div>
-                Stage <strong>{String(evidence.stage)}</strong> failed with error code{" "}
-                <strong>{String(evidence.error_code)}</strong>.
-              </div>
-            </div>
-          )}
-
-          {/* QA Decision Action Buttons with Guaranteed Contrast */}
-          <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <button
-                type="button"
-                disabled={isSubmitting}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDecision("ACCEPTED");
-                }}
-                className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium shadow-xs transition-colors flex items-center gap-1 disabled:opacity-50"
-                title="Accept finding"
-              >
-                <CheckCircle2 className="w-3.5 h-3.5 text-white" />
-                Accept
-              </button>
-
-              <button
-                type="button"
-                disabled={isSubmitting}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDecision("REJECTED");
-                }}
-                className="px-2.5 py-1 rounded bg-rose-600 hover:bg-rose-700 text-white text-xs font-medium shadow-xs transition-colors flex items-center gap-1 disabled:opacity-50"
-                title="Reject finding"
-              >
-                <XCircle className="w-3.5 h-3.5 text-white" />
-                Reject
-              </button>
-
-              <button
-                type="button"
-                disabled={isSubmitting}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDecision("FLAGGED");
-                }}
-                className="px-2.5 py-1 rounded bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium shadow-xs transition-colors flex items-center gap-1 disabled:opacity-50"
-                title="Flag for lead review"
-              >
-                <Flag className="w-3.5 h-3.5 text-white" />
-                Flag
-              </button>
-
-              {issue.category === "LINGUISTIC" &&
-                (issue.type === "SPELLING_ERROR" || issue.type?.includes("SPELL")) &&
-                onAddToDictionary && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    const term = String(evidence.original_text ?? issue.message);
-                    onAddToDictionary(term);
-                  }}
-                  className="px-2.5 py-1 rounded bg-sky-600 hover:bg-sky-700 text-white text-xs font-medium shadow-xs transition-colors flex items-center gap-1"
-                  title="Add term to Governed Engineering Dictionary"
-                >
-                  <BookOpen className="w-3.5 h-3.5 text-white" />
-                  Add to Dictionary
-                </button>
+            {/* Reviewer Note Display / Inline Editor */}
+            <div className="pt-2 border-t border-border/40">
+              {isEditingNote ? (
+                <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
+                  <label className="block text-[11px] font-medium text-muted">
+                    Reviewer Note (appears in DOCX report and annotated PDF):
+                  </label>
+                  <textarea
+                    className="w-full text-xs p-2 rounded border border-border bg-sunken text-ink focus:outline-none focus:border-sky-500 resize-y"
+                    rows={2}
+                    value={noteText}
+                    onChange={(e) => setNoteText(e.target.value)}
+                    placeholder="Add engineering clarification or reference..."
+                    maxLength={4000}
+                  />
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      className="button button-ghost text-xs py-1 px-2.5"
+                      onClick={() => {
+                        setNoteText(issue.reviewer_note ?? "");
+                        setIsEditingNote(false);
+                      }}
+                      disabled={isSubmitting}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="button button-primary text-xs py-1 px-3"
+                      onClick={() => void handleSaveNote()}
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? "Saving..." : "Save Note"}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <span className="text-[11px] font-medium text-muted block mb-0.5">
+                      Reviewer Note:
+                    </span>
+                    {issue.reviewer_note ? (
+                      <p className="text-xs text-ink italic bg-muted/10 p-2 rounded border border-border/40">
+                        &quot;{issue.reviewer_note}&quot;
+                      </p>
+                    ) : (
+                      <span className="text-xs text-muted/70 italic">None attached.</span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    className="text-[11px] text-sky-600 dark:text-sky-400 hover:underline shrink-0 mt-0.5"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setNoteText(issue.reviewer_note ?? "");
+                      setIsEditingNote(true);
+                    }}
+                  >
+                    {issue.reviewer_note ? "Edit Note" : "Add Note"}
+                  </button>
+                </div>
               )}
+            </div>
 
+            {/* Error banner */}
+            {errorMessage && (
+              <div className="p-2 rounded bg-red-500/10 border border-red-500/30 text-xs text-red-600 dark:text-red-400 flex items-center gap-1.5">
+                <AlertCircle size={14} className="shrink-0" />
+                <span>{errorMessage}</span>
+              </div>
+            )}
+
+            {/* Curation Action Button */}
+            <div className="pt-2 border-t border-border/40 flex items-center justify-between gap-2">
+              <span className="text-[11px] text-muted">
+                {issue.included_in_report
+                  ? "Included in exported report"
+                  : "Excluded from exported report"}
+              </span>
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setShowCommentInput(!showCommentInput);
+                  void handleToggleInclude();
                 }}
-                className="p-1.5 rounded border border-line text-muted hover:text-ink hover:bg-panel-raised transition-colors"
-                title="Add reviewer comment"
-                aria-label="Add reviewer comment"
+                disabled={isSubmitting}
+                className={`button text-xs py-1.5 px-3 flex items-center gap-1.5 transition-colors ${
+                  issue.included_in_report
+                    ? "button-secondary text-muted hover:text-ink"
+                    : "button-primary"
+                }`}
               >
-                <MessageSquare className="w-3.5 h-3.5" />
+                {issue.included_in_report ? (
+                  <>
+                    <XCircle size={13} />
+                    <span>Exclude from Report</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 size={13} />
+                    <span>Include in Report</span>
+                  </>
+                )}
               </button>
             </div>
-
-            {/* Lead Reviewer Toggle */}
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowLeadControls(!showLeadControls);
-              }}
-              className="text-[11px] font-mono text-accent hover:underline flex items-center gap-1 font-semibold ml-auto"
-            >
-              <ShieldCheck className="w-3.5 h-3.5" />
-              Lead Disposition
-            </button>
           </div>
-
-          {/* Comment Input Drawer */}
-          {showCommentInput && (
-            <div
-              className="mt-1 flex flex-col gap-1.5"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <textarea
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                placeholder="Optional reviewer notes or justification..."
-                className="w-full text-xs p-2 rounded bg-input border border-line text-ink placeholder-muted focus:outline-none focus:border-primary"
-                rows={2}
-              />
-            </div>
-          )}
-
-          {/* Lead Reviewer Controls */}
-          {showLeadControls && (
-            <div
-              className="mt-2 p-3 rounded-md bg-sunken border border-purple-500/30 flex flex-col gap-2"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center gap-1.5 text-xs font-bold text-purple-700 dark:text-purple-300">
-                <ShieldCheck className="w-3.5 h-3.5 text-purple-500" />
-                Lead Reviewer Compliance Override:
-              </div>
-              <textarea
-                value={justification}
-                onChange={(e) => setJustification(e.target.value)}
-                placeholder="Regulatory justification / audit notes (e.g. NCR reference, client waiver, verified source data)..."
-                className="w-full text-xs p-2 rounded bg-input border border-line text-ink placeholder-muted focus:outline-none focus:border-primary"
-                rows={2}
-              />
-              <div className="flex flex-wrap items-center gap-2 pt-1">
-                <button
-                  type="button"
-                  disabled={isSubmitting}
-                  onClick={() => handleDisposition("JUSTIFIED_EXCEPTION")}
-                  className="px-3 py-1 rounded bg-purple-700 hover:bg-purple-600 text-white text-xs font-semibold shadow-xs disabled:opacity-40 transition-colors"
-                >
-                  Justified Exception
-                </button>
-                <button
-                  type="button"
-                  disabled={isSubmitting}
-                  onClick={() => handleDisposition("REQUIRES_CORRECTION")}
-                  className="px-3 py-1 rounded bg-rose-700 hover:bg-rose-600 text-white text-xs font-semibold shadow-xs disabled:opacity-40 transition-colors"
-                >
-                  Requires Correction
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </article>
   );
 }

@@ -8,13 +8,10 @@ vi.mock("@/lib/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api")>();
   return {
     ...actual,
-    listAuditEvents: vi.fn(),
-    getTraceabilitySummary: vi.fn(),
-    setDocumentDisposition: vi.fn(),
-    decideIssue: vi.fn(),
-    disposeIssue: vi.fn(),
-    bulkDecideIssues: vi.fn(),
+    curateIssue: vi.fn(),
     listDocumentIssues: vi.fn(),
+    getReportPreview: vi.fn(),
+    getExportUrl: (docId: string, format: string) => `/api/v1/documents/${docId}/export?format=${format}`,
   };
 });
 
@@ -30,7 +27,6 @@ describe("SplitScreenViewer", () => {
     size_bytes: 54000,
     sha256: "a".repeat(64),
     status: "COMPLETED",
-    review_status: "PENDING",
     progress_pct: 100,
     page_count: 5,
     created_at: "2026-09-05T10:00:00Z",
@@ -45,7 +41,9 @@ describe("SplitScreenViewer", () => {
       type: "RULE_TABLE_MATH_001",
       severity: "CRITICAL",
       confidence: 0.95,
-      message: "Row sum error",
+      message: "Row sum error in hydraulic test data",
+      included_in_report: true,
+      reviewer_note: null,
       version: 1,
       evidence: {
         kind: "TABLE_MATH",
@@ -73,94 +71,77 @@ describe("SplitScreenViewer", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(api.listAuditEvents).mockResolvedValue({
-      total: 1,
-      events: [
-        {
-          id: "audit-1",
-          document_id: "doc-test-123",
-          action: "ISSUE_DECISION",
-          actor_id: "qa@local",
-          actor_role: "QA_ENGINEER",
-          created_at: "2026-09-05T10:30:00Z",
-          previous_state: { status: "PENDING" },
-          new_state: { status: "ACCEPTED" },
-          notes: "Approved after recalculation",
-        },
-      ],
-    });
-
-    vi.mocked(api.getTraceabilitySummary).mockResolvedValue({
+    vi.mocked(api.getReportPreview).mockResolvedValue({
       document_id: "doc-test-123",
-      counts_by_type: { RULE_TABLE_MATH_001: 1 },
+      included_findings: 1,
+      blockers: 1,
       counts_by_severity: { CRITICAL: 1 },
-      critical_count: 1,
-      unresolved_count: 1,
+      summary_judgement: "Blockers require correction before reissue.",
     });
   });
 
-  it("renders document title and findings in split panes", () => {
+  it("renders document title, header status, and findings", () => {
     render(<SplitScreenViewer document={mockDoc} initialIssues={mockIssues} />);
 
-    expect(screen.getByText("hydraulic_spec_v2.pdf")).toBeDefined();
-    expect(screen.getAllByText("RULE_TABLE_MATH_001").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByRole("heading", { name: "hydraulic_spec_v2.pdf" })).toBeDefined();
+    expect(screen.getByText("1 Included")).toBeDefined();
+    expect(screen.getByText("1 Blockers")).toBeDefined();
+    expect(screen.getByText("Row sum error in hydraulic test data")).toBeDefined();
   });
 
-  it("opens audit trail modal when Audit Trail button is clicked", async () => {
+  it("opens report preview modal when Report Preview button is clicked", async () => {
     render(<SplitScreenViewer document={mockDoc} initialIssues={mockIssues} />);
 
-    const auditBtn = screen.getByRole("button", { name: /audit trail/i });
-    fireEvent.click(auditBtn);
+    const previewBtn = screen.getByRole("button", { name: /report preview/i });
+    fireEvent.click(previewBtn);
 
     await waitFor(() => {
-      expect(screen.getByText("Document Audit Trail")).toBeDefined();
-      expect(screen.getByText(/Approved after recalculation/i)).toBeDefined();
-    });
-  });
-
-  it("allows Lead Reviewer to approve document with required justification", async () => {
-    vi.mocked(api.setDocumentDisposition).mockResolvedValue({
-      ...mockDoc,
-      review_status: "APPROVED",
-    });
-
-    render(<SplitScreenViewer document={mockDoc} initialIssues={mockIssues} />);
-
-    // Click Approve Document in bottom footer
-    const approveBtn = screen.getByRole("button", { name: /approve document/i });
-    fireEvent.click(approveBtn);
-
-    // Modal opens asking for justification
-    expect(screen.getByText("Approve Document Sign-Off")).toBeDefined();
-
-    const textarea = screen.getByLabelText(/justification \/ audit notes/i);
-    fireEvent.change(textarea, { target: { value: "Sign-off verified by chief engineer" } });
-
-    const confirmBtn = screen.getByRole("button", { name: /confirm approval/i });
-    fireEvent.click(confirmBtn);
-
-    await waitFor(() => {
-      expect(api.setDocumentDisposition).toHaveBeenCalledWith("doc-test-123", {
-        disposition: "APPROVED",
-        justification: "Sign-off verified by chief engineer",
-        actor_id: "lead_reviewer@local",
-        actor_role: "LEAD_REVIEWER",
-      });
+      expect(screen.getByText("Review Report Preview")).toBeDefined();
+      expect(screen.getByText("Summary Judgement")).toBeDefined();
+      expect(screen.getByText("Blockers require correction before reissue.")).toBeDefined();
     });
   });
 
   it("opens export modal when Export button is clicked", async () => {
     render(<SplitScreenViewer document={mockDoc} initialIssues={mockIssues} />);
 
-    const exportBtn = screen.getByTestId("open-export-modal-btn");
+    const exportBtn = screen.getByRole("button", { name: /^export$/i });
     fireEvent.click(exportBtn);
 
     await waitFor(() => {
-      expect(screen.getByText("Export Findings & Audit Package")).toBeDefined();
+      expect(screen.getByText("Export Review Deliverables")).toBeDefined();
+      expect(screen.getByTestId("export-docx-btn")).toBeDefined();
       expect(screen.getByTestId("export-pdf-btn")).toBeDefined();
-      expect(screen.getByTestId("export-xlsx-btn")).toBeDefined();
-      expect(screen.getByTestId("export-csv-btn")).toBeDefined();
-      expect(screen.getByTestId("export-json-btn")).toBeDefined();
     });
+  });
+
+  it("triggers curateIssue and updates finding inclusion state", async () => {
+    vi.mocked(api.curateIssue).mockResolvedValue({
+      ...mockIssues[0],
+      included_in_report: false,
+    });
+
+    render(<SplitScreenViewer document={mockDoc} initialIssues={mockIssues} />);
+
+    const excludeBtn = screen.getByRole("button", { name: /exclude from report/i });
+    fireEvent.click(excludeBtn);
+
+    await waitFor(() => {
+      expect(api.curateIssue).toHaveBeenCalledWith("iss-1", {
+        included_in_report: false,
+        reviewer_note: null,
+      });
+      expect(screen.getByText(/excluded from report/i)).toBeDefined();
+    });
+  });
+
+  it("provides direct export links in the footer", () => {
+    render(<SplitScreenViewer document={mockDoc} initialIssues={mockIssues} />);
+
+    const docxLink = screen.getByRole("link", { name: /export docx/i });
+    expect(docxLink.getAttribute("href")).toBe("/api/v1/documents/doc-test-123/export?format=docx");
+
+    const pdfLink = screen.getByRole("link", { name: /export annotated pdf/i });
+    expect(pdfLink.getAttribute("href")).toBe("/api/v1/documents/doc-test-123/export?format=pdf");
   });
 });

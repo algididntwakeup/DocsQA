@@ -17,11 +17,10 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db.base import Base
-from domain.enums import Decision, Disposition, IssueCategory, Severity
+from domain.enums import IssueCategory, Severity
 from models.document import TimestampMixin
 
 if TYPE_CHECKING:
-    from models.audit import AuditEvent
     from models.document import Document
 
 
@@ -31,7 +30,6 @@ class Issue(TimestampMixin, Base):
     __tablename__ = "issues"
     __table_args__ = (
         CheckConstraint("confidence >= 0.0 AND confidence <= 1.0", name="confidence_range"),
-        CheckConstraint("version >= 1", name="version_positive"),
         Index("ix_issues_document_category", "document_id", "category"),
         Index("ix_issues_document_severity", "document_id", "severity"),
         Index("ix_issues_document_page", "document_id", "page_number"),
@@ -54,23 +52,7 @@ class Issue(TimestampMixin, Base):
     message: Mapped[str] = mapped_column(Text, nullable=False)
     page_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
     evidence: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
-    decision: Mapped[Decision | None] = mapped_column(
-        Enum(Decision, name="decision", native_enum=False),
-        nullable=True,
-    )
-    decision_comment: Mapped[str | None] = mapped_column(Text, nullable=True)
-    decision_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    disposition: Mapped[Disposition | None] = mapped_column(
-        Enum(Disposition, name="disposition", native_enum=False),
-        nullable=True,
-    )
-    disposition_justification: Mapped[str | None] = mapped_column(Text, nullable=True)
-    disposition_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    included_in_report: Mapped[bool] = mapped_column(default=True, nullable=False)
+    reviewer_note: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     document: Mapped["Document"] = relationship(back_populates="issues")
-    audit_events: Mapped[list["AuditEvent"]] = relationship(
-        back_populates="issue",
-        cascade="all, delete-orphan",
-        order_by="AuditEvent.created_at",
-    )

@@ -9,7 +9,6 @@ vi.mock("@/lib/api", async (importOriginal) => {
     ...actual,
     listDictionaryTerms: vi.fn(),
     createDictionaryTerm: vi.fn(),
-    approveDictionaryTerm: vi.fn(),
   };
 });
 
@@ -98,29 +97,23 @@ describe("DictionaryModal", () => {
     });
   });
 
-  it("allows approving a pending term", async () => {
-    vi.mocked(api.approveDictionaryTerm).mockResolvedValue({
-      id: "term-2",
-      term: "ASTM-A516",
-      scope: "organization",
-      status: "APPROVED",
-      created_at: "2026-09-05T11:00:00Z",
-    });
-
+  it("allows switching between list and add term tabs", async () => {
     render(<DictionaryModal isOpen={true} onClose={vi.fn()} />);
 
     await waitFor(() => {
-      expect(screen.getByText("ASTM-A516")).toBeDefined();
+      expect(screen.getByText("Inconel625")).toBeDefined();
     });
 
-    const approveBtn = screen.getByTitle("Approve Term");
-    fireEvent.click(approveBtn);
+    // Click Add Term tab
+    const addTab = screen.getByRole("button", { name: /add term/i });
+    fireEvent.click(addTab);
 
-    await waitFor(() => {
-      expect(api.approveDictionaryTerm).toHaveBeenCalledWith("term-2", {
-        status: "APPROVED",
-        rationale: "Reviewed and set to APPROVED",
-      });
-    });
+    expect(screen.getByText(/Term \/ Specification Symbol/i)).toBeDefined();
+
+    // Click Approved & Pending Terms tab
+    const listTab = screen.getByRole("button", { name: /approved & pending terms/i });
+    fireEvent.click(listTab);
+
+    expect(screen.getByText("Inconel625")).toBeDefined();
   });
 });

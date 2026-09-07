@@ -102,47 +102,11 @@ export interface paths {
         get: operations["get_document_api_v1_documents__document_id__get"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/documents/{document_id}/audit-events": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
         /**
-         * List Document Audit Events
-         * @description List immutable audit events for an audited document in chronological order.
+         * Delete Document
+         * @description Permanently delete a document, its database records, storage files, and artifacts.
          */
-        get: operations["list_document_audit_events_api_v1_documents__document_id__audit_events_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/documents/{document_id}/disposition": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Set Document Disposition
-         * @description Apply final Lead Reviewer disposition to an audited document.
-         */
-        post: operations["set_document_disposition_api_v1_documents__document_id__disposition_post"];
-        delete?: never;
+        delete: operations["delete_document_api_v1_documents__document_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -177,7 +141,7 @@ export interface paths {
         };
         /**
          * Export Document
-         * @description Export the annotated rendition or structured issue log in PDF, XLSX, CSV, or JSON format.
+         * @description Export the annotated original PDF or formal DOCX review report.
          */
         get: operations["export_document_api_v1_documents__document_id__export_get"];
         put?: never;
@@ -228,6 +192,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/documents/{document_id}/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Report Preview
+         * @description Return the current draft-report composition without generating a file.
+         */
+        get: operations["get_report_preview_api_v1_documents__document_id__report_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/documents/{document_id}/status": {
         parameters: {
             query?: never;
@@ -268,27 +252,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/issues/bulk-decision": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Bulk Decide Issues
-         * @description Apply a decision to multiple issues, strictly prohibiting traceability bulk-accept.
-         */
-        post: operations["bulk_decide_issues_api_v1_issues_bulk_decision_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/issues/{issue_id}/decision": {
+    "/api/v1/issues/{issue_id}/curation": {
         parameters: {
             query?: never;
             header?: never;
@@ -302,30 +266,10 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Decide Issue
-         * @description Apply an optimistically locked QA decision.
+         * Curate Issue
+         * @description Include/exclude a finding from the generated report and attach a note.
          */
-        patch: operations["decide_issue_api_v1_issues__issue_id__decision_patch"];
-        trace?: never;
-    };
-    "/api/v1/issues/{issue_id}/disposition": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Dispose Issue
-         * @description Append an optimistically locked Lead Reviewer disposition.
-         */
-        patch: operations["dispose_issue_api_v1_issues__issue_id__disposition_patch"];
+        patch: operations["curate_issue_api_v1_issues__issue_id__curation_patch"];
         trace?: never;
     };
     "/api/v1/standards-registry": {
@@ -373,55 +317,6 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /**
-         * AuditEventListResponse
-         * @description Collection of immutable audit events for a document.
-         */
-        AuditEventListResponse: {
-            /** Events */
-            events: components["schemas"]["AuditEventRead"][];
-            /** Total */
-            total: number;
-        };
-        /**
-         * AuditEventRead
-         * @description Immutable audit event record consumed by review and compliance interfaces.
-         */
-        AuditEventRead: {
-            /** Action */
-            action: string;
-            /** Actor Id */
-            actor_id: string;
-            /** Actor Role */
-            actor_role: string;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Document Id
-             * Format: uuid
-             */
-            document_id: string;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Issue Id */
-            issue_id?: string | null;
-            /** New State */
-            new_state: {
-                [key: string]: unknown;
-            };
-            /** Notes */
-            notes?: string | null;
-            /** Previous State */
-            previous_state?: {
-                [key: string]: unknown;
-            } | null;
-        };
         /** Body_upload_document_api_v1_documents_upload_post */
         Body_upload_document_api_v1_documents_upload_post: {
             /**
@@ -450,44 +345,6 @@ export interface components {
             /** Y1 */
             y1: number;
         };
-        /**
-         * BulkDecisionRequest
-         * @description Bulk decision applied across multiple eligible findings.
-         */
-        BulkDecisionRequest: {
-            /**
-             * Actor Id
-             * @default reviewer@local
-             */
-            actor_id: string;
-            /**
-             * Actor Role
-             * @default QA_ENGINEER
-             */
-            actor_role: string;
-            /** Comment */
-            comment?: string | null;
-            decision: components["schemas"]["Decision"];
-            /** Issue Ids */
-            issue_ids: string[];
-        };
-        /**
-         * BulkDecisionResponse
-         * @description Outcome of an authorized bulk decision operation.
-         */
-        BulkDecisionResponse: {
-            decision: components["schemas"]["Decision"];
-            /** Updated Count */
-            updated_count: number;
-            /** Updated Issue Ids */
-            updated_issue_ids: string[];
-        };
-        /**
-         * Decision
-         * @description QA decision applied to a detected issue.
-         * @enum {string}
-         */
-        Decision: "ACCEPTED" | "REJECTED" | "EDITED" | "FLAGGED";
         /**
          * DictionaryTermApprovalRequest
          * @description Admin approval or rejection of a proposed term.
@@ -546,31 +403,6 @@ export interface components {
          */
         DictionaryTermStatus: "PROPOSED" | "APPROVED" | "REJECTED";
         /**
-         * Disposition
-         * @description Lead Reviewer disposition for audit-sensitive findings.
-         * @enum {string}
-         */
-        Disposition: "JUSTIFIED_EXCEPTION" | "REQUIRES_CORRECTION";
-        /**
-         * DocumentDispositionRequest
-         * @description Lead Reviewer final document-level sign-off.
-         */
-        DocumentDispositionRequest: {
-            /**
-             * Actor Id
-             * @default reviewer@local
-             */
-            actor_id: string;
-            /**
-             * Actor Role
-             * @default LEAD_REVIEWER
-             */
-            actor_role: string;
-            disposition: components["schemas"]["ReviewStatus"];
-            /** Justification */
-            justification: string;
-        };
-        /**
          * DocumentListResponse
          * @description Paginated document collection.
          */
@@ -602,7 +434,6 @@ export interface components {
             page_count?: number | null;
             /** Progress Pct */
             progress_pct: number;
-            review_status: components["schemas"]["ReviewStatus"];
             /** Sha256 */
             sha256: string;
             /** Size Bytes */
@@ -632,7 +463,6 @@ export interface components {
             id: string;
             /** Progress Pct */
             progress_pct: number;
-            review_status: components["schemas"]["ReviewStatus"];
             /** Stages */
             stages: components["schemas"]["StageRunRead"][];
             status: components["schemas"]["DocumentStatus"];
@@ -697,48 +527,14 @@ export interface components {
          */
         IssueCategory: "LINGUISTIC" | "TRACEABILITY" | "SYSTEM";
         /**
-         * IssueDecisionRequest
-         * @description Optimistically locked QA decision mutation.
+         * IssueCurationRequest
+         * @description Lightweight report curation; it is not an approval decision.
          */
-        IssueDecisionRequest: {
-            /**
-             * Actor Id
-             * @default reviewer@local
-             */
-            actor_id: string;
-            /**
-             * Actor Role
-             * @default QA_ENGINEER
-             */
-            actor_role: string;
-            /** Comment */
-            comment?: string | null;
-            decision: components["schemas"]["Decision"];
-            /** Edited Value */
-            edited_value?: string | null;
-            /** Expected Version */
-            expected_version: number;
-        };
-        /**
-         * IssueDispositionRequest
-         * @description Optimistically locked Lead Reviewer disposition mutation.
-         */
-        IssueDispositionRequest: {
-            /**
-             * Actor Id
-             * @default reviewer@local
-             */
-            actor_id: string;
-            /**
-             * Actor Role
-             * @default LEAD_REVIEWER
-             */
-            actor_role: string;
-            disposition: components["schemas"]["Disposition"];
-            /** Expected Version */
-            expected_version: number;
-            /** Justification */
-            justification: string;
+        IssueCurationRequest: {
+            /** Included In Report */
+            included_in_report: boolean;
+            /** Reviewer Note */
+            reviewer_note?: string | null;
         };
         /**
          * IssueListResponse
@@ -766,16 +562,6 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
-            decision?: components["schemas"]["Decision"] | null;
-            /** Decision By */
-            decision_by?: string | null;
-            /** Decision Comment */
-            decision_comment?: string | null;
-            disposition?: components["schemas"]["Disposition"] | null;
-            /** Disposition By */
-            disposition_by?: string | null;
-            /** Disposition Justification */
-            disposition_justification?: string | null;
             /**
              * Document Id
              * Format: uuid
@@ -788,8 +574,15 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /**
+             * Included In Report
+             * @default true
+             */
+            included_in_report: boolean;
             /** Message */
             message: string;
+            /** Reviewer Note */
+            reviewer_note?: string | null;
             severity: components["schemas"]["Severity"];
             /** Type */
             type: string;
@@ -798,7 +591,10 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
-            /** Version */
+            /**
+             * Version
+             * @default 1
+             */
             version: number;
         };
         /**
@@ -893,11 +689,26 @@ export interface components {
             target_location: components["schemas"]["BoundingBox"];
         };
         /**
-         * ReviewStatus
-         * @description Human review lifecycle, kept separate from processing status.
-         * @enum {string}
+         * ReviewReportPreview
+         * @description Summary used by the report-first review screen.
          */
-        ReviewStatus: "PENDING" | "IN_REVIEW" | "APPROVED" | "REVISION_REQUIRED";
+        ReviewReportPreview: {
+            /** Blockers */
+            blockers: number;
+            /** Counts By Severity */
+            counts_by_severity: {
+                [key: string]: number;
+            };
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /** Included Findings */
+            included_findings: number;
+            /** Summary Judgement */
+            summary_judgement: string;
+        };
         /**
          * RevisionEvidence
          * @description Three-way filename, cover, and revision-history evidence.
@@ -1407,7 +1218,7 @@ export interface operations {
             };
         };
     };
-    list_document_audit_events_api_v1_documents__document_id__audit_events_get: {
+    delete_document_api_v1_documents__document_id__delete: {
         parameters: {
             query?: never;
             header?: never;
@@ -1419,57 +1230,11 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Successful Response */
-            200: {
+            204: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": components["schemas"]["AuditEventListResponse"];
-                };
-            };
-            /** @description Document not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    set_document_disposition_api_v1_documents__document_id__disposition_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                document_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DocumentDispositionRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DocumentRead"];
-                };
+                content?: never;
             };
             /** @description Document not found */
             404: {
@@ -1651,6 +1416,37 @@ export interface operations {
             };
         };
     };
+    get_report_preview_api_v1_documents__document_id__report_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewReportPreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_document_status_api_v1_documents__document_id__status_get: {
         parameters: {
             query?: never;
@@ -1731,40 +1527,7 @@ export interface operations {
             };
         };
     };
-    bulk_decide_issues_api_v1_issues_bulk_decision_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["BulkDecisionRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BulkDecisionResponse"];
-                };
-            };
-            /** @description Traceability bulk accept prohibited */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    decide_issue_api_v1_issues__issue_id__decision_patch: {
+    curate_issue_api_v1_issues__issue_id__curation_patch: {
         parameters: {
             query?: never;
             header?: never;
@@ -1775,7 +1538,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["IssueDecisionRequest"];
+                "application/json": components["schemas"]["IssueCurationRequest"];
             };
         };
         responses: {
@@ -1786,77 +1549,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IssueRead"];
-                };
-            };
-            /** @description Issue not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Optimistic concurrency conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    dispose_issue_api_v1_issues__issue_id__disposition_patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                issue_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["IssueDispositionRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IssueRead"];
-                };
-            };
-            /** @description Issue not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Optimistic concurrency conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description Validation Error */

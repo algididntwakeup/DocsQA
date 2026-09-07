@@ -2,26 +2,22 @@
 
 import { useMemo, useState, useEffect, useRef } from "react";
 import {
-  AlertCircle,
-  CheckCircle,
-  CheckCheck,
   Filter,
-  Info,
   Layers,
   Search,
-  ShieldAlert,
   Sparkles,
 } from "lucide-react";
-import { getIssueLocation, type IssueItem, type IssueDecision, type IssueDisposition } from "@/lib/api";
+import { getIssueLocation, type IssueItem } from "@/lib/api";
 import { IssueCard } from "./issue-card";
 
 interface IssuePanelProps {
   issues: IssueItem[];
   selectedIssueId: string | null;
   onSelectIssue: (issueId: string) => void;
-  onDecideIssue: (issueId: string, payload: IssueDecision) => Promise<void>;
-  onDisposeIssue: (issueId: string, payload: IssueDisposition) => Promise<void>;
-  onBulkDecideLanguage: () => Promise<void>;
+  onCurateIssue: (
+    issueId: string,
+    payload: { included_in_report: boolean; reviewer_note?: string | null }
+  ) => Promise<void>;
   onJumpToPage?: (page: number) => void;
   onAddToDictionary?: (term: string) => void;
   isLoading?: boolean;
@@ -29,7 +25,7 @@ interface IssuePanelProps {
 
 type TabType = "traceability" | "language";
 type SeverityFilter = "ALL" | "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "INFO";
-type StatusFilter = "ALL" | "PENDING" | "ACCEPTED" | "REJECTED" | "FLAGGED" | "DISPOSED";
+type CurationFilter = "ALL" | "INCLUDED" | "EXCLUDED";
 
 function isTraceabilityIssue(issue: IssueItem): boolean {
   if (issue.category === "TRACEABILITY" || issue.category === "SYSTEM") {
@@ -49,19 +45,15 @@ export function IssuePanel({
   issues,
   selectedIssueId,
   onSelectIssue,
-  onDecideIssue,
-  onDisposeIssue,
-  onBulkDecideLanguage,
+  onCurateIssue,
   onJumpToPage,
   onAddToDictionary,
   isLoading = false,
 }: IssuePanelProps) {
   const [activeTab, setActiveTab] = useState<TabType>("traceability");
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>("ALL");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
+  const [curationFilter, setCurationFilter] = useState<CurationFilter>("ALL");
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [isBulkSubmitting, setIsBulkSubmitting] = useState<boolean>(false);
-  const [bulkFeedback, setBulkFeedback] = useState<string | null>(null);
 
   const activeCardRef = useRef<HTMLDivElement | null>(null);
 
@@ -83,9 +75,11 @@ export function IssuePanel({
       if (severityFilter !== "ALL" && iss.severity.toUpperCase() !== severityFilter) {
         return false;
       }
-      if (statusFilter !== "ALL") {
-        if (statusFilter === "PENDING" && iss.decision) return false;
-        if (statusFilter !== "PENDING" && iss.decision?.toUpperCase() !== statusFilter) return false;
+      if (curationFilter === "INCLUDED" && !iss.included_in_report) {
+        return false;
+      }
+      if (curationFilter === "EXCLUDED" && iss.included_in_report) {
+        return false;
       }
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
@@ -99,223 +93,140 @@ export function IssuePanel({
       }
       return true;
     });
-  }, [currentTabIssues, severityFilter, statusFilter, searchQuery]);
+  }, [currentTabIssues, severityFilter, curationFilter, searchQuery]);
 
-  // Summary stats
-  const totalCount = currentTabIssues.length;
-  const pendingCount = currentTabIssues.filter((i) => !i.decision).length;
-  const criticalCount = currentTabIssues.filter((i) => i.severity === "CRITICAL").length;
-  const highCount = currentTabIssues.filter((i) => i.severity === "HIGH").length;
-
-  // Scroll to active card when selectedIssueId changes
+  // Scroll active card into view
   useEffect(() => {
-    if (selectedIssueId && activeCardRef.current?.scrollIntoView) {
-      activeCardRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    if (activeCardRef.current && typeof activeCardRef.current.scrollIntoView === "function") {
+      activeCardRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+      });
     }
   }, [selectedIssueId]);
 
-  const handleBulkAcceptLanguage = async () => {
-    setIsBulkSubmitting(true);
-    setBulkFeedback(null);
-    try {
-      await onBulkDecideLanguage();
-      setBulkFeedback("High-confidence language issues accepted successfully.");
-      setTimeout(() => setBulkFeedback(null), 4000);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to bulk accept language issues.";
-      setBulkFeedback(`Error: ${msg}`);
-    } finally {
-      setIsBulkSubmitting(false);
-    }
-  };
+  const traceIncludedCount = traceabilityIssues.filter((i) => i.included_in_report).length;
+  const langIncludedCount = languageIssues.filter((i) => i.included_in_report).length;
 
   return (
-    <aside className="issue-panel" aria-label="Review Issues Panel">
-      {/* Category Tabs */}
-      <div className="panel-tabs" role="tablist">
+    <aside
+      className="flex flex-col h-full bg-surface border-l border-border overflow-hidden"
+      aria-label="Findings Panel"
+    >
+      {/* Tab Switcher */}
+      <div className="flex items-center border-b border-border bg-panel shrink-0">
         <button
           type="button"
           role="tab"
           aria-selected={activeTab === "traceability"}
-          className={`tab-button ${activeTab === "traceability" ? "tab-active" : ""}`}
           onClick={() => setActiveTab("traceability")}
+          className={`flex-1 py-3 px-4 text-xs font-semibold flex items-center justify-center gap-2 border-b-2 transition-colors ${
+            activeTab === "traceability"
+              ? "border-sky-500 text-sky-600 dark:text-sky-400 bg-surface"
+              : "border-transparent text-muted hover:text-ink hover:bg-muted/5"
+          }`}
         >
-          <Layers size={16} />
-          <span>Traceability & Compliance</span>
-          <span className="tab-badge">{traceabilityIssues.length}</span>
+          <Layers size={15} />
+          <span>Technical Consistency</span>
+          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-muted/20 text-muted">
+            {traceIncludedCount}/{traceabilityIssues.length}
+          </span>
         </button>
 
         <button
           type="button"
           role="tab"
           aria-selected={activeTab === "language"}
-          className={`tab-button ${activeTab === "language" ? "tab-active" : ""}`}
           onClick={() => setActiveTab("language")}
+          className={`flex-1 py-3 px-4 text-xs font-semibold flex items-center justify-center gap-2 border-b-2 transition-colors ${
+            activeTab === "language"
+              ? "border-sky-500 text-sky-600 dark:text-sky-400 bg-surface"
+              : "border-transparent text-muted hover:text-ink hover:bg-muted/5"
+          }`}
         >
-          <Sparkles size={16} />
-          <span>Language & Style</span>
-          <span className="tab-badge">{languageIssues.length}</span>
+          <Sparkles size={15} />
+          <span>Language & Mechanics</span>
+          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-muted/20 text-muted">
+            {langIncludedCount}/{languageIssues.length}
+          </span>
         </button>
       </div>
 
-      {/* Summary KPI Strip */}
-      <div className="panel-kpi-strip">
-        <div className="kpi-item">
-          <span className="kpi-label">Total</span>
-          <span className="kpi-value">{totalCount}</span>
-        </div>
-        <div className="kpi-item">
-          <span className="kpi-label">Pending</span>
-          <span className={`kpi-value ${pendingCount > 0 ? "kpi-pending" : ""}`}>
-            {pendingCount}
-          </span>
-        </div>
-        {criticalCount > 0 && (
-          <div className="kpi-item">
-            <span className="kpi-label">Critical</span>
-            <span className="kpi-value kpi-critical">{criticalCount}</span>
-          </div>
-        )}
-        {highCount > 0 && (
-          <div className="kpi-item">
-            <span className="kpi-label">High</span>
-            <span className="kpi-value kpi-high">{highCount}</span>
-          </div>
-        )}
-      </div>
-
       {/* Filter and Search Bar */}
-      <div className="panel-controls">
-        <div className="search-box">
-          <Search size={14} className="search-icon" />
+      <div className="p-3 border-b border-border bg-panel space-y-2.5 shrink-0">
+        <div className="relative">
+          <Search size={14} className="absolute left-2.5 top-2.5 text-muted" />
           <input
             type="text"
-            placeholder="Filter by rule, message, page..."
+            placeholder="Filter by rule, fact, or page number..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="search-input"
-            aria-label="Filter issues"
+            className="w-full text-xs pl-8 pr-3 py-1.5 rounded border border-border bg-sunken text-ink focus:outline-none focus:border-sky-500"
           />
         </div>
 
-        <div className="filter-dropdowns">
-          <div className="filter-item">
-            <Filter size={13} />
+        <div className="flex items-center gap-2">
+          {/* Severity Filter */}
+          <div className="flex-1">
+            <label htmlFor="severity-filter" className="sr-only">Filter by Severity</label>
             <select
+              id="severity-filter"
               value={severityFilter}
               onChange={(e) => setSeverityFilter(e.target.value as SeverityFilter)}
-              aria-label="Filter by severity"
-              className="filter-select"
+              className="w-full text-xs py-1 px-2 rounded border border-border bg-sunken text-ink focus:outline-none focus:border-sky-500"
             >
               <option value="ALL">All Severities</option>
-              <option value="CRITICAL">Critical</option>
-              <option value="HIGH">High</option>
-              <option value="MEDIUM">Medium</option>
-              <option value="LOW">Low</option>
-              <option value="INFO">Info</option>
+              <option value="CRITICAL">Critical Only</option>
+              <option value="HIGH">High Only</option>
+              <option value="MEDIUM">Medium Only</option>
+              <option value="LOW">Low Only</option>
+              <option value="INFO">Info Only</option>
             </select>
           </div>
 
-          <div className="filter-item">
+          {/* Curation Filter */}
+          <div className="flex-1">
+            <label htmlFor="curation-filter" className="sr-only">Filter by Report Status</label>
             <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-              aria-label="Filter by status"
-              className="filter-select"
+              id="curation-filter"
+              value={curationFilter}
+              onChange={(e) => setCurationFilter(e.target.value as CurationFilter)}
+              className="w-full text-xs py-1 px-2 rounded border border-border bg-sunken text-ink focus:outline-none focus:border-sky-500"
             >
-              <option value="ALL">All Statuses</option>
-              <option value="PENDING">Pending</option>
-              <option value="ACCEPTED">Accepted</option>
-              <option value="REJECTED">Rejected</option>
-              <option value="FLAGGED">Flagged</option>
-              <option value="DISPOSED">Disposed</option>
+              <option value="ALL">All Report Statuses</option>
+              <option value="INCLUDED">Included in Report</option>
+              <option value="EXCLUDED">Excluded from Report</option>
             </select>
           </div>
         </div>
       </div>
 
-      {/* Bulk Action Area / Prohibited Banner */}
-      {activeTab === "traceability" ? (
-        <div className="bulk-prohibited-banner" role="status">
-          <div className="banner-header">
-            <ShieldAlert size={16} className="banner-icon" />
-            <strong>Human Sign-Off Enforced (PRD §3.2)</strong>
-          </div>
-          <p className="banner-text">
-            Per QA Requirement §3.2 and Scenario A-10, bulk acceptance is prohibited for
-            traceability, table math, revision sync, and standard compliance findings. Each finding
-            must be individually verified and decided.
-          </p>
-          <button
-            type="button"
-            disabled
-            className="btn btn-bulk-disabled"
-            title="Bulk acceptance is prohibited for traceability findings"
-          >
-            Bulk Acceptance Prohibited
-          </button>
-        </div>
-      ) : (
-        <div className="bulk-action-bar">
-          <div className="bulk-info">
-            <CheckCheck size={16} className="bulk-icon" />
-            <span>Fast-track high-confidence grammatical and stylistic recommendations.</span>
-          </div>
-          <button
-            type="button"
-            onClick={handleBulkAcceptLanguage}
-            disabled={isBulkSubmitting || pendingCount === 0}
-            className="btn btn-bulk-accept"
-          >
-            {isBulkSubmitting ? "Accepting..." : "Accept All High-Confidence"}
-          </button>
-        </div>
-      )}
-
-      {bulkFeedback && (
-        <div
-          className={`bulk-feedback ${
-            bulkFeedback.startsWith("Error") ? "feedback-error" : "feedback-success"
-          }`}
-          role="alert"
-        >
-          {bulkFeedback.startsWith("Error") ? <AlertCircle size={14} /> : <CheckCircle size={14} />}
-          <span>{bulkFeedback}</span>
-        </div>
-      )}
-
       {/* Issues List */}
-      <div className="issues-list" role="feed" aria-busy={isLoading}>
+      <div className="flex-1 overflow-y-auto p-3 space-y-3">
         {isLoading ? (
-          <div className="empty-panel-state">
-            <div className="loading-spinner" />
-            <p>Loading findings...</p>
+          <div className="py-12 text-center text-xs text-muted">
+            <div className="animate-spin inline-block w-5 h-5 border-2 border-current border-t-transparent rounded-full mb-2" />
+            <p>Loading document findings...</p>
           </div>
         ) : filteredIssues.length === 0 ? (
-          <div className="empty-panel-state">
-            <Info size={28} className="empty-icon" />
-            <p className="empty-title">No matching findings</p>
-            <p className="empty-sub">
-              {issues.length === 0
-                ? "No issues were identified for this document."
-                : "No issues match the selected filters."}
-            </p>
+          <div className="py-12 text-center text-xs text-muted space-y-1">
+            <Filter size={20} className="mx-auto text-muted/40 mb-2" />
+            <p className="font-semibold text-ink">No findings match the current filter</p>
+            <p>Try clearing filters or search terms.</p>
           </div>
         ) : (
           filteredIssues.map((issue) => {
-            const isSelected = selectedIssueId === issue.id;
+            const isSelected = issue.id === selectedIssueId;
             return (
               <div
                 key={issue.id}
-                ref={isSelected ? activeCardRef : undefined}
-                className={`issue-card-wrapper ${isSelected ? "card-wrapper-selected" : ""}`}
+                ref={isSelected ? activeCardRef : null}
               >
                 <IssueCard
                   issue={issue}
                   isSelected={isSelected}
                   onSelect={() => onSelectIssue(issue.id)}
-                  onDecide={onDecideIssue}
-                  onDispose={onDisposeIssue}
+                  onCurate={onCurateIssue}
                   onJumpToPage={onJumpToPage}
                   onAddToDictionary={onAddToDictionary}
                 />
@@ -324,6 +235,16 @@ export function IssuePanel({
           })
         )}
       </div>
+
+      {/* Footer / Summary Status */}
+      <footer className="p-2.5 px-4 border-t border-border bg-panel text-[11px] text-muted flex items-center justify-between shrink-0">
+        <span>
+          Showing {filteredIssues.length} of {currentTabIssues.length} findings
+        </span>
+        <span className="font-medium text-ink">
+          {filteredIssues.filter((i) => i.included_in_report).length} included
+        </span>
+      </footer>
     </aside>
   );
 }

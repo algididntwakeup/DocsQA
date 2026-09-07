@@ -21,10 +21,9 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db.base import Base
-from domain.enums import DocumentStatus, ReviewStatus, StageStatus
+from domain.enums import DocumentStatus, StageStatus
 
 if TYPE_CHECKING:
-    from models.audit import AuditEvent
     from models.issue import Issue
 
 
@@ -75,11 +74,6 @@ class Document(TimestampMixin, Base):
         default=DocumentStatus.QUEUED,
         nullable=False,
     )
-    review_status: Mapped[ReviewStatus] = mapped_column(
-        Enum(ReviewStatus, name="review_status", native_enum=False),
-        default=ReviewStatus.PENDING,
-        nullable=False,
-    )
     progress_pct: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     page_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -93,11 +87,6 @@ class Document(TimestampMixin, Base):
         back_populates="document",
         cascade="all, delete-orphan",
         order_by="Issue.created_at",
-    )
-    audit_events: Mapped[list["AuditEvent"]] = relationship(
-        back_populates="document",
-        cascade="all, delete-orphan",
-        order_by="AuditEvent.created_at",
     )
 
 

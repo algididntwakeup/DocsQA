@@ -20,7 +20,6 @@ describe("DocumentList", () => {
       size_bytes: 2048,
       sha256: "testsha256hash",
       status: "COMPLETED",
-      review_status: "PENDING",
       progress_pct: 100,
       page_count: 5,
       created_at: "2026-09-06T00:00:00Z",

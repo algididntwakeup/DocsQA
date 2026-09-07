@@ -5,7 +5,7 @@ from uuid import UUID
 
 from pydantic import Field
 
-from domain.enums import DocumentStatus, ReviewStatus, StageStatus
+from domain.enums import DocumentStatus, StageStatus
 from schemas.base import ApiModel
 from schemas.common import PageInfo
 
@@ -33,7 +33,6 @@ class DocumentRead(ApiModel):
     size_bytes: int = Field(ge=0)
     sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     status: DocumentStatus
-    review_status: ReviewStatus
     progress_pct: int = Field(ge=0, le=100)
     page_count: int | None = Field(default=None, ge=1)
     created_at: datetime
@@ -71,7 +70,6 @@ class DocumentStatusResponse(ApiModel):
 
     id: UUID
     status: DocumentStatus
-    review_status: ReviewStatus
     progress_pct: int = Field(ge=0, le=100)
     stages: list[StageRunRead]
     updated_at: datetime
@@ -92,3 +90,13 @@ class TraceabilitySummaryResponse(ApiModel):
     counts_by_severity: dict[str, int]
     critical_count: int = Field(ge=0)
     unresolved_count: int = Field(ge=0)
+
+
+class ReviewReportPreview(ApiModel):
+    """Summary used by the report-first review screen."""
+
+    document_id: UUID
+    included_findings: int = Field(ge=0)
+    blockers: int = Field(ge=0)
+    counts_by_severity: dict[str, int]
+    summary_judgement: str

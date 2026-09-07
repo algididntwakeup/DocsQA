@@ -7,38 +7,29 @@ from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
-from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.dependencies import get_storage, get_upload_service
 from db.session import async_session_factory, get_session
 from domain.enums import DocumentStatus, IssueCategory, Severity, StageStatus
-from models.audit import AuditEvent
 from models.document import Document, StageRun
 from models.issue import Issue
-from schemas.audit import (
-    AuditEventListResponse,
-    AuditEventRead,
-    DocumentDispositionRequest,
-)
 from schemas.common import PageInfo, ProblemDetail
 from schemas.documents import (
     DocumentListResponse,
     DocumentRead,
     DocumentStatusResponse,
     DocumentUploadResponse,
+    ReviewReportPreview,
     StageRunRead,
     TraceabilitySummaryResponse,
 )
 from schemas.issues import IssueListResponse, IssueRead
-from services.export import (
-    export_annotated_pdf,
-    export_csv_issues,
-    export_excel_workbook,
-    export_json_audit_bundle,
-)
+from services.export import export_annotated_pdf
 from services.pipeline import enqueue_extraction
+from services.report import build_review_report
 from services.storage.local import LocalStorage
 from services.uploads import UploadService
 
@@ -200,7 +191,6 @@ async def get_document_status(
     return DocumentStatusResponse(
         id=document.id,
         status=document.status,
-        review_status=document.review_status,
         progress_pct=document.progress_pct,
         stages=[StageRunRead.model_validate(r) for r in stage_runs],
         updated_at=document.updated_at,
@@ -315,90 +305,6 @@ async def get_document_pdf(
     )
 
 
-@router.post(
-    "/{document_id}/disposition",
-    response_model=DocumentRead,
-    responses={
-        status.HTTP_404_NOT_FOUND: {
-            "model": ProblemDetail,
-            "description": "Document not found",
-        }
-    },
-)
-async def set_document_disposition(
-    document_id: UUID,
-    payload: DocumentDispositionRequest,
-    session: Annotated[AsyncSession, Depends(get_session)],
-) -> DocumentRead:
-    """Apply final Lead Reviewer disposition to an audited document."""
-
-    document = (
-        await session.execute(select(Document).where(Document.id == document_id))
-    ).scalar_one_or_none()
-    if document is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
-
-    previous_state = {"review_status": document.review_status.value}
-    document.review_status = payload.disposition
-    new_state = {"review_status": document.review_status.value}
-
-    audit_event = AuditEvent(
-        document_id=document.id,
-        issue_id=None,
-        actor_id=payload.actor_id,
-        actor_role=payload.actor_role,
-        action="DOCUMENT_DISPOSITION",
-        previous_state=previous_state,
-        new_state=new_state,
-        notes=payload.justification,
-    )
-    session.add(audit_event)
-    await session.commit()
-    await session.refresh(document)
-
-    return DocumentRead.model_validate(document)
-
-
-@router.get(
-    "/{document_id}/audit-events",
-    response_model=AuditEventListResponse,
-    responses={
-        status.HTTP_404_NOT_FOUND: {
-            "model": ProblemDetail,
-            "description": "Document not found",
-        }
-    },
-)
-async def list_document_audit_events(
-    document_id: UUID,
-    session: Annotated[AsyncSession, Depends(get_session)],
-) -> AuditEventListResponse:
-    """List immutable audit events for an audited document in chronological order."""
-
-    document = (
-        await session.execute(select(Document).where(Document.id == document_id))
-    ).scalar_one_or_none()
-    if document is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
-
-    events = (
-        (
-            await session.execute(
-                select(AuditEvent)
-                .where(AuditEvent.document_id == document_id)
-                .order_by(AuditEvent.created_at.asc(), AuditEvent.id.asc())
-            )
-        )
-        .scalars()
-        .all()
-    )
-
-    return AuditEventListResponse(
-        events=[AuditEventRead.model_validate(e) for e in events],
-        total=len(events),
-    )
-
-
 @router.get(
     "/{document_id}/traceability-summary",
     response_model=TraceabilitySummaryResponse,
@@ -445,7 +351,7 @@ async def get_traceability_summary(
         counts_by_severity[sev_key] = counts_by_severity.get(sev_key, 0) + 1
         if issue.severity == Severity.CRITICAL:
             critical_count += 1
-        if issue.decision is None:
+        if issue.included_in_report:
             unresolved_count += 1
 
     return TraceabilitySummaryResponse(
@@ -454,6 +360,52 @@ async def get_traceability_summary(
         counts_by_severity=counts_by_severity,
         critical_count=critical_count,
         unresolved_count=unresolved_count,
+    )
+
+
+@router.get(
+    "/{document_id}/report",
+    response_model=ReviewReportPreview,
+)
+async def get_report_preview(
+    document_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> ReviewReportPreview:
+    """Return the current draft-report composition without generating a file."""
+    document = (
+        await session.execute(select(Document).where(Document.id == document_id))
+    ).scalar_one_or_none()
+    if document is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
+    issues = (
+        (
+            await session.execute(
+                select(Issue).where(
+                    Issue.document_id == document_id,
+                    Issue.included_in_report.is_(True),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    counts: dict[str, int] = {}
+    blockers = 0
+    for issue in issues:
+        counts[issue.severity.value] = counts.get(issue.severity.value, 0) + 1
+        if issue.severity in {Severity.CRITICAL, Severity.HIGH}:
+            blockers += 1
+    summary = (
+        "Blockers require correction before reissue."
+        if blockers
+        else "No blocker findings are included in the draft report."
+    )
+    return ReviewReportPreview(
+        document_id=document_id,
+        included_findings=len(issues),
+        blockers=blockers,
+        counts_by_severity=counts,
+        summary_judgement=summary,
     )
 
 
@@ -469,11 +421,11 @@ async def get_traceability_summary(
 )
 async def export_document(
     document_id: UUID,
-    format: Annotated[str, Query(pattern=r"^(pdf|xlsx|csv|json)$")],
+    format: Annotated[str, Query(pattern=r"^(pdf|docx)$")],
     session: Annotated[AsyncSession, Depends(get_session)],
     storage: Annotated[LocalStorage, Depends(get_storage)],
 ) -> Response:
-    """Export the annotated rendition or structured issue log in PDF, XLSX, CSV, or JSON format."""
+    """Export the annotated original PDF or formal DOCX review report."""
 
     document = (
         await session.execute(select(Document).where(Document.id == document_id))
@@ -493,47 +445,22 @@ async def export_document(
         .all()
     )
 
-    audit_events = (
-        (
-            await session.execute(
-                select(AuditEvent)
-                .where(AuditEvent.document_id == document_id)
-                .order_by(AuditEvent.created_at.asc(), AuditEvent.id.asc())
-            )
-        )
-        .scalars()
-        .all()
-    )
-
     safe_name = document.safe_filename
     if format == "pdf":
-        pdf_bytes = export_annotated_pdf(document, list(issues), storage)
+        pdf_bytes = export_annotated_pdf(
+            document, [issue for issue in issues if issue.included_in_report], storage
+        )
         return Response(
             content=pdf_bytes,
             media_type="application/pdf",
             headers={"Content-Disposition": f'attachment; filename="{safe_name}_annotated.pdf"'},
         )
-    elif format == "xlsx":
-        xlsx_bytes = export_excel_workbook(document, list(issues), list(audit_events))
+    if format == "docx":
+        docx_bytes = build_review_report(document, list(issues))
         return Response(
-            content=xlsx_bytes,
-            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={"Content-Disposition": f'attachment; filename="{safe_name}_issues.xlsx"'},
-        )
-    elif format == "csv":
-        csv_str = export_csv_issues(document, list(issues))
-        return Response(
-            content=csv_str,
-            media_type="text/csv; charset=utf-8",
-            headers={"Content-Disposition": f'attachment; filename="{safe_name}_issues.csv"'},
-        )
-    elif format == "json":
-        bundle = export_json_audit_bundle(document, list(issues), list(audit_events))
-        return JSONResponse(
-            content=bundle,
-            headers={
-                "Content-Disposition": f'attachment; filename="{safe_name}_audit_bundle.json"'
-            },
+            content=docx_bytes,
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={"Content-Disposition": f'attachment; filename="{safe_name}_review.docx"'},
         )
     raise HTTPException(status_code=400, detail=f"Unsupported format: {format}")
 
@@ -632,4 +559,3 @@ async def stream_document_events(
             "X-Accel-Buffering": "no",
         },
     )
-
