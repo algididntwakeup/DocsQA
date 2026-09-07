@@ -29,10 +29,11 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# CORS — allow Next.js dev server
+# CORS — allow Next.js dev server, docker frontend, and ngrok preview domains
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
+    allow_origin_regex=r"^https?://([a-zA-Z0-9-]+\.)*(ngrok-free\.app|ngrok\.app|localhost|127\.0\.0\.1)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -52,8 +53,8 @@ async def add_security_headers(
     # Allow the frontend origin(s) to iframe the canonical PDF (split-screen
     # review embeds :8000 PDFs inside the :3000 app). X-Frame-Options SAMEORIGIN
     # would block that cross-origin frame; CSP frame-ancestors is the modern
-    # replacement and is scoped to the configured frontend origins only.
-    frame_origins = " ".join(settings.CORS_ORIGINS)
+    # replacement and is scoped to the configured frontend origins and ngrok preview tunnels.
+    frame_origins = " ".join(settings.CORS_ORIGINS) + " https://*.ngrok-free.app https://*.ngrok.app"
     response.headers["Content-Security-Policy"] = f"frame-ancestors 'self' {frame_origins}"
     return response
 

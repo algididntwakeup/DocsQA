@@ -15,8 +15,25 @@ export type AuditEventItem = components["schemas"]["AuditEventRead"];
 export type AuditEventList = components["schemas"]["AuditEventListResponse"];
 export type TraceabilitySummary = components["schemas"]["TraceabilitySummaryResponse"];
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api/v1";
+export function getApiBaseUrl(): string {
+  if (typeof window !== "undefined") {
+    // In browser: use relative /api/v1 to route through Next.js proxy rewrites
+    // unless an explicit non-localhost base URL is provided.
+    const custom = process.env.NEXT_PUBLIC_API_BASE_URL;
+    if (custom && !custom.includes("localhost:8000") && !custom.includes("127.0.0.1:8000")) {
+      return custom.replace(/\/+$/, "");
+    }
+    return "/api/v1";
+  }
+
+  // In Node.js / SSR:
+  const internal = process.env.INTERNAL_API_URL;
+  if (internal) {
+    return `${internal.replace(/\/+$/, "")}/api/v1`;
+  }
+  return (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api/v1").replace(/\/+$/, "");
+}
+
 
 export class ApiError extends Error {
   constructor(message: string, readonly status: number, readonly code?: string) {
@@ -26,7 +43,7 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await fetch(`${getApiBaseUrl()}${path}`, {
     ...init,
     headers: { Accept: "application/json", ...init?.headers },
   });
@@ -73,7 +90,7 @@ export function uploadDocument(file: File): Promise<DocumentUpload> {
 }
 
 export function getPdfUrl(id: string): string {
-  return `${API_BASE_URL}/documents/${encodeURIComponent(id)}/pdf`;
+  return `${getApiBaseUrl()}/documents/${encodeURIComponent(id)}/pdf`;
 }
 
 export function listDocumentIssues(
@@ -244,7 +261,7 @@ export function approveDictionaryTerm(
 export type ExportFormat = "pdf" | "xlsx" | "csv" | "json";
 
 export function getExportUrl(documentId: string, format: ExportFormat): string {
-  return `${API_BASE_URL}/documents/${encodeURIComponent(documentId)}/export?format=${format}`;
+  return `${getApiBaseUrl()}/documents/${encodeURIComponent(documentId)}/export?format=${format}`;
 }
 
 export interface DocumentProgressStage {
@@ -265,7 +282,7 @@ export function subscribeDocumentEvents(
   onClose?: () => void,
   onError?: (err: Event) => void
 ): () => void {
-  const url = `${API_BASE_URL}/documents/${encodeURIComponent(documentId)}/events`;
+  const url = `${getApiBaseUrl()}/documents/${encodeURIComponent(documentId)}/events`;
   const eventSource = new EventSource(url);
 
   eventSource.addEventListener("progress", (e) => {
