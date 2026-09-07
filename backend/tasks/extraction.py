@@ -25,6 +25,7 @@ from schemas.issues import (
     IssueEvidence,
     LinguisticEvidence,
     ReferenceDriftEvidence,
+    ReferenceRuleEvidence,
     RevisionEvidence,
     StageFailureEvidence,
     StandardEvidence,
@@ -456,6 +457,8 @@ def _extract_page_number(evidence: IssueEvidence) -> int | None:
         return evidence.body_location.page_index + 1
     if isinstance(evidence, LinguisticEvidence):
         return int(evidence.location.page_index + 1)
+    if isinstance(evidence, ReferenceRuleEvidence):
+        return evidence.location.page_index + 1
     if isinstance(evidence, StageFailureEvidence):
         return None
     return None

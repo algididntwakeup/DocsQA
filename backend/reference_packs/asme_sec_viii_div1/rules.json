@@ -1,0 +1,242 @@
+[
+  {
+    "rule_id": "ASME-VIII-1-UG99-HYDRO-RATIO",
+    "standard": "ASME BPVC.VIII.1",
+    "edition": "2021",
+    "clause": "UG-99(b)",
+    "standard_page": 76,
+    "title": "Minimum Hydrostatic Test Pressure Ratio",
+    "severity": "CRITICAL",
+    "kind": "numeric_limit",
+    "numeric_limit_params": {
+      "parameter_name": "Hydrostatic test pressure ratio",
+      "pattern": "(?:hydrostatic\\s+test\\s+(?:pressure\\s+)?ratio|hydrotest\\s+(?:pressure\\s+)?ratio|hydrotest\\s+factor)\\s*(?:of|is|:|=|:)?\\s*([0-9]+(?:\\.[0-9]+)?)",
+      "operator": "GE",
+      "limit_value": 1.30,
+      "tolerance": 0.001
+    },
+    "message_template": "Hydrostatic test ratio {value} is below mandatory ASME VIII-1 UG-99(b) factor of {limit}.",
+    "recommendation_template": "Increase hydrostatic test pressure ratio to at least {limit} times MAWP multiplied by the lowest stress ratio pursuant to ASME Section VIII Division 1 clause {clause}."
+  },
+  {
+    "rule_id": "ASME-VIII-1-UG100-PNEUMATIC-RATIO",
+    "standard": "ASME BPVC.VIII.1",
+    "edition": "2021",
+    "clause": "UG-100(b)",
+    "standard_page": 78,
+    "title": "Maximum Pneumatic Test Pressure Ratio",
+    "severity": "CRITICAL",
+    "kind": "numeric_limit",
+    "numeric_limit_params": {
+      "parameter_name": "Pneumatic test pressure ratio",
+      "pattern": "(?:pneumatic\\s+test\\s+(?:pressure\\s+)?ratio|pneumatic\\s+factor)\\s*(?:of|is|:|=|:)?\\s*([0-9]+(?:\\.[0-9]+)?)",
+      "operator": "LE",
+      "limit_value": 1.10,
+      "tolerance": 0.001
+    },
+    "message_template": "Pneumatic test ratio {value} exceeds maximum ASME VIII-1 UG-100(b) limit of {limit}.",
+    "recommendation_template": "Ensure pneumatic test pressure ratio does not exceed {limit} times MAWP corrected for temperature as specified in clause {clause}."
+  },
+  {
+    "rule_id": "ASME-VIII-1-UW12-JOINT-EFFICIENCY",
+    "standard": "ASME BPVC.VIII.1",
+    "edition": "2021",
+    "clause": "UW-12",
+    "standard_page": 142,
+    "title": "Weld Joint Efficiency Factor Permitted Range",
+    "severity": "HIGH",
+    "kind": "range",
+    "range_params": {
+      "parameter_name": "Joint efficiency (E)",
+      "pattern": "(?:joint\\s+efficiency|weld\\s+efficiency|efficiency\\s+factor)\\s*(?:E)?\\s*(?:of|is|:|=|:)?\\s*([0-9]+(?:\\.[0-9]+)?)",
+      "min_value": 0.45,
+      "max_value": 1.00,
+      "inclusive_min": true,
+      "inclusive_max": true,
+      "allowed_units": []
+    },
+    "message_template": "Weld joint efficiency {value} is outside permitted standard range [0.45, 1.00] under clause {clause}.",
+    "recommendation_template": "Assign a standard joint efficiency factor E between {min_val} and {max_val} in accordance with Table UW-12 based on weld type and degree of radiographic examination."
+  },
+  {
+    "rule_id": "ASME-VIII-1-UCS23-SA516-70-TEMP",
+    "standard": "ASME BPVC.VIII.1",
+    "edition": "2021",
+    "clause": "UCS-23",
+    "standard_page": 180,
+    "title": "SA-516 Grade 70 Permitted Design Temperature Limits",
+    "severity": "HIGH",
+    "kind": "range",
+    "range_params": {
+      "parameter_name": "Design temperature for SA-516 Gr 70",
+      "pattern": "(?:SA-516\\s*(?:Gr(?:ade)?\\.?\\s*70)?|carbon\\s+steel)[\\s\\S]{0,80}?(?:design|metal)\\s+temperature\\s*(?:of|is|:|=|:)?\\s*(-?[0-9]+(?:\\.[0-9]+)?)\\s*(°C|deg\\s*C|C)\\b",
+      "min_value": -46.0,
+      "max_value": 538.0,
+      "inclusive_min": true,
+      "inclusive_max": true,
+      "allowed_units": ["°C", "deg C", "C"]
+    },
+    "message_template": "Temperature {value}{unit} for {parameter} violates ASME Section II-D / Section VIII-1 UCS-23 allowable limits.",
+    "recommendation_template": "Verify that design temperature remains between {min_val}°C and {max_val}°C or select appropriate alloy per Section II-D Table 1A."
+  },
+  {
+    "rule_id": "ASME-VIII-1-PRESSURE-UNITS",
+    "standard": "ASME BPVC.VIII.1",
+    "edition": "2021",
+    "clause": "Appendix 33",
+    "standard_page": 612,
+    "title": "Governed Pressure Unit Consistency",
+    "severity": "MEDIUM",
+    "kind": "unit",
+    "unit_params": {
+      "parameter_name": "Design/Operating Pressure",
+      "pattern": "(?:design|operating|working|test)\\s+pressure\\s*(?:of|is|:|=|:)?\\s*[0-9]+(?:\\.[0-9]+)?\\s*([a-zA-Z0-9/²]+)\\b",
+      "canonical_unit": "MPa",
+      "allowed_units": ["MPa", "bar", "barg", "psi", "psig", "kPa"],
+      "forbidden_units": ["kg/cm2", "kgf/cm2", "torr", "atm", "at", "mmHg"]
+    },
+    "message_template": "Non-standard or obsolete pressure unit '{unit}' found for {parameter}.",
+    "recommendation_template": "Convert pressure units to approved ASME Section VIII SI/US-Customary standard units: {canonical} or {allowed}."
+  },
+  {
+    "rule_id": "ASME-VIII-1-STRESS-UNITS",
+    "standard": "ASME BPVC.VIII.1",
+    "edition": "2021",
+    "clause": "UG-23",
+    "standard_page": 22,
+    "title": "Allowable Stress Unit Consistency",
+    "severity": "MEDIUM",
+    "kind": "unit",
+    "unit_params": {
+      "parameter_name": "Maximum Allowable Stress",
+      "pattern": "(?:allowable\\s+stress|design\\s+stress)\\s*(?:of|is|:|=|:)?\\s*[0-9]+(?:\\.[0-9]+)?\\s*([a-zA-Z0-9/²]+)\\b",
+      "canonical_unit": "MPa",
+      "allowed_units": ["MPa", "ksi", "psi", "N/mm2"],
+      "forbidden_units": ["kg/mm2", "kgf/mm2", "ton/in2"]
+    },
+    "message_template": "Non-standard stress unit '{unit}' specified for {parameter}.",
+    "recommendation_template": "Use standard stress units ({canonical} or {allowed}) conforming to ASME Section II Part D / UG-23."
+  },
+  {
+    "rule_id": "ASME-VIII-1-TERMINOLOGY-MDMT",
+    "standard": "ASME BPVC.VIII.1",
+    "edition": "2021",
+    "clause": "UG-20",
+    "standard_page": 20,
+    "title": "Standard Terminology for Minimum Design Metal Temperature",
+    "severity": "MEDIUM",
+    "kind": "terminology",
+    "terminology_params": {
+      "term": "Minimum Design Metal Temperature",
+      "preferred_term": "MDMT",
+      "deprecated_terms": [
+        "MAT",
+        "Minimum Allowable Temperature",
+        "Lowest Operating Metal Temperature"
+      ],
+      "context_keywords": ["temperature", "impact", "vessel", "UCS-66", "charpy", "thickness"]
+    },
+    "message_template": "Deprecated terminology '{deprecated}' used instead of governed term '{preferred}'.",
+    "recommendation_template": "Replace deprecated term with governed technical term '{preferred}' as defined in clause {clause}."
+  },
+  {
+    "rule_id": "ASME-VIII-1-TERMINOLOGY-MAWP",
+    "standard": "ASME BPVC.VIII.1",
+    "edition": "2021",
+    "clause": "UG-98",
+    "standard_page": 74,
+    "title": "Standard Terminology for Maximum Allowable Working Pressure",
+    "severity": "MEDIUM",
+    "kind": "terminology",
+    "terminology_params": {
+      "term": "Maximum Allowable Working Pressure",
+      "preferred_term": "MAWP",
+      "deprecated_terms": [
+        "maximum working pressure",
+        "safe working pressure",
+        "maximum operating allowable pressure"
+      ],
+      "context_keywords": ["pressure", "vessel", "head", "shell", "nozzle", "hydrostatic", "test"]
+    },
+    "message_template": "Informal or obsolete pressure term '{deprecated}' used instead of codified term '{preferred}'.",
+    "recommendation_template": "Use codified term '{preferred}' pursuant to ASME Section VIII Division 1 clause {clause}."
+  },
+  {
+    "rule_id": "ASME-VIII-1-REQUIRED-REF-SEC-IX",
+    "standard": "ASME BPVC.VIII.1",
+    "edition": "2021",
+    "clause": "UW-28",
+    "standard_page": 150,
+    "title": "Mandatory Normative Reference to ASME Section IX for Welding Procedures",
+    "severity": "HIGH",
+    "kind": "required_reference",
+    "required_reference_params": {
+      "trigger_keywords": [
+        "WPS",
+        "PQR",
+        "welding procedure specification",
+        "welder qualification"
+      ],
+      "required_standard": "ASME Section IX",
+      "required_clause": null,
+      "exemption_keywords": [
+        "non-welded",
+        "seamless forged"
+      ]
+    },
+    "message_template": "Specification references '{trigger}' but lacks required normative reference to {required_standard}.",
+    "recommendation_template": "Add normative citation to {required_standard} for welding and brazing procedure qualifications per clause {clause}."
+  },
+  {
+    "rule_id": "ASME-VIII-1-REQUIRED-REF-SEC-V",
+    "standard": "ASME BPVC.VIII.1",
+    "edition": "2021",
+    "clause": "UW-51",
+    "standard_page": 160,
+    "title": "Mandatory Normative Reference to ASME Section V for NDE Examination",
+    "severity": "HIGH",
+    "kind": "required_reference",
+    "required_reference_params": {
+      "trigger_keywords": [
+        "radiographic examination",
+        "radiography testing",
+        "RT examination",
+        "ultrasonic examination",
+        "UT examination"
+      ],
+      "required_standard": "ASME Section V",
+      "required_clause": null,
+      "exemption_keywords": [
+        "visual examination only",
+        "no NDE required"
+      ]
+    },
+    "message_template": "Specification mandates '{trigger}' without required normative reference to {required_standard}.",
+    "recommendation_template": "Incorporate normative reference to {required_standard} per ASME VIII-1 clause {clause}."
+  },
+  {
+    "rule_id": "ASME-VIII-1-REQUIRED-REF-UCS66",
+    "standard": "ASME BPVC.VIII.1",
+    "edition": "2021",
+    "clause": "UCS-66",
+    "standard_page": 190,
+    "title": "Mandatory Impact Test Exemption Evaluation per UCS-66",
+    "severity": "HIGH",
+    "kind": "required_reference",
+    "required_reference_params": {
+      "trigger_keywords": [
+        "impact test exemption",
+        "exempt from impact testing",
+        "impact testing exemption"
+      ],
+      "required_standard": "UCS-66",
+      "required_clause": null,
+      "exemption_keywords": [
+        "full impact testing performed",
+        "Charpy V-notch tested"
+      ]
+    },
+    "message_template": "Specification claims '{trigger}' without citing governing ASME VIII-1 clause {required_standard}.",
+    "recommendation_template": "Formally document impact test exemption curve and temperature reduction under clause {required_standard}."
+  }
+]

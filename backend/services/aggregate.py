@@ -21,6 +21,7 @@ from schemas.issues import (
     IssueRead,
     LinguisticEvidence,
     ReferenceDriftEvidence,
+    ReferenceRuleEvidence,
     RevisionEvidence,
     StageFailureEvidence,
     StandardEvidence,
@@ -34,6 +35,7 @@ from schemas.linguistic import (
     SpellcheckAnalysis,
 )
 from schemas.ref_drift import RefDriftAnalysis, RefDriftFinding
+from schemas.reference_pack import ReferenceFinding
 from schemas.revision import RevisionAnalysis, RevisionSourceName
 from schemas.standard_traceability import StandardFinding, StandardTraceabilityAnalysis
 from schemas.table_math import TableMathAnalysis, TableMathFinding
@@ -367,6 +369,58 @@ def _normalize_linguistic_finding(
     )
 
 
+def normalize_reference_findings(
+    document_id: UUID,
+    findings: list[ReferenceFinding],
+    now: datetime | None = None,
+) -> list[IssueRead]:
+    """Normalize reference pack rule findings into canonical Issue records."""
+    if now is None:
+        now = datetime.now(UTC)
+
+    issues: list[IssueRead] = []
+    for f in findings:
+        loc = BoundingBox(
+            page_index=max(0, f.page_number - 1),
+            x0=0.0,
+            y0=0.0,
+            x1=612.0,
+            y1=792.0,
+            page_width=612.0,
+            page_height=792.0,
+        )
+        evidence = ReferenceRuleEvidence(
+            extractor_version="1.0",
+            rule_version=f"{f.standard}:{f.edition}",
+            standard=f.standard,
+            edition=f.edition,
+            clause=f.clause,
+            standard_page=f.standard_page,
+            rule_kind=f.rule_kind,
+            detected_parameter=f.detected_parameter,
+            detected_value=f.detected_value,
+            location=loc,
+        )
+        issues.append(
+            IssueRead(
+                id=uuid4(),
+                document_id=document_id,
+                category=IssueCategory.TRACEABILITY,
+                type=f.rule_id,
+                severity=f.severity,
+                confidence=1.0,
+                message=f.message,
+                evidence=evidence,
+                included_in_report=True,
+                reviewer_note=None,
+                version=1,
+                created_at=now,
+                updated_at=now,
+            )
+        )
+    return issues
+
+
 def _dedup_key(issue: IssueRead) -> tuple[Any, ...]:
     """Compute an identity tuple for cross-finding deduplication."""
     ev: IssueEvidence = issue.evidence
@@ -398,6 +452,16 @@ def _dedup_key(issue: IssueRead) -> tuple[Any, ...]:
             ev.cited_standard,
             ev.body_location.page_index,
             round(ev.body_location.y0, 1),
+        )
+    if isinstance(ev, ReferenceRuleEvidence):
+        return (
+            issue.category,
+            issue.type,
+            ev.standard,
+            ev.clause,
+            ev.location.page_index,
+            ev.detected_parameter or "",
+            ev.detected_value or "",
         )
     if isinstance(ev, LinguisticEvidence):
         if isinstance(ev.location, BoundingBox):
@@ -434,6 +498,7 @@ def aggregate_document_findings(
     duplicate: DuplicateAnalysis | None = None,
     ambiguity: AmbiguityAnalysis | None = None,
     failed_stages: list[tuple[str, str, bool]] | None = None,
+    reference_findings: list[ReferenceFinding] | None = None,
 ) -> AggregationResult:
     """Aggregate, normalize, and deduplicate findings across all pipeline stages."""
     now = datetime.now(UTC)
@@ -491,7 +556,11 @@ def aggregate_document_findings(
                 _normalize_linguistic_finding(document_id, am_finding, ambiguity.rule_version, now)
             )
 
-    # 6. Failed stages
+    # 6. Reference pack standard findings
+    if reference_findings:
+        raw_candidates.extend(normalize_reference_findings(document_id, reference_findings, now))
+
+    # 7. Failed stages
     if failed_stages:
         for stage_name, error_code, retryable in failed_stages:
             raw_candidates.append(

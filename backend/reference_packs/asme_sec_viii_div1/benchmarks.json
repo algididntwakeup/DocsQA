@@ -1,0 +1,178 @@
+[
+  {
+    "case_id": "BM-ASME-01-HYDRO-LOW",
+    "name": "Sub-standard Hydrostatic Test Pressure Ratio",
+    "description": "Specification defines hydrostatic test pressure ratio of 1.15, which is below the ASME VIII-1 UG-99 mandatory factor of 1.30.",
+    "document_text": "PRESSURE VESSEL SHOP TESTING SPECIFICATION\nVessel Tag: V-101. Design Pressure: 2.5 MPa.\nThe vessel shall undergo final shop inspection.\nThe hydrostatic test pressure ratio of 1.15 shall be applied to the vessel shell.",
+    "expected_triggers": ["ASME-VIII-1-UG99-HYDRO-RATIO"],
+    "is_negative_control": false
+  },
+  {
+    "case_id": "BM-ASME-02-PNEUMATIC-HIGH",
+    "name": "Excessive Pneumatic Test Pressure Ratio",
+    "description": "Procedure specifies pneumatic test ratio of 1.25, exceeding the maximum ASME VIII-1 UG-100 threshold of 1.10.",
+    "document_text": "PNEUMATIC TESTING PROCEDURE\nFor vessels where liquid test medium is prohibited.\nPneumatic test pressure ratio of 1.25 shall be applied in staged pressure increments with acoustic emission monitoring.",
+    "expected_triggers": ["ASME-VIII-1-UG100-PNEUMATIC-RATIO"],
+    "is_negative_control": false
+  },
+  {
+    "case_id": "BM-ASME-03-JOINT-EFF-LOW",
+    "name": "Out of Range Weld Joint Efficiency Factor",
+    "description": "Calculation specifies weld joint efficiency of 0.35, below the Table UW-12 permitted minimum of 0.45.",
+    "document_text": "SHELL THICKNESS CALCULATION SUMMARY\nMaterial: Carbon Steel. Design Pressure: 1.8 MPa.\nWelded construction. The calculation assumes a joint efficiency of 0.35 for the circumferential joints.",
+    "expected_triggers": ["ASME-VIII-1-UW12-JOINT-EFFICIENCY"],
+    "is_negative_control": false
+  },
+  {
+    "case_id": "BM-ASME-04-TEMP-HIGH",
+    "name": "Excessive Design Temperature for SA-516 Gr 70",
+    "description": "Specification defines design temperature of 580 °C for SA-516 Gr 70, exceeding the 538 °C Section II-D / UCS-23 limit.",
+    "document_text": "PROCESS COLUMN DESIGN DATA SHEET\nVessel Material: SA-516 Gr 70.\nThe process stream operates with design temperature of 580 °C under steady-state operating conditions.",
+    "expected_triggers": ["ASME-VIII-1-UCS23-SA516-70-TEMP"],
+    "is_negative_control": false
+  },
+  {
+    "case_id": "BM-ASME-05-PRESSURE-UNIT",
+    "name": "Forbidden Pressure Unit (kg/cm2)",
+    "description": "Design specification specifies pressure in deprecated non-standard unit kg/cm2.",
+    "document_text": "STORAGE DRUM MECHANICAL DESIGN SUMMARY\nVessel Tag: D-402. Internal Volume: 15 m3.\nDesign pressure of 25 kg/cm2 at upper vapor head.",
+    "expected_triggers": ["ASME-VIII-1-PRESSURE-UNITS"],
+    "is_negative_control": false
+  },
+  {
+    "case_id": "BM-ASME-06-STRESS-UNIT",
+    "name": "Forbidden Stress Unit (kg/mm2)",
+    "description": "Stress calculation cites allowable stress in non-standard metric unit kg/mm2.",
+    "document_text": "STRESS ANALYSIS REPORT\nComponent: Conical Transition Section.\nCalculated maximum allowable stress of 14.5 kg/mm2 based on legacy reference tables.",
+    "expected_triggers": ["ASME-VIII-1-STRESS-UNITS"],
+    "is_negative_control": false
+  },
+  {
+    "case_id": "BM-ASME-07-TERM-MAT",
+    "name": "Deprecated MDMT Terminology (Lowest Operating Metal Temperature)",
+    "description": "Vessel specification uses non-standard term 'Lowest Operating Metal Temperature' instead of codified 'MDMT'.",
+    "document_text": "VESSEL IMPACT TEST ASSESSMENT\nEquipment Tag: C-301. Shell thickness 28 mm.\nThe vessel specification establishes a Lowest Operating Metal Temperature of -20 °C.",
+    "expected_triggers": ["ASME-VIII-1-TERMINOLOGY-MDMT"],
+    "is_negative_control": false
+  },
+  {
+    "case_id": "BM-ASME-08-TERM-MAWP",
+    "name": "Deprecated MAWP Terminology (Safe Working Pressure)",
+    "description": "Inspection plan uses informal term 'safe working pressure' instead of ASME codified term 'MAWP'.",
+    "document_text": "INSPECTION AND TEST PLAN\nEquipment: Distillation Column.\nThe safe working pressure of 4.2 MPa shall be stamped on the nameplate alongside test documentation.",
+    "expected_triggers": ["ASME-VIII-1-TERMINOLOGY-MAWP"],
+    "is_negative_control": false
+  },
+  {
+    "case_id": "BM-ASME-09-REQ-REF-SEC-IX",
+    "name": "Missing Normative Citation to ASME Section IX for WPS/PQR",
+    "description": "Specification governs welding procedure qualification (WPS/PQR) without citing ASME Section IX.",
+    "document_text": "FABRICATION SPECIFICATION\nWelding shall follow qualified WPS and PQR records submitted by fabricator prior to commencing plate rolling.",
+    "expected_triggers": ["ASME-VIII-1-REQUIRED-REF-SEC-IX"],
+    "is_negative_control": false
+  },
+  {
+    "case_id": "BM-ASME-10-REQ-REF-SEC-V",
+    "name": "Missing Normative Citation to ASME Section V for Radiography",
+    "description": "Specification mandates 100% radiographic examination without citing ASME Section V.",
+    "document_text": "QUALITY ASSURANCE REQUIREMENTS\nAll Category A and B longitudinal butt joints shall receive 100% radiographic examination prior to final post-weld heat treatment.",
+    "expected_triggers": ["ASME-VIII-1-REQUIRED-REF-SEC-V"],
+    "is_negative_control": false
+  },
+  {
+    "case_id": "BM-ASME-11-REQ-REF-UCS-66",
+    "name": "Missing Normative Citation to UCS-66 for Impact Exemption",
+    "description": "Document claims impact test exemption without referencing governing clause UCS-66.",
+    "document_text": "LOW TEMPERATURE SERVICE REQUIREMENTS\nThe vessel components satisfy impact test exemption criteria based on normalized material condition and design stress ratios.",
+    "expected_triggers": ["ASME-VIII-1-REQUIRED-REF-UCS66"],
+    "is_negative_control": false
+  },
+  {
+    "case_id": "BM-ASME-12-COMPLIANT-HYDRO",
+    "name": "Compliant Hydrostatic Test Pressure Ratio (1.30)",
+    "description": "Specification complies with ASME VIII-1 UG-99 standard test factor.",
+    "document_text": "HYDROSTATIC PROOF TEST PROCEDURE\nVessel Tag: V-102.\nHydrostatic test pressure ratio of 1.30 shall be maintained for a minimum hold duration of 30 minutes with calibrated gauges.",
+    "expected_triggers": [],
+    "is_negative_control": true
+  },
+  {
+    "case_id": "BM-ASME-13-COMPLIANT-PNEUMATIC",
+    "name": "Compliant Pneumatic Test Pressure Ratio (1.10)",
+    "description": "Specification complies with ASME VIII-1 UG-100 maximum limit.",
+    "document_text": "PNEUMATIC LEAK TEST PROCEDURE\nFor dry gas service vessels.\nPneumatic test pressure ratio of 1.10 shall be applied strictly in compliance with safety perimeter protocols.",
+    "expected_triggers": [],
+    "is_negative_control": true
+  },
+  {
+    "case_id": "BM-ASME-14-COMPLIANT-JOINT-EFF",
+    "name": "Compliant Weld Joint Efficiency Factor (0.85)",
+    "description": "Calculation uses standard joint efficiency factor E = 0.85 conforming to Table UW-12.",
+    "document_text": "MECHANICAL DESIGN CALCULATIONS\nVessel Shell Tag: S-201. Category A full RT butt welds.\nThe calculation establishes a joint efficiency of 0.85 per Table UW-12 column (b).",
+    "expected_triggers": [],
+    "is_negative_control": true
+  },
+  {
+    "case_id": "BM-ASME-15-COMPLIANT-TEMP",
+    "name": "Compliant Design Temperature for SA-516 Gr 70 (250 °C)",
+    "description": "Design temperature of 250 °C is within the allowable envelope [-46 °C, 538 °C].",
+    "document_text": "PROCESS VESSEL SPECIFICATION\nMaterial of Construction: SA-516 Gr 70 normalized plate.\nProcess design temperature of 250 °C with design pressure 3.0 MPa.",
+    "expected_triggers": [],
+    "is_negative_control": true
+  },
+  {
+    "case_id": "BM-ASME-16-COMPLIANT-PRESSURE-UNITS",
+    "name": "Compliant Pressure Units (MPa and kPa)",
+    "description": "Specification uses standard metric pressure units conforming to Appendix 33.",
+    "document_text": "GENERAL DESIGN PARAMETERS\nVessel Tag: T-505.\nInternal design pressure of 2.5 MPa with external working pressure 100 kPa.",
+    "expected_triggers": [],
+    "is_negative_control": true
+  },
+  {
+    "case_id": "BM-ASME-17-COMPLIANT-STRESS-UNITS",
+    "name": "Compliant Stress Units (MPa)",
+    "description": "Calculation cites allowable stress in standard SI unit (MPa).",
+    "document_text": "ALLOWABLE STRESS SUMMARY\nShell and Head Plate Material: SA-516 Gr 70.\nMaximum allowable stress of 138 MPa at design temperature 150 °C.",
+    "expected_triggers": [],
+    "is_negative_control": true
+  },
+  {
+    "case_id": "BM-ASME-18-COMPLIANT-TERM-MDMT",
+    "name": "Governed MDMT Terminology Compliance",
+    "description": "Specification correctly uses governed term MDMT.",
+    "document_text": "TEMPERATURE DESIGN CRITERIA\nEquipment: Separator Vessel.\nThe vessel MDMT is specified as -29 °C based on Charpy impact requirements.",
+    "expected_triggers": [],
+    "is_negative_control": true
+  },
+  {
+    "case_id": "BM-ASME-19-COMPLIANT-TERM-MAWP",
+    "name": "Governed MAWP Terminology Compliance",
+    "description": "Specification correctly uses codified term MAWP.",
+    "document_text": "NAMEPLATE DATA SPECIFICATION\nThe vessel shall be stamped with MAWP of 3.2 MPa at design temperature 200 °C.",
+    "expected_triggers": [],
+    "is_negative_control": true
+  },
+  {
+    "case_id": "BM-ASME-20-COMPLIANT-REF-SEC-IX",
+    "name": "Normative Reference to ASME Section IX Included",
+    "description": "WPS and PQR procedures are explicitly referenced to ASME Section IX.",
+    "document_text": "WELDING QUALIFICATION SPECIFICATION\nAll welding procedures including WPS and PQR shall be qualified in strict accordance with ASME Section IX requirements.",
+    "expected_triggers": [],
+    "is_negative_control": true
+  },
+  {
+    "case_id": "BM-ASME-21-COMPLIANT-REF-SEC-V",
+    "name": "Normative Reference to ASME Section V Included",
+    "description": "Radiographic examination is explicitly governed by ASME Section V.",
+    "document_text": "NONDESTRUCTIVE TESTING SPECIFICATION\nAll radiographic examination and ultrasonic testing shall conform to ASME Section V examination standards and acceptance criteria.",
+    "expected_triggers": [],
+    "is_negative_control": true
+  },
+  {
+    "case_id": "BM-ASME-22-COMPLIANT-REF-UCS-66",
+    "name": "Normative Reference to UCS-66 Included",
+    "description": "Impact test exemption explicitly cites UCS-66 Curve B.",
+    "document_text": "IMPACT TEST ASSESSMENT REPORT\nThe shell course qualifies for impact test exemption governed by UCS-66 Curve B based on governing thickness and coincident ratio.",
+    "expected_triggers": [],
+    "is_negative_control": true
+  }
+]

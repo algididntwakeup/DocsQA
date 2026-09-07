@@ -1,0 +1,9 @@
+{
+  "pack_id": "asme_sec_viii_div1",
+  "standard_code": "ASME BPVC.VIII.1",
+  "standard_name": "ASME Boiler and Pressure Vessel Code, Section VIII, Division 1: Rules for Construction of Pressure Vessels",
+  "edition": "2021",
+  "authority": "American Society of Mechanical Engineers (ASME)",
+  "version": "1.0.0",
+  "description": "Deterministic engineering reference pack for pressure vessel specification rules covering hydrotest factor, pneumatic test factor, joint efficiency bounds, design temperature limits, pressure/temperature units, technical terminology, and mandatory normative citations."
+}

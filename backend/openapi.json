@@ -526,6 +526,7 @@
               "mapping": {
                 "LINGUISTIC": "#/components/schemas/LinguisticEvidence",
                 "REFERENCE_DRIFT": "#/components/schemas/ReferenceDriftEvidence",
+                "REFERENCE_RULE": "#/components/schemas/ReferenceRuleEvidence",
                 "REVISION": "#/components/schemas/RevisionEvidence",
                 "STAGE_FAILURE": "#/components/schemas/StageFailureEvidence",
                 "STANDARD": "#/components/schemas/StandardEvidence",
@@ -551,6 +552,9 @@
               },
               {
                 "$ref": "#/components/schemas/StageFailureEvidence"
+              },
+              {
+                "$ref": "#/components/schemas/ReferenceRuleEvidence"
               }
             ],
             "title": "Evidence"
@@ -830,6 +834,83 @@
           "target_location"
         ],
         "title": "ReferenceDriftEvidence",
+        "type": "object"
+      },
+      "ReferenceRuleEvidence": {
+        "additionalProperties": false,
+        "description": "Provenance and parameters for reference standard rule findings.",
+        "properties": {
+          "clause": {
+            "title": "Clause",
+            "type": "string"
+          },
+          "detected_parameter": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detected Parameter"
+          },
+          "detected_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detected Value"
+          },
+          "edition": {
+            "title": "Edition",
+            "type": "string"
+          },
+          "extractor_version": {
+            "title": "Extractor Version",
+            "type": "string"
+          },
+          "kind": {
+            "const": "REFERENCE_RULE",
+            "default": "REFERENCE_RULE",
+            "title": "Kind",
+            "type": "string"
+          },
+          "location": {
+            "$ref": "#/components/schemas/BoundingBox"
+          },
+          "rule_kind": {
+            "title": "Rule Kind",
+            "type": "string"
+          },
+          "rule_version": {
+            "title": "Rule Version",
+            "type": "string"
+          },
+          "standard": {
+            "title": "Standard",
+            "type": "string"
+          },
+          "standard_page": {
+            "title": "Standard Page",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "extractor_version",
+          "rule_version",
+          "standard",
+          "edition",
+          "clause",
+          "standard_page",
+          "rule_kind",
+          "location"
+        ],
+        "title": "ReferenceRuleEvidence",
         "type": "object"
       },
       "ReviewReportPreview": {

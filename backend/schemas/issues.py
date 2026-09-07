@@ -105,13 +105,28 @@ class StageFailureEvidence(EvidenceBase):
     retryable: bool
 
 
+class ReferenceRuleEvidence(EvidenceBase):
+    """Provenance and parameters for reference standard rule findings."""
+
+    kind: Literal["REFERENCE_RULE"] = "REFERENCE_RULE"
+    standard: str
+    edition: str
+    clause: str
+    standard_page: int
+    rule_kind: str
+    detected_parameter: str | None = None
+    detected_value: str | None = None
+    location: BoundingBox
+
+
 IssueEvidence = Annotated[
     TableMathEvidence
     | ReferenceDriftEvidence
     | RevisionEvidence
     | StandardEvidence
     | LinguisticEvidence
-    | StageFailureEvidence,
+    | StageFailureEvidence
+    | ReferenceRuleEvidence,
     Field(discriminator="kind"),
 ]
 
