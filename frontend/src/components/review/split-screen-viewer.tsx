@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
   BookOpen,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   FileText,
   History,
   RotateCw,
@@ -77,6 +79,93 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
     message: string;
   } | null>(null);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+
+  // Horizontal scroll & drag handling for header action buttons
+  const actionsScrollRef = useRef<HTMLDivElement | null>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState<boolean>(false);
+  const [canScrollRight, setCanScrollRight] = useState<boolean>(false);
+  const dragStartRef = useRef<{ startX: number; scrollLeft: number } | null>(null);
+  const isDraggingRef = useRef<boolean>(false);
+
+  const updateScrollBounds = useCallback(() => {
+    const el = actionsScrollRef.current;
+    if (!el) return;
+    const { scrollLeft, scrollWidth, clientWidth } = el;
+    setCanScrollLeft(scrollLeft > 2);
+    setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 2);
+  }, []);
+
+  useEffect(() => {
+    const el = actionsScrollRef.current;
+    if (!el) return;
+
+    updateScrollBounds();
+    el.addEventListener("scroll", updateScrollBounds, { passive: true });
+    window.addEventListener("resize", updateScrollBounds, { passive: true });
+
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(() => {
+        updateScrollBounds();
+      });
+      ro.observe(el);
+    }
+
+    return () => {
+      el.removeEventListener("scroll", updateScrollBounds);
+      window.removeEventListener("resize", updateScrollBounds);
+      ro?.disconnect();
+    };
+  }, [updateScrollBounds]);
+
+  const scrollActions = (direction: "left" | "right") => {
+    const el = actionsScrollRef.current;
+    if (!el) return;
+    const offset = direction === "left" ? -180 : 180;
+    el.scrollBy({ left: offset, behavior: "smooth" });
+  };
+
+  const handleActionsWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    const el = actionsScrollRef.current;
+    if (!el) return;
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+      el.scrollLeft += e.deltaY * 0.8;
+    }
+  };
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    const el = actionsScrollRef.current;
+    if (!el) return;
+    dragStartRef.current = {
+      startX: e.clientX,
+      scrollLeft: el.scrollLeft,
+    };
+    isDraggingRef.current = false;
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!dragStartRef.current) return;
+    const el = actionsScrollRef.current;
+    if (!el) return;
+    const dx = e.clientX - dragStartRef.current.startX;
+    if (Math.abs(dx) > 5) {
+      isDraggingRef.current = true;
+      el.scrollLeft = dragStartRef.current.scrollLeft - dx;
+    }
+  };
+
+  const handleMouseUp = () => {
+    dragStartRef.current = null;
+    setTimeout(() => {
+      isDraggingRef.current = false;
+    }, 60);
+  };
+
+  const handleMouseLeave = () => {
+    dragStartRef.current = null;
+    isDraggingRef.current = false;
+  };
 
   const selectedIssue = useMemo(
     () => issues.find((i) => i.id === selectedIssueId) ?? null,
@@ -245,67 +334,119 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
           </div>
         </div>
 
-        <div className="header-actions">
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={() => setIsSummaryModalOpen(true)}
-            title="View Traceability Audit Summary"
-            aria-label="Traceability Audit"
-          >
-            <ShieldCheck size={14} />
-            <span className="btn-label">Traceability Audit</span>
-          </button>
+        <div className="header-actions-wrapper">
+          {canScrollLeft && (
+            <button
+              type="button"
+              className="scroll-nudge-btn scroll-nudge-left"
+              onClick={() => scrollActions("left")}
+              aria-label="Scroll actions left"
+              title="Scroll left"
+            >
+              <ChevronLeft size={14} />
+            </button>
+          )}
 
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={() => {
-              setDictionaryInitialTerm(undefined);
-              setIsDictionaryOpen(true);
-            }}
-            title="View Governed Engineering Dictionary"
-            aria-label="Dictionary"
+          <div
+            ref={actionsScrollRef}
+            className="header-actions"
+            onWheel={handleActionsWheel}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseLeave}
+            tabIndex={0}
+            role="region"
+            aria-label="Document review actions"
           >
-            <BookOpen size={14} />
-            <span className="btn-label">Dictionary</span>
-          </button>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm shrink-0"
+              onClick={() => {
+                if (isDraggingRef.current) return;
+                setIsSummaryModalOpen(true);
+              }}
+              title="View Traceability Audit Summary"
+              aria-label="Traceability Audit"
+            >
+              <ShieldCheck size={14} />
+              <span className="btn-label">Traceability Audit</span>
+            </button>
 
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={() => setIsAuditModalOpen(true)}
-            title="View Document Audit Trail"
-            aria-label="Audit Trail"
-          >
-            <History size={14} />
-            <span className="btn-label">Audit Trail</span>
-          </button>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm shrink-0"
+              onClick={() => {
+                if (isDraggingRef.current) return;
+                setDictionaryInitialTerm(undefined);
+                setIsDictionaryOpen(true);
+              }}
+              title="View Governed Engineering Dictionary"
+              aria-label="Dictionary"
+            >
+              <BookOpen size={14} />
+              <span className="btn-label">Dictionary</span>
+            </button>
 
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={() => setIsExportModalOpen(true)}
-            title="Export Findings and Verification Artifacts"
-            aria-label="Export"
-            data-testid="open-export-modal-btn"
-          >
-            <Download size={14} />
-            <span className="btn-label">Export</span>
-          </button>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm shrink-0"
+              onClick={() => {
+                if (isDraggingRef.current) return;
+                setIsAuditModalOpen(true);
+              }}
+              title="View Document Audit Trail"
+              aria-label="Audit Trail"
+            >
+              <History size={14} />
+              <span className="btn-label">Audit Trail</span>
+            </button>
 
-          <ThemeToggle />
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm shrink-0"
+              onClick={() => {
+                if (isDraggingRef.current) return;
+                setIsExportModalOpen(true);
+              }}
+              title="Export Findings and Verification Artifacts"
+              aria-label="Export"
+              data-testid="open-export-modal-btn"
+            >
+              <Download size={14} />
+              <span className="btn-label">Export</span>
+            </button>
 
-          <button
-            type="button"
-            className="icon-button"
-            onClick={() => void refreshIssues()}
-            disabled={isRefreshing}
-            aria-label="Refresh issues"
-            title="Refresh issues"
-          >
-            <RotateCw size={15} className={isRefreshing ? "animate-spin" : ""} />
-          </button>
+            <div className="shrink-0 flex items-center">
+              <ThemeToggle />
+            </div>
+
+            <button
+              type="button"
+              className="icon-button shrink-0"
+              onClick={() => {
+                if (isDraggingRef.current) return;
+                void refreshIssues();
+              }}
+              disabled={isRefreshing}
+              aria-label="Refresh issues"
+              title="Refresh issues"
+            >
+              <RotateCw size={15} className={isRefreshing ? "animate-spin" : ""} />
+            </button>
+          </div>
+
+          {canScrollRight && (
+            <button
+              type="button"
+              className="scroll-nudge-btn scroll-nudge-right"
+              onClick={() => scrollActions("right")}
+              aria-label="Scroll actions right"
+              title="Scroll right"
+            >
+              <ChevronRight size={14} />
+            </button>
+          )}
         </div>
       </header>
 
