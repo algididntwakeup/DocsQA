@@ -5,7 +5,10 @@ const nextConfig: NextConfig = {
   async rewrites() {
     const backendUrl =
       process.env.INTERNAL_API_URL ||
-      (process.env.NODE_ENV === "production" ? "http://api:8000" : "http://localhost:8000");
+      process.env.DEV_BACKEND_URL ||
+      (process.env.NODE_ENV === "production"
+        ? "http://api:8000"
+        : `http://localhost:${process.env.DEV_BACKEND_PORT || "8000"}`);
     return [
       {
         source: "/api/v1/:path*",
