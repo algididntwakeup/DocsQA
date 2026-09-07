@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
+  ArrowLeft,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
@@ -95,12 +97,23 @@ export function DocumentViewer({
     <div className="flex flex-col h-full bg-sunken border-r border-line select-none min-h-0">
       {/* Top Header & Tab Controls */}
       <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-panel border-b border-line text-xs text-ink-soft">
-        {/* Document Info */}
-        <div className="flex items-center gap-2 truncate max-w-[260px] sm:max-w-[340px]">
-          <span className="font-mono text-[10px] text-muted uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-chip text-chip-ink border border-line">
+        {/* Return Button & Document Info */}
+        <div className="flex items-center gap-2 truncate min-w-0 max-w-[calc(100%-250px)]">
+          {documentId && (
+            <Link
+              href={`/documents/${documentId}`}
+              className="workspace-back-link shrink-0 py-1 px-2 text-[11px]"
+              title="Back to inspection status"
+              aria-label="Back to inspection status"
+            >
+              <ArrowLeft size={13} />
+              <span className="hidden sm:inline">Inspection</span>
+            </Link>
+          )}
+          <span className="font-mono text-[10px] text-muted uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-chip text-chip-ink border border-line shrink-0">
             DOC
           </span>
-          <span className="font-medium text-xs text-ink truncate" title={effectiveTitle}>
+          <span className="font-semibold text-xs text-ink truncate" title={effectiveTitle}>
             {effectiveTitle}
           </span>
         </div>

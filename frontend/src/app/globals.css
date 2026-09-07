@@ -417,70 +417,11 @@ progress::-webkit-progress-value { background: var(--primary-bright); }
   font: 400 10px/1 "JetBrains Mono", monospace;
 }
 
-.header-actions-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-  flex: 1;
-  justify-content: flex-end;
-  position: relative;
-}
-
 .header-actions {
   display: flex;
   align-items: center;
   gap: 8px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  white-space: nowrap;
-  scroll-behavior: smooth;
-  -webkit-overflow-scrolling: touch;
-  padding: 4px 2px;
-  cursor: grab;
-  user-select: none;
-  max-width: 100%;
-}
-
-.header-actions:active {
-  cursor: grabbing;
-}
-
-/* Custom sleek horizontal scrollbar */
-.header-actions::-webkit-scrollbar {
-  height: 4px;
-}
-.header-actions::-webkit-scrollbar-track {
-  background: transparent;
-}
-.header-actions::-webkit-scrollbar-thumb {
-  background: var(--line);
-  border-radius: 4px;
-}
-.header-actions:hover::-webkit-scrollbar-thumb {
-  background: var(--line-strong);
-}
-
-.scroll-nudge-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 4px;
-  border: 1px solid var(--line);
-  background: var(--panel);
-  color: var(--muted);
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: all 0.15s ease;
-  z-index: 2;
-}
-
-.scroll-nudge-btn:hover {
-  background: var(--panel-raised);
-  color: var(--text);
-  border-color: var(--line-strong);
+  flex-wrap: nowrap;
 }
 
 .btn {
