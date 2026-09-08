@@ -110,11 +110,11 @@ export function IssuePanel({
 
   return (
     <aside
-      className="flex flex-col h-full bg-surface border-l border-border overflow-hidden"
+      className="flex flex-col h-full bg-surface border-l border-line overflow-hidden"
       aria-label="Findings Panel"
     >
       {/* Tab Switcher */}
-      <div className="flex items-center border-b border-border bg-panel shrink-0">
+      <div className="flex items-center border-b border-line bg-panel shrink-0">
         <button
           type="button"
           role="tab"
@@ -153,7 +153,7 @@ export function IssuePanel({
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="p-3 border-b border-border bg-panel space-y-2.5 shrink-0">
+      <div className="p-3 border-b border-line bg-panel space-y-2.5 shrink-0">
         <div className="relative">
           <Search size={14} className="absolute left-2.5 top-2.5 text-muted" />
           <input
@@ -161,7 +161,7 @@ export function IssuePanel({
             placeholder="Filter by rule, fact, or page number..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full text-xs pl-8 pr-3 py-1.5 rounded border border-border bg-sunken text-ink focus:outline-none focus:border-sky-500"
+            className="w-full text-xs pl-8 pr-3 py-1.5 rounded border border-line bg-sunken text-ink focus:outline-none focus:border-sky-500 transition-colors"
           />
         </div>
 
@@ -173,7 +173,7 @@ export function IssuePanel({
               id="severity-filter"
               value={severityFilter}
               onChange={(e) => setSeverityFilter(e.target.value as SeverityFilter)}
-              className="w-full text-xs py-1 px-2 rounded border border-border bg-sunken text-ink focus:outline-none focus:border-sky-500"
+              className="w-full text-xs py-1 px-2 rounded border border-line bg-sunken text-ink focus:outline-none focus:border-sky-500 transition-colors"
             >
               <option value="ALL">All Severities</option>
               <option value="CRITICAL">Critical Only</option>
@@ -191,7 +191,7 @@ export function IssuePanel({
               id="curation-filter"
               value={curationFilter}
               onChange={(e) => setCurationFilter(e.target.value as CurationFilter)}
-              className="w-full text-xs py-1 px-2 rounded border border-border bg-sunken text-ink focus:outline-none focus:border-sky-500"
+              className="w-full text-xs py-1 px-2 rounded border border-line bg-sunken text-ink focus:outline-none focus:border-sky-500 transition-colors"
             >
               <option value="ALL">All Report Statuses</option>
               <option value="INCLUDED">Included in Report</option>
@@ -237,7 +237,7 @@ export function IssuePanel({
       </div>
 
       {/* Footer / Summary Status */}
-      <footer className="p-2.5 px-4 border-t border-border bg-panel text-[11px] text-muted flex items-center justify-between shrink-0">
+      <footer className="p-2.5 px-4 border-t border-line bg-panel text-[11px] text-muted flex items-center justify-between shrink-0">
         <span>
           Showing {filteredIssues.length} of {currentTabIssues.length} findings
         </span>

@@ -1,3 +1,6 @@
+"use client";
+
+import { usePathname } from "next/navigation";
 import { ClipboardCheck, FileStack, Gauge, Settings } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -9,6 +12,13 @@ const navigation = [
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const isReviewPage = pathname?.includes("/review");
+
+  if (isReviewPage) {
+    return <>{children}</>;
+  }
+
   return (
     <div className="app-frame">
       <aside className="sidebar">

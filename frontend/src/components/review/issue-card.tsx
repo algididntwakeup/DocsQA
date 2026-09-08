@@ -83,27 +83,27 @@ export function IssueCard({
     MEDIUM: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30",
     LOW: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
     INFO: "bg-slate-500/15 text-slate-700 dark:text-slate-300 border-slate-500/30",
-  }[issue.severity] ?? "bg-muted text-ink border-border";
+  }[issue.severity] ?? "bg-muted text-ink border-line";
 
   return (
     <article
       data-issue-id={issue.id}
       className={`border rounded-lg transition-all ${
         isSelected
-          ? "border-sky-500 shadow-md ring-1 ring-sky-500/30 bg-surface"
-          : "border-border/70 hover:border-border bg-panel"
+          ? "border-sky-500 shadow-sm ring-1 ring-sky-500/30 bg-surface"
+          : "border-line hover:border-line-strong bg-panel"
       } ${!issue.included_in_report ? "opacity-75 bg-muted/5" : ""}`}
       onClick={onSelect}
     >
       {/* Header */}
-      <header className="p-3.5 pb-2.5 flex items-start justify-between gap-2 border-b border-border/40">
+      <header className="p-3.5 pb-2.5 flex items-start justify-between gap-2 border-b border-line">
         <div className="flex flex-wrap items-center gap-1.5 min-w-0">
           <span
             className={`text-[10px] font-bold tracking-wider px-2 py-0.5 rounded border uppercase ${severityBadgeClass}`}
           >
             {issue.severity}
           </span>
-          <span className="text-xs font-mono font-medium text-ink bg-muted/20 px-2 py-0.5 rounded border border-border/50 truncate max-w-[200px]">
+          <span className="text-xs font-mono font-medium text-ink bg-muted/20 px-2 py-0.5 rounded border border-line truncate max-w-[200px]">
             {issue.type}
           </span>
 
@@ -114,7 +114,7 @@ export function IssueCard({
               <span>In Report</span>
             </span>
           ) : (
-            <span className="text-[10px] font-medium text-muted bg-muted/20 border border-border px-2 py-0.5 rounded-full flex items-center gap-1">
+            <span className="text-[10px] font-medium text-muted bg-muted/20 border border-line px-2 py-0.5 rounded-full flex items-center gap-1">
               <XCircle size={10} />
               <span>Excluded</span>
             </span>
@@ -162,7 +162,7 @@ export function IssueCard({
           <div className="space-y-3 pt-1">
             {/* Table Math Evidence */}
             {evidence.kind === "TABLE_MATH" && (
-              <div className="p-2.5 rounded bg-muted/10 border border-border/50 space-y-1.5 text-xs">
+              <div className="p-2.5 rounded bg-muted/10 border border-line space-y-1.5 text-xs">
                 <div className="flex items-center gap-1.5 font-medium text-muted text-[11px] uppercase tracking-wider">
                   <FileSpreadsheet size={13} className="text-sky-500" />
                   <span>Calculation Details</span>
@@ -190,7 +190,7 @@ export function IssueCard({
 
             {/* Linguistic Evidence & Dictionary Action */}
             {evidence.kind === "LINGUISTIC" && (
-              <div className="p-2.5 rounded bg-muted/10 border border-border/50 space-y-2 text-xs">
+              <div className="p-2.5 rounded bg-muted/10 border border-line space-y-2 text-xs">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-muted text-[11px] uppercase tracking-wider font-medium">
                     Linguistic Suggestion
@@ -221,14 +221,14 @@ export function IssueCard({
             )}
 
             {/* Reviewer Note Display / Inline Editor */}
-            <div className="pt-2 border-t border-border/40">
+            <div className="pt-2 border-t border-line">
               {isEditingNote ? (
                 <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
                   <label className="block text-[11px] font-medium text-muted">
                     Reviewer Note (appears in DOCX report and annotated PDF):
                   </label>
                   <textarea
-                    className="w-full text-xs p-2 rounded border border-border bg-sunken text-ink focus:outline-none focus:border-sky-500 resize-y"
+                    className="w-full text-xs p-2 rounded border border-line bg-sunken text-ink focus:outline-none focus:border-sky-500 resize-y"
                     rows={2}
                     value={noteText}
                     onChange={(e) => setNoteText(e.target.value)}
@@ -238,7 +238,7 @@ export function IssueCard({
                   <div className="flex items-center justify-end gap-2">
                     <button
                       type="button"
-                      className="button button-ghost text-xs py-1 px-2.5"
+                      className="button button-ghost btn-sm"
                       onClick={() => {
                         setNoteText(issue.reviewer_note ?? "");
                         setIsEditingNote(false);
@@ -249,7 +249,7 @@ export function IssueCard({
                     </button>
                     <button
                       type="button"
-                      className="button button-primary text-xs py-1 px-3"
+                      className="button button-primary btn-sm"
                       onClick={() => void handleSaveNote()}
                       disabled={isSubmitting}
                     >
@@ -264,7 +264,7 @@ export function IssueCard({
                       Reviewer Note:
                     </span>
                     {issue.reviewer_note ? (
-                      <p className="text-xs text-ink italic bg-muted/10 p-2 rounded border border-border/40">
+                      <p className="text-xs text-ink italic bg-muted/10 p-2 rounded border border-line">
                         &quot;{issue.reviewer_note}&quot;
                       </p>
                     ) : (
@@ -295,7 +295,7 @@ export function IssueCard({
             )}
 
             {/* Curation Action Button */}
-            <div className="pt-2 border-t border-border/40 flex items-center justify-between gap-2">
+            <div className="pt-2 border-t border-line flex items-center justify-between gap-2">
               <span className="text-[11px] text-muted">
                 {issue.included_in_report
                   ? "Included in exported report"
@@ -308,7 +308,7 @@ export function IssueCard({
                   void handleToggleInclude();
                 }}
                 disabled={isSubmitting}
-                className={`button text-xs py-1.5 px-3 flex items-center gap-1.5 transition-colors ${
+                className={`button btn-sm flex items-center gap-1.5 transition-colors ${
                   issue.included_in_report
                     ? "button-secondary text-muted hover:text-ink"
                     : "button-primary"

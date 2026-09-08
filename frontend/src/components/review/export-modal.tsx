@@ -132,12 +132,12 @@ export function ExportModal({
                     </div>
                   </div>
 
-                  <div className="mt-4 pt-3 border-t border-border/40 flex justify-end">
+                  <div className="mt-4 pt-3 border-t border-line flex justify-end">
                     <a
                       href={url}
                       download
                       data-testid={`export-${opt.format}-btn`}
-                      className="button button-primary text-xs py-1.5 px-3 flex items-center gap-1.5"
+                      className="button button-primary btn-sm flex items-center gap-1.5"
                     >
                       <Download size={13} />
                       <span>Download {opt.extension.toUpperCase().slice(1)}</span>

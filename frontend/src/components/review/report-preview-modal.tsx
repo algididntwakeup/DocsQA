@@ -174,7 +174,7 @@ export function ReportPreviewModal({
               </div>
 
               {/* Review Limits Notice */}
-              <div className="p-3 bg-muted/10 rounded-md border border-border text-xs text-muted space-y-1">
+              <div className="p-3 bg-muted/10 rounded-md border border-line text-xs text-muted space-y-1">
                 <div className="flex items-center gap-1.5 font-medium text-ink">
                   <Shield size={14} className="text-sky-500" />
                   <span>Limits of this review</span>
