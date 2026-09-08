@@ -200,13 +200,13 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
   width: 100%;
   max-width: 100%;
   margin: 0;
-  padding: 16px 24px 20px;
+  padding: 16px 24px 48px;
   box-sizing: border-box;
 }
 
 @media (max-width: 768px) {
   .content-compact {
-    padding: 12px 14px 16px;
+    padding: 12px 14px 36px;
   }
 }
 

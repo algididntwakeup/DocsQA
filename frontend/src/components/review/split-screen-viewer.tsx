@@ -164,7 +164,7 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
       </div>
 
       {/* Main Review Workspace Card */}
-      <div className="panel flex flex-col flex-1 min-h-[520px] w-full overflow-hidden shadow-xs border-line">
+      <div className="panel flex flex-col flex-1 min-h-[480px] w-full overflow-hidden shadow-xs border-line">
         {/* Card Header / Action Toolbar */}
         <header className="h-12 border-b border-line bg-panel flex items-center justify-between px-3 sm:px-4 shrink-0 gap-3">
           {/* Left: Eyebrow label & Mobile Pane Switcher */}
