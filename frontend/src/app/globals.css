@@ -104,6 +104,7 @@ body.dark {
 }
 
 * { box-sizing: border-box; }
+html, body { overflow-x: hidden; }
 html { background: var(--canvas); }
 body { margin: 0; min-height: 100vh; background: var(--canvas); color: var(--text); font-family: Inter, ui-sans-serif, system-ui, sans-serif; transition: background-color 0.2s ease, color 0.2s ease; }
 button, input { font: inherit; }
@@ -130,7 +131,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .system-panel div { color: var(--muted); font-size: 11px; }
 .system-panel strong { margin-top: 8px; color: var(--success); font: 600 10px/1 "JetBrains Mono", monospace; text-transform: uppercase; }
 .system-panel i, .status-badge i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-.main-column { min-width: 0; }
+.main-column { min-width: 0; overflow-x: hidden; }
 .topbar { height: 64px; display: flex; align-items: center; justify-content: space-between; padding: 0 32px; border-bottom: 1px solid var(--line); background: var(--topbar-bg); backdrop-filter: blur(12px); transition: background-color 0.2s ease, border-color 0.2s ease; }
 .topbar-actions { display: flex; align-items: center; gap: 16px; }
 .topbar > div:first-child { display: flex; align-items: center; gap: 8px; color: var(--muted); font: 500 11px/1 "JetBrains Mono", monospace; text-transform: uppercase; }
@@ -140,6 +141,19 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .operator p { margin: 0; }
 .operator strong { font-size: 11px; }
 .content { width: min(1240px, 100%); margin: 0 auto; padding: 46px 40px 70px; }
+.content-compact {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 16px 24px 20px;
+  box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  .content-compact {
+    padding: 12px 14px 16px;
+  }
+}
 
 
 .page-heading { display: flex; align-items: end; justify-content: space-between; gap: 28px; margin-bottom: 30px; }

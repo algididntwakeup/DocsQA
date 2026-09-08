@@ -15,10 +15,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const isReviewPage = pathname?.includes("/review");
 
-  if (isReviewPage) {
-    return <>{children}</>;
-  }
-
   return (
     <div className="app-frame">
       <aside className="sidebar">
@@ -51,7 +47,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div className="operator"><span>QA</span><p><strong>QA Engineer</strong><small>Single-user mode</small></p></div>
           </div>
         </header>
-        <main className="content">{children}</main>
+        <main className={isReviewPage ? "content content-compact" : "content"}>{children}</main>
       </div>
     </div>
   );
