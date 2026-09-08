@@ -3,13 +3,19 @@
 from domain.enums import (
     DocumentStatus,
     IssueCategory,
+    IssueSeverity,
+    PipelineStage,
     Severity,
+    StageName,
     StageStatus,
 )
 
 __all__ = [
     "DocumentStatus",
     "IssueCategory",
+    "IssueSeverity",
+    "PipelineStage",
     "Severity",
+    "StageName",
     "StageStatus",
 ]

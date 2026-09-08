@@ -346,6 +346,36 @@ export interface components {
             y1: number;
         };
         /**
+         * BudinskiEvidence
+         * @description Technical writing rules, 4 baselines, and Appendix 12 checklist evidence.
+         */
+        BudinskiEvidence: {
+            bounding_box?: components["schemas"]["BoundingBox"] | null;
+            /** Extractor Version */
+            extractor_version: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "BUDINSKI";
+            /** Measure */
+            measure?: string | null;
+            /** Rule Number */
+            rule_number?: string | null;
+            /** Rule Version */
+            rule_version: string;
+            /** What Body Has */
+            what_body_has?: string | null;
+            /** What It Says */
+            what_it_says?: string | null;
+            /** What Would Fix It */
+            what_would_fix_it?: string | null;
+            /** Where Location */
+            where_location?: string | null;
+            /** Why It Matters */
+            why_it_matters?: string | null;
+        };
+        /**
          * DictionaryTermApprovalRequest
          * @description Admin approval or rejection of a proposed term.
          */
@@ -525,7 +555,7 @@ export interface components {
          * @description Top-level issue grouping used by API filters and the review UI.
          * @enum {string}
          */
-        IssueCategory: "LINGUISTIC" | "TRACEABILITY" | "SYSTEM";
+        IssueCategory: "LINGUISTIC" | "TRACEABILITY" | "SYSTEM" | "LAYOUT" | "BUDINSKI" | "SPELLING" | "GRAMMAR" | "DICTIONARY" | "STANDARD_TRACEABILITY";
         /**
          * IssueCurationRequest
          * @description Lightweight report curation; it is not an approval decision.
@@ -568,7 +598,7 @@ export interface components {
              */
             document_id: string;
             /** Evidence */
-            evidence: components["schemas"]["TableMathEvidence"] | components["schemas"]["ReferenceDriftEvidence"] | components["schemas"]["RevisionEvidence"] | components["schemas"]["StandardEvidence"] | components["schemas"]["LinguisticEvidence"] | components["schemas"]["StageFailureEvidence"];
+            evidence: components["schemas"]["TableMathEvidence"] | components["schemas"]["ReferenceDriftEvidence"] | components["schemas"]["RevisionEvidence"] | components["schemas"]["StandardEvidence"] | components["schemas"]["LinguisticEvidence"] | components["schemas"]["StageFailureEvidence"] | components["schemas"]["ReferenceRuleEvidence"] | components["schemas"]["LayoutEvidence"] | components["schemas"]["BudinskiEvidence"];
             /**
              * Id
              * Format: uuid
@@ -596,6 +626,30 @@ export interface components {
              * @default 1
              */
             version: number;
+        };
+        /**
+         * LayoutEvidence
+         * @description Layout, whitespace, typography, and page continuity evidence.
+         */
+        LayoutEvidence: {
+            /** Anomaly Type */
+            anomaly_type: string;
+            bounding_box?: components["schemas"]["BoundingBox"] | null;
+            /** Extractor Version */
+            extractor_version: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "LAYOUT";
+            /** Page Index */
+            page_index: number;
+            /** Rule Version */
+            rule_version: string;
+            /** Snippet */
+            snippet?: string | null;
+            /** Suggested Fix */
+            suggested_fix?: string | null;
         };
         /**
          * LinguisticEvidence
@@ -689,6 +743,41 @@ export interface components {
             target_location: components["schemas"]["BoundingBox"];
         };
         /**
+         * ReferenceRuleEvidence
+         * @description Provenance and parameters for reference standard rule findings.
+         */
+        ReferenceRuleEvidence: {
+            /** Clause */
+            clause: string;
+            /**
+             * Compliance Status
+             * @default NON_COMPLIANT
+             */
+            compliance_status: string;
+            /** Detected Parameter */
+            detected_parameter?: string | null;
+            /** Detected Value */
+            detected_value?: string | null;
+            /** Edition */
+            edition: string;
+            /** Extractor Version */
+            extractor_version: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "REFERENCE_RULE";
+            location: components["schemas"]["BoundingBox"];
+            /** Rule Kind */
+            rule_kind: string;
+            /** Rule Version */
+            rule_version: string;
+            /** Standard */
+            standard: string;
+            /** Standard Page */
+            standard_page: number;
+        };
+        /**
          * ReviewReportPreview
          * @description Summary used by the report-first review screen.
          */
@@ -739,7 +828,7 @@ export interface components {
          * @description Ordered human-facing issue severity labels.
          * @enum {string}
          */
-        Severity: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "INFO";
+        Severity: "BLOCKER" | "CRITICAL" | "MAJOR" | "MINOR" | "INFO" | "HIGH" | "MEDIUM" | "LOW";
         /**
          * StageFailureEvidence
          * @description Sanitized pipeline-stage failure surfaced without losing other results.

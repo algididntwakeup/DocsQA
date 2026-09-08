@@ -68,6 +68,119 @@
         "title": "BoundingBox",
         "type": "object"
       },
+      "BudinskiEvidence": {
+        "additionalProperties": false,
+        "description": "Technical writing rules, 4 baselines, and Appendix 12 checklist evidence.",
+        "properties": {
+          "bounding_box": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BoundingBox"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "extractor_version": {
+            "title": "Extractor Version",
+            "type": "string"
+          },
+          "kind": {
+            "const": "BUDINSKI",
+            "default": "BUDINSKI",
+            "title": "Kind",
+            "type": "string"
+          },
+          "measure": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measure"
+          },
+          "rule_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule Number"
+          },
+          "rule_version": {
+            "title": "Rule Version",
+            "type": "string"
+          },
+          "what_body_has": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "What Body Has"
+          },
+          "what_it_says": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "What It Says"
+          },
+          "what_would_fix_it": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "What Would Fix It"
+          },
+          "where_location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Where Location"
+          },
+          "why_it_matters": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Why It Matters"
+          }
+        },
+        "required": [
+          "extractor_version",
+          "rule_version"
+        ],
+        "title": "BudinskiEvidence",
+        "type": "object"
+      },
       "DictionaryTermApprovalRequest": {
         "additionalProperties": false,
         "description": "Admin approval or rejection of a proposed term.",
@@ -433,7 +546,13 @@
         "enum": [
           "LINGUISTIC",
           "TRACEABILITY",
-          "SYSTEM"
+          "SYSTEM",
+          "LAYOUT",
+          "BUDINSKI",
+          "SPELLING",
+          "GRAMMAR",
+          "DICTIONARY",
+          "STANDARD_TRACEABILITY"
         ],
         "title": "IssueCategory",
         "type": "string"
@@ -524,6 +643,8 @@
           "evidence": {
             "discriminator": {
               "mapping": {
+                "BUDINSKI": "#/components/schemas/BudinskiEvidence",
+                "LAYOUT": "#/components/schemas/LayoutEvidence",
                 "LINGUISTIC": "#/components/schemas/LinguisticEvidence",
                 "REFERENCE_DRIFT": "#/components/schemas/ReferenceDriftEvidence",
                 "REFERENCE_RULE": "#/components/schemas/ReferenceRuleEvidence",
@@ -555,6 +676,12 @@
               },
               {
                 "$ref": "#/components/schemas/ReferenceRuleEvidence"
+              },
+              {
+                "$ref": "#/components/schemas/LayoutEvidence"
+              },
+              {
+                "$ref": "#/components/schemas/BudinskiEvidence"
               }
             ],
             "title": "Evidence"
@@ -615,6 +742,74 @@
           "updated_at"
         ],
         "title": "IssueRead",
+        "type": "object"
+      },
+      "LayoutEvidence": {
+        "additionalProperties": false,
+        "description": "Layout, whitespace, typography, and page continuity evidence.",
+        "properties": {
+          "anomaly_type": {
+            "title": "Anomaly Type",
+            "type": "string"
+          },
+          "bounding_box": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BoundingBox"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "extractor_version": {
+            "title": "Extractor Version",
+            "type": "string"
+          },
+          "kind": {
+            "const": "LAYOUT",
+            "default": "LAYOUT",
+            "title": "Kind",
+            "type": "string"
+          },
+          "page_index": {
+            "title": "Page Index",
+            "type": "integer"
+          },
+          "rule_version": {
+            "title": "Rule Version",
+            "type": "string"
+          },
+          "snippet": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snippet"
+          },
+          "suggested_fix": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested Fix"
+          }
+        },
+        "required": [
+          "extractor_version",
+          "rule_version",
+          "anomaly_type",
+          "page_index"
+        ],
+        "title": "LayoutEvidence",
         "type": "object"
       },
       "LinguisticEvidence": {
@@ -1045,11 +1240,14 @@
       "Severity": {
         "description": "Ordered human-facing issue severity labels.",
         "enum": [
+          "BLOCKER",
           "CRITICAL",
+          "MAJOR",
+          "MINOR",
+          "INFO",
           "HIGH",
           "MEDIUM",
-          "LOW",
-          "INFO"
+          "LOW"
         ],
         "title": "Severity",
         "type": "string"

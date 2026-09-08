@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import io
 from collections import Counter
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from docx import Document as WordDocument
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -23,6 +23,42 @@ if TYPE_CHECKING:
 
 def _page(issue: Issue) -> str:
     return str(issue.page_number) if issue.page_number else "not located"
+
+
+def _valid_scan_coordinates(evidence: dict[str, Any]) -> list[dict[str, Any]]:
+    """Bounding boxes pointing at the scanned document itself (not the source standard).
+
+    Standard-source provenance is deliberately kept as text locators (clause and
+    standard page) only; any coordinate-like payload referencing the standard
+    source is rejected so PDF overlays never point at the wrong document.
+    """
+    raw = evidence.get("evidence_coordinates", evidence.get("location"))
+    boxes = raw if isinstance(raw, list) else [raw]
+    valid = []
+    for box in boxes:
+        if not isinstance(box, dict):
+            continue
+        try:
+            if (
+                0 <= int(box["x0"]) <= int(box["x1"])
+                and 0 <= int(box["y0"]) <= int(box["y1"])
+                and int(box["page_width"]) > 0
+                and int(box["x1"]) <= int(box["page_width"])
+                and int(box["page_height"]) > 0
+                and int(box["y1"]) <= int(box["page_height"])
+            ):
+                valid.append(box)
+        except (KeyError, TypeError, ValueError):
+            continue
+    return valid
+
+
+def _evidence_text(evidence: dict[str, Any]) -> str:
+    for key in ("detected_fact", "detected_value", "original_text"):
+        value = evidence.get(key)
+        if value:
+            return str(value)
+    return "(see finding detail)"
 
 
 def _recommendation(issue: Issue) -> str:
@@ -41,9 +77,21 @@ def _recommendation(issue: Issue) -> str:
 def build_review_report(document: Document, issues: list[Issue]) -> bytes:
     """Build a concise evidence-led review report for included findings."""
     included = [item for item in issues if item.included_in_report]
-    counts = Counter(item.severity.value for item in included)
-    blockers = [item for item in included if item.severity in {Severity.CRITICAL, Severity.HIGH}]
-    language = [item for item in included if item.category.value == "LINGUISTIC"]
+    counts = Counter(getattr(item.severity, "value", str(item.severity)) for item in included)
+    blocker_levels = {
+        Severity.BLOCKER,
+        Severity.CRITICAL,
+        Severity.HIGH,
+        "BLOCKER",
+        "CRITICAL",
+        "HIGH",
+    }
+    blockers = [item for item in included if item.severity in blocker_levels]
+    language = [
+        item
+        for item in included
+        if getattr(item.category, "value", str(item.category)) == "LINGUISTIC"
+    ]
     reference_issues = [
         item for item in included if (item.evidence or {}).get("kind") == "REFERENCE_RULE"
     ]
@@ -163,6 +211,88 @@ def build_review_report(document: Document, issues: list[Issue]) -> bytes:
             "UNRESOLVED and must be reviewed by a Licensed Professional Engineer. DocsQA does "
             "not approve designs, verify engineering safety, or validate calculation correctness."
         )
+
+    # Standards and Reference Checks
+    if reference_issues:
+        report.add_heading("Standards and Reference Checks", level=1)
+        report.add_paragraph(
+            "Each finding below pairs a clause/page locator in the published standard "
+            "with evidence coordinates that point at the scanned document under "
+            "review. Standard-source references are text locators only and are never "
+            "used as overlay coordinates."
+        )
+
+        governing = [
+            item
+            for item in reference_issues
+            if (item.evidence or {}).get("standard", "").upper().find("COMPANY") < 0
+        ]
+        company = [
+            item for item in reference_issues if item not in governing
+        ]
+
+        def standards_checks_table(title: str, rows: list[Issue]) -> None:
+            report.add_heading(title, level=2)
+            if not rows:
+                report.add_paragraph("No findings in this category.")
+                return
+            table = report.add_table(rows=1, cols=5)
+            table.style = "Table Grid"
+            hdr = table.rows[0].cells
+            for cell, label in zip(
+                hdr,
+                (
+                    "Standard Code",
+                    "Clause/Page Ref",
+                    "Finding/Condition",
+                    "Recommendation Template",
+                    "Evidence Text",
+                ),
+                strict=False,
+            ):
+                cell.text = label
+            for item in rows:
+                evidence = item.evidence or {}
+                boxes = _valid_scan_coordinates(evidence)
+                clause = str(evidence.get("clause", ""))
+                page_ref = f"Clause {clause}, p. {evidence.get('standard_page', '?')}"
+                if boxes:
+                    page_ref += f"; document evidence on page {boxes[0].get('page_index', 0) + 1}"
+                cells = table.add_row().cells
+                cells[0].text = str(evidence.get("standard", ""))
+                cells[1].text = page_ref
+                cells[2].text = item.message
+                cells[3].text = _recommendation(item)
+                cells[4].text = _evidence_text(evidence)
+
+        standards_checks_table("Governing Industry Standards", governing)
+        standards_checks_table("Company Specifications & Addenda", company)
+
+        report.add_heading("Per-standard summary", level=2)
+        by_standard: dict[str, list[Issue]] = {}
+        for item in reference_issues:
+            by_standard.setdefault(
+                str((item.evidence or {}).get("standard", "Unattributed")), []
+            ).append(item)
+        summary = report.add_table(rows=1, cols=4)
+        summary.style = "Table Grid"
+        for cell, label in zip(
+            summary.rows[0].cells,
+            ("Standard", "Total Checks", "Total Findings", "Unresolved Count"),
+            strict=False,
+        ):
+            cell.text = label
+        for standard, items in by_standard.items():
+            unresolved = sum(
+                1
+                for item in items
+                if (item.evidence or {}).get("compliance_status") == "UNRESOLVED"
+            )
+            cells = summary.add_row().cells
+            cells[0].text = standard
+            cells[1].text = str(len(items))
+            cells[2].text = str(len(items))
+            cells[3].text = str(unresolved)
 
     report.add_heading("What this document does well", level=1)
     report.add_paragraph(

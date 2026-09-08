@@ -1,9 +1,14 @@
 """Export the deterministic OpenAPI contract consumed by frontend tooling."""
 
 import json
+import sys
 from pathlib import Path
 
-from main import app
+backend_dir = Path(__file__).resolve().parents[1]
+if str(backend_dir) not in sys.path:
+    sys.path.insert(0, str(backend_dir))
+
+from main import app  # noqa: E402
 
 
 def export_openapi() -> Path:

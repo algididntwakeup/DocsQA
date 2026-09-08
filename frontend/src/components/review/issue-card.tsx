@@ -77,13 +77,17 @@ export function IssueCard({
     }
   };
 
-  const severityBadgeClass = {
+  const severityBadgeClass: Record<string, string> = {
+    BLOCKER: "bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/30 font-extrabold",
     CRITICAL: "bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30",
+    MAJOR: "bg-orange-500/15 text-orange-600 dark:text-orange-400 border-orange-500/30",
+    MINOR: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30",
+    INFO: "bg-slate-500/15 text-slate-700 dark:text-slate-300 border-slate-500/30",
     HIGH: "bg-orange-500/15 text-orange-600 dark:text-orange-400 border-orange-500/30",
     MEDIUM: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30",
     LOW: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
-    INFO: "bg-slate-500/15 text-slate-700 dark:text-slate-300 border-slate-500/30",
-  }[issue.severity] ?? "bg-muted text-ink border-line";
+  };
+  const badgeStyle = severityBadgeClass[issue.severity] ?? "bg-muted text-ink border-line";
 
   return (
     <article
@@ -99,7 +103,7 @@ export function IssueCard({
       <header className="p-3.5 pb-2.5 flex items-start justify-between gap-2 border-b border-line">
         <div className="flex flex-wrap items-center gap-1.5 min-w-0">
           <span
-            className={`text-[10px] font-bold tracking-wider px-2 py-0.5 rounded border uppercase ${severityBadgeClass}`}
+            className={`text-[10px] font-bold tracking-wider px-2 py-0.5 rounded border uppercase ${badgeStyle}`}
           >
             {issue.severity}
           </span>

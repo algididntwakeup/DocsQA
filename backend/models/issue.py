@@ -6,7 +6,6 @@ from uuid import UUID, uuid4
 from sqlalchemy import (
     JSON,
     CheckConstraint,
-    Enum,
     Float,
     ForeignKey,
     Index,
@@ -17,7 +16,6 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db.base import Base
-from domain.enums import IssueCategory, Severity
 from models.document import TimestampMixin
 
 if TYPE_CHECKING:
@@ -39,15 +37,9 @@ class Issue(TimestampMixin, Base):
     document_id: Mapped[UUID] = mapped_column(
         ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    category: Mapped[IssueCategory] = mapped_column(
-        Enum(IssueCategory, name="issue_category", native_enum=False),
-        nullable=False,
-    )
+    category: Mapped[str] = mapped_column(String(50), nullable=False)
     type: Mapped[str] = mapped_column(String(100), nullable=False)
-    severity: Mapped[Severity] = mapped_column(
-        Enum(Severity, name="severity", native_enum=False),
-        nullable=False,
-    )
+    severity: Mapped[str] = mapped_column(String(50), nullable=False)
     confidence: Mapped[float] = mapped_column(Float, default=1.0, nullable=False)
     message: Mapped[str] = mapped_column(Text, nullable=False)
     page_number: Mapped[int | None] = mapped_column(Integer, nullable=True)

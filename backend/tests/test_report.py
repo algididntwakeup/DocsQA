@@ -6,6 +6,7 @@ import io
 from uuid import uuid4
 
 import docx
+import pytest
 
 from domain.enums import DocumentStatus, IssueCategory, Severity
 from models.document import Document
@@ -124,3 +125,129 @@ def test_build_review_report_full_composition() -> None:
     assert data["Blockers"] == "1"
     assert data["Language and mechanics"] == "1"
     assert data["Other consistency findings"] == "1"
+
+
+def _reference_rule_issue(
+    doc: docx.types.Document | object,
+    standard: str = "ASME BPVC.VIII.1",
+) -> Issue:
+    from uuid import UUID
+
+    return Issue(
+        id=uuid4(),
+        document_id=UUID(int=0),
+        category=IssueCategory.TRACEABILITY,
+        type="REFERENCE_RULE",
+        severity=Severity.HIGH,
+        message="Hydrostatic test ratio below the mandatory UG-99(b) factor.",
+        page_number=4,
+        evidence={
+            "kind": "REFERENCE_RULE",
+            "standard": standard,
+            "edition": "2021",
+            "clause": "UG-99(b)",
+            "standard_page": 76,
+            "rule_kind": "numeric_limit",
+            "detected_parameter": "Hydrostatic test pressure ratio",
+            "detected_value": "1.15",
+            "location": {
+                "page_index": 3,
+                "x0": 0.0,
+                "y0": 0.0,
+                "x1": 612.0,
+                "y1": 792.0,
+                "page_width": 612.0,
+                "page_height": 792.0,
+            },
+        },
+        included_in_report=True,
+        reviewer_note=None,
+    )
+
+
+def test_standards_and_reference_checks_section() -> None:
+    """New section renders sub-tables, columns, and per-standard metrics; DOCX stays valid."""
+    document = Document(
+        id=uuid4(),
+        original_filename="VESSEL_SPEC.pdf",
+        safe_filename="vessel_spec",
+        status=DocumentStatus.COMPLETED,
+    )
+    governing = _reference_rule_issue(uuid4(), standard="ASME BPVC.VIII.1")
+    company = _reference_rule_issue(uuid4(), standard="Company Spec CS-101 Addenda")
+    company.evidence = dict(company.evidence, compliance_status="UNRESOLVED")
+
+    docx_bytes = build_review_report(document, [governing, company])
+    assert len(docx_bytes) > 0
+
+    word_doc = docx.Document(io.BytesIO(docx_bytes))
+    full_text = "\n".join(p.text for p in word_doc.paragraphs)
+    assert "Standards and Reference Checks" in full_text
+
+    all_table_text = "\n".join(
+        " ".join(cell.text for cell in row.cells)
+        for t in word_doc.tables
+        for row in t.rows
+    )
+    assert "Governing Industry Standards" in full_text
+    assert "Company Specifications & Addenda" in full_text
+    assert "Standard Code" in all_table_text
+    assert "Clause/Page Ref" in all_table_text
+    assert "Finding/Condition" in all_table_text
+    assert "Recommendation Template" in all_table_text
+    assert "Evidence Text" in all_table_text
+
+    # Column data and text-only standard locator
+    assert "ASME BPVC.VIII.1" in all_table_text
+    assert "Clause UG-99(b), p. 76" in all_table_text
+    assert "document evidence on page 4" in all_table_text
+    assert "1.15" in all_table_text
+
+    # Per-standard summary metrics
+    for t in word_doc.tables:
+        headers = [c.text for c in t.rows[0].cells]
+        if headers[:2] == ["Standard", "Total Checks"]:
+            rows = {
+                r.cells[0].text: [c.text for c in r.cells[1:]]
+                for r in t.rows[1:]
+            }
+            assert rows["ASME BPVC.VIII.1"] == ["1", "1", "0"]
+            assert rows["Company Spec CS-101 Addenda"] == ["1", "1", "1"]
+            break
+    else:
+        pytest.fail("Per-standard summary table not found")
+
+
+def test_report_rejects_invalid_bounding_boxes() -> None:
+    """Evidence boxes outside the scanned page geometry are dropped, DOCX still valid."""
+    document = Document(
+        id=uuid4(),
+        original_filename="BROKEN_BOX.pdf",
+        safe_filename="broken_box",
+        status=DocumentStatus.COMPLETED,
+    )
+    bad = _reference_rule_issue(uuid4())
+    bad.evidence = dict(
+        bad.evidence,
+        location={
+            "page_index": 0,
+            "x0": -5.0,
+            "y0": 0.0,
+            "x1": 9999.0,
+            "y1": 792.0,
+            "page_width": 612.0,
+            "page_height": 792.0,
+        },
+    )
+
+    docx_bytes = build_review_report(document, [bad])
+    assert len(docx_bytes) > 0
+
+    word_doc = docx.Document(io.BytesIO(docx_bytes))
+    all_table_text = "\n".join(
+        " ".join(cell.text for cell in row.cells)
+        for t in word_doc.tables
+        for row in t.rows
+    )
+    assert "document evidence on page" not in all_table_text
+    assert "Clause UG-99(b), p. 76" in all_table_text

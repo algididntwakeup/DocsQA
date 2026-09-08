@@ -11,6 +11,8 @@ from domain.enums import IssueCategory, Severity
 from schemas.base import ApiModel
 from schemas.common import PageInfo
 
+IssueSeverity = Severity
+
 
 class BoundingBox(ApiModel):
     """PDF-point rectangle in the canonical top-left coordinate system."""
@@ -120,6 +122,31 @@ class ReferenceRuleEvidence(EvidenceBase):
     location: BoundingBox
 
 
+class LayoutEvidence(EvidenceBase):
+    """Layout, whitespace, typography, and page continuity evidence."""
+
+    kind: Literal["LAYOUT"] = "LAYOUT"
+    anomaly_type: str
+    page_index: int
+    bounding_box: BoundingBox | None = None
+    snippet: str | None = None
+    suggested_fix: str | None = None
+
+
+class BudinskiEvidence(EvidenceBase):
+    """Technical writing rules, 4 baselines, and Appendix 12 checklist evidence."""
+
+    kind: Literal["BUDINSKI"] = "BUDINSKI"
+    rule_number: str | None = None
+    measure: str | None = None
+    where_location: str | None = None
+    what_it_says: str | None = None
+    what_body_has: str | None = None
+    why_it_matters: str | None = None
+    what_would_fix_it: str | None = None
+    bounding_box: BoundingBox | None = None
+
+
 IssueEvidence = Annotated[
     TableMathEvidence
     | ReferenceDriftEvidence
@@ -127,7 +154,9 @@ IssueEvidence = Annotated[
     | StandardEvidence
     | LinguisticEvidence
     | StageFailureEvidence
-    | ReferenceRuleEvidence,
+    | ReferenceRuleEvidence
+    | LayoutEvidence
+    | BudinskiEvidence,
     Field(discriminator="kind"),
 ]
 

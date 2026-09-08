@@ -7,10 +7,21 @@ Annotated PDF with visual bounding boxes and callout notes for included findings
 from __future__ import annotations
 
 import io
-from typing import TYPE_CHECKING, Any
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, cast
 
+import docx
 import pypdf
+from docx.document import Document as DocxDocument
+from docx.enum.table import WD_TABLE_ALIGNMENT
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.oxml import parse_xml
+from docx.oxml.ns import nsdecls
+from docx.shared import Inches, Pt, RGBColor
+from docx.table import Table, _Cell, _Row
 from pypdf.annotations import Rectangle, Text
+
+from schemas.budinski import AssessmentData, ScoreItem
 
 if TYPE_CHECKING:
     from models.document import Document
@@ -140,7 +151,8 @@ def export_annotated_pdf(
 
             # Label for popup note
             note_line = f"\nReviewer note: {issue.reviewer_note}" if issue.reviewer_note else ""
-            label = f"[{issue.type}] {issue.severity.value}: {issue.message}{note_line}"
+            sev_val = getattr(issue.severity, "value", str(issue.severity))
+            label = f"[{issue.type}] {sev_val}: {issue.message}{note_line}"
 
             # Highlight bounding box
             rect_annot = Rectangle(
@@ -158,3 +170,1089 @@ def export_annotated_pdf(
     output = io.BytesIO()
     writer.write(output)
     return output.getvalue()
+
+
+# ---------------------------------------------------------------------------
+# DOCX Export: Budinski Review of Asset Life Extension Study (Review-ALE)
+# ---------------------------------------------------------------------------
+
+COLOR_NAVY = RGBColor(27, 54, 93)  # #1B365D Primary Engineering Navy
+COLOR_SECONDARY = RGBColor(43, 76, 126)  # #2B4C7E Secondary Slate Blue
+COLOR_TEXT = RGBColor(30, 41, 59)  # #1E293B Charcoal Body Text
+COLOR_MUTED = RGBColor(100, 116, 139)  # #64748B Muted Slate
+COLOR_PASS = RGBColor(21, 128, 61)  # #15803D Forest Green
+COLOR_FAIL = RGBColor(185, 28, 28)  # #B91C1C Crimson Red
+
+HEX_NAVY = "1B365D"
+HEX_WHITE = "FFFFFF"
+HEX_BANNER = "EBF3FA"
+HEX_ZEBRA = "F8FAFC"
+HEX_BORDER = "D0D7DE"
+HEX_CALLOUT_BG = "F8FAFC"
+HEX_BLOCKER_BG = "FEF2F2"
+HEX_BLOCKER_BORDER = "B91C1C"
+HEX_DEMO_REWRITE_BG = "F0FDF4"
+HEX_DEMO_REWRITE_BORDER = "15803D"
+
+
+def _set_cell_shading(cell: _Cell, color_hex: str) -> None:
+    """Set background fill color of a table cell."""
+    tc_pr = cell._tc.get_or_add_tcPr()
+    tc_pr.append(parse_xml(f'<w:shd {nsdecls("w")} w:fill="{color_hex}"/>'))
+
+
+def _set_cell_margins(
+    cell: _Cell,
+    top: int = 100,
+    bottom: int = 100,
+    left: int = 140,
+    right: int = 140,
+) -> None:
+    """Set internal cell margins (padding) in dxa (1 pt = 20 dxa)."""
+    tc_pr = cell._tc.get_or_add_tcPr()
+    tc_mar = parse_xml(
+        f'<w:tcMar {nsdecls("w")}>'
+        f'<w:top w:w="{top}" w:type="dxa"/>'
+        f'<w:left w:w="{left}" w:type="dxa"/>'
+        f'<w:bottom w:w="{bottom}" w:type="dxa"/>'
+        f'<w:right w:w="{right}" w:type="dxa"/>'
+        f'</w:tcMar>'
+    )
+    tc_pr.append(tc_mar)
+
+
+def _set_cell_borders(
+    cell: _Cell,
+    *,
+    top: str = "none",
+    bottom: str = "none",
+    left: str = "none",
+    right: str = "none",
+    color: str = HEX_BORDER,
+    sz: str = "4",
+) -> None:
+    """Set borders on an individual table cell."""
+    tc_pr = cell._tc.get_or_add_tcPr()
+    borders_elm = parse_xml(
+        f'<w:tcBorders {nsdecls("w")}>'
+        f'<w:top w:val="{top}" w:sz="{sz}" w:space="0" w:color="{color}"/>'
+        f'<w:left w:val="{left}" w:sz="{sz}" w:space="0" w:color="{color}"/>'
+        f'<w:bottom w:val="{bottom}" w:sz="{sz}" w:space="0" w:color="{color}"/>'
+        f'<w:right w:val="{right}" w:sz="{sz}" w:space="0" w:color="{color}"/>'
+        f'</w:tcBorders>'
+    )
+    tc_pr.append(borders_elm)
+
+
+def _set_table_borders(table: Table, color: str = HEX_BORDER, sz: str = "4") -> None:
+    """Set clean subtle horizontal-rule borders on a table."""
+    tbl_pr = table._tbl.tblPr
+    borders = parse_xml(
+        f'<w:tblBorders {nsdecls("w")}>'
+        f'<w:top w:val="single" w:sz="{sz}" w:space="0" w:color="{color}"/>'
+        f'<w:left w:val="none" w:sz="0" w:space="0" w:color="auto"/>'
+        f'<w:bottom w:val="single" w:sz="{sz}" w:space="0" w:color="{color}"/>'
+        f'<w:right w:val="none" w:sz="0" w:space="0" w:color="auto"/>'
+        f'<w:insideH w:val="single" w:sz="{sz}" w:space="0" w:color="{color}"/>'
+        f'<w:insideV w:val="none" w:sz="0" w:space="0" w:color="auto"/></w:tblBorders>'
+    )
+    tbl_pr.append(borders)
+
+
+def _apply_tbl_header(row: _Row) -> None:
+    """Designate table row as repeating header across pages."""
+    tr_pr = row._tr.get_or_add_trPr()
+    tr_pr.append(parse_xml(f'<w:tblHeader {nsdecls("w")}/>'))
+
+
+def _apply_cant_split(row: _Row) -> None:
+    """Prevent table row from splitting across page breaks."""
+    tr_pr = row._tr.get_or_add_trPr()
+    tr_pr.append(parse_xml(f'<w:cantSplit {nsdecls("w")}/>'))
+
+
+def _add_callout_box(
+    doc: DocxDocument,
+    bg_hex: str = HEX_CALLOUT_BG,
+    border_color_hex: str = HEX_NAVY,
+    border_sz: str = "36",
+    width_inches: float = 6.9,
+) -> _Cell:
+    """Create a full-width callout box with thick left accent border and shaded background."""
+    table = doc.add_table(rows=1, cols=1)
+    table.autofit = False
+    table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    cell = table.rows[0].cells[0]
+    cell.width = Inches(width_inches)
+    _set_cell_shading(cell, bg_hex)
+    _set_cell_margins(cell, top=140, bottom=140, left=180, right=180)
+    _set_cell_borders(cell, left="single", color=border_color_hex, sz=border_sz)
+    _apply_cant_split(table.rows[0])
+    return cast(_Cell, cell)
+
+
+def _add_heading_1(doc: DocxDocument, text: str) -> None:
+    """Add Level 1 Heading styled with navy primary color and keep-with-next."""
+    p = doc.add_paragraph()
+    p.paragraph_format.space_before = Pt(14)
+    p.paragraph_format.space_after = Pt(4)
+    p.paragraph_format.keep_with_next = True
+    run = p.add_run(text)
+    run.bold = True
+    run.font.name = "Arial"
+    run.font.size = Pt(13)
+    run.font.color.rgb = COLOR_NAVY
+
+
+def _add_heading_2(doc: DocxDocument, text: str, color: RGBColor = COLOR_SECONDARY) -> None:
+    """Add Level 2 Heading styled with secondary color and keep-with-next."""
+    p = doc.add_paragraph()
+    p.paragraph_format.space_before = Pt(10)
+    p.paragraph_format.space_after = Pt(3)
+    p.paragraph_format.keep_with_next = True
+    run = p.add_run(text)
+    run.bold = True
+    run.font.name = "Arial"
+    run.font.size = Pt(11)
+    run.font.color.rgb = color
+
+
+def _add_body_p(doc: DocxDocument, text: str, space_after: int = 6) -> None:
+    """Add body paragraph with standard line spacing and spacing after."""
+    p = doc.add_paragraph()
+    p.paragraph_format.space_before = Pt(0)
+    p.paragraph_format.space_after = Pt(space_after)
+    p.paragraph_format.line_spacing = 1.15
+    run = p.add_run(text)
+    run.font.name = "Arial"
+    run.font.size = Pt(10)
+    run.font.color.rgb = COLOR_TEXT
+
+
+def _format_table_row(
+    row: _Row,
+    widths: list[float],
+    bg_hex: str | None = None,
+    is_header: bool = False,
+) -> None:
+    """Format row cells with explicit widths, padding, cantSplit, and optional shading."""
+    _apply_cant_split(row)
+    if is_header:
+        _apply_tbl_header(row)
+
+    for idx, cell in enumerate(row.cells):
+        if idx < len(widths):
+            cell.width = Inches(widths[idx])
+        _set_cell_margins(cell, top=100, bottom=100, left=140, right=140)
+        if bg_hex:
+            _set_cell_shading(cell, bg_hex)
+        for p in cell.paragraphs:
+            p.paragraph_format.space_before = Pt(0)
+            p.paragraph_format.space_after = Pt(0)
+            p.paragraph_format.line_spacing = 1.15
+            for r in p.runs:
+                r.font.name = "Arial"
+                if is_header:
+                    r.bold = True
+                    r.font.size = Pt(9.5)
+                    r.font.color.rgb = RGBColor(255, 255, 255)
+                else:
+                    r.font.size = Pt(9)
+
+
+def _setup_page_header_footer(doc: DocxDocument, assessment: AssessmentData) -> None:
+    """Setup running header and footer with dynamic page numbers and document identity."""
+    section = doc.sections[0]
+    section.top_margin = Inches(0.8)
+    section.bottom_margin = Inches(0.8)
+    section.left_margin = Inches(0.8)
+    section.right_margin = Inches(0.8)
+
+    # Page Header
+    header = section.header
+    header.is_linked_to_previous = False
+    hp = header.paragraphs[0]
+    hp.text = ""
+    hp.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    hp.paragraph_format.space_after = Pt(4)
+    r_hdr = hp.add_run(f"{assessment.running_header}  |  {assessment.header_title}")
+    r_hdr.font.name = "Arial"
+    r_hdr.font.size = Pt(8)
+    r_hdr.font.color.rgb = COLOR_MUTED
+
+    # Page Footer
+    footer = section.footer
+    footer.is_linked_to_previous = False
+    fp = footer.paragraphs[0]
+    fp.text = ""
+    fp.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    fp.paragraph_format.space_before = Pt(4)
+
+    r_ftr_title = fp.add_run(f"{assessment.title}    ")
+    r_ftr_title.font.name = "Arial"
+    r_ftr_title.font.size = Pt(8)
+    r_ftr_title.font.color.rgb = COLOR_MUTED
+
+    r_pg = fp.add_run("Page ")
+    r_pg.font.name = "Arial"
+    r_pg.font.size = Pt(8)
+    r_pg.font.color.rgb = COLOR_MUTED
+    r_pg._r.append(parse_xml(f'<w:fldSimple {nsdecls("w")} w:instr="PAGE"/>'))
+
+    r_of = fp.add_run(" of ")
+    r_of.font.name = "Arial"
+    r_of.font.size = Pt(8)
+    r_of.font.color.rgb = COLOR_MUTED
+    r_of._r.append(parse_xml(f'<w:fldSimple {nsdecls("w")} w:instr="NUMPAGES"/>'))
+
+
+def generate_ale_review_docx(assessment_result: AssessmentData) -> bytes:
+    """
+    Generate a complete, professionally formatted DOCX review report matching the format
+    of 'Review of Asset Life Extension Study, Grissik Plant Static Equipment' (Review-ALE-Grissik),
+    scored against Kenneth G. Budinski's 'Engineers' Guide to Technical Writing' (Appendix 12).
+
+    Covers 10 distinct sections:
+    1. Document Reviewed Metadata Block
+    2. Summary Judgement & Callout Box 'BOTTOM LINE'
+    3. Table: 'The four baseline measures'
+    4. Sub-section: 'Blockers' (callouts per blocker)
+    5. Table: 'Should fix in the next revision'
+    6. Table: 'Language and mechanics, by page'
+    7. 'Demonstration rewrite' (As Written vs Demonstration comparison)
+    8. 'Scorecard' (41 items Appendix 12 across Groups I-IV with averages and notes)
+    9. 'What this document does well'
+    10. 'Limits of this review' & REVIEWSCORE summary string
+    """
+    doc = docx.Document()
+    _setup_page_header_footer(doc, assessment_result)
+
+    normal_style = doc.styles["Normal"]
+    normal_style.font.name = "Arial"
+    normal_style.font.size = Pt(10)
+    normal_style.font.color.rgb = COLOR_TEXT
+
+    # -----------------------------------------------------------------------
+    # Document Title & Subtitle
+    # -----------------------------------------------------------------------
+    p_title = doc.add_paragraph()
+    p_title.paragraph_format.space_before = Pt(0)
+    p_title.paragraph_format.space_after = Pt(4)
+    p_title.paragraph_format.keep_with_next = True
+    r_title = p_title.add_run(assessment_result.title)
+    r_title.bold = True
+    r_title.font.name = "Arial"
+    r_title.font.size = Pt(18)
+    r_title.font.color.rgb = COLOR_NAVY
+
+    p_sub = doc.add_paragraph()
+    p_sub.paragraph_format.space_before = Pt(0)
+    p_sub.paragraph_format.space_after = Pt(12)
+    r_sub = p_sub.add_run(assessment_result.subtitle)
+    r_sub.italic = True
+    r_sub.font.name = "Arial"
+    r_sub.font.size = Pt(10)
+    r_sub.font.color.rgb = COLOR_MUTED
+
+    # -----------------------------------------------------------------------
+    # Bagian 1: Document Reviewed Metadata Block
+    # -----------------------------------------------------------------------
+    meta = assessment_result.metadata
+    meta_entries = [
+        ("Document reviewed", meta.document_reviewed),
+        ("Type of review", meta.type_of_review),
+        ("Basis", meta.basis),
+        ("Scoring", meta.scoring),
+        ("Note", meta.note),
+        ("Not covered", meta.not_covered),
+    ]
+
+    meta_table = doc.add_table(rows=0, cols=2)
+    meta_table.autofit = False
+    meta_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    _set_table_borders(meta_table, color=HEX_BORDER, sz="4")
+    meta_widths = [1.5, 5.4]
+
+    for label, val in meta_entries:
+        row = meta_table.add_row()
+        _format_table_row(row, meta_widths)
+        _set_cell_shading(row.cells[0], "F4F6F8")
+        _set_cell_shading(row.cells[1], HEX_WHITE)
+
+        p0 = row.cells[0].paragraphs[0]
+        r0 = p0.add_run(label)
+        r0.bold = True
+        r0.font.name = "Arial"
+        r0.font.size = Pt(9)
+        r0.font.color.rgb = COLOR_NAVY
+
+        p1 = row.cells[1].paragraphs[0]
+        r1 = p1.add_run(val)
+        r1.font.name = "Arial"
+        r1.font.size = Pt(9)
+        r1.font.color.rgb = COLOR_TEXT
+
+    p_space = doc.add_paragraph()
+    p_space.paragraph_format.space_before = Pt(0)
+    p_space.paragraph_format.space_after = Pt(6)
+
+    # -----------------------------------------------------------------------
+    # Bagian 2: Summary Judgement & Callout Box "BOTTOM LINE"
+    # -----------------------------------------------------------------------
+    _add_heading_1(doc, "Summary judgement")
+
+    for paragraph_text in assessment_result.summary_judgement:
+        _add_body_p(doc, paragraph_text, space_after=6)
+
+    # Callout Box "BOTTOM LINE"
+    bottom_line_cell = _add_callout_box(
+        doc,
+        bg_hex=HEX_CALLOUT_BG,
+        border_color_hex=HEX_NAVY,
+        border_sz="36",
+    )
+    bl_p = bottom_line_cell.paragraphs[0]
+    bl_p.paragraph_format.space_before = Pt(0)
+    bl_p.paragraph_format.space_after = Pt(0)
+    bl_p.paragraph_format.line_spacing = 1.15
+    bl_tag = bl_p.add_run("BOTTOM LINE  ")
+    bl_tag.bold = True
+    bl_tag.font.name = "Arial"
+    bl_tag.font.size = Pt(10)
+    bl_tag.font.color.rgb = COLOR_NAVY
+
+    bl_body = bl_p.add_run(assessment_result.bottom_line)
+    bl_body.font.name = "Arial"
+    bl_body.font.size = Pt(10)
+    bl_body.font.color.rgb = COLOR_TEXT
+
+    p_bl_space = doc.add_paragraph()
+    p_bl_space.paragraph_format.space_before = Pt(0)
+    p_bl_space.paragraph_format.space_after = Pt(8)
+
+    # -----------------------------------------------------------------------
+    # Bagian 3: Tabel "The four baseline measures"
+    # -----------------------------------------------------------------------
+    _add_heading_1(doc, "The four baseline measures")
+    _add_body_p(
+        doc,
+        "Standing baseline measures evaluated on every engineering document review per "
+        "Budinski Chapters 9–11:",
+        space_after=6,
+    )
+
+    baseline = assessment_result.baseline_measures
+    baseline_items = [
+        (
+            "States the purpose of the report explicitly, distinct from the objective of the work",
+            baseline.purpose_distinct_from_objective,
+            baseline.reasons.get("purpose_distinct_from_objective", ""),
+        ),
+        (
+            "Procedure detailed enough for another competent party to repeat the work",
+            baseline.procedure_repeatable,
+            baseline.reasons.get("procedure_repeatable", ""),
+        ),
+        (
+            "Conclusions are conclusions, not results and not discussion",
+            baseline.conclusions_valid,
+            baseline.reasons.get("conclusions_valid", ""),
+        ),
+        (
+            "Recommendations name an owner and a date",
+            baseline.recommendations_actionable,
+            baseline.reasons.get("recommendations_actionable", ""),
+        ),
+    ]
+
+    base_table = doc.add_table(rows=0, cols=3)
+    base_table.autofit = False
+    base_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    _set_table_borders(base_table, color=HEX_BORDER, sz="4")
+    base_widths = [2.2, 0.9, 3.8]
+
+    # Header row
+    hdr_row = base_table.add_row()
+    hdr_row.cells[0].paragraphs[0].add_run("Measure")
+    hdr_row.cells[1].paragraphs[0].add_run("Result")
+    hdr_row.cells[2].paragraphs[0].add_run("Reason")
+    _format_table_row(hdr_row, base_widths, bg_hex=HEX_NAVY, is_header=True)
+
+    for idx, (measure_text, is_pass, reason_text) in enumerate(baseline_items):
+        row = base_table.add_row()
+        bg = HEX_ZEBRA if idx % 2 == 1 else HEX_WHITE
+
+        p_m = row.cells[0].paragraphs[0]
+        r_m = p_m.add_run(measure_text)
+        r_m.font.name = "Arial"
+        r_m.font.size = Pt(9)
+        r_m.bold = True
+        r_m.font.color.rgb = COLOR_TEXT
+
+        p_r = row.cells[1].paragraphs[0]
+        r_res = p_r.add_run("PASS" if is_pass else "FAIL")
+        r_res.font.name = "Arial"
+        r_res.font.size = Pt(9)
+        r_res.bold = True
+        r_res.font.color.rgb = COLOR_PASS if is_pass else COLOR_FAIL
+
+        p_rs = row.cells[2].paragraphs[0]
+        r_rs = p_rs.add_run(reason_text)
+        r_rs.font.name = "Arial"
+        r_rs.font.size = Pt(9)
+        r_rs.font.color.rgb = COLOR_TEXT
+
+        _format_table_row(row, base_widths, bg_hex=bg)
+
+    p_score = doc.add_paragraph()
+    p_score.paragraph_format.space_before = Pt(6)
+    p_score.paragraph_format.space_after = Pt(10)
+    r_sc_lbl = p_score.add_run("Baseline score: ")
+    r_sc_lbl.bold = True
+    r_sc_lbl.font.name = "Arial"
+    r_sc_lbl.font.size = Pt(9.5)
+    r_sc_lbl.font.color.rgb = COLOR_NAVY
+    r_sc_val = p_score.add_run(f"{baseline.summary_ratio} ({baseline.score} of 4 passing)")
+    r_sc_val.font.name = "Arial"
+    r_sc_val.font.size = Pt(9.5)
+    r_sc_val.bold = True
+    r_sc_val.font.color.rgb = COLOR_PASS if baseline.score >= 3 else COLOR_FAIL
+
+    # -----------------------------------------------------------------------
+    # Bagian 4: Sub-section "Blockers"
+    # -----------------------------------------------------------------------
+    _add_heading_1(doc, "Blockers")
+    _add_body_p(
+        doc,
+        "Blocking findings that prevent the document from being relied upon as issued:",
+        space_after=6,
+    )
+
+    if not assessment_result.blockers:
+        _add_body_p(doc, "No blocking findings identified.", space_after=8)
+    else:
+        for blocker in assessment_result.blockers:
+            _add_heading_2(
+                doc,
+                f"Blocker {blocker.number}: {blocker.title}",
+                color=COLOR_FAIL,
+            )
+
+            cell = _add_callout_box(
+                doc,
+                bg_hex=HEX_BLOCKER_BG,
+                border_color_hex=HEX_BLOCKER_BORDER,
+                border_sz="36",
+            )
+
+            fields = [
+                ("Where", blocker.where_location),
+                ("What it says", blocker.what_it_says),
+                ("What the body has", blocker.what_body_has),
+                ("Why it matters", blocker.why_it_matters),
+                ("What would fix it", blocker.what_would_fix_it),
+            ]
+
+            for f_idx, (fname, fval) in enumerate(fields):
+                p = cell.paragraphs[0] if f_idx == 0 else cell.add_paragraph()
+                p.paragraph_format.space_before = Pt(0)
+                p.paragraph_format.space_after = Pt(3 if f_idx < len(fields) - 1 else 0)
+                p.paragraph_format.line_spacing = 1.15
+
+                r_fn = p.add_run(f"{fname}: ")
+                r_fn.bold = True
+                r_fn.font.name = "Arial"
+                r_fn.font.size = Pt(9.5)
+                r_fn.font.color.rgb = COLOR_FAIL if fname == "What would fix it" else COLOR_TEXT
+
+                r_fv = p.add_run(fval)
+                r_fv.font.name = "Arial"
+                r_fv.font.size = Pt(9.5)
+                r_fv.font.color.rgb = COLOR_TEXT
+
+            p_b_space = doc.add_paragraph()
+            p_b_space.paragraph_format.space_before = Pt(0)
+            p_b_space.paragraph_format.space_after = Pt(6)
+
+    # -----------------------------------------------------------------------
+    # Bagian 5: Tabel "Should fix in the next revision"
+    # -----------------------------------------------------------------------
+    _add_heading_1(doc, "Should fix in the next revision")
+    _add_body_p(
+        doc,
+        "Findings that should be resolved in the next scheduled revision:",
+        space_after=6,
+    )
+
+    if not assessment_result.major_findings:
+        _add_body_p(doc, "No major findings identified.", space_after=8)
+    else:
+        maj_table = doc.add_table(rows=0, cols=3)
+        maj_table.autofit = False
+        maj_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+        _set_table_borders(maj_table, color=HEX_BORDER, sz="4")
+        maj_widths = [0.5, 3.5, 2.9]
+
+        m_hdr = maj_table.add_row()
+        m_hdr.cells[0].paragraphs[0].add_run("No.")
+        m_hdr.cells[1].paragraphs[0].add_run("Finding")
+        m_hdr.cells[2].paragraphs[0].add_run("What would fix it")
+        _format_table_row(m_hdr, maj_widths, bg_hex=HEX_NAVY, is_header=True)
+
+        for idx, finding in enumerate(assessment_result.major_findings):
+            row = maj_table.add_row()
+            bg = HEX_ZEBRA if idx % 2 == 1 else HEX_WHITE
+
+            p0 = row.cells[0].paragraphs[0]
+            r0 = p0.add_run(str(finding.number))
+            r0.bold = True
+            r0.font.name = "Arial"
+            r0.font.size = Pt(9)
+            r0.font.color.rgb = COLOR_NAVY
+
+            p1 = row.cells[1].paragraphs[0]
+            r1 = p1.add_run(finding.finding)
+            r1.font.name = "Arial"
+            r1.font.size = Pt(9)
+            r1.font.color.rgb = COLOR_TEXT
+
+            p2 = row.cells[2].paragraphs[0]
+            r2 = p2.add_run(finding.what_would_fix_it)
+            r2.font.name = "Arial"
+            r2.font.size = Pt(9)
+            r2.font.color.rgb = COLOR_TEXT
+
+            _format_table_row(row, maj_widths, bg_hex=bg)
+
+        p_m_space = doc.add_paragraph()
+        p_m_space.paragraph_format.space_before = Pt(0)
+        p_m_space.paragraph_format.space_after = Pt(8)
+
+    # -----------------------------------------------------------------------
+    # Bagian 6: Tabel "Language and mechanics, by page"
+    # -----------------------------------------------------------------------
+    _add_heading_1(doc, "Language and mechanics, by page")
+    _add_body_p(
+        doc,
+        "Language, phrasing, typographical, and grammatical findings by page:",
+        space_after=6,
+    )
+
+    if not assessment_result.language_findings:
+        _add_body_p(doc, "No language or mechanics findings identified.", space_after=8)
+    else:
+        lang_table = doc.add_table(rows=0, cols=3)
+        lang_table.autofit = False
+        lang_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+        _set_table_borders(lang_table, color=HEX_BORDER, sz="4")
+        lang_widths = [0.8, 3.1, 3.0]
+
+        l_hdr = lang_table.add_row()
+        l_hdr.cells[0].paragraphs[0].add_run("Page")
+        l_hdr.cells[1].paragraphs[0].add_run("As Written")
+        l_hdr.cells[2].paragraphs[0].add_run("Suggested")
+        _format_table_row(l_hdr, lang_widths, bg_hex=HEX_NAVY, is_header=True)
+
+        for idx, item in enumerate(assessment_result.language_findings):
+            row = lang_table.add_row()
+            bg = HEX_ZEBRA if idx % 2 == 1 else HEX_WHITE
+
+            p0 = row.cells[0].paragraphs[0]
+            r0 = p0.add_run(item.page)
+            r0.bold = True
+            r0.font.name = "Arial"
+            r0.font.size = Pt(9)
+            r0.font.color.rgb = COLOR_NAVY
+
+            p1 = row.cells[1].paragraphs[0]
+            r1 = p1.add_run(item.as_written)
+            r1.font.name = "Arial"
+            r1.font.size = Pt(9)
+            r1.font.color.rgb = COLOR_TEXT
+
+            p2 = row.cells[2].paragraphs[0]
+            r2 = p2.add_run(item.suggested)
+            r2.font.name = "Arial"
+            r2.font.size = Pt(9)
+            r2.font.color.rgb = COLOR_TEXT
+
+            _format_table_row(row, lang_widths, bg_hex=bg)
+
+        p_l_space = doc.add_paragraph()
+        p_l_space.paragraph_format.space_before = Pt(0)
+        p_l_space.paragraph_format.space_after = Pt(8)
+
+    # -----------------------------------------------------------------------
+    # Bagian 7: Demonstration rewrite
+    # -----------------------------------------------------------------------
+    if assessment_result.demonstration_rewrite:
+        demo = assessment_result.demonstration_rewrite
+        _add_heading_1(doc, "Demonstration rewrite")
+        _add_heading_2(doc, demo.section_title)
+        _add_body_p(doc, demo.intro_note, space_after=6)
+
+        # Callout 1: As Written
+        c_as = _add_callout_box(
+            doc,
+            bg_hex=HEX_CALLOUT_BG,
+            border_color_hex="94A3B8",
+            border_sz="24",
+        )
+        p_as_title = c_as.paragraphs[0]
+        p_as_title.paragraph_format.space_after = Pt(3)
+        r_as_t = p_as_title.add_run(demo.as_written_title)
+        r_as_t.bold = True
+        r_as_t.font.name = "Arial"
+        r_as_t.font.size = Pt(9.5)
+        r_as_t.font.color.rgb = COLOR_SECONDARY
+
+        p_as_text = c_as.add_paragraph()
+        p_as_text.paragraph_format.space_after = Pt(4)
+        p_as_text.paragraph_format.line_spacing = 1.15
+        r_as_tx = p_as_text.add_run(demo.as_written_text)
+        r_as_tx.font.name = "Arial"
+        r_as_tx.font.size = Pt(9)
+        r_as_tx.font.color.rgb = COLOR_TEXT
+
+        p_as_faults = c_as.add_paragraph()
+        p_as_faults.paragraph_format.space_after = Pt(0)
+        r_flt_lbl = p_as_faults.add_run("Faults against Budinski rules: ")
+        r_flt_lbl.bold = True
+        r_flt_lbl.font.name = "Arial"
+        r_flt_lbl.font.size = Pt(9)
+        r_flt_lbl.font.color.rgb = COLOR_FAIL
+        r_flt_val = p_as_faults.add_run(demo.faults_summary)
+        r_flt_val.font.name = "Arial"
+        r_flt_val.font.size = Pt(9)
+        r_flt_val.font.color.rgb = COLOR_TEXT
+
+        doc.add_paragraph().paragraph_format.space_after = Pt(2)
+
+        # Callout 2: Demonstration Form
+        c_dm = _add_callout_box(
+            doc,
+            bg_hex=HEX_DEMO_REWRITE_BG,
+            border_color_hex=HEX_DEMO_REWRITE_BORDER,
+            border_sz="36",
+        )
+        p_dm_title = c_dm.paragraphs[0]
+        p_dm_title.paragraph_format.space_after = Pt(4)
+        r_dm_t = p_dm_title.add_run(demo.demonstration_title)
+        r_dm_t.bold = True
+        r_dm_t.font.name = "Arial"
+        r_dm_t.font.size = Pt(9.5)
+        r_dm_t.font.color.rgb = COLOR_PASS
+
+        for item_sentence in demo.demonstration_items:
+            p_item = c_dm.add_paragraph()
+            p_item.paragraph_format.space_before = Pt(0)
+            p_item.paragraph_format.space_after = Pt(3)
+            p_item.paragraph_format.line_spacing = 1.15
+            r_item = p_item.add_run(item_sentence)
+            r_item.font.name = "Arial"
+            r_item.font.size = Pt(9)
+            r_item.font.color.rgb = COLOR_TEXT
+
+        p_concl = doc.add_paragraph()
+        p_concl.paragraph_format.space_before = Pt(6)
+        p_concl.paragraph_format.space_after = Pt(10)
+        p_concl.paragraph_format.line_spacing = 1.15
+        r_concl = p_concl.add_run(demo.conclusion_summary)
+        r_concl.italic = True
+        r_concl.font.name = "Arial"
+        r_concl.font.size = Pt(9.5)
+        r_concl.font.color.rgb = COLOR_TEXT
+
+    # -----------------------------------------------------------------------
+    # Bagian 8: Scorecard
+    # -----------------------------------------------------------------------
+    _add_heading_1(doc, "Scorecard")
+    _add_body_p(
+        doc,
+        "Scored against the 41 items of the Appendix 12 review checklist from Budinski, "
+        "Engineers' Guide to Technical Writing (2001). Scores: 1 = disagree, 5 = agree. "
+        "Any item scoring 2 or below is treated as requiring rework.",
+        space_after=6,
+    )
+
+    scorecard = assessment_result.scorecard
+
+    # Summary table across 4 groups
+    sc_summary_table = doc.add_table(rows=0, cols=4)
+    sc_summary_table.autofit = False
+    sc_summary_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    _set_table_borders(sc_summary_table, color=HEX_BORDER, sz="4")
+    sc_sum_widths = [1.8, 3.1, 0.7, 1.3]
+
+    s_hdr = sc_summary_table.add_row()
+    s_hdr.cells[0].paragraphs[0].add_run("Group")
+    s_hdr.cells[1].paragraphs[0].add_run("Focus Area")
+    s_hdr.cells[2].paragraphs[0].add_run("Items")
+    s_hdr.cells[3].paragraphs[0].add_run("Group Average")
+    _format_table_row(s_hdr, sc_sum_widths, bg_hex=HEX_NAVY, is_header=True)
+
+    g1_avg = scorecard.group_i_average or scorecard.technical_content.average
+    g2_avg = scorecard.group_ii_average or scorecard.style.average
+    g3_avg = scorecard.group_iii_average or scorecard.report_mechanics.average
+    g4_avg = scorecard.group_iv_average or scorecard.conclusions_and_craft.average
+    overall_avg = scorecard.overall_average or round((g1_avg + g2_avg + g3_avg + g4_avg) / 4, 2)
+
+    group_rows = [
+        ("Group I: Technical Content", "Does the document have substance?", 9, g1_avg),
+        ("Group II: Style", "Is it written appropriately for the application?", 11, g2_avg),
+        ("Group III: Report Mechanics", "Introduction and Procedure", 11, g3_avg),
+        ("Group IV: Conclusions & Craft", "Results, Discussion, Conclusions, Craft", 10, g4_avg),
+    ]
+
+    for idx, (grp_name, desc, cnt, avg) in enumerate(group_rows):
+        row = sc_summary_table.add_row()
+        bg = HEX_ZEBRA if idx % 2 == 1 else HEX_WHITE
+
+        r0 = row.cells[0].paragraphs[0].add_run(grp_name)
+        r0.bold = True
+        r0.font.name = "Arial"
+        r0.font.size = Pt(9)
+        r0.font.color.rgb = COLOR_NAVY
+
+        r1 = row.cells[1].paragraphs[0].add_run(desc)
+        r1.font.name = "Arial"
+        r1.font.size = Pt(9)
+        r1.font.color.rgb = COLOR_TEXT
+
+        r2 = row.cells[2].paragraphs[0].add_run(str(cnt))
+        r2.font.name = "Arial"
+        r2.font.size = Pt(9)
+        r2.font.color.rgb = COLOR_TEXT
+
+        r3 = row.cells[3].paragraphs[0].add_run(f"{avg:.2f} / 5.00")
+        r3.bold = True
+        r3.font.name = "Arial"
+        r3.font.size = Pt(9)
+        r3.font.color.rgb = COLOR_PASS if avg >= 3.0 else COLOR_FAIL
+
+        _format_table_row(row, sc_sum_widths, bg_hex=bg)
+
+    # Overall Summary Row
+    ov_row = sc_summary_table.add_row()
+    r_ov_lbl = ov_row.cells[0].paragraphs[0].add_run("Overall Average")
+    r_ov_lbl.bold = True
+    r_ov_lbl.font.name = "Arial"
+    r_ov_lbl.font.size = Pt(9.5)
+    r_ov_lbl.font.color.rgb = COLOR_NAVY
+
+    r_ov_desc = ov_row.cells[1].paragraphs[0].add_run("All 41 Checklist Items (Appendix 12)")
+    r_ov_desc.bold = True
+    r_ov_desc.font.name = "Arial"
+    r_ov_desc.font.size = Pt(9)
+    r_ov_desc.font.color.rgb = COLOR_TEXT
+
+    r_ov_cnt = ov_row.cells[2].paragraphs[0].add_run("41")
+    r_ov_cnt.bold = True
+    r_ov_cnt.font.name = "Arial"
+    r_ov_cnt.font.size = Pt(9)
+
+    r_ov_val = ov_row.cells[3].paragraphs[0].add_run(f"{overall_avg:.2f} / 5.00")
+    r_ov_val.bold = True
+    r_ov_val.font.name = "Arial"
+    r_ov_val.font.size = Pt(9.5)
+    r_ov_val.font.color.rgb = COLOR_NAVY
+
+    _format_table_row(ov_row, sc_sum_widths, bg_hex=HEX_BANNER)
+
+    p_sc_space = doc.add_paragraph()
+    p_sc_space.paragraph_format.space_before = Pt(4)
+    p_sc_space.paragraph_format.space_after = Pt(4)
+
+    # Detailed 41-Item Table
+    _add_body_p(
+        doc,
+        "Detailed 41-item evaluation across all four Appendix 12 checklist groups:",
+        space_after=4,
+    )
+
+    detail_table = doc.add_table(rows=0, cols=4)
+    detail_table.autofit = False
+    detail_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    _set_table_borders(detail_table, color=HEX_BORDER, sz="4")
+    det_widths = [0.6, 2.7, 0.7, 2.9]
+
+    d_hdr = detail_table.add_row()
+    d_hdr.cells[0].paragraphs[0].add_run("Item")
+    d_hdr.cells[1].paragraphs[0].add_run("Checklist Parameter")
+    d_hdr.cells[2].paragraphs[0].add_run("Score")
+    d_hdr.cells[3].paragraphs[0].add_run("Reviewer Note")
+    _format_table_row(d_hdr, det_widths, bg_hex=HEX_NAVY, is_header=True)
+
+    def _get_item_tuple(
+        prefix: str,
+        idx: int,
+        item: ScoreItem,
+        default_name: str,
+    ) -> tuple[str, str, int, str]:
+        code = f"{prefix}.{idx}"
+        name = item.name or default_name
+        return (code, name, item.score, item.note)
+
+    tc = scorecard.technical_content
+    group_i_items = [
+        _get_item_tuple("I", 1, tc.message_clear, "The message to the reader is clear"),
+        _get_item_tuple("I", 2, tc.logical_approach, "The engineering approach is logical"),
+        _get_item_tuple("I", 3, tc.adequate_research, "Adequate research of previous work"),
+        _get_item_tuple("I", 4, tc.adequate_comparison, "Adequate comparison with work of others"),
+        _get_item_tuple("I", 5, tc.conclusions_supported, "Conclusions supported by the work"),
+        _get_item_tuple("I", 6, tc.value_stated, "The value of the work is clearly stated"),
+        _get_item_tuple("I", 7, tc.objective_met, "The work met the stated objective"),
+        _get_item_tuple("I", 8, tc.original_free_of_plagiarism, "Original and free of plagiarism"),
+        _get_item_tuple("I", 9, tc.timely, "Timely"),
+    ]
+
+    st = scorecard.style
+    group_ii_items = [
+        _get_item_tuple("II", 1, st.objective_tone, "Objective, neutral tone"),
+        _get_item_tuple("II", 2, st.sections_logical, "Sections are logical"),
+        _get_item_tuple("II", 3, st.readership_level, "Writing level suits readership"),
+        _get_item_tuple("II", 4, st.free_of_jargon, "Free of jargon and commercialism"),
+        _get_item_tuple("II", 5, st.english_usage, "Use of English is satisfactory"),
+        _get_item_tuple("II", 6, st.concise, "Understandable and concise"),
+        _get_item_tuple("II", 7, st.interesting, "Interesting"),
+        _get_item_tuple("II", 8, st.free_of_personal_opinion, "Free of personal opinion"),
+        _get_item_tuple("II", 9, st.no_over_explain, "Does not over-explain"),
+        _get_item_tuple("II", 10, st.standard_writing_practice, "Conforms to writing practice"),
+        _get_item_tuple("II", 11, st.layout_and_whitespace, "Page layout and whitespace"),
+    ]
+
+    rm = scorecard.report_mechanics
+    group_iii_items = [
+        _get_item_tuple("III", 1, rm.sufficient_background, "Sufficient background information"),
+        _get_item_tuple("III", 2, rm.purpose_of_work_clear, "Purpose of the work is clear"),
+        _get_item_tuple("III", 3, rm.objective_of_work_clear, "Objective of the work is clear"),
+        _get_item_tuple("III", 4, rm.purpose_of_report_clear, "Purpose of the report is clear"),
+        _get_item_tuple("III", 5, rm.objective_of_report_clear, "Objective of the report is clear"),
+        _get_item_tuple("III", 6, rm.format_stated, "Format of the report is stated"),
+        _get_item_tuple("III", 7, rm.work_referenced, "Work of others adequately referenced"),
+        _get_item_tuple("III", 8, rm.experimental_steps_outlined, "Experimental steps outlined"),
+        _get_item_tuple("III", 9, rm.adequate_detail_to_repeat, "Adequate detail to repeat"),
+        _get_item_tuple("III", 10, rm.free_of_trade_names, "Free of unnecessary trade names"),
+        _get_item_tuple("III", 11, rm.test_standards_cited, "Test standards properly cited"),
+    ]
+
+    cc = scorecard.conclusions_and_craft
+    group_iv_items = [
+        _get_item_tuple("IV", 1, cc.results_clearly_stated, "Results clearly stated"),
+        _get_item_tuple("IV", 2, cc.results_free_of_discussion, "Results free of discussion"),
+        _get_item_tuple("IV", 3, cc.graphs_and_tables_proper, "Graphs and tables proper"),
+        _get_item_tuple("IV", 4, cc.sufficient_results, "Sufficient results presented"),
+        _get_item_tuple("IV", 5, cc.discussion_relates_to_others, "Discussion relates to others"),
+        _get_item_tuple("IV", 6, cc.discussion_length_appropriate, "Discussion length appropriate"),
+        _get_item_tuple("IV", 7, cc.conclusions_follow_from_results, "Conclusions follow results"),
+        _get_item_tuple("IV", 8, cc.conclusions_clear, "Conclusions clear and unambiguous"),
+        _get_item_tuple("IV", 9, cc.references_properly_attributed, "References attributed"),
+        _get_item_tuple("IV", 10, cc.sentence_paragraph_length, "Sentence and paragraph length"),
+    ]
+
+    all_groups_data = [
+        (
+            "GROUP I: TECHNICAL CONTENT",
+            "Does the document have substance?",
+            g1_avg,
+            group_i_items,
+        ),
+        (
+            "GROUP II: STYLE",
+            "Is it written appropriately for the application?",
+            g2_avg,
+            group_ii_items,
+        ),
+        (
+            "GROUP III: REPORT MECHANICS",
+            "Introduction and Procedure",
+            g3_avg,
+            group_iii_items,
+        ),
+        (
+            "GROUP IV: CONCLUSIONS & CRAFT",
+            "Results, Discussion, Conclusions, Craft",
+            g4_avg,
+            group_iv_items,
+        ),
+    ]
+
+    for g_title, g_desc, g_avg, items in all_groups_data:
+        # Group Spanning Banner Row
+        banner_row = detail_table.add_row()
+        banner_cell = banner_row.cells[0]
+        banner_cell.merge(banner_row.cells[3])
+        _set_cell_shading(banner_cell, HEX_BANNER)
+        _set_cell_margins(banner_cell, top=100, bottom=100, left=140, right=140)
+        _apply_cant_split(banner_row)
+
+        p_b = banner_cell.paragraphs[0]
+        p_b.paragraph_format.space_before = Pt(0)
+        p_b.paragraph_format.space_after = Pt(0)
+        r_b = p_b.add_run(f"{g_title} — {g_desc}  (Average: {g_avg:.2f} / 5.00)")
+        r_b.bold = True
+        r_b.font.name = "Arial"
+        r_b.font.size = Pt(9.5)
+        r_b.font.color.rgb = COLOR_NAVY
+
+        for idx, (code, name, score, note) in enumerate(items):
+            row = detail_table.add_row()
+            bg = HEX_ZEBRA if idx % 2 == 1 else HEX_WHITE
+
+            p0 = row.cells[0].paragraphs[0]
+            r0 = p0.add_run(code)
+            r0.bold = True
+            r0.font.name = "Arial"
+            r0.font.size = Pt(9)
+            r0.font.color.rgb = COLOR_NAVY
+
+            p1 = row.cells[1].paragraphs[0]
+            r1 = p1.add_run(name)
+            r1.font.name = "Arial"
+            r1.font.size = Pt(9)
+            r1.font.color.rgb = COLOR_TEXT
+
+            p2 = row.cells[2].paragraphs[0]
+            is_rework = score <= 2
+            score_str = f"{score} (Rework)" if is_rework else str(score)
+            r2 = p2.add_run(score_str)
+            r2.bold = True
+            r2.font.name = "Arial"
+            r2.font.size = Pt(9)
+            r2.font.color.rgb = COLOR_FAIL if is_rework else COLOR_TEXT
+
+            p3 = row.cells[3].paragraphs[0]
+            r3 = p3.add_run(note)
+            r3.font.name = "Arial"
+            r3.font.size = Pt(9)
+            r3.font.color.rgb = COLOR_TEXT
+
+            _format_table_row(row, det_widths, bg_hex=bg)
+
+    p_det_space = doc.add_paragraph()
+    p_det_space.paragraph_format.space_before = Pt(0)
+    p_det_space.paragraph_format.space_after = Pt(8)
+
+    # -----------------------------------------------------------------------
+    # Bagian 9: What this document does well
+    # -----------------------------------------------------------------------
+    _add_heading_1(doc, "What this document does well")
+    _add_body_p(
+        doc,
+        "Positive engineering writing practices and structural strengths observed:",
+        space_after=6,
+    )
+
+    for index, item_text in enumerate(assessment_result.what_it_does_well, 1):
+        p_good = doc.add_paragraph()
+        p_good.paragraph_format.space_before = Pt(0)
+        p_good.paragraph_format.space_after = Pt(5)
+        p_good.paragraph_format.line_spacing = 1.15
+        r_num = p_good.add_run(f"{index}.  ")
+        r_num.bold = True
+        r_num.font.name = "Arial"
+        r_num.font.size = Pt(9.5)
+        r_num.font.color.rgb = COLOR_NAVY
+        r_txt = p_good.add_run(item_text)
+        r_txt.font.name = "Arial"
+        r_txt.font.size = Pt(9.5)
+        r_txt.font.color.rgb = COLOR_TEXT
+
+    p_good_space = doc.add_paragraph()
+    p_good_space.paragraph_format.space_before = Pt(0)
+    p_good_space.paragraph_format.space_after = Pt(8)
+
+    # -----------------------------------------------------------------------
+    # Bagian 10: Limits of this review & REVIEWSCORE summary string
+    # -----------------------------------------------------------------------
+    _add_heading_1(doc, "Limits of this review")
+
+    for item_text in assessment_result.limits_of_review:
+        _add_body_p(doc, item_text, space_after=6)
+
+    # REVIEWSCORE Callout Box
+    score_str = assessment_result.review_score_string or scorecard.review_score_string
+    if score_str:
+        c_rs = _add_callout_box(
+            doc,
+            bg_hex="F1F5F9",
+            border_color_hex=HEX_NAVY,
+            border_sz="12",
+        )
+        p_rs = c_rs.paragraphs[0]
+        p_rs.paragraph_format.space_before = Pt(0)
+        p_rs.paragraph_format.space_after = Pt(0)
+        r_rs = p_rs.add_run(score_str)
+        r_rs.bold = True
+        r_rs.font.name = "Consolas"
+        r_rs.font.size = Pt(9)
+        r_rs.font.color.rgb = COLOR_NAVY
+
+    output = io.BytesIO()
+    doc.save(output)
+    return output.getvalue()
+
+
+def create_review_report_template(output_path: Path | str | None = None) -> bytes:
+    """
+    Generate a baseline blank review report template DOCX file with pre-configured
+    margins, headers, footers, and styles.
+    """
+    doc = docx.Document()
+    section = doc.sections[0]
+    section.top_margin = Inches(0.8)
+    section.bottom_margin = Inches(0.8)
+    section.left_margin = Inches(0.8)
+    section.right_margin = Inches(0.8)
+
+    normal_style = doc.styles["Normal"]
+    normal_style.font.name = "Arial"
+    normal_style.font.size = Pt(10)
+    normal_style.font.color.rgb = COLOR_TEXT
+
+    # Page Header
+    header = section.header
+    header.is_linked_to_previous = False
+    hp = header.paragraphs[0]
+    hp.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    r_hdr = hp.add_run(
+        "Review of Technical Document — writing review only  |  DOCUMENT REVIEW · ENGINEERING"
+    )
+    r_hdr.font.name = "Arial"
+    r_hdr.font.size = Pt(8)
+    r_hdr.font.color.rgb = COLOR_MUTED
+
+    # Page Footer
+    footer = section.footer
+    footer.is_linked_to_previous = False
+    fp = footer.paragraphs[0]
+    fp.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    r_ftr = fp.add_run("Review Report    Page ")
+    r_ftr.font.name = "Arial"
+    r_ftr.font.size = Pt(8)
+    r_ftr.font.color.rgb = COLOR_MUTED
+    r_ftr._r.append(parse_xml(f'<w:fldSimple {nsdecls("w")} w:instr="PAGE"/>'))
+
+    r_of = fp.add_run(" of ")
+    r_of.font.name = "Arial"
+    r_of.font.size = Pt(8)
+    r_of.font.color.rgb = COLOR_MUTED
+    r_of._r.append(parse_xml(f'<w:fldSimple {nsdecls("w")} w:instr="NUMPAGES"/>'))
+
+    p_init = doc.add_paragraph()
+    r_init = p_init.add_run("DOCUMENT REVIEW TEMPLATE (BUDINSKI APPENDIX 12)")
+    r_init.bold = True
+    r_init.font.name = "Arial"
+    r_init.font.size = Pt(16)
+    r_init.font.color.rgb = COLOR_NAVY
+
+    output = io.BytesIO()
+    doc.save(output)
+    doc_bytes = output.getvalue()
+
+    if output_path:
+        path = Path(output_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(doc_bytes)
+
+    return doc_bytes

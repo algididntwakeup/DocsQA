@@ -13,17 +13,25 @@ from uuid import uuid4
 
 import docx
 import pytest
+import yaml
+from pydantic import ValidationError
 
-from domain.enums import DocumentStatus, IssueCategory, Severity
+from domain.enums import DocumentStatus, EvaluationStatus, IssueCategory, Severity
 from models.document import Document
 from models.issue import Issue
 from schemas.issues import ReferenceRuleEvidence
 from schemas.reference_pack import (
     NumericLimitParameters,
+    PackBundleUpload,
+    PackManifest,
+    PackOrigin,
+    PackScope,
     RangeParameters,
     ReferenceFinding,
     ReferenceRule,
     RequiredReferenceParameters,
+    RuleDefinition,
+    RuleSeverity,
     TerminologyParameters,
     UnitParameters,
 )
@@ -450,6 +458,208 @@ def test_aggregate_document_findings_with_reference_rules() -> None:
     assert result.total_issues == 1
     assert result.issues_by_category["TRACEABILITY"] == 1
     assert result.issues_by_severity["HIGH"] == 1
+
+
+# ── 6. Pack Manifest & Rule Definition Parsing (pack.yaml / rules.yaml) ──
+
+
+VALID_PACK_YAML = """
+pack_id: tenant_asme_custom
+name: Custom Tenant ASME Pack
+standard_code: ASME BPVC.VIII.1
+edition_year: "2021"
+origin: CUSTOM
+scope: GLOBAL_TENANT
+version: 1.2.0
+status: UNCONFIGURED
+tenant_id: "42"
+description: Tenant-curated ASME pack
+"""
+
+VALID_RULES_YAML = """
+rules:
+  - rule_id: ASME-VIII-1-UG99-HYDRO-RATIO
+    standard_code: ASME BPVC.VIII.1
+    clause: UG-99(b)
+    rule_type: numeric_range
+    severity: CRITICAL
+    parameters:
+      parameter_name: Hydrostatic test pressure ratio
+      min_value: 1.30
+      max_value: 1.50
+    expected_condition: "hydrostatic test ratio >= 1.30"
+    recommendation_template: "Increase hydrostatic test ratio to at least 1.30."
+  - rule_id: ASME-VIII-1-PRESSURE-UNITS
+    standard_code: ASME BPVC.VIII.1
+    clause: "2.3"
+    rule_type: unit_compatibility
+    severity: MAJOR
+    parameters:
+      canonical_unit: MPa
+      forbidden_units: [kg/cm2]
+    expected_condition: "all pressures use compatible units"
+    recommendation_template: "Express pressure in MPa or bar."
+"""
+
+
+def _parse_pack_yaml(text: str) -> PackManifest:
+    return PackManifest.model_validate(yaml.safe_load(text))
+
+
+def _parse_rules_yaml(text: str) -> list[RuleDefinition]:
+    raw = yaml.safe_load(text)
+    return [RuleDefinition.model_validate(r) for r in raw["rules"]]
+
+
+def test_valid_pack_yaml_parsing() -> None:
+    manifest = _parse_pack_yaml(VALID_PACK_YAML)
+    assert manifest.pack_id == "tenant_asme_custom"
+    assert manifest.name == "Custom Tenant ASME Pack"
+    assert manifest.standard_code == "ASME BPVC.VIII.1"
+    assert manifest.edition_year == "2021"
+    assert manifest.origin is PackOrigin.CUSTOM
+    assert manifest.scope is PackScope.GLOBAL_TENANT
+    assert manifest.version == "1.2.0"
+    assert manifest.status == "UNCONFIGURED"
+    assert manifest.tenant_id == "42"
+
+
+def test_valid_rules_yaml_parsing() -> None:
+    rules = _parse_rules_yaml(VALID_RULES_YAML)
+    assert len(rules) == 2
+    assert rules[0].rule_id == "ASME-VIII-1-UG99-HYDRO-RATIO"
+    assert rules[0].rule_type.value == "numeric_range"
+    assert rules[0].severity is RuleSeverity.CRITICAL
+    assert rules[0].parameters["min_value"] == 1.30
+    assert rules[1].rule_type.value == "unit_compatibility"
+    assert rules[1].severity is RuleSeverity.MAJOR
+
+
+def test_invalid_pack_yaml_bad_version() -> None:
+    bad = VALID_PACK_YAML.replace("version: 1.2.0", "version: 1.2")
+    with pytest.raises(ValidationError):
+        _parse_pack_yaml(bad)
+
+
+def test_invalid_pack_yaml_bad_edition_year() -> None:
+    bad = VALID_PACK_YAML.replace('edition_year: "2021"', "edition_year: 21st")
+    with pytest.raises(ValidationError):
+        _parse_pack_yaml(bad)
+
+
+def test_invalid_pack_yaml_custom_without_tenant() -> None:
+    bad = VALID_PACK_YAML.replace('tenant_id: "42"\n', "")
+    with pytest.raises(ValidationError, match="tenant_id"):
+        _parse_pack_yaml(bad)
+
+
+def test_invalid_pack_yaml_unknown_field() -> None:
+    bad = VALID_PACK_YAML + "surprise_field: true\n"
+    with pytest.raises(ValidationError):
+        _parse_pack_yaml(bad)
+
+
+def test_invalid_rules_yaml_unknown_rule_type() -> None:
+    bad = VALID_RULES_YAML.replace("rule_type: numeric_range", "rule_type: magic_check")
+    with pytest.raises(ValidationError):
+        _parse_rules_yaml(bad)
+
+
+def test_invalid_rules_yaml_missing_expected_condition() -> None:
+    bad = VALID_RULES_YAML.replace(
+        '    expected_condition: "hydrostatic test ratio >= 1.30"\n', ""
+    )
+    with pytest.raises(ValidationError):
+        _parse_rules_yaml(bad)
+
+
+def test_invalid_rules_yaml_unknown_severity() -> None:
+    bad = VALID_RULES_YAML.replace("severity: CRITICAL", "severity: BLOCKER")
+    with pytest.raises(ValidationError):
+        _parse_rules_yaml(bad)
+
+
+def test_pack_bundle_upload_valid() -> None:
+    manifest = _parse_pack_yaml(VALID_PACK_YAML)
+    rules = _parse_rules_yaml(VALID_RULES_YAML)
+    bundle = PackBundleUpload.model_validate(
+        {"manifest": manifest.model_dump(mode="json"), "rules": [
+            r.model_dump(mode="json") for r in rules
+        ]}
+    )
+    assert bundle.manifest.origin is PackOrigin.CUSTOM
+    assert len(bundle.rules) == 2
+
+
+def test_pack_bundle_upload_rejects_system_origin() -> None:
+    system_manifest = PackManifest(
+        pack_id="system_pack",
+        name="System Pack",
+        standard_code="ASME BPVC.VIII.1",
+        edition_year="2021",
+        version="1.0.0",
+    )
+    with pytest.raises(ValidationError, match="origin=CUSTOM"):
+        PackBundleUpload.model_validate(
+            {"manifest": system_manifest.model_dump(mode="json"), "rules": []}
+        )
+
+
+def test_pack_bundle_upload_rejects_duplicate_rule_ids() -> None:
+    manifest = _parse_pack_yaml(VALID_PACK_YAML)
+    rules = _parse_rules_yaml(VALID_RULES_YAML)
+    with pytest.raises(ValidationError, match="Duplicate rule_id"):
+        PackBundleUpload.model_validate(
+            {"manifest": manifest.model_dump(mode="json"),
+             "rules": [r.model_dump(mode="json") for r in rules]
+             + [rules[0].model_dump(mode="json")]}
+        )
+
+
+def test_pack_bundle_upload_rejects_standard_code_mismatch() -> None:
+    manifest = _parse_pack_yaml(VALID_PACK_YAML)
+    rules = _parse_rules_yaml(VALID_RULES_YAML)
+    for r in rules:
+        r.standard_code = "API 510"
+    with pytest.raises(ValidationError, match="standard_code does not match"):
+        PackBundleUpload.model_validate(
+            {"manifest": manifest.model_dump(mode="json"), "rules": [
+                r.model_dump(mode="json") for r in rules
+            ]}
+        )
+
+
+# ── BenchmarkCase Expectation schema ──────────────────────────────────
+
+
+def test_benchmark_expectation_valid() -> None:
+    from schemas.reference_pack import BenchmarkExpectation
+
+    exp = BenchmarkExpectation.model_validate(
+        {
+            "case_id": "BM-001",
+            "description": "Hydro ratio below 1.30",
+            "input_fact": {"parameter": "hydrostatic_test_ratio", "value": 1.15},
+            "expected_status": EvaluationStatus.MISMATCH,
+            "expected_rule_id": "ASME-VIII-1-UG99-HYDRO-RATIO",
+        }
+    )
+    assert exp.expected_status is EvaluationStatus.MISMATCH
+    assert exp.expected_rule_id == "ASME-VIII-1-UG99-HYDRO-RATIO"
+
+
+def test_benchmark_expectation_invalid_status() -> None:
+    from schemas.reference_pack import BenchmarkExpectation
+
+    with pytest.raises(ValidationError):
+        BenchmarkExpectation.model_validate(
+            {
+                "case_id": "BM-002",
+                "description": "Bad status",
+                "input_fact": {"value": 1},
+                "expected_status": "SOMETHING_ELSE",
+            }
+        )
 
 
 # ── 5. DOCX Review Report Integration Tests ───────────────────────────

@@ -347,9 +347,9 @@ async def get_traceability_summary(
 
     for issue in issues:
         counts_by_type[issue.type] = counts_by_type.get(issue.type, 0) + 1
-        sev_key = issue.severity.value
+        sev_key = getattr(issue.severity, "value", str(issue.severity))
         counts_by_severity[sev_key] = counts_by_severity.get(sev_key, 0) + 1
-        if issue.severity == Severity.CRITICAL:
+        if issue.severity in {Severity.CRITICAL, "CRITICAL"}:
             critical_count += 1
         if issue.included_in_report:
             unresolved_count += 1
@@ -392,8 +392,16 @@ async def get_report_preview(
     counts: dict[str, int] = {}
     blockers = 0
     for issue in issues:
-        counts[issue.severity.value] = counts.get(issue.severity.value, 0) + 1
-        if issue.severity in {Severity.CRITICAL, Severity.HIGH}:
+        sev_key = getattr(issue.severity, "value", str(issue.severity))
+        counts[sev_key] = counts.get(sev_key, 0) + 1
+        if issue.severity in {
+            Severity.BLOCKER,
+            Severity.CRITICAL,
+            Severity.HIGH,
+            "BLOCKER",
+            "CRITICAL",
+            "HIGH",
+        }:
             blockers += 1
     summary = (
         "Blockers require correction before reissue."

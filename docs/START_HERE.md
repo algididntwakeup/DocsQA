@@ -14,9 +14,14 @@ This is the central index every new agent must read in full. Repository state al
 - **Delivery Plan Progress**:
   - **Item 1 (Complete)**: Replaced approval and audit workflow with report curation across database models, Alembic migration `20260907_0006_report_curation`, FastAPI endpoints, and UI.
   - **Item 2 (Complete)**: Added deterministic DOCX report builder (`backend/services/report.py`), report preview endpoint/modal, and restricted export panel to DOCX and annotated PDF.
+  - **Item 3 / Layout Diagnostics (Complete)**: Added `DocumentLayoutInspector` (`backend/services/layout_inspector.py`) and schemas in `backend/schemas/extraction.py` detecting cross-page sentence breaks, style/typography misclassification, void pages/unintended whitespace, uncontrolled pages, and front matter navigation drift.
+  - **Item 4 / Budinski Evaluator (Complete)**: Codified Kenneth G. Budinski's *Engineers' Guide to Technical Writing* (Appendix 12) grading engine (`backend/services/budinski_evaluator.py`, `backend/schemas/budinski.py`) assessing 4 baseline measures, 41 scorecard items, definition contradiction blockers, and demonstration rewrites.
+  - **Item 5 / Review-ALE DOCX Engine (Complete)**: Built 10-section Word review report generator matching *Review of Asset Life Extension Study* (Review-ALE-Grissik) in `backend/services/export.py`.
+  - **Item 6 / Real-World E2E Test (Complete)**: Verified full scan and report generation for `docs/testcase/05.MEPG-Asset Life Extension 2026_Static Equipment_RevB.pdf` in `backend/tests/test_e2e_mepg_review.py`.
+  - **Item 7 / Schema & Pipeline Synchronization (Complete)**: Synchronized `IssueCategory` (`LAYOUT`, `BUDINSKI`), `Severity` (`BLOCKER`), 6 canonical pipeline stages, SSE progress streaming, linguistic finding de-prioritization, OpenAPI 3.1 specification, and frontend TypeScript contracts.
 - **Quality Status**:
-  - Backend: **195 passed, 1 skipped, 0 failed** (Ruff check clean, Mypy clean with 64 files, Alembic offline upgrade valid).
-  - Frontend: **39 passed, 0 failed** across 11 test suites (TypeScript clean, ESLint clean, Next.js Turbopack build succeeds).
+  - Backend: **349 passed, 1 skipped, 0 failed** (Ruff check clean, Mypy clean with 0 issues in source files, Pytest clean).
+  - Frontend: TypeScript clean (`tsc --noEmit`), API contracts in exact sync (`api-schema.d.ts`), UI badges mapped.
 - **Never push to GitHub**; the owner pushes. Local commits are allowed only after quality gates pass.
 
 ## Source precedence

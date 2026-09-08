@@ -206,3 +206,18 @@ def analyze_standard_traceability(
         reference_entries=references,
         findings=_deduplicate_findings(findings),
     )
+
+
+def detected_citation_codes(analysis: StandardTraceabilityAnalysis) -> list[str]:
+    """Unique normalized codes cited anywhere in the document, in stable order.
+
+    This is the feed for automatic reference-pack selection: a pack becomes
+    active when its standard appears among these codes.
+    """
+    seen: set[str] = set()
+    codes: list[str] = []
+    for citation in [*analysis.body_citations, *analysis.reference_entries]:
+        if citation.normalized_code not in seen:
+            seen.add(citation.normalized_code)
+            codes.append(citation.normalized_code)
+    return codes

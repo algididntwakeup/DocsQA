@@ -8,10 +8,16 @@ from unittest.mock import AsyncMock, patch
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from domain.enums import DocumentStatus, StageStatus
+from domain.enums import DocumentStatus, IssueCategory, PipelineStage, Severity, StageStatus
 from models.document import Document
-from schemas.extraction import ExtractionArtifact
-from services.pipeline import enqueue_extraction
+from schemas.extraction import ExtractionArtifact, LayoutAnomaly
+from services.pipeline import (
+    CANONICAL_PIPELINE_STAGES,
+    deprioritize_linguistic_severity,
+    enqueue_extraction,
+    execute_document_pipeline,
+    format_sse_stage_event,
+)
 from services.storage import LocalStorage
 from tasks.extraction import (
     _run_aggregation_stage,
@@ -361,3 +367,134 @@ def test_grammar_duplicate_ambiguity_stage_success(tmp_path: Path) -> None:
     assert g_failed is False
     assert d_failed is False
     assert a_failed is False
+
+
+def test_format_sse_stage_event() -> None:
+    """format_sse_stage_event builds well-formed SSE progress frames."""
+    doc_id = uuid.uuid4()
+    msg = format_sse_stage_event(doc_id, PipelineStage.LAYOUT_INSPECTION, StageStatus.RUNNING, 25)
+    assert msg.startswith("event: progress\ndata: {")
+    assert f'"document_id": "{doc_id}"' in msg
+    assert '"stage_name": "LAYOUT_INSPECTION"' in msg
+    assert '"status": "RUNNING"' in msg
+    assert '"progress_pct": 25' in msg
+    assert msg.endswith("\n\n")
+
+
+def test_deprioritize_linguistic_findings() -> None:
+    """Linguistic and dictionary findings are capped at MINOR severity."""
+    # Critical and high severities are clamped to MINOR
+    assert deprioritize_linguistic_severity(Severity.BLOCKER) == Severity.MINOR
+    assert deprioritize_linguistic_severity(Severity.CRITICAL) == Severity.MINOR
+    assert deprioritize_linguistic_severity(Severity.MAJOR) == Severity.MINOR
+    assert deprioritize_linguistic_severity(Severity.HIGH) == Severity.MINOR
+    assert deprioritize_linguistic_severity(Severity.MEDIUM) == Severity.MINOR
+    assert deprioritize_linguistic_severity(Severity.MINOR) == Severity.MINOR
+    assert deprioritize_linguistic_severity(Severity.LOW) == Severity.MINOR
+
+    # INFO remains INFO
+    assert deprioritize_linguistic_severity(Severity.INFO) == Severity.INFO
+
+    # String input support
+    assert deprioritize_linguistic_severity("BLOCKER") == Severity.MINOR
+    assert deprioritize_linguistic_severity("CRITICAL") == Severity.MINOR
+    assert deprioritize_linguistic_severity("INFO") == Severity.INFO
+
+
+def test_pipeline_stages_and_sse_events() -> None:
+    """execute_document_pipeline sequences all 6 stages and emits SSE frames."""
+    doc_id = uuid.uuid4()
+    doc = Document(id=doc_id, original_filename="MEPG_ALE_Test.pdf")
+    session = AsyncMock(spec=AsyncSession)
+
+    events: list[str] = []
+
+    async def _capture_event(event_str: str) -> None:
+        events.append(event_str)
+
+    result = asyncio.run(
+        execute_document_pipeline(
+            document=doc,
+            session=session,
+            file_path=None,
+            on_event=_capture_event,
+        )
+    )
+
+    assert result["document_id"] == str(doc_id)
+    assert result["status"] == "COMPLETED"
+    assert len(events) > 0
+
+    # Ensure all 6 canonical stages were referenced in events
+    for stage in CANONICAL_PIPELINE_STAGES:
+        assert any(stage.value in ev for ev in events), f"Missing stage {stage.value} in SSE events"
+
+    # Validate structure of SSE events
+    for ev in events:
+        assert ev.startswith("event: progress\ndata: ")
+        assert ev.endswith("\n\n")
+
+
+def test_pipeline_creates_layout_blocker_issues() -> None:
+    """Layout inspection cross-page breaks produce BLOCKER issues.
+
+    Also verifies uncontrolled pages produce MAJOR issues and unintended whitespace MINOR.
+    """
+    doc_id = uuid.uuid4()
+    doc = Document(id=doc_id, original_filename="MEPG_Sample.pdf")
+    session = AsyncMock(spec=AsyncSession)
+
+    anomalies = [
+        LayoutAnomaly(
+            anomaly_type="CROSS_PAGE_SENTENCE_BREAK",
+            page_index=20,
+            message="Sentence broken across page 20-21",
+            details={"snippet": "Table 6-3 and"},
+        ),
+        LayoutAnomaly(
+            anomaly_type="UNCONTROLLED_PAGE",
+            page_index=55,
+            message="Attachment page without controlled document header",
+            details={},
+        ),
+        LayoutAnomaly(
+            anomaly_type="UNINTENDED_WHITESPACE",
+            page_index=15,
+            message="Void whitespace area detected",
+            details={},
+        ),
+    ]
+
+    with patch("services.pipeline.DocumentLayoutInspector") as mock_inspector_cls:
+        inspector_instance = mock_inspector_cls.return_value
+        inspector_instance.detect_cross_page_sentence_breaks.return_value = [anomalies[0]]
+        inspector_instance.audit_uncontrolled_pages.return_value = [anomalies[1]]
+        inspector_instance.detect_unintended_whitespace.return_value = [anomalies[2]]
+        inspector_instance.detect_style_misclassification.return_value = []
+        inspector_instance.validate_front_matter_navigation.return_value = []
+
+        fake_pdf = Path("fake.pdf")
+        with patch("pathlib.Path.exists", return_value=True), patch("fitz.open"):
+            asyncio.run(
+                execute_document_pipeline(
+                    document=doc,
+                    session=session,
+                    file_path=fake_pdf,
+                )
+            )
+
+    # Check session.add_all was called with issues
+    session.add_all.assert_called_once()
+    issues = session.add_all.call_args.args[0]
+    layout_issues = [i for i in issues if i.category == IssueCategory.LAYOUT.value]
+    assert len(layout_issues) == 3
+
+    break_issue = next(i for i in layout_issues if i.type == "CROSS_PAGE_SENTENCE_BREAK")
+    assert break_issue.severity == Severity.BLOCKER.value
+
+    uncontrolled_issue = next(i for i in layout_issues if i.type == "UNCONTROLLED_PAGE")
+    assert uncontrolled_issue.severity == Severity.MAJOR.value
+
+    whitespace_issue = next(i for i in layout_issues if i.type == "UNINTENDED_WHITESPACE")
+    assert whitespace_issue.severity == Severity.MINOR.value
+
