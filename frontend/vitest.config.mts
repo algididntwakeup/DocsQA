@@ -9,7 +9,7 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     exclude: ["e2e/**", "node_modules/**"],
-    pool: "forks",
+    pool: "threads",
     fileParallelism: false,
     maxWorkers: 1,
     testTimeout: 30000,

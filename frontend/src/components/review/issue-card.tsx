@@ -212,7 +212,7 @@ export function IssueCard({
               <div className="p-2.5 rounded bg-violet-500/5 border border-violet-500/20 space-y-2 text-xs">
                 <div className="flex items-center gap-1.5 font-medium text-violet-700 dark:text-violet-300 text-[11px] uppercase tracking-wider">
                   <CheckCircle2 size={13} />
-                  <span>Budinski Rule Audit {evidence.rule_number ? `· ${String(evidence.rule_number)}` : ""}</span>
+                  <span>Technical Writing Rule Audit {evidence.rule_number ? `· ${String(evidence.rule_number)}` : ""}</span>
                 </div>
                 {Boolean(evidence.measure) && <p><span className="text-muted">Measure:</span> {String(evidence.measure)}</p>}
                 {Boolean(evidence.where_location) && <p><span className="text-muted">Where:</span> {String(evidence.where_location)}</p>}

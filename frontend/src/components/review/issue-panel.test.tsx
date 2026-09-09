@@ -109,7 +109,7 @@ describe("IssuePanel", () => {
       />
     );
 
-    // Standards findings are separated from the Budinski/Layout audit queue.
+    // Standards findings are separated from the technical/layout audit queue.
     expect(screen.queryByText("RULE_TABLE_MATH_001")).toBeNull();
     expect(screen.queryByText("RULE_STANDARDS_STRICTNESS_001")).toBeNull();
     expect(screen.queryByText("RULE_PASSIVE_VOICE")).toBeNull();
@@ -124,6 +124,25 @@ describe("IssuePanel", () => {
 
     expect(screen.getByText("RULE_PASSIVE_VOICE")).toBeDefined();
     expect(screen.queryByText("RULE_TABLE_MATH_001")).toBeNull();
+  });
+
+  it("shows technical and layout findings in the default audit tab", () => {
+    const auditIssues: IssueItem[] = [
+      { ...sampleIssues[0], id: "layout-1", category: "LAYOUT", type: "UNCONTROLLED_PAGE" },
+      { ...sampleIssues[0], id: "budinski-1", category: "BUDINSKI", type: "BUDINSKI_REWORK" },
+    ];
+    render(
+      <IssuePanel
+        issues={auditIssues}
+        selectedIssueId={null}
+        onSelectIssue={vi.fn()}
+        onCurateIssue={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("UNCONTROLLED_PAGE")).toBeDefined();
+    expect(screen.getByText("BUDINSKI_REWORK")).toBeDefined();
+    expect(screen.getByText("2/2")).toBeDefined();
   });
 
   it("filters findings by severity dropdown", () => {

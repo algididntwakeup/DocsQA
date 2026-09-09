@@ -67,12 +67,9 @@ describe("ReportPreviewModal", () => {
       expect(screen.getByText("Limits of this review")).toBeDefined();
     });
 
-    // Check export deliverable links
-    const docxBtn = screen.getByRole("link", { name: /download docx report/i });
-    expect(docxBtn.getAttribute("href")).toContain("/documents/doc-test-123/export?format=docx");
-
-    const pdfBtn = screen.getByRole("link", { name: /download annotated pdf/i });
-    expect(pdfBtn.getAttribute("href")).toContain("/documents/doc-test-123/export?format=pdf");
+    // Export actions are buttons so they can show asynchronous toast feedback.
+    expect(screen.getByRole("button", { name: /download docx report/i })).toBeDefined();
+    expect(screen.getByRole("button", { name: /download annotated pdf/i })).toBeDefined();
   });
 
   it("handles preview error gracefully", async () => {

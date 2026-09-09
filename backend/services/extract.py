@@ -8,6 +8,7 @@ Pipeline stage 0 — shared by both Linguistic and Traceability branches.
 """
 
 import logging
+import re
 import subprocess
 import tempfile
 import time
@@ -38,6 +39,34 @@ _MAX_TEXT_BLOCKS_FOR_TABLES = 300
 # hundreds/thousands of vector paths. PyMuPDF's find_tables() inspects every path
 # to find line intersections, which hangs or takes minutes per page.
 _MAX_DRAWINGS_FOR_TABLES = 500
+_PRINTED_PAGE_PATTERN = re.compile(
+    r"(?<![A-Za-z0-9])([ivxlcdm]{1,12}|\d{1,4})(?![A-Za-z0-9])",
+    re.IGNORECASE,
+)
+_EXPLICIT_PAGE_PATTERN = re.compile(
+    r"\b(?:page|pg\.?|p\.?)\s*[:.]?\s*([ivxlcdm]{1,12}|\d{1,4})\b",
+    re.IGNORECASE,
+)
+
+
+def _printed_page_label(blocks: list[dict], page_height: float) -> str | None:
+    """Read the printed page label from footer text, not the PDF position."""
+    candidates: list[tuple[float, str]] = []
+    for block in blocks:
+        for line in block.get("lines", []):
+            line_text = " ".join(
+                str(span.get("text", "")).strip() for span in line.get("spans", [])
+            ).strip()
+            bbox = line.get("bbox")
+            if not line_text or not bbox or float(bbox[1]) < page_height * 0.78:
+                continue
+            explicit = _EXPLICIT_PAGE_PATTERN.search(line_text)
+            if explicit:
+                candidates.append((float(bbox[1]), explicit.group(1)))
+                continue
+            if re.fullmatch(r"[ivxlcdm]{1,12}|\d{1,4}", line_text, re.IGNORECASE):
+                candidates.append((float(bbox[1]), line_text))
+    return max(candidates, key=lambda item: item[0])[1] if candidates else None
 
 
 class PDFExtractor:
@@ -62,15 +91,16 @@ class PDFExtractor:
             page_start = time.monotonic()
             page = doc[page_index]
             rect = page.rect
-            page_meta = PageMetadata(
-                page_index=page_index,
-                width=rect.width,
-                height=rect.height,
-            )
-            artifact.pages.append(page_meta)
-
             # Extract text blocks
             blocks = page.get_text("dict")["blocks"]
+            artifact.pages.append(
+                PageMetadata(
+                    page_index=page_index,
+                    width=rect.width,
+                    height=rect.height,
+                    page_label=_printed_page_label(blocks, rect.height),
+                )
+            )
             for block in blocks:
                 if block.get("type") != 0:  # not a text block
                     continue

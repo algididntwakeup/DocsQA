@@ -87,7 +87,7 @@ export function Dashboard() {
       </div>
       {error && <div className="alert alert-error" role="alert"><AlertTriangle /><span><strong>API unavailable</strong>{error}</span><button type="button" onClick={() => void load()}>Retry</button></div>}
        {loading ? <div className="panel loading-state" role="status">Loading inspection register…</div> : <>
-         {metrics.active > 0 && <div className="live-monitor" role="status" aria-live="polite"><Radio size={15} /><span><strong>Live monitoring active</strong> Processing progress updates automatically. You can keep this page open.</span><span className="live-pulse" aria-hidden="true" /></div>}
+         {metrics.active > 0 && <div className="live-monitor" role="status" aria-live="polite"><Radio size={15} /><span><strong>Live monitoring active</strong> Processing progress may take a while. You can keep this page open and leave to the other tab while waiting.</span><span className="live-pulse" aria-hidden="true" /></div>}
          <DocumentList documents={documents} onRefresh={() => void load()} />
        </>}
     </>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   Download,
   FileCheck2,
@@ -8,7 +8,8 @@ import {
   X,
   ExternalLink,
 } from "lucide-react";
-import { getExportUrl, type ExportFormat } from "@/lib/api";
+import { type ExportFormat } from "@/lib/api";
+import { downloadExport } from "@/lib/download";
 
 interface ExportModalProps {
   documentId: string;
@@ -41,6 +42,8 @@ export function ExportModal({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
+
+  const [includeMinors, setIncludeMinors] = useState(false);
 
   if (!isOpen) return null;
 
@@ -100,9 +103,21 @@ export function ExportModal({
             <strong className="text-ink font-semibold">{documentFilename}</strong>. Generated outputs reflect only findings marked as included in report.
           </p>
 
+          <label className="flex items-start gap-2 rounded-lg border border-line bg-muted/5 p-3 text-xs text-muted">
+            <input
+              type="checkbox"
+              checked={includeMinors}
+              onChange={(event) => setIncludeMinors(event.target.checked)}
+              className="mt-0.5"
+            />
+            <span>
+              <span className="block font-semibold text-ink">Include minor findings</span>
+              <span>Include spelling, grammar, and informational findings in the export. Off by default to keep the report concise.</span>
+            </span>
+          </label>
+
           <div className="grid grid-cols-1 gap-3">
             {exportOptions.map((opt) => {
-              const url = getExportUrl(documentId, opt.format);
               return (
                 <div
                   key={opt.format}
@@ -133,16 +148,16 @@ export function ExportModal({
                   </div>
 
                   <div className="mt-4 pt-3 border-t border-line flex justify-end">
-                    <a
-                      href={url}
-                      download
+                    <button
+                      type="button"
                       data-testid={`export-${opt.format}-btn`}
                       className="button button-primary btn-sm flex items-center gap-1.5"
+                       onClick={() => void downloadExport(documentId, opt.format, includeMinors)}
                     >
                       <Download size={13} />
                       <span>Download {opt.extension.toUpperCase().slice(1)}</span>
                       <ExternalLink size={11} className="opacity-60 ml-0.5" />
-                    </a>
+                    </button>
                   </div>
                 </div>
               );

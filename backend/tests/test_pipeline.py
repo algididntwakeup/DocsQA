@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from domain.enums import DocumentStatus, IssueCategory, PipelineStage, Severity, StageStatus
 from models.document import Document
 from schemas.extraction import ExtractionArtifact, LayoutAnomaly
+from schemas.issues import BoundingBox
 from schemas.linguistic import LinguisticFinding
 from services.pipeline import (
     CANONICAL_PIPELINE_STAGES,
@@ -146,8 +147,8 @@ def test_standard_failure_finalizes_with_warnings(tmp_path: Path) -> None:
 
     stage_run = session.add.call_args.args[0]
     assert stage_run.status == StageStatus.FAILED
-    assert document.status == DocumentStatus.COMPLETED_WITH_WARNINGS
-    assert document.progress_pct == 100
+    assert document.status is None
+    assert document.progress_pct is None
 
 
 def test_table_math_stage_success(tmp_path: Path) -> None:
@@ -309,6 +310,28 @@ def test_aggregation_stage_handles_failed_stages_with_warnings(tmp_path: Path) -
     assert issues[0].type == "STAGE_FAILURE"
 
 
+def test_aggregation_stage_can_defer_document_completion(tmp_path: Path) -> None:
+    """Core aggregation must not expose a completed document before review audit stages run."""
+    document = Document(id=uuid.uuid4(), status=DocumentStatus.PROCESSING)
+    session = AsyncMock(spec=AsyncSession)
+
+    with patch("tasks.extraction._latest_attempt", AsyncMock(return_value=1)):
+        failed = asyncio.run(
+            _run_aggregation_stage(
+                session,
+                LocalStorage(tmp_path),
+                document,
+                failed_stages=[],
+                prior_degraded=False,
+                finalize_document_status=False,
+            )
+        )
+
+    assert failed is False
+    assert document.status == DocumentStatus.PROCESSING
+    assert document.progress_pct is None
+
+
 def test_spellcheck_stage_success_and_failure_isolation(tmp_path: Path) -> None:
     """Spellcheck stage executes with isolated failure handling."""
     document = Document(id=uuid.uuid4(), original_filename="Report.pdf")
@@ -409,15 +432,15 @@ def test_linguistic_schema_caps_legacy_high_severity() -> None:
         message="Typo",
         severity=Severity.BLOCKER,
         original_text="teh",
-        location={
-            "page_index": 0,
-            "x0": 0.0,
-            "y0": 0.0,
-            "x1": 1.0,
-            "y1": 1.0,
-            "page_width": 612.0,
-            "page_height": 792.0,
-        },
+        location=BoundingBox(
+            page_index=0,
+            x0=0.0,
+            y0=0.0,
+            x1=1.0,
+            y1=1.0,
+            page_width=612.0,
+            page_height=792.0,
+        ),
     )
     assert finding.severity == Severity.MINOR
 
@@ -454,6 +477,29 @@ def test_pipeline_stages_and_sse_events() -> None:
     for ev in events:
         assert ev.startswith("event: progress\ndata: ")
         assert ev.endswith("\n\n")
+
+
+def test_pipeline_reuses_worker_extraction_artifact() -> None:
+    """The worker's review branch must not extract the document a second time."""
+    doc = Document(id=uuid.uuid4(), original_filename="Report.pdf")
+    session = AsyncMock(spec=AsyncSession)
+    artifact = ExtractionArtifact(document_id=doc.id)
+
+    with patch("services.pipeline.extract_document", side_effect=AssertionError("re-extracted")):
+        result = asyncio.run(
+            execute_document_pipeline(
+                document=doc,
+                session=session,
+                file_path=Path("source.pdf"),
+                extracted_artifact=artifact,
+            )
+        )
+
+    assert result["status"] == "COMPLETED"
+    assert all(
+        stage_run.stage_name != PipelineStage.EXTRACTING.value
+        for stage_run in session.add.call_args_list
+    )
 
 
 def test_pipeline_creates_layout_blocker_issues() -> None:

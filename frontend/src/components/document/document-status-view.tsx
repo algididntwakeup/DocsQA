@@ -86,15 +86,35 @@ export function DocumentStatusView({ id }: { id: string }) {
             id,
             (event) => {
               if (!active) return;
-              setScan((prev) =>
-                prev
-                  ? {
-                      ...prev,
-                      status: event.status as DocumentStatus["status"],
-                      progress_pct: event.progress_pct,
-                    }
-                  : null
-              );
+               setScan((prev) =>
+                 prev
+                   ? {
+                       ...prev,
+                       status: event.status as DocumentStatus["status"],
+                       progress_pct: event.progress_pct,
+                        stages: event.stages.map((update) => {
+                          const previous = prev.stages.find((stage) => stage.name === update.name);
+                          return previous
+                            ? {
+                                ...previous,
+                                status: update.status as (typeof previous)["status"],
+                                progress_pct: update.progress_pct ?? previous.progress_pct,
+                              }
+                            : {
+                                id: update.name,
+                                name: update.name as DocumentStatus["stages"][number]["name"],
+                                status: update.status as DocumentStatus["stages"][number]["status"],
+                                progress_pct: update.progress_pct ?? 0,
+                                attempt: 1,
+                                error_code: null,
+                                error_message: null,
+                                started_at: null,
+                                finished_at: null,
+                              };
+                        }),
+                     }
+                   : null
+               );
               if (TERMINAL.has(event.status)) {
                 void load();
               }

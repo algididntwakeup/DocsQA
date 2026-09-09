@@ -11,9 +11,49 @@ Appendix 12 review checklist items divided into 4 groups:
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import Field, computed_field
 
 from schemas.base import ApiModel
+
+
+class DocumentMetadata(ApiModel):
+    """Document identity and date context used by the refactored evaluator."""
+
+    title: str = ""
+    doc_no: str = ""
+    rev: str = ""
+    cover_date: str | None = None
+    creation_date: str | None = None
+    page_count: int = Field(default=0, ge=0)
+
+
+class ExtractedSections(ApiModel):
+    """Normalized section text supplied to the evaluator."""
+
+    headings: list[str] = Field(default_factory=list)
+    introduction: list[str] = Field(default_factory=list)
+    procedures: list[str] = Field(default_factory=list)
+    conclusions: list[str] = Field(default_factory=list)
+    recommendations: list[str] = Field(default_factory=list)
+
+
+class EvaluationContext(ApiModel):
+    """All document context required by a deterministic Budinski evaluation."""
+
+    metadata: DocumentMetadata
+    sections: ExtractedSections
+    findings: list[Any] = Field(default_factory=list)
+
+
+class ScorecardEntry(ApiModel):
+    """Flat scorecard item used by the phase-1 evaluator contract."""
+
+    item_id: str
+    score: int = Field(ge=1, le=5)
+    note: str = ""
+    group: str
 
 
 class ScoreItem(ApiModel):
@@ -230,10 +270,14 @@ class BaselineMeasures(ApiModel):
 class BudinskiScorecard(ApiModel):
     """Automated scorecard evaluating the 41 Appendix 12 items across 4 groups."""
 
-    technical_content: TechnicalContentGroup
-    style: StyleGroup
-    report_mechanics: ReportMechanicsGroup
-    conclusions_and_craft: ConclusionsAndCraftGroup
+    technical_content: TechnicalContentGroup | None = None
+    style: StyleGroup | None = None
+    report_mechanics: ReportMechanicsGroup | None = None
+    conclusions_and_craft: ConclusionsAndCraftGroup | None = None
+
+    # Phase-1 flat representation. The grouped fields above remain available
+    # for the current evaluator and export path while the refactor migrates.
+    items: list[ScorecardEntry] = Field(default_factory=list)
 
     group_i_average: float = Field(default=0.0, description="Average score for Group I.")
     group_ii_average: float = Field(default=0.0, description="Average score for Group II.")
@@ -252,25 +296,58 @@ class BudinskiScorecard(ApiModel):
         description="Formatted summary line (REVIEWSCORE | doc=... | rev=... | ...).",
     )
 
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def baseline_score(self) -> float:
+        """Return the number of passing baseline measures out of four."""
+        if self.baseline_measures is not None:
+            return float(self.baseline_measures.score)
+        baseline_items = [
+            item for item in self.items if item.group.lower() in {"baseline", "baselines"}
+        ]
+        return float(sum(item.score >= 3 for item in baseline_items))
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def group_averages(self) -> dict[str, float]:
+        """Return deterministic averages for Groups I, II, III, and IV."""
+        group_names = {
+            "Group I": "group_i_average",
+            "Group II": "group_ii_average",
+            "Group III": "group_iii_average",
+            "Group IV": "group_iv_average",
+        }
+        averages: dict[str, float] = {}
+        for group, legacy_field in group_names.items():
+            entries = [item.score for item in self.items if item.group == group]
+            averages[group] = round(sum(entries) / len(entries), 2) if entries else float(
+                getattr(self, legacy_field)
+            )
+        return averages
+
     def get_all_items(self) -> list[tuple[str, str, ScoreItem]]:
         """Return all 41 items as a flat list of (group_name, item_key, ScoreItem)."""
         items: list[tuple[str, str, ScoreItem]] = []
-        for key in type(self.technical_content).model_fields:
-            val = getattr(self.technical_content, key)
-            if isinstance(val, ScoreItem):
-                items.append(("Technical Content", key, val))
-        for key in type(self.style).model_fields:
-            val = getattr(self.style, key)
-            if isinstance(val, ScoreItem):
-                items.append(("Style", key, val))
-        for key in type(self.report_mechanics).model_fields:
-            val = getattr(self.report_mechanics, key)
-            if isinstance(val, ScoreItem):
-                items.append(("Report Mechanics", key, val))
-        for key in type(self.conclusions_and_craft).model_fields:
-            val = getattr(self.conclusions_and_craft, key)
-            if isinstance(val, ScoreItem):
-                items.append(("Conclusions & Craft", key, val))
+        for group_name, group in (
+            ("Technical Content", self.technical_content),
+            ("Style", self.style),
+            ("Report Mechanics", self.report_mechanics),
+            ("Conclusions & Craft", self.conclusions_and_craft),
+        ):
+            if group is None:
+                continue
+            for key in type(group).model_fields:
+                val = getattr(group, key)
+                if isinstance(val, ScoreItem):
+                    items.append((group_name, key, val))
+        items.extend(
+            (
+                item.group,
+                item.item_id,
+                ScoreItem(name=item.item_id, score=item.score, note=item.note),
+            )
+            for item in self.items
+        )
         return items
 
     def get_rework_items(self) -> list[tuple[str, str, ScoreItem]]:

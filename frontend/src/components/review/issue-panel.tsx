@@ -25,8 +25,28 @@ interface IssuePanelProps {
 }
 
 type TabType = "audit" | "standards" | "language";
-type SeverityFilter = "ALL" | "BLOCKER" | "CRITICAL" | "MAJOR" | "MINOR" | "INFO" | "HIGH" | "MEDIUM" | "LOW";
+type SeverityFilter =
+  | "ALL"
+  | "BLOCKER"
+  | "CRITICAL"
+  | "MAJOR"
+  | "MINOR"
+  | "INFO"
+  | "HIGH"
+  | "MEDIUM"
+  | "LOW";
 type CurationFilter = "ALL" | "INCLUDED" | "EXCLUDED";
+
+const SEVERITY_ORDER: Record<string, number> = {
+  BLOCKER: 0,
+  CRITICAL: 1,
+  MAJOR: 2,
+  MINOR: 3,
+  INFO: 4,
+  HIGH: 2,
+  MEDIUM: 3,
+  LOW: 4,
+};
 
 function getIssueTab(issue: IssueItem): TabType {
   if (issue.category === "BUDINSKI" || issue.category === "LAYOUT") return "audit";
@@ -54,9 +74,24 @@ export function IssuePanel({
   const activeCardRef = useRef<HTMLDivElement | null>(null);
 
   // Group issues into tabs
-  const auditIssues = useMemo(() => issues.filter((issue) => getIssueTab(issue) === "audit"), [issues]);
-  const standardsIssues = useMemo(() => issues.filter((issue) => getIssueTab(issue) === "standards"), [issues]);
-  const languageIssues = useMemo(() => issues.filter((issue) => getIssueTab(issue) === "language"), [issues]);
+  const sortIssues = (items: IssueItem[]) =>
+    [...items].sort(
+      (a, b) =>
+        (SEVERITY_ORDER[a.severity] ?? 99) - (SEVERITY_ORDER[b.severity] ?? 99) ||
+        a.created_at.localeCompare(b.created_at)
+    );
+  const auditIssues = useMemo(
+    () => sortIssues(issues.filter((issue) => getIssueTab(issue) === "audit")),
+    [issues]
+  );
+  const standardsIssues = useMemo(
+    () => sortIssues(issues.filter((issue) => getIssueTab(issue) === "standards")),
+    [issues]
+  );
+  const languageIssues = useMemo(
+    () => sortIssues(issues.filter((issue) => getIssueTab(issue) === "language")),
+    [issues]
+  );
 
   const currentTabIssues = activeTab === "audit" ? auditIssues : activeTab === "standards" ? standardsIssues : languageIssues;
 
@@ -102,24 +137,24 @@ export function IssuePanel({
 
   return (
     <aside
-      className="flex flex-col h-full bg-surface border-l border-line overflow-hidden"
+      className="flex flex-col h-full min-h-0 min-w-0 bg-surface border-l border-line overflow-hidden"
       aria-label="Findings Panel"
     >
       {/* Tab Switcher */}
-      <div className="flex items-center border-b border-line bg-panel shrink-0">
+      <div className="grid grid-cols-3 border-b border-line bg-panel shrink-0">
         <button
           type="button"
           role="tab"
           aria-selected={activeTab === "audit"}
           onClick={() => setActiveTab("audit")}
-          className={`flex-1 py-3 px-4 text-xs font-semibold flex items-center justify-center gap-2 border-b-2 transition-colors ${
+          className={`min-w-0 px-2 py-3 text-[11px] font-semibold flex items-center justify-center gap-1 border-b-2 transition-colors ${
               activeTab === "audit"
               ? "border-sky-500 text-sky-600 dark:text-sky-400 bg-surface"
               : "border-transparent text-muted hover:text-ink hover:bg-muted/5"
           }`}
         >
           <ShieldCheck size={15} />
-          <span>Budinski & Layout Audit</span>
+          <span className="truncate">Technical & Layout</span>
           <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-muted/20 text-muted">
             {auditIncludedCount}/{auditIssues.length}
           </span>
@@ -128,16 +163,17 @@ export function IssuePanel({
         <button
           type="button"
           role="tab"
+          aria-label="Standards Audit"
           aria-selected={activeTab === "standards"}
           onClick={() => setActiveTab("standards")}
-          className={`flex-1 py-3 px-4 text-xs font-semibold flex items-center justify-center gap-2 border-b-2 transition-colors ${
+          className={`min-w-0 px-2 py-3 text-[11px] font-semibold flex items-center justify-center gap-1 border-b-2 transition-colors ${
               activeTab === "standards"
               ? "border-sky-500 text-sky-600 dark:text-sky-400 bg-surface"
               : "border-transparent text-muted hover:text-ink hover:bg-muted/5"
           }`}
         >
           <Layers size={15} />
-          <span>Standards Audit</span>
+          <span className="truncate">Standards</span>
           <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-muted/20 text-muted">
             {standardsIncludedCount}/{standardsIssues.length}
           </span>
@@ -148,14 +184,14 @@ export function IssuePanel({
           role="tab"
           aria-selected={activeTab === "language"}
           onClick={() => setActiveTab("language")}
-          className={`flex-1 py-3 px-4 text-xs font-semibold flex items-center justify-center gap-2 border-b-2 transition-colors ${
+          className={`min-w-0 px-2 py-3 text-[11px] font-semibold flex items-center justify-center gap-1 border-b-2 transition-colors ${
             activeTab === "language" ? "border-sky-500 text-sky-600 dark:text-sky-400 bg-surface" : "border-transparent text-muted hover:text-ink hover:bg-muted/5"
           }`}
         >
           <Sparkles size={15} />
-          <span>Language</span>
+          <span className="truncate">Language</span>
           <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-muted/20 text-muted">
-            {languageIssues.filter((i) => i.included_in_report).length}/{languageIssues.length}
+            {langIncludedCount}/{languageIssues.length}
           </span>
         </button>
       </div>
@@ -186,12 +222,12 @@ export function IssuePanel({
               <option value="ALL">All Severities</option>
               <option value="BLOCKER">Blocker Only</option>
               <option value="CRITICAL">Critical Only</option>
-              <option value="MAJOR">Major Only</option>
-              <option value="MINOR">Minor Only</option>
-              <option value="HIGH">High Only</option>
-              <option value="MEDIUM">Medium Only</option>
-              <option value="LOW">Low Only</option>
-              <option value="INFO">Info Only</option>
+               <option value="MAJOR">Major Only</option>
+               <option value="MINOR">Minor Only</option>
+               <option value="INFO">Info Only</option>
+               <option value="HIGH">Legacy High Only</option>
+               <option value="MEDIUM">Legacy Medium Only</option>
+               <option value="LOW">Legacy Low Only</option>
             </select>
           </div>
 
@@ -213,7 +249,7 @@ export function IssuePanel({
       </div>
 
       {/* Issues List */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-3">
+      <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden p-3 space-y-3">
         {isLoading ? (
           <div className="py-12 text-center text-xs text-muted">
             <div className="animate-spin inline-block w-5 h-5 border-2 border-current border-t-transparent rounded-full mb-2" />

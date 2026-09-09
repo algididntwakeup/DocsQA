@@ -1,35 +1,64 @@
 import type { DocumentStatus } from "@/lib/api";
-import { humanize } from "@/lib/format";
 import { StatusBadge } from "./status-badge";
 
 export function ScanProgress({ scan }: { scan: DocumentStatus }) {
+  const isProcessing = scan.status === "QUEUED" || scan.status === "PROCESSING";
+  const activeStage = [...scan.stages].reverse().find((stage) => stage.status === "RUNNING");
+  const stageCopy: Record<string, { title: string; description: string }> = {
+    EXTRACTING: {
+      title: "Reading the PDF",
+      description: "Extracting text, page structure, and document coordinates.",
+    },
+    LAYOUT_INSPECTION: {
+      title: "Inspecting document layout",
+      description: "Checking page continuity, whitespace, navigation, and document control.",
+    },
+    BUDINSKI_AUDIT: {
+      title: "Reviewing technical writing",
+      description: "Evaluating report structure, clarity, conclusions, and recommendations.",
+    },
+    STANDARDS_CHECK: {
+      title: "Checking references",
+      description: "Reviewing internal references, citations, and traceability signals.",
+    },
+    LINGUISTIC_CHECK: {
+      title: "Checking language",
+      description: "Reviewing spelling, grammar, terminology, and ambiguous phrasing.",
+    },
+    AGGREGATING: {
+      title: "Preparing review findings",
+      description: "Combining all checks into the Review Workspace and final report.",
+    },
+  };
+  const activity = activeStage
+    ? stageCopy[activeStage.name] ?? {
+        title: "Processing document",
+        description: "Running the document quality checks.",
+      }
+    : isProcessing
+      ? {
+          title: "Preparing document",
+          description: "The worker is starting the document review pipeline.",
+        }
+      : {
+          title: "Processing complete",
+          description: "The document review pipeline has finished.",
+        };
   return (
     <section className="panel scan-panel" aria-labelledby="scan-heading">
       <div className="panel-heading">
-        <div><p className="eyebrow">Pipeline telemetry</p><h2 id="scan-heading">Extraction progress</h2></div>
+        <div><p className="eyebrow">Pipeline telemetry</p><h2 id="scan-heading">Document review status</h2></div>
         <StatusBadge status={scan.status} />
       </div>
-      <div className="master-progress">
-        <div><span>Overall completion</span><strong>{scan.progress_pct}%</strong></div>
-        <progress max="100" value={scan.progress_pct}>{scan.progress_pct}%</progress>
+      <div className={`telemetry-activity ${isProcessing ? "is-processing" : ""}`}>
+        {isProcessing ? <span className="telemetry-loader" aria-hidden="true" /> : <span className="telemetry-complete" aria-hidden="true">✓</span>}
+        <div>
+          <h3>{activity.title}</h3>
+          <p>{activity.description}</p>
+          {isProcessing && <small>This may take a while for large or complex documents. Please keep this page open.</small>}
+        </div>
       </div>
-      {scan.stages.length === 0 ? (
-        <p className="empty-inline">Waiting for the extraction worker to start…</p>
-      ) : (
-        <ol className="stage-list">
-          {scan.stages.map((stage) => (
-            <li key={stage.id}>
-              <div className="stage-index" aria-hidden="true">{String(stage.attempt).padStart(2, "0")}</div>
-              <div className="stage-copy">
-                <div><strong>{humanize(stage.name)}</strong><span>{stage.progress_pct}%</span></div>
-                <progress max="100" value={stage.progress_pct}>{stage.progress_pct}%</progress>
-                {stage.error_message && <p role="alert">{stage.error_message}</p>}
-              </div>
-              <StatusBadge status={stage.status} />
-            </li>
-          ))}
-        </ol>
-      )}
+      {activeStage?.error_message && <p className="telemetry-error" role="alert">{activeStage.error_message}</p>}
     </section>
   );
 }

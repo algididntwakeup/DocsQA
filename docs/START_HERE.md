@@ -15,6 +15,11 @@ This is the central index every new agent must read in full. Repository state al
   smoke path is available. The remaining gate is PNG inspection plus the deferred full test suite.
 - **Current next ticket**: Render the generated review PDF to page PNGs, inspect pagination and
   margins, then run the backend and frontend quality suites.
+- **Latest implementation checkpoint**: Budinski now has a flat deterministic 41-item rule
+  contract (`items`, `baseline_score`, `group_averages`) with Group III/IV rules. DOCX
+  scorecard rendering prefers that flat contract and retains legacy grouped-field
+  compatibility. The review workspace loads all finding pages, follows SSE completion
+  events, and reflects current severity behavior.
 - **Curation Workflow**:
   - Finding curation is strictly binary inclusion (`included_in_report: bool`, default `True`) and an optional engineering clarification (`reviewer_note: str | None`).
   - Completely removed: issue decisions (`ACCEPTED`/`REJECTED`), lead dispositions, audit trail events, and bulk decision workflows.
@@ -27,7 +32,8 @@ This is the central index every new agent must read in full. Repository state al
   - **Item 6 / Real-World E2E Test (Complete)**: Verified full scan and report generation for `docs/testcase/05.MEPG-Asset Life Extension 2026_Static Equipment_RevB.pdf` in `backend/tests/test_e2e_mepg_review.py`.
   - **Item 7 / Schema & Pipeline Synchronization (Complete)**: Synchronized `IssueCategory` (`LAYOUT`, `BUDINSKI`), `Severity` (`BLOCKER`), 6 canonical pipeline stages, SSE progress streaming, linguistic finding de-prioritization, OpenAPI 3.1 specification, and frontend TypeScript contracts.
 - **Quality Status**:
-  - Historical baseline before the latest pipeline/report changes: **349 passed, 1 skipped, 0 failed**.
+  - Frontend checkpoint: **42 passed, typecheck passed, lint passed**.
+  - Focused backend checkpoint: Budinski evaluator, rule engine, schema, pipeline, and export tests pass.
   - Current Docker gate: LibreOffice is available in the worker; full backend/frontend rerun remains pending.
 - **Never push to GitHub**; the owner pushes. Local commits are allowed only after quality gates pass.
 
@@ -40,6 +46,7 @@ This is the central index every new agent must read in full. Repository state al
 5. `docs/DELIVERY_PLAN.md` — active delivery roadmap.
 6. `docs/TEST_CORPUS.md` — synthetic and de-identified fixture policies.
 7. `backend/openapi.json` — frontend/backend wire contract.
+8. `docs/AGENT_HANDOFF.md` — implementation decisions and protected contracts from recent work.
 
 If these conflict, record the conflict. Do not silently blend them.
 

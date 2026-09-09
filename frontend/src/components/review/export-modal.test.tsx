@@ -18,7 +18,7 @@ describe("ExportModal", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("renders both export format cards (DOCX and PDF) with correct download links when isOpen is true", () => {
+  it("renders both export format actions when isOpen is true", () => {
     const handleClose = vi.fn();
     render(
       <ExportModal
@@ -34,10 +34,10 @@ describe("ExportModal", () => {
 
     // Verify format cards
     const docxCard = screen.getByTestId("export-docx-btn");
-    expect(docxCard.getAttribute("href")).toContain("/documents/test-doc-999/export?format=docx");
+    expect(docxCard.tagName).toBe("BUTTON");
 
     const pdfCard = screen.getByTestId("export-pdf-btn");
-    expect(pdfCard.getAttribute("href")).toContain("/documents/test-doc-999/export?format=pdf");
+    expect(pdfCard.tagName).toBe("BUTTON");
 
     // Legacy formats should not exist
     expect(screen.queryByTestId("export-xlsx-btn")).toBeNull();

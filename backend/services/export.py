@@ -212,12 +212,12 @@ def _set_cell_margins(
     """Set internal cell margins (padding) in dxa (1 pt = 20 dxa)."""
     tc_pr = cell._tc.get_or_add_tcPr()
     tc_mar = parse_xml(
-        f'<w:tcMar {nsdecls("w")}>'
+        f"<w:tcMar {nsdecls('w')}>"
         f'<w:top w:w="{top}" w:type="dxa"/>'
         f'<w:left w:w="{left}" w:type="dxa"/>'
         f'<w:bottom w:w="{bottom}" w:type="dxa"/>'
         f'<w:right w:w="{right}" w:type="dxa"/>'
-        f'</w:tcMar>'
+        f"</w:tcMar>"
     )
     tc_pr.append(tc_mar)
 
@@ -235,12 +235,12 @@ def _set_cell_borders(
     """Set borders on an individual table cell."""
     tc_pr = cell._tc.get_or_add_tcPr()
     borders_elm = parse_xml(
-        f'<w:tcBorders {nsdecls("w")}>'
+        f"<w:tcBorders {nsdecls('w')}>"
         f'<w:top w:val="{top}" w:sz="{sz}" w:space="0" w:color="{color}"/>'
         f'<w:left w:val="{left}" w:sz="{sz}" w:space="0" w:color="{color}"/>'
         f'<w:bottom w:val="{bottom}" w:sz="{sz}" w:space="0" w:color="{color}"/>'
         f'<w:right w:val="{right}" w:sz="{sz}" w:space="0" w:color="{color}"/>'
-        f'</w:tcBorders>'
+        f"</w:tcBorders>"
     )
     tc_pr.append(borders_elm)
 
@@ -249,7 +249,7 @@ def _set_table_borders(table: Table, color: str = HEX_BORDER, sz: str = "4") -> 
     """Set clean subtle horizontal-rule borders on a table."""
     tbl_pr = table._tbl.tblPr
     borders = parse_xml(
-        f'<w:tblBorders {nsdecls("w")}>'
+        f"<w:tblBorders {nsdecls('w')}>"
         f'<w:top w:val="single" w:sz="{sz}" w:space="0" w:color="{color}"/>'
         f'<w:left w:val="none" w:sz="0" w:space="0" w:color="auto"/>'
         f'<w:bottom w:val="single" w:sz="{sz}" w:space="0" w:color="{color}"/>'
@@ -263,13 +263,13 @@ def _set_table_borders(table: Table, color: str = HEX_BORDER, sz: str = "4") -> 
 def _apply_tbl_header(row: _Row) -> None:
     """Designate table row as repeating header across pages."""
     tr_pr = row._tr.get_or_add_trPr()
-    tr_pr.append(parse_xml(f'<w:tblHeader {nsdecls("w")}/>'))
+    tr_pr.append(parse_xml(f"<w:tblHeader {nsdecls('w')}/>"))
 
 
 def _apply_cant_split(row: _Row) -> None:
     """Prevent table row from splitting across page breaks."""
     tr_pr = row._tr.get_or_add_trPr()
-    tr_pr.append(parse_xml(f'<w:cantSplit {nsdecls("w")}/>'))
+    tr_pr.append(parse_xml(f"<w:cantSplit {nsdecls('w')}/>"))
 
 
 def _add_callout_box(
@@ -409,9 +409,8 @@ def _setup_page_header_footer(doc: DocxDocument, assessment: AssessmentData) -> 
 
 def generate_ale_review_docx(assessment_result: AssessmentData) -> bytes:
     """
-    Generate a complete, professionally formatted DOCX review report matching the format
-    of 'Review of Asset Life Extension Study, Grissik Plant Static Equipment' (Review-ALE-Grissik),
-    scored against Kenneth G. Budinski's 'Engineers' Guide to Technical Writing' (Appendix 12).
+    Generate a complete, professionally formatted DOCX review report from the supplied
+    assessment and Budinski scorecard data.
 
     Covers 10 distinct sections:
     1. Document Reviewed Metadata Block
@@ -421,7 +420,7 @@ def generate_ale_review_docx(assessment_result: AssessmentData) -> bytes:
     5. Table: 'Should fix in the next revision'
     6. Table: 'Language and mechanics, by page'
     7. 'Demonstration rewrite' (As Written vs Demonstration comparison)
-    8. 'Scorecard' (41 items Appendix 12 across Groups I-IV with averages and notes)
+     8. 'Scorecard' (Appendix 12 items across Groups I-IV with averages and notes)
     9. 'What this document does well'
     10. 'Limits of this review' & REVIEWSCORE summary string
     """
@@ -613,11 +612,12 @@ def generate_ale_review_docx(assessment_result: AssessmentData) -> bytes:
     r_sc_lbl.font.name = "Arial"
     r_sc_lbl.font.size = Pt(9.5)
     r_sc_lbl.font.color.rgb = COLOR_NAVY
-    r_sc_val = p_score.add_run(f"{baseline.summary_ratio} ({baseline.score} of 4 passing)")
+    baseline_score = assessment_result.scorecard.baseline_score
+    r_sc_val = p_score.add_run(f"{baseline_score:.0f}/4 ({baseline_score:.0f} of 4 passing)")
     r_sc_val.font.name = "Arial"
     r_sc_val.font.size = Pt(9.5)
     r_sc_val.bold = True
-    r_sc_val.font.color.rgb = COLOR_PASS if baseline.score >= 3 else COLOR_FAIL
+    r_sc_val.font.color.rgb = COLOR_PASS if baseline_score >= 3 else COLOR_FAIL
 
     # -----------------------------------------------------------------------
     # Bagian 4: Sub-section "Blockers"
@@ -892,20 +892,29 @@ def generate_ale_review_docx(assessment_result: AssessmentData) -> bytes:
     s_hdr.cells[3].paragraphs[0].add_run("Group Average")
     _format_table_row(s_hdr, sc_sum_widths, bg_hex=HEX_NAVY, is_header=True)
 
-    g1_avg = scorecard.group_i_average or scorecard.technical_content.average
-    g2_avg = scorecard.group_ii_average or scorecard.style.average
-    g3_avg = scorecard.group_iii_average or scorecard.report_mechanics.average
-    g4_avg = scorecard.group_iv_average or scorecard.conclusions_and_craft.average
-    overall_avg = scorecard.overall_average or round((g1_avg + g2_avg + g3_avg + g4_avg) / 4, 2)
+    group_averages = scorecard.group_averages
+    g1_avg = group_averages["Group I"]
+    g2_avg = group_averages["Group II"]
+    g3_avg = group_averages["Group III"]
+    g4_avg = group_averages["Group IV"]
+    all_scores = [item.score for item in scorecard.items]
+    overall_avg = (
+        round(sum(all_scores) / len(all_scores), 2) if all_scores else scorecard.overall_average
+    )
 
     group_rows = [
-        ("Group I: Technical Content", "Does the document have substance?", 9, g1_avg),
-        ("Group II: Style", "Is it written appropriately for the application?", 11, g2_avg),
-        ("Group III: Report Mechanics", "Introduction and Procedure", 11, g3_avg),
-        ("Group IV: Conclusions & Craft", "Results, Discussion, Conclusions, Craft", 10, g4_avg),
+        ("Group I: Technical Content", "Does the document have substance?", g1_avg),
+        ("Group II: Style", "Is it written appropriately for the application?", g2_avg),
+        ("Group III: Report Mechanics", "Introduction and Procedure", g3_avg),
+        ("Group IV: Conclusions & Craft", "Results, Discussion, Conclusions, Craft", g4_avg),
     ]
 
-    for idx, (grp_name, desc, cnt, avg) in enumerate(group_rows):
+    for idx, (grp_name, desc, avg) in enumerate(group_rows):
+        cnt = sum(1 for item in scorecard.items if item.group in {grp_name.split(":", 1)[0]})
+        if not cnt:
+            cnt = {"Group I": 9, "Group II": 11, "Group III": 11, "Group IV": 10}.get(
+                grp_name.split(":", 1)[0], 0
+            )
         row = sc_summary_table.add_row()
         bg = HEX_ZEBRA if idx % 2 == 1 else HEX_WHITE
 
@@ -941,13 +950,16 @@ def generate_ale_review_docx(assessment_result: AssessmentData) -> bytes:
     r_ov_lbl.font.size = Pt(9.5)
     r_ov_lbl.font.color.rgb = COLOR_NAVY
 
-    r_ov_desc = ov_row.cells[1].paragraphs[0].add_run("All 41 Checklist Items (Appendix 12)")
+    item_count = len(scorecard.items) or 41
+    r_ov_desc = (
+        ov_row.cells[1].paragraphs[0].add_run(f"All {item_count} Checklist Items (Appendix 12)")
+    )
     r_ov_desc.bold = True
     r_ov_desc.font.name = "Arial"
     r_ov_desc.font.size = Pt(9)
     r_ov_desc.font.color.rgb = COLOR_TEXT
 
-    r_ov_cnt = ov_row.cells[2].paragraphs[0].add_run("41")
+    r_ov_cnt = ov_row.cells[2].paragraphs[0].add_run(str(item_count))
     r_ov_cnt.bold = True
     r_ov_cnt.font.name = "Arial"
     r_ov_cnt.font.size = Pt(9)
@@ -985,71 +997,96 @@ def generate_ale_review_docx(assessment_result: AssessmentData) -> bytes:
     _format_table_row(d_hdr, det_widths, bg_hex=HEX_NAVY, is_header=True)
 
     def _get_item_tuple(
-        prefix: str,
-        idx: int,
-        item: ScoreItem,
-        default_name: str,
+        prefix: str, idx: int, item: ScoreItem, default_name: str
     ) -> tuple[str, str, int, str]:
         code = f"{prefix}.{idx}"
         name = item.name or default_name
         return (code, name, item.score, item.note)
 
-    tc = scorecard.technical_content
-    group_i_items = [
-        _get_item_tuple("I", 1, tc.message_clear, "The message to the reader is clear"),
-        _get_item_tuple("I", 2, tc.logical_approach, "The engineering approach is logical"),
-        _get_item_tuple("I", 3, tc.adequate_research, "Adequate research of previous work"),
-        _get_item_tuple("I", 4, tc.adequate_comparison, "Adequate comparison with work of others"),
-        _get_item_tuple("I", 5, tc.conclusions_supported, "Conclusions supported by the work"),
-        _get_item_tuple("I", 6, tc.value_stated, "The value of the work is clearly stated"),
-        _get_item_tuple("I", 7, tc.objective_met, "The work met the stated objective"),
-        _get_item_tuple("I", 8, tc.original_free_of_plagiarism, "Original and free of plagiarism"),
-        _get_item_tuple("I", 9, tc.timely, "Timely"),
-    ]
-
-    st = scorecard.style
-    group_ii_items = [
-        _get_item_tuple("II", 1, st.objective_tone, "Objective, neutral tone"),
-        _get_item_tuple("II", 2, st.sections_logical, "Sections are logical"),
-        _get_item_tuple("II", 3, st.readership_level, "Writing level suits readership"),
-        _get_item_tuple("II", 4, st.free_of_jargon, "Free of jargon and commercialism"),
-        _get_item_tuple("II", 5, st.english_usage, "Use of English is satisfactory"),
-        _get_item_tuple("II", 6, st.concise, "Understandable and concise"),
-        _get_item_tuple("II", 7, st.interesting, "Interesting"),
-        _get_item_tuple("II", 8, st.free_of_personal_opinion, "Free of personal opinion"),
-        _get_item_tuple("II", 9, st.no_over_explain, "Does not over-explain"),
-        _get_item_tuple("II", 10, st.standard_writing_practice, "Conforms to writing practice"),
-        _get_item_tuple("II", 11, st.layout_and_whitespace, "Page layout and whitespace"),
-    ]
-
-    rm = scorecard.report_mechanics
-    group_iii_items = [
-        _get_item_tuple("III", 1, rm.sufficient_background, "Sufficient background information"),
-        _get_item_tuple("III", 2, rm.purpose_of_work_clear, "Purpose of the work is clear"),
-        _get_item_tuple("III", 3, rm.objective_of_work_clear, "Objective of the work is clear"),
-        _get_item_tuple("III", 4, rm.purpose_of_report_clear, "Purpose of the report is clear"),
-        _get_item_tuple("III", 5, rm.objective_of_report_clear, "Objective of the report is clear"),
-        _get_item_tuple("III", 6, rm.format_stated, "Format of the report is stated"),
-        _get_item_tuple("III", 7, rm.work_referenced, "Work of others adequately referenced"),
-        _get_item_tuple("III", 8, rm.experimental_steps_outlined, "Experimental steps outlined"),
-        _get_item_tuple("III", 9, rm.adequate_detail_to_repeat, "Adequate detail to repeat"),
-        _get_item_tuple("III", 10, rm.free_of_trade_names, "Free of unnecessary trade names"),
-        _get_item_tuple("III", 11, rm.test_standards_cited, "Test standards properly cited"),
-    ]
-
-    cc = scorecard.conclusions_and_craft
-    group_iv_items = [
-        _get_item_tuple("IV", 1, cc.results_clearly_stated, "Results clearly stated"),
-        _get_item_tuple("IV", 2, cc.results_free_of_discussion, "Results free of discussion"),
-        _get_item_tuple("IV", 3, cc.graphs_and_tables_proper, "Graphs and tables proper"),
-        _get_item_tuple("IV", 4, cc.sufficient_results, "Sufficient results presented"),
-        _get_item_tuple("IV", 5, cc.discussion_relates_to_others, "Discussion relates to others"),
-        _get_item_tuple("IV", 6, cc.discussion_length_appropriate, "Discussion length appropriate"),
-        _get_item_tuple("IV", 7, cc.conclusions_follow_from_results, "Conclusions follow results"),
-        _get_item_tuple("IV", 8, cc.conclusions_clear, "Conclusions clear and unambiguous"),
-        _get_item_tuple("IV", 9, cc.references_properly_attributed, "References attributed"),
-        _get_item_tuple("IV", 10, cc.sentence_paragraph_length, "Sentence and paragraph length"),
-    ]
+    if scorecard.items:
+        dynamic_groups: dict[str, list[tuple[str, str, int, str]]] = {}
+        for item in scorecard.items:
+            dynamic_groups.setdefault(item.group, []).append(
+                (item.item_id, item.item_id, item.score, item.note)
+            )
+        group_i_items = dynamic_groups.get("Group I", [])
+        group_ii_items = dynamic_groups.get("Group II", [])
+        group_iii_items = dynamic_groups.get("Group III", [])
+        group_iv_items = dynamic_groups.get("Group IV", [])
+    else:
+        tc = scorecard.technical_content
+        st = scorecard.style
+        rm = scorecard.report_mechanics
+        cc = scorecard.conclusions_and_craft
+        if not all((tc, st, rm, cc)):
+            raise ValueError("Legacy scorecard groups are required when items is empty")
+        group_i_items = [
+            _get_item_tuple("I", 1, tc.message_clear, "The message to the reader is clear"),
+            _get_item_tuple("I", 2, tc.logical_approach, "The engineering approach is logical"),
+            _get_item_tuple("I", 3, tc.adequate_research, "Adequate research of previous work"),
+            _get_item_tuple(
+                "I", 4, tc.adequate_comparison, "Adequate comparison with work of others"
+            ),
+            _get_item_tuple("I", 5, tc.conclusions_supported, "Conclusions supported by the work"),
+            _get_item_tuple("I", 6, tc.value_stated, "The value of the work is clearly stated"),
+            _get_item_tuple("I", 7, tc.objective_met, "The work met the stated objective"),
+            _get_item_tuple(
+                "I", 8, tc.original_free_of_plagiarism, "Original and free of plagiarism"
+            ),
+            _get_item_tuple("I", 9, tc.timely, "Timely"),
+        ]
+        group_ii_items = [
+            _get_item_tuple("II", 1, st.objective_tone, "Objective, neutral tone"),
+            _get_item_tuple("II", 2, st.sections_logical, "Sections are logical"),
+            _get_item_tuple("II", 3, st.readership_level, "Writing level suits readership"),
+            _get_item_tuple("II", 4, st.free_of_jargon, "Free of jargon and commercialism"),
+            _get_item_tuple("II", 5, st.english_usage, "Use of English is satisfactory"),
+            _get_item_tuple("II", 6, st.concise, "Understandable and concise"),
+            _get_item_tuple("II", 7, st.interesting, "Interesting"),
+            _get_item_tuple("II", 8, st.free_of_personal_opinion, "Free of personal opinion"),
+            _get_item_tuple("II", 9, st.no_over_explain, "Does not over-explain"),
+            _get_item_tuple("II", 10, st.standard_writing_practice, "Conforms to writing practice"),
+            _get_item_tuple("II", 11, st.layout_and_whitespace, "Page layout and whitespace"),
+        ]
+        group_iii_items = [
+            _get_item_tuple(
+                "III", 1, rm.sufficient_background, "Sufficient background information"
+            ),
+            _get_item_tuple("III", 2, rm.purpose_of_work_clear, "Purpose of the work is clear"),
+            _get_item_tuple("III", 3, rm.objective_of_work_clear, "Objective of the work is clear"),
+            _get_item_tuple("III", 4, rm.purpose_of_report_clear, "Purpose of the report is clear"),
+            _get_item_tuple(
+                "III", 5, rm.objective_of_report_clear, "Objective of the report is clear"
+            ),
+            _get_item_tuple("III", 6, rm.format_stated, "Format of the report is stated"),
+            _get_item_tuple("III", 7, rm.work_referenced, "Work of others adequately referenced"),
+            _get_item_tuple(
+                "III", 8, rm.experimental_steps_outlined, "Experimental steps outlined"
+            ),
+            _get_item_tuple("III", 9, rm.adequate_detail_to_repeat, "Adequate detail to repeat"),
+            _get_item_tuple("III", 10, rm.free_of_trade_names, "Free of unnecessary trade names"),
+            _get_item_tuple("III", 11, rm.test_standards_cited, "Test standards properly cited"),
+        ]
+        group_iv_items = [
+            _get_item_tuple("IV", 1, cc.results_clearly_stated, "Results clearly stated"),
+            _get_item_tuple("IV", 2, cc.results_free_of_discussion, "Results free of discussion"),
+            _get_item_tuple("IV", 3, cc.graphs_and_tables_proper, "Graphs and tables proper"),
+            _get_item_tuple("IV", 4, cc.sufficient_results, "Sufficient results presented"),
+            _get_item_tuple(
+                "IV", 5, cc.discussion_relates_to_others, "Discussion relates to others"
+            ),
+            _get_item_tuple(
+                "IV", 6, cc.discussion_length_appropriate, "Discussion length appropriate"
+            ),
+            _get_item_tuple(
+                "IV", 7, cc.conclusions_follow_from_results, "Conclusions follow results"
+            ),
+            _get_item_tuple("IV", 8, cc.conclusions_clear, "Conclusions clear and unambiguous"),
+            _get_item_tuple("IV", 9, cc.references_properly_attributed, "References attributed"),
+            _get_item_tuple(
+                "IV", 10, cc.sentence_paragraph_length, "Sentence and paragraph length"
+            ),
+        ]
 
     all_groups_data = [
         (

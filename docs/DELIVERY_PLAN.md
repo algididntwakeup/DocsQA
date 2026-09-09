@@ -39,3 +39,22 @@
   - [x] Run the LibreOffice smoke command on Docker Desktop; worker reports LibreOffice 25.2.3.2.
   - [ ] Render the generated PDF to page PNGs and inspect pagination/margins.
   - [ ] Test pagination fidelity and margin alignment across platforms.
+
+## Phase 4: Agent-Protected Integration Checkpoint (Completed)
+
+- [x] **Milestone 8: Flat Budinski Rule Contract**
+  - Added deterministic `EvaluationContext` and flat `ScorecardEntry` handling.
+  - Covered the 41 canonical Appendix 12 items across Groups I-IV.
+  - Added computed baseline score and group-average accessors while retaining legacy
+    grouped scorecard compatibility.
+- [x] **Milestone 9: Dynamic Review Export**
+  - DOCX scorecard rendering prefers flat scorecard items, computed averages, and baseline
+    values instead of sample-document constants.
+  - Preserved legacy grouped export behavior for existing artifacts and fixtures.
+- [x] **Milestone 10: Workspace Synchronization**
+  - Frontend loads all findings pages, handles SSE completion refresh, supports current
+    severity levels, and shows processing/warning/failure state banners.
+  - Export actions support the `include_minors` option.
+- [x] **Milestone 11: Handoff Documentation**
+  - Added `docs/AGENT_HANDOFF.md` with protected contracts, safe-change rules, and known
+    API boundaries to prevent future agents from reverting completed work.

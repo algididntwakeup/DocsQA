@@ -242,6 +242,8 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
   margin: 0;
   padding: 16px 24px 48px;
   box-sizing: border-box;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 @media (max-width: 768px) {
@@ -363,6 +365,63 @@ tbody tr:hover { background: var(--table-tr-hover); }
 .document-link small { margin-top: 3px; color: var(--muted); font: 400 10px/1 "JetBrains Mono", monospace; }
 .table-progress { min-width: 125px; display: flex; align-items: center; gap: 9px; font: 500 10px/1 "JetBrains Mono", monospace; }
 progress { overflow: hidden; height: 5px; border: 0; border-radius: 0; background: var(--line); accent-color: var(--primary-bright); }
+.telemetry-spinner, .telemetry-loader {
+  width: 11px;
+  height: 11px;
+  display: inline-block;
+  border: 2px solid color-mix(in srgb, var(--primary) 25%, transparent);
+  border-top-color: var(--primary-bright);
+  border-radius: 999px;
+  animation: telemetry-spin .8s linear infinite;
+}
+@keyframes telemetry-spin { to { transform: rotate(360deg); } }
+.telemetry-activity {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin: 18px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 7%, var(--panel)), var(--panel));
+}
+.telemetry-loader {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border-width: 3px;
+}
+.telemetry-activity h3 { margin: 0 0 5px; font-size: 15px; color: var(--text); }
+.telemetry-activity p { margin: 0; color: var(--ink-soft); font-size: 12px; line-height: 1.5; }
+.telemetry-activity small { display: block; margin-top: 12px; color: var(--muted); font-size: 11px; line-height: 1.4; }
+.telemetry-complete {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--success) 15%, transparent);
+  color: var(--success);
+  font-size: 20px;
+  font-weight: 700;
+}
+.telemetry-error { margin: 0 18px 18px; color: var(--danger); font-size: 11px; }
+.progress-indeterminate progress { opacity: .45; }
+.progress-indeterminate::after {
+  content: "";
+  display: block;
+  width: 42%;
+  height: 5px;
+  margin-top: -5px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, var(--primary-bright), transparent);
+  animation: progress-sweep 1.25s ease-in-out infinite;
+}
+@keyframes progress-sweep {
+  from { transform: translateX(-110%); }
+  to { transform: translateX(250%); }
+}
 progress::-webkit-progress-bar { background: var(--line); }
 progress::-webkit-progress-value { background: var(--primary-bright); }
 .table-progress progress { width: 86px; }

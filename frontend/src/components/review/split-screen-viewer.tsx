@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   BookOpen,
   CheckCircle2,
+  Clock3,
   Download,
   FileCheck2,
   FileText,
@@ -16,10 +17,10 @@ import {
 import type { DocumentItem, IssueItem } from "@/lib/api";
 import {
   curateIssue,
-  listDocumentIssues,
-  getExportUrl,
+  listAllDocumentIssues,
   getIssueLocation,
 } from "@/lib/api";
+import { downloadExport } from "@/lib/download";
 import { DocumentViewer } from "./document-viewer";
 import { IssuePanel } from "./issue-panel";
 import { ReportPreviewModal } from "./report-preview-modal";
@@ -68,8 +69,8 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
   const refreshIssues = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      const res = await listDocumentIssues(document.id);
-      setIssues(res.issues);
+      const res = await listAllDocumentIssues(document.id);
+      setIssues(res);
       setAlertMessage({ type: "success", message: "Findings successfully refreshed." });
       setTimeout(() => setAlertMessage(null), 3000);
     } catch {
@@ -118,11 +119,25 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
   // Report statistics
   const includedCount = issues.filter((i) => i.included_in_report).length;
   const blockersCount = issues.filter(
-    (i) => i.included_in_report && (i.severity === "CRITICAL" || i.severity === "HIGH")
+    (i) =>
+      i.included_in_report &&
+      ["BLOCKER", "CRITICAL", "MAJOR"].includes(i.severity)
   ).length;
+  const auditCount = issues.filter(
+    (issue) => issue.category === "BUDINSKI" || issue.category === "LAYOUT"
+  ).length;
+  const isProcessing = document.status === "QUEUED" || document.status === "PROCESSING";
+  const statusMessage =
+    document.status === "FAILED"
+      ? "The review pipeline failed. Findings shown below may be incomplete."
+      : document.status === "COMPLETED_WITH_WARNINGS"
+        ? "Review completed with warnings. Check the findings before exporting."
+        : isProcessing
+          ? "The review pipeline is still running. Findings may continue to appear."
+          : null;
 
   return (
-    <div className="flex flex-col w-full flex-1 min-h-0 text-ink">
+    <div className="flex flex-col w-full min-h-full min-w-0 text-ink">
       {/* Above Card Header: Breadcrumbs & Document Info & Status */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-3 shrink-0">
         {/* Left: Return Link & Document Title */}
@@ -147,6 +162,8 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
               <span>{document.page_count ?? "—"} pages</span>
               <span>·</span>
               <span>{issues.length} total findings</span>
+              <span>·</span>
+              <span>{auditCount} technical/layout</span>
             </div>
           </div>
         </div>
@@ -162,6 +179,29 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
           </div>
         </div>
       </div>
+
+      {statusMessage && (
+        <div
+          className={`mb-3 flex items-start gap-2 rounded-md border px-3 py-2 text-xs ${
+            document.status === "FAILED"
+              ? "border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300"
+              : document.status === "COMPLETED_WITH_WARNINGS"
+                ? "border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-200"
+                : "border-sky-500/30 bg-sky-500/10 text-sky-800 dark:text-sky-200"
+          }`}
+          role="status"
+          aria-live="polite"
+        >
+          {document.status === "FAILED" ? (
+            <AlertTriangle size={15} className="mt-0.5 shrink-0" />
+          ) : isProcessing ? (
+            <Clock3 size={15} className="mt-0.5 shrink-0" />
+          ) : (
+            <AlertTriangle size={15} className="mt-0.5 shrink-0" />
+          )}
+          <span>{statusMessage}</span>
+        </div>
+      )}
 
       {/* Main Review Workspace Card */}
       <div className="panel flex flex-col flex-1 min-h-[480px] w-full overflow-hidden shadow-xs border-line">
@@ -275,10 +315,10 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
         )}
 
         {/* Main Workspace Split Layout */}
-        <div className="flex-1 flex overflow-hidden relative min-h-0">
+        <div className="flex-1 flex overflow-hidden relative min-h-0 min-w-0">
           {/* Left / Center: PDF Document Viewer */}
           <main
-            className={`flex-1 h-full overflow-hidden min-w-0 ${
+            className={`flex-1 h-full min-h-0 overflow-hidden min-w-0 ${
               mobilePane === "document" ? "block" : "hidden lg:block"
             }`}
           >
@@ -297,7 +337,7 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
 
           {/* Right Pane: Findings Curation Panel */}
           <section
-            className={`w-full lg:w-[380px] xl:w-[420px] h-full shrink-0 overflow-hidden ${
+            className={`w-full lg:w-[380px] xl:w-[420px] h-full min-h-0 min-w-0 shrink-0 overflow-hidden ${
               mobilePane === "findings" ? "block" : "hidden lg:block"
             }`}
           >
@@ -322,22 +362,22 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
           </div>
 
           <div className="flex items-center gap-2">
-            <a
-              href={getExportUrl(document.id, "docx")}
-              download
+            <button
+              type="button"
+              onClick={() => void downloadExport(document.id, "docx")}
               className="button button-primary btn-sm flex items-center gap-1.5"
             >
               <Download size={13} />
               <span>Export DOCX</span>
-            </a>
-            <a
-              href={getExportUrl(document.id, "pdf")}
-              download
+            </button>
+            <button
+              type="button"
+              onClick={() => void downloadExport(document.id, "pdf")}
               className="button button-secondary btn-sm flex items-center gap-1.5"
             >
               <FileText size={13} />
               <span>Export Annotated PDF</span>
-            </a>
+            </button>
           </div>
         </footer>
       </div>

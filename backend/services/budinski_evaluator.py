@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Sequence
+from datetime import date, datetime
 from typing import Any
 
 from schemas.budinski import (
@@ -20,9 +21,11 @@ from schemas.budinski import (
     BudinskiScorecard,
     ConclusionsAndCraftGroup,
     DemonstrationRewrite,
+    EvaluationContext,
     LanguageFinding,
     MajorFinding,
     ReportMechanicsGroup,
+    ScorecardEntry,
     ScoreItem,
     StyleGroup,
     TechnicalContentGroup,
@@ -35,8 +38,372 @@ FIGURE_TABLE_REF_PATTERN = re.compile(
 )
 
 
+_GROUP_I_ITEMS = {
+    "engineering_approach_logical",
+    "adequate_research_previous_work",
+    "conclusions_supported_by_work",
+    "timely",
+}
+_GROUP_II_ITEMS = {
+    "free_of_jargon",
+    "english_usage",
+    "standard_writing_practice",
+    "page_layout_whitespace",
+}
+_GROUP_III_ITEMS = {
+    "purpose_of_report_clear",
+    "format_of_report_stated",
+    "work_referenced",
+    "test_standards_cited",
+    "adequate_detail_repeat",
+}
+_GROUP_IV_ITEMS = {
+    "conclusions_clear",
+    "references_properly_attributed",
+    "sentence_paragraph_length",
+}
+_LEGACY_ITEM_GROUPS = {
+    "message_clear": "Group I",
+    "adequate_comparison": "Group I",
+    "value_stated": "Group I",
+    "objective_met": "Group I",
+    "original_free_of_plagiarism": "Group I",
+    "objective_tone": "Group II",
+    "sections_logical": "Group II",
+    "readership_level": "Group II",
+    "concise": "Group II",
+    "interesting": "Group II",
+    "free_of_personal_opinion": "Group II",
+    "no_over_explain": "Group II",
+    "sufficient_background": "Group III",
+    "purpose_of_work_clear": "Group III",
+    "objective_of_work_clear": "Group III",
+    "objective_of_report_clear": "Group III",
+    "experimental_steps_outlined": "Group III",
+    "free_of_trade_names": "Group III",
+    "results_clearly_stated": "Group IV",
+    "results_free_of_discussion": "Group IV",
+    "graphs_and_tables_proper": "Group IV",
+    "sufficient_results": "Group IV",
+    "discussion_relates_to_others": "Group IV",
+    "discussion_length_appropriate": "Group IV",
+    "conclusions_follow_from_results": "Group IV",
+}
+
+
+def _context_text(context: EvaluationContext) -> str:
+    sections = context.sections
+    values = [
+        *sections.headings,
+        *sections.introduction,
+        *sections.procedures,
+        *sections.conclusions,
+        *sections.recommendations,
+    ]
+    return "\n".join(str(value) for value in values if str(value).strip())
+
+
+def _finding_value(finding: Any, key: str, default: Any = None) -> Any:
+    if isinstance(finding, dict):
+        return finding.get(key, default)
+    return getattr(finding, key, default)
+
+
+def _finding_type(finding: Any) -> str:
+    return str(_finding_value(finding, "type", "")).upper()
+
+
+def _count_findings(context: EvaluationContext, *types: str) -> int:
+    wanted = {value.upper() for value in types}
+    return sum(_finding_type(finding) in wanted for finding in context.findings)
+
+
+def _has_citations(context: EvaluationContext) -> bool:
+    text = _context_text(context)
+    return bool(
+        re.search(
+            r"\b(?:references?|bibliography|citation|cited|according to|"
+            r"\[[0-9]+\]|\([^)]{2,40}\s*,\s*\d{4}\))\b",
+            text,
+            re.IGNORECASE,
+        )
+    )
+
+
+def _date_value(value: str | date | datetime | None) -> date | None:
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if not value:
+        return None
+    for pattern in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%B %d, %Y", "%d %B %Y"):
+        try:
+            return datetime.strptime(str(value).strip(), pattern).date()
+        except ValueError:
+            continue
+    return None
+
+
+def _abbreviation_counts(context: EvaluationContext) -> tuple[int, int]:
+    text = _context_text(context)
+    declared = re.findall(r"\b[A-Z][A-Z0-9/-]{1,}\b", "\n".join(context.sections.headings))
+    used = set(re.findall(r"\b[A-Z][A-Z0-9/-]{1,}\b", text))
+    declared_set = set(declared)
+    unexplained = used - declared_set
+    return len(declared_set), len(unexplained)
+
+
+def _methodology_is_structured(context: EvaluationContext) -> bool:
+    procedure_text = "\n".join(context.sections.procedures)
+    full_text = _context_text(context)
+    has_methodology = bool(
+        re.search(
+            r"\b(methodology|method|procedure|calculation|formula|evaluation criteria)\b",
+            procedure_text,
+            re.I,
+        )
+    )
+    has_steps = bool(re.search(r"\b(step\s*\d+|first|then|finally|1[.)])", procedure_text, re.I))
+    has_formula = bool(re.search(r"[=<>]|\b(formula|equation|calculated?)\b", procedure_text, re.I))
+    result_position = min(
+        [
+            match.start()
+            for match in re.finditer(r"\b(result|conclusion|concluded)\b", full_text, re.I)
+        ]
+        or [len(full_text)]
+    )
+    return (
+        bool(procedure_text.strip())
+        and has_methodology
+        and (has_steps or has_formula)
+        and result_position >= full_text.find(procedure_text)
+    )
+
+
+def _section_texts(context: EvaluationContext, name: str) -> str:
+    return "\n".join(getattr(context.sections, name))
+
+
+def _has_reference_section(context: EvaluationContext) -> bool:
+    return bool(
+        re.search(
+            r"(?im)^\s*(references?|bibliography|sources?)\s*:??\s*$",
+            _context_text(context),
+        )
+    )
+
+
+def _missing_standards(context: EvaluationContext) -> list[str]:
+    missing: list[str] = []
+    for finding in context.findings:
+        if _finding_type(finding) != "STANDARD_NOT_IN_BIBLIOGRAPHY":
+            continue
+        name = _finding_value(finding, "standard") or _finding_value(finding, "cited_standard")
+        if name and str(name) not in missing:
+            missing.append(str(name))
+    return missing
+
+
+def _assumption_count(context: EvaluationContext) -> int:
+    return len(
+        re.findall(
+            r"\b(?:assumption|assumes|assume|basis)\b",
+            _section_texts(context, "procedures"),
+            re.IGNORECASE,
+        )
+    )
+
+
+def _supported_item_ids() -> set[str]:
+    return (
+        _GROUP_I_ITEMS
+        | _GROUP_II_ITEMS
+        | _GROUP_III_ITEMS
+        | _GROUP_IV_ITEMS
+        | set(_LEGACY_ITEM_GROUPS)
+    )
+
+
+def generate_scorecard_item(item_id: str, context: EvaluationContext) -> ScorecardEntry:
+    """Generate one deterministic Group I or II scorecard entry."""
+    if item_id not in _supported_item_ids():
+        raise ValueError(f"Unsupported Budinski item: {item_id}")
+
+    group = (
+        "Group I"
+        if item_id in _GROUP_I_ITEMS
+        else "Group II"
+        if item_id in _GROUP_II_ITEMS
+        else "Group III"
+        if item_id in _GROUP_III_ITEMS
+        else "Group IV"
+        if item_id in _GROUP_IV_ITEMS
+        else _LEGACY_ITEM_GROUPS[item_id]
+    )
+    if item_id == "engineering_approach_logical":
+        structured = _methodology_is_structured(context)
+        score = 5 if structured else 2
+        note = (
+            "Methodology, calculations, and evaluation criteria are defined before application."
+            if structured
+            else "Methodology lacks structured procedural steps."
+        )
+    elif item_id == "adequate_research_previous_work":
+        cited = _has_citations(context)
+        score = 5 if cited else 2
+        note = (
+            "Relevant previous work and comparative citations are identified."
+            if cited
+            else (
+                "Relies on current assessment data with minimal historical or baseline "
+                "comparative citations."
+            )
+        )
+    elif item_id == "conclusions_supported_by_work":
+        math_errors = _count_findings(context, "TABLE_MATH_MISMATCH")
+        category_errors = _count_findings(context, "CATEGORY_BAND_CONTRADICTION")
+        total_errors = math_errors + category_errors
+        score = 2 if total_errors else 5
+        note = (
+            f"{math_errors} arithmetic discrepancy(ies) and/or category contradictions "
+            "found between body and conclusions."
+            if total_errors
+            else "All counts, sums, and classifications reconcile with the data tables."
+        )
+    elif item_id == "timely":
+        cover = _date_value(context.metadata.cover_date)
+        creation = _date_value(context.metadata.creation_date)
+        aligned = bool(cover and creation and abs((cover - creation).days) <= 30)
+        score = 5 if aligned else 2
+        note = (
+            f"Cover date ({context.metadata.cover_date or 'N/A'}) is aligned with "
+            "issuance timeframe."
+            if aligned
+            else (
+                f"Cover date ({context.metadata.cover_date or 'N/A'}) is not aligned "
+                "with the creation timeframe."
+            )
+        )
+    elif item_id == "free_of_jargon":
+        abbrev_count, unexplained_count = _abbreviation_counts(context)
+        score = 5 if unexplained_count == 0 else 2
+        note = (
+            f"List of abbreviations contains {abbrev_count} entries; "
+            f"{unexplained_count} technical term(s) used without definition."
+        )
+    elif item_id == "english_usage":
+        error_count = sum(
+            1
+            for finding in context.findings
+            if _finding_type(finding)
+            in {"SPELLING_ERROR", "GRAMMAR_ERROR", "TYPOGRAPHICAL_ERROR", "LANGUAGE_ERROR"}
+        )
+        score = 2 if error_count > 10 else 4
+        note = f"{error_count} typographical/grammatical defect(s) detected across body."
+    elif item_id == "standard_writing_practice":
+        drift_count = _count_findings(context, "REF_DRIFT")
+        uncontrolled_count = _count_findings(context, "UNCONTROLLED_PAGE")
+        score = 2 if drift_count or uncontrolled_count else 5
+        note = (
+            f"{drift_count} front-matter entry/entries drifted from actual page targets; "
+            f"{uncontrolled_count} page(s) lack document control headers/footers."
+        )
+    elif item_id == "purpose_of_report_clear":
+        intro = _section_texts(context, "introduction")
+        explicit = bool(re.search(r"\b(purpose|this report|this document)\b", intro, re.I))
+        score = 5 if explicit else 1
+        note = (
+            "Document purpose is explicitly stated and distinct from the work objective."
+            if explicit
+            else "Document purpose is absent; only general project/work objective is stated."
+        )
+    elif item_id in {"format_of_report_stated", "format_stated"}:
+        intro = _section_texts(context, "introduction")
+        outlined = bool(
+            re.search(
+                r"\b(this report|organized|comprises|sections?|chapters?|overview)\b",
+                intro,
+                re.I,
+            )
+        )
+        score = 5 if outlined else 1
+        note = (
+            "Introduction provides an overview of document structure and format."
+            if outlined
+            else "Introduction does not provide an overview of document structure and format."
+        )
+    elif item_id in {"work_referenced", "test_standards_cited"}:
+        missing = _missing_standards(context)
+        has_refs = _has_reference_section(context) or _has_citations(context)
+        score = 1 if missing else 4 if has_refs else 2
+        note = (
+            f"Cited standard(s) ({', '.join(missing[:3])}) missing from "
+            "bibliography/references section."
+            if missing
+            else "Referenced work and standards are traceable to the document reference section."
+        )
+    elif item_id in {"adequate_detail_repeat", "adequate_detail_to_repeat"}:
+        assumption_count = _assumption_count(context)
+        score = 5 if context.sections.procedures else 2
+        note = (
+            f"Formulas, parameters, and {assumption_count} explicit assumption(s) provided "
+            "to enable independent audit."
+        )
+    elif item_id == "conclusions_clear":
+        conclusions = _section_texts(context, "conclusions")
+        contradiction = _count_findings(context, "CATEGORY_BAND_CONTRADICTION")
+        restated = bool(
+            re.search(
+                r"\b(table|figure)\b\s*\d|=\s*\d+\s*(?:component|item|units?)",
+                conclusions,
+                re.I,
+            )
+        )
+        score = 2 if contradiction or restated else 5
+        note = (
+            "Conclusions contain restated data tables/figures or conflicting definition bands."
+            if contradiction or restated
+            else "Conclusions are clear, concise numbered single sentences inferred from results."
+        )
+    elif item_id == "references_properly_attributed":
+        present = _has_reference_section(context)
+        score = 5 if present else 1
+        note = (
+            "A dedicated reference or bibliography section is present."
+            if present
+            else "No dedicated reference or bibliography section found in document."
+        )
+    elif item_id == "sentence_paragraph_length":
+        broken_count = _count_findings(context, "CROSS_PAGE_BREAK", "CROSS_PAGE_SENTENCE_BREAK")
+        score = 2 if broken_count else 5
+        note = (
+            f"{broken_count} sentence(s) broken across page boundaries without proper "
+            "layout continuity."
+        )
+    elif item_id in {"page_layout_whitespace", "layout_and_whitespace"}:
+        void_count = _count_findings(context, "UNINTENDED_WHITESPACE", "EMPTY_PAGE", "BLANK_PAGE")
+        score = 2 if void_count else 5
+        note = (
+            f"{void_count} page(s) identified with unintended whitespace voids (<25% utilization)."
+        )
+    else:
+        score = 3
+        note = (
+            f"No dedicated deterministic rule has been supplied for {item_id}; "
+            "manual review is required."
+        )
+
+    return ScorecardEntry(item_id=item_id, score=score, note=note, group=group)
+
+
 class BudinskiEvaluator:
     """Automated evaluation engine implementing Budinski technical writing standards."""
+
+    @staticmethod
+    def generate_scorecard_item(item_id: str, context: EvaluationContext) -> ScorecardEntry:
+        """Delegate the phase-2 flat rule engine from the evaluator facade."""
+        return generate_scorecard_item(item_id, context)
 
     def evaluate_four_baselines(self, doc_sections: dict[str, Any]) -> BaselineMeasures:
         """
@@ -179,9 +546,7 @@ class BudinskiEvaluator:
 
         intro_text = str(intro)
         has_purpose = bool(
-            re.search(
-                r"\bpurpose\s+of\s+(?:this\s+)?(?:report|document|paper)\b", intro_text, re.I
-            )
+            re.search(r"\bpurpose\s+of\s+(?:this\s+)?(?:report|document|paper)\b", intro_text, re.I)
         )
         has_objective = bool(
             re.search(r"\bobjective\s+of\s+(?:the\s+)?(?:work|study|project)\b", intro_text, re.I)
@@ -404,8 +769,7 @@ class BudinskiEvaluator:
                 name="The value of the work is clearly stated",
                 score=5,
                 note=(
-                    "A 2040 extension target, stated in the first paragraph "
-                    "and carried throughout."
+                    "A 2040 extension target, stated in the first paragraph and carried throughout."
                 ),
             ),
             objective_met=ScoreItem(
@@ -971,9 +1335,7 @@ class BudinskiEvaluator:
         purpose_of_report_clear = ScoreItem(
             name="Purpose of the report is clear",
             score=5 if purpose_rep else 1,
-            note="Purpose of the report is explicitly stated."
-            if purpose_rep
-            else "Never stated.",
+            note="Purpose of the report is explicitly stated." if purpose_rep else "Never stated.",
         )
 
         obj_rep_score = 3
@@ -1546,8 +1908,7 @@ def create_canonical_ale_assessment_data() -> AssessmentData:
         LanguageFinding(
             page="8",
             as_written=(
-                "“…comprising by 9 component directly impacted, 21 components indirectly "
-                "impacted…”"
+                "“…comprising by 9 component directly impacted, 21 components indirectly impacted…”"
             ),
             suggested="“…comprising 9 components directly impacted…”",
         ),

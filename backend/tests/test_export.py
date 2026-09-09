@@ -146,6 +146,11 @@ def test_build_review_report_docx(tmp_path: Path) -> None:
 
     word_doc = docx.Document(io.BytesIO(docx_bytes))
     full_text = "\n".join(p.text for p in word_doc.paragraphs)
+    all_table_text = "\n".join(
+        " ".join(cell.text for cell in row.cells)
+        for table in word_doc.tables
+        for row in table.rows
+    )
 
     # Verify key sections
     assert "DOCUMENT REVIEW ENGINEERING" in full_text
@@ -153,15 +158,14 @@ def test_build_review_report_docx(tmp_path: Path) -> None:
     assert "Summary judgement" in full_text
     assert "Scorecard" in full_text
     assert "Blockers" in full_text
-    assert "Should fix in the next revision" in full_text
-    assert "Language and mechanics by page" in full_text
-    assert "What this document does well" in full_text
-    assert "Limits of this review" in full_text
+    assert "Next revision findings" in full_text
+    assert "The four baseline measures" in full_text
+    assert "Scope and limitations" in full_text
 
     # Verify blocker content and reviewer note
-    assert "TABLE_MATH_MISMATCH" in full_text
-    assert "Reviewer note: Confirmed with Lead Welding Engineer." in full_text
-    assert "Update stated sum in Table 2.1 to 1,350.00" in full_text
+    assert "TABLE_MATH_MISMATCH" in all_table_text
+    assert "Reviewer note: Confirmed with Lead Welding Engineer." in all_table_text
+    assert "Update stated sum in Table 2.1 to 1,350.00" in all_table_text
 
     # Verify excluded finding is NOT in report
     assert "Passive voice usage detected." not in full_text

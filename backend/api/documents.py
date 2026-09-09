@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.dependencies import get_storage, get_upload_service
 from db.session import async_session_factory, get_session
-from domain.enums import DocumentStatus, IssueCategory, Severity, StageStatus
+from domain.enums import DocumentStatus, IssueCategory, PipelineStage, Severity, StageStatus
 from models.document import Document, StageRun
 from models.issue import Issue
 from schemas.common import PageInfo, ProblemDetail
@@ -182,17 +182,58 @@ async def get_document_status(
             await session.execute(
                 select(StageRun)
                 .where(StageRun.document_id == document_id)
-                .order_by(StageRun.created_at.desc())
+                .order_by(StageRun.created_at.asc(), StageRun.id.asc())
             )
-        )
+    )
         .scalars()
         .all()
     )
+    latest_by_stage: dict[str, StageRun] = {}
+    for stage_run in stage_runs:
+        stage_name = (
+            PipelineStage.EXTRACTING.value
+            if stage_run.stage_name == "extraction"
+            else stage_run.stage_name
+        )
+        latest_by_stage[stage_name] = stage_run
+    ordered_stage_runs = [
+        latest_by_stage[stage.value]
+        for stage in PipelineStage
+        if stage.value in latest_by_stage
+    ]
+    ordered_stage_runs.extend(
+        stage_run
+        for stage_name, stage_run in latest_by_stage.items()
+        if stage_name not in {stage.value for stage in PipelineStage}
+    )
+    completed = sum(
+        1
+        for stage_run in ordered_stage_runs
+        if stage_run.status in (StageStatus.SUCCEEDED, StageStatus.SUCCEEDED_WITH_WARNINGS)
+    )
+    running_progress = max(
+        (
+            stage_run.progress_pct
+            for stage_run in ordered_stage_runs
+            if stage_run.status == StageStatus.RUNNING
+        ),
+        default=0,
+    )
+    calculated_progress = (
+        100
+        if document.status
+        in {DocumentStatus.COMPLETED, DocumentStatus.COMPLETED_WITH_WARNINGS, DocumentStatus.FAILED}
+        else min(99, int(((completed * 100) + running_progress) / len(PipelineStage)))
+    )
+    stage_reads = [StageRunRead.model_validate(r) for r in ordered_stage_runs]
+    for stage_read in stage_reads:
+        if stage_read.name == "extraction":
+            stage_read.name = PipelineStage.EXTRACTING.value
     return DocumentStatusResponse(
         id=document.id,
         status=document.status,
-        progress_pct=document.progress_pct,
-        stages=[StageRunRead.model_validate(r) for r in stage_runs],
+        progress_pct=max(document.progress_pct, calculated_progress),
+        stages=stage_reads,
         updated_at=document.updated_at,
     )
 
@@ -432,6 +473,9 @@ async def export_document(
     format: Annotated[str, Query(pattern=r"^(pdf|docx)$")],
     session: Annotated[AsyncSession, Depends(get_session)],
     storage: Annotated[LocalStorage, Depends(get_storage)],
+    include_minors: Annotated[
+        bool, Query(description="Include minor and informational findings.")
+    ] = False,
 ) -> Response:
     """Export the annotated original PDF or formal DOCX review report."""
 
@@ -455,9 +499,17 @@ async def export_document(
 
     safe_name = document.safe_filename
     if format == "pdf":
-        pdf_bytes = export_annotated_pdf(
-            document, [issue for issue in issues if issue.included_in_report], storage
-        )
+        selected_issues = [
+            issue
+            for issue in issues
+            if issue.included_in_report
+            and (
+                include_minors
+                or getattr(issue.severity, "value", str(issue.severity)).upper()
+                not in {"MINOR", "INFO", "LOW"}
+            )
+        ]
+        pdf_bytes = export_annotated_pdf(document, selected_issues, storage)
         return Response(
             content=pdf_bytes,
             media_type="application/pdf",
@@ -473,7 +525,12 @@ async def export_document(
                 scorecard = json.loads(scorecard_path.read_text(encoding="utf-8"))
             except (OSError, ValueError):
                 scorecard = None
-        docx_bytes = build_review_report(document, list(issues), scorecard=scorecard)
+        docx_bytes = build_review_report(
+            document,
+            list(issues),
+            scorecard=scorecard,
+            include_minors=include_minors,
+        )
         return Response(
             content=docx_bytes,
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -537,12 +594,30 @@ async def stream_document_events(
                     .all()
                 )
 
+            latest_stages: dict[str, StageRun] = {}
+            for stage_run in stages_res:
+                stage_name = (
+                    PipelineStage.EXTRACTING.value
+                    if stage_run.stage_name == "extraction"
+                    else stage_run.stage_name
+                )
+                latest_stages[stage_name] = stage_run
+            ordered_stages = [
+                latest_stages[stage.value]
+                for stage in PipelineStage
+                if stage.value in latest_stages
+            ]
+            ordered_stages.extend(
+                stage_run
+                for stage_name, stage_run in latest_stages.items()
+                if stage_name not in {stage.value for stage in PipelineStage}
+            )
             completed_stages = sum(
                 1
-                for s in stages_res
+                for s in ordered_stages
                 if s.status in (StageStatus.SUCCEEDED, StageStatus.SUCCEEDED_WITH_WARNINGS)
             )
-            total_pipeline_stages = 10
+            total_pipeline_stages = 6
             pct = (
                 100
                 if doc.status in TERMINAL_STATUSES
@@ -553,7 +628,16 @@ async def stream_document_events(
                 "document_id": str(doc.id),
                 "status": doc.status.value,
                 "progress_pct": pct,
-                "stages": [{"name": s.stage_name, "status": s.status.value} for s in stages_res],
+                "stages": [
+                    {
+                        "name": PipelineStage.EXTRACTING.value
+                        if s.stage_name == "extraction"
+                        else s.stage_name,
+                        "status": s.status.value,
+                        "progress_pct": s.progress_pct,
+                    }
+                    for s in ordered_stages
+                ],
             }
             yield f"event: progress\ndata: {json.dumps(payload)}\n\n"
 

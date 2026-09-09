@@ -147,6 +147,19 @@ class BudinskiEvidence(EvidenceBase):
     bounding_box: BoundingBox | None = None
 
 
+class CategoryBandEvidence(EvidenceBase):
+    """Evidence for a categorical numeric-band contradiction."""
+
+    kind: Literal["CATEGORY_BAND"] = "CATEGORY_BAND"
+    where: str
+    what_it_says: str
+    what_body_has: str | None = None
+    why_it_matters: str
+    what_would_fix_it: str
+    category_id: str | None = None
+    interval: str | None = None
+
+
 IssueEvidence = Annotated[
     TableMathEvidence
     | ReferenceDriftEvidence
@@ -156,7 +169,8 @@ IssueEvidence = Annotated[
     | StageFailureEvidence
     | ReferenceRuleEvidence
     | LayoutEvidence
-    | BudinskiEvidence,
+    | BudinskiEvidence
+    | CategoryBandEvidence,
     Field(discriminator="kind"),
 ]
 

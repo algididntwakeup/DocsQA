@@ -97,6 +97,18 @@ export function listDocumentIssues(
   );
 }
 
+export async function listAllDocumentIssues(id: string): Promise<IssueItem[]> {
+  const first = await listDocumentIssues(id, undefined, 1, 100);
+  if (first.pagination.total <= first.issues.length) return first.issues;
+  const pageCount = Math.ceil(first.pagination.total / 100);
+  const rest = await Promise.all(
+    Array.from({ length: pageCount - 1 }, (_, index) =>
+      listDocumentIssues(id, undefined, index + 2, 100)
+    )
+  );
+  return [first.issues, ...rest.map((page) => page.issues)].flat();
+}
+
 export function curateIssue(issueId: string, payload: IssueCuration): Promise<IssueItem> {
   return request<IssueItem>(`/issues/${encodeURIComponent(issueId)}/curation`, {
     method: "PATCH",
@@ -215,13 +227,19 @@ export function createDictionaryTerm(
 
 export type ExportFormat = "pdf" | "docx";
 
-export function getExportUrl(documentId: string, format: ExportFormat): string {
-  return `${getApiBaseUrl()}/documents/${encodeURIComponent(documentId)}/export?format=${format}`;
+export function getExportUrl(
+  documentId: string,
+  format: ExportFormat,
+  includeMinors = false
+): string {
+  const minorParam = includeMinors ? "&include_minors=true" : "";
+  return `${getApiBaseUrl()}/documents/${encodeURIComponent(documentId)}/export?format=${format}${minorParam}`;
 }
 
 export interface DocumentProgressStage {
   name: string;
   status: string;
+  progress_pct?: number;
 }
 
 export interface DocumentProgressEvent {

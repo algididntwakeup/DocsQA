@@ -13,7 +13,7 @@ from uuid import uuid4
 
 import docx
 import pytest
-import yaml
+import yaml  # type: ignore[import-untyped]
 from pydantic import ValidationError
 
 from domain.enums import DocumentStatus, EvaluationStatus, IssueCategory, Severity

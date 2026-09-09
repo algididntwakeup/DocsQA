@@ -6,7 +6,6 @@ import io
 from uuid import uuid4
 
 import docx
-import pytest
 
 from domain.enums import DocumentStatus, IssueCategory, Severity
 from models.document import Document
@@ -30,7 +29,8 @@ def test_build_review_report_empty_findings() -> None:
     assert "DOCUMENT REVIEW ENGINEERING" in full_text
     assert "CLEAN_DOC.pdf" in full_text
     assert "0 findings" in full_text
-    assert "No included findings in this section." in full_text
+    assert "Blockers" in full_text
+    assert "Next revision findings" in full_text
 
 
 def test_build_review_report_full_composition() -> None:
@@ -105,15 +105,17 @@ def test_build_review_report_full_composition() -> None:
     full_text = "\n".join(p.text for p in word_doc.paragraphs)
 
     assert "VESSEL_CALC.pdf" in full_text
-    assert "TABLE_MATH_MISMATCH - page 3" in full_text
-    assert "Confirmed with senior pressure vessel engineer." in full_text
-    assert "Adjust row 4 to match sum" in full_text
-
-    assert "REFERENCE_DRIFT - page 12" in full_text
-    assert "Verify this statement against the cited source" in full_text
-
-    assert "SPELLING_ERROR - page 5" in full_text
-    assert "temperature" in full_text
+    all_table_text = "\n".join(
+        " ".join(cell.text for cell in row.cells)
+        for table in word_doc.tables
+        for row in table.rows
+    )
+    assert "TABLE_MATH_MISMATCH" in all_table_text
+    assert "Confirmed with senior pressure vessel engineer." in all_table_text
+    assert "Adjust row 4 to match sum" in all_table_text
+    assert "REFERENCE_DRIFT" in all_table_text
+    assert "SPELLING_ERROR" in all_table_text
+    assert "temperature" in all_table_text
 
     # Excluded finding must NOT be present
     assert "Ambiguous phrasing" not in full_text
@@ -128,7 +130,7 @@ def test_build_review_report_full_composition() -> None:
 
 
 def _reference_rule_issue(
-    doc: docx.types.Document | object,
+    doc: object = None,
     standard: str = "ASME BPVC.VIII.1",
 ) -> Issue:
     from uuid import UUID
@@ -165,8 +167,8 @@ def _reference_rule_issue(
     )
 
 
-def test_standards_and_reference_checks_section() -> None:
-    """New section renders sub-tables, columns, and per-standard metrics; DOCX stays valid."""
+def test_reference_findings_are_compact() -> None:
+    """Reference findings stay in the compact action table."""
     document = Document(
         id=uuid4(),
         original_filename="VESSEL_SPEC.pdf",
@@ -182,40 +184,24 @@ def test_standards_and_reference_checks_section() -> None:
 
     word_doc = docx.Document(io.BytesIO(docx_bytes))
     full_text = "\n".join(p.text for p in word_doc.paragraphs)
-    assert "Standards and Reference Checks" in full_text
+    assert "Blockers" in full_text
+    assert "Next revision findings" in full_text
 
     all_table_text = "\n".join(
         " ".join(cell.text for cell in row.cells)
         for t in word_doc.tables
         for row in t.rows
     )
-    assert "Governing Industry Standards" in full_text
-    assert "Company Specifications & Addenda" in full_text
-    assert "Standard Code" in all_table_text
-    assert "Clause/Page Ref" in all_table_text
-    assert "Finding/Condition" in all_table_text
-    assert "Recommendation Template" in all_table_text
-    assert "Evidence Text" in all_table_text
+    assert "Governing Industry Standards" not in full_text
 
     # Column data and text-only standard locator
     assert "ASME BPVC.VIII.1" in all_table_text
-    assert "Clause UG-99(b), p. 76" in all_table_text
-    assert "document evidence on page 4" in all_table_text
+    assert "Clause UG-99(b), standard page 76" in all_table_text
+    assert "document page 4" in all_table_text
     assert "1.15" in all_table_text
 
-    # Per-standard summary metrics
-    for t in word_doc.tables:
-        headers = [c.text for c in t.rows[0].cells]
-        if headers[:2] == ["Standard", "Total Checks"]:
-            rows = {
-                r.cells[0].text: [c.text for c in r.cells[1:]]
-                for r in t.rows[1:]
-            }
-            assert rows["ASME BPVC.VIII.1"] == ["1", "1", "0"]
-            assert rows["Company Spec CS-101 Addenda"] == ["1", "1", "1"]
-            break
-    else:
-        pytest.fail("Per-standard summary table not found")
+    assert "ASME BPVC.VIII.1" in all_table_text
+    assert "Company Spec CS-101 Addenda" in all_table_text
 
 
 def test_report_rejects_invalid_bounding_boxes() -> None:
@@ -250,4 +236,56 @@ def test_report_rejects_invalid_bounding_boxes() -> None:
         for row in t.rows
     )
     assert "document evidence on page" not in all_table_text
-    assert "Clause UG-99(b), p. 76" in all_table_text
+    assert "Clause UG-99(b), standard page 76" in all_table_text
+
+
+def test_report_orders_severity_and_uses_printed_reference_labels() -> None:
+    """Compact findings are ordered by severity, not PDF page sequence."""
+    document = Document(
+        id=uuid4(),
+        original_filename="PAGINATED_REPORT.pdf",
+        safe_filename="paginated_report",
+        status=DocumentStatus.COMPLETED,
+    )
+    low = Issue(
+        id=uuid4(),
+        document_id=document.id,
+        category=IssueCategory.LINGUISTIC,
+        type="DICTIONARY_TERM",
+        severity=Severity.LOW,
+        message="Term should be checked",
+        page_number=1,
+        evidence={
+            "kind": "LINGUISTIC",
+            "original_text": "term",
+            "location": {"page_index": 0, "x0": 1, "y0": 1, "x1": 2, "y1": 2},
+        },
+        included_in_report=True,
+    )
+    high = Issue(
+        id=uuid4(),
+        document_id=document.id,
+        category=IssueCategory.TRACEABILITY,
+        type="REFERENCE_DRIFT",
+        severity=Severity.HIGH,
+        message="TOC target does not match",
+        page_number=99,
+        evidence={
+            "kind": "REFERENCE_DRIFT",
+            "label": "Section 4",
+            "referenced_page_label": "21",
+            "actual_page_label": "23",
+            "what_it_says": "Section 4",
+        },
+        included_in_report=True,
+    )
+
+    word_doc = docx.Document(io.BytesIO(build_review_report(document, [low, high])))
+    findings_tables = [
+        table for table in word_doc.tables if table.rows[0].cells[0].text == "Severity"
+    ]
+    blocker_rows = [[cell.text for cell in row.cells] for row in findings_tables[0].rows[1:]]
+    next_rows = [[cell.text for cell in row.cells] for row in findings_tables[1].rows[1:]]
+    assert blocker_rows[0][0] == "HIGH"
+    assert "printed pages 21" in blocker_rows[0][2]
+    assert next_rows[0][0] == "LOW"

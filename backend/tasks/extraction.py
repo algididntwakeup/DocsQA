@@ -2,6 +2,7 @@
 
 import asyncio
 import contextlib
+import time
 from datetime import UTC, datetime
 from io import BytesIO
 from pathlib import Path
@@ -264,12 +265,6 @@ async def _run_standard_stage(
         logger.exception("Standard traceability failed for document %s", document.id)
     finally:
         stage_run.finished_at = datetime.now(UTC)
-        document.status = (
-            DocumentStatus.COMPLETED_WITH_WARNINGS
-            if prior_degraded or standard_failed
-            else DocumentStatus.COMPLETED
-        )
-        document.progress_pct = 100
         await session.commit()
     return standard_failed
 
@@ -485,6 +480,7 @@ async def _run_aggregation_stage(
     document: Document,
     failed_stages: list[tuple[str, str, bool]],
     prior_degraded: bool,
+    finalize_document_status: bool = True,
 ) -> bool:
     """Aggregate all analyzer findings into unified issues and persist to PostgreSQL."""
     stage_run = StageRun(
@@ -567,12 +563,13 @@ async def _run_aggregation_stage(
         logger.exception("Finding aggregation failed for document %s", document.id)
     finally:
         stage_run.finished_at = datetime.now(UTC)
-        document.status = (
-            DocumentStatus.COMPLETED_WITH_WARNINGS
-            if prior_degraded or aggregation_failed or bool(failed_stages)
-            else DocumentStatus.COMPLETED
-        )
-        document.progress_pct = 100
+        if finalize_document_status:
+            document.status = (
+                DocumentStatus.COMPLETED_WITH_WARNINGS
+                if prior_degraded or aggregation_failed or bool(failed_stages)
+                else DocumentStatus.COMPLETED
+            )
+            document.progress_pct = 100
         await session.commit()
     return aggregation_failed
 
@@ -639,22 +636,60 @@ async def _run_extraction(document_id: str) -> dict[str, object]:
             await session.commit()
 
         if artifact is not None:
-            revision_failed = await _run_revision_stage(session, storage, document, artifact)
-            table_math_failed = await _run_table_math_stage(session, storage, document, artifact)
-            ref_drift_failed = await _run_ref_drift_stage(session, storage, document, artifact)
-            standard_failed = await _run_standard_stage(
-                session,
-                storage,
-                document,
-                artifact,
-                prior_degraded=(
-                    extraction_degraded or revision_failed or table_math_failed or ref_drift_failed
+            async def run_stage(name: str, operation: Any) -> Any:
+                started = time.monotonic()
+                result = await operation()
+                logger.info(
+                    "Document %s stage %s finished in %.2fs",
+                    document.id,
+                    name,
+                    time.monotonic() - started,
+                )
+                return result
+
+            revision_failed = await run_stage(
+                REVISION_STAGE,
+                lambda: _run_revision_stage(session, storage, document, artifact),
+            )
+            table_math_failed = await run_stage(
+                TABLE_MATH_STAGE,
+                lambda: _run_table_math_stage(session, storage, document, artifact),
+            )
+            ref_drift_failed = await run_stage(
+                REF_DRIFT_STAGE,
+                lambda: _run_ref_drift_stage(session, storage, document, artifact),
+            )
+            standard_failed = await run_stage(
+                STANDARD_STAGE,
+                lambda: _run_standard_stage(
+                    session,
+                    storage,
+                    document,
+                    artifact,
+                    prior_degraded=(
+                        extraction_degraded
+                        or revision_failed
+                        or table_math_failed
+                        or ref_drift_failed
+                    ),
                 ),
             )
-            spellcheck_failed = await _run_spellcheck_stage(session, storage, document, artifact)
-            grammar_failed = await _run_grammar_stage(session, storage, document, artifact)
-            duplicate_failed = await _run_duplicate_stage(session, storage, document, artifact)
-            ambiguity_failed = await _run_ambiguity_stage(session, storage, document, artifact)
+            spellcheck_failed = await run_stage(
+                SPELLCHECK_STAGE,
+                lambda: _run_spellcheck_stage(session, storage, document, artifact),
+            )
+            grammar_failed = await run_stage(
+                GRAMMAR_STAGE,
+                lambda: _run_grammar_stage(session, storage, document, artifact),
+            )
+            duplicate_failed = await run_stage(
+                DUPLICATE_STAGE,
+                lambda: _run_duplicate_stage(session, storage, document, artifact),
+            )
+            ambiguity_failed = await run_stage(
+                AMBIGUITY_STAGE,
+                lambda: _run_ambiguity_stage(session, storage, document, artifact),
+            )
 
             failed_stages: list[tuple[str, str, bool]] = []
             if revision_failed:
@@ -674,7 +709,7 @@ async def _run_extraction(document_id: str) -> dict[str, object]:
             if ambiguity_failed:
                 failed_stages.append((AMBIGUITY_STAGE, "AMBIGUITY_ANALYSIS_FAILED", True))
 
-            await _run_aggregation_stage(
+            aggregation_failed = await _run_aggregation_stage(
                 session,
                 storage,
                 document,
@@ -690,6 +725,7 @@ async def _run_extraction(document_id: str) -> dict[str, object]:
                     or duplicate_failed
                     or ambiguity_failed
                 ),
+                finalize_document_status=False,
             )
 
             # The production Celery worker is the single execution path. Run the
@@ -702,11 +738,26 @@ async def _run_extraction(document_id: str) -> dict[str, object]:
 
                 review_uri = document.canonical_pdf_uri or document.storage_uri
                 review_path = Path(storage.resolve(review_uri))
+                review_started = time.monotonic()
                 await execute_document_pipeline(
                     document=document,
                     session=session,
                     file_path=review_path,
+                    extracted_artifact=artifact,
                 )
+                logger.info(
+                    "Document %s review audit stages finished in %.2fs",
+                    document.id,
+                    time.monotonic() - review_started,
+                )
+                if (
+                    extraction_degraded
+                    or aggregation_failed
+                    or bool(failed_stages)
+                ):
+                    document.status = DocumentStatus.COMPLETED_WITH_WARNINGS
+                document.progress_pct = 100
+                await session.commit()
             except Exception as exc:  # noqa: BLE001 — preserve core findings
                 logger.exception(
                     "Layout/Budinski review stages failed for document %s: %s",
@@ -714,6 +765,7 @@ async def _run_extraction(document_id: str) -> dict[str, object]:
                     exc,
                 )
                 document.status = DocumentStatus.COMPLETED_WITH_WARNINGS
+                document.progress_pct = 100
                 await session.commit()
 
     return {"document_id": document_id, "stage": EXTRACTION_STAGE}
@@ -756,7 +808,7 @@ async def _mark_timed_out(document_id: str) -> None:
     # Do NOT autoretry on Exception — a stuck task would retry and hang again.
     # Only retry on transient infrastructure errors by catching them explicitly below.
     soft_time_limit=300,  # 5 min soft limit — allows graceful cleanup
-    time_limit=360,       # 6 min hard limit — SIGKILL if still running
+    time_limit=420,       # Leave cleanup/retry room after the soft limit.
 )
 def extract_document_task(self: Any, document_id: str) -> dict[str, object]:
     """Run extraction and persist a failed run before any retry is scheduled."""

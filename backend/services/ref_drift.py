@@ -124,7 +124,7 @@ def _get_page_label(page_index: int, artifact: ExtractionArtifact) -> str:
         label = artifact.pages[page_index].page_label
         if label:
             return label.strip()
-    return str(page_index + 1)
+    return "unlabeled"
 
 
 def _collect_toc_entries(
@@ -366,7 +366,9 @@ def analyze_ref_drift(
         ref_num = entry.referenced_page_number
         actual_label, actual_num = parse_page_token(target.actual_page_label)
 
-        if ref_num is not None and actual_num is not None:
+        if actual_label.lower() == "unlabeled":
+            page_delta = 0
+        elif ref_num is not None and actual_num is not None:
             page_delta = actual_num - ref_num
         elif entry.referenced_page_label.lower() != actual_label.lower():
             page_delta = 1

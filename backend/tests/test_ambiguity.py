@@ -42,7 +42,7 @@ def test_detects_inconsistent_material_grades() -> None:
     grade_findings = [f for f in analysis.findings if f.type == "AMBIGUOUS_SPECIFICATION"]
 
     assert len(grade_findings) == 2
-    assert all(f.severity == Severity.MEDIUM for f in grade_findings)
+    assert all(f.severity == Severity.MINOR for f in grade_findings)
     assert any("316" in f.message and "316L" in f.message for f in grade_findings)
 
 

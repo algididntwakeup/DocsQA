@@ -137,13 +137,24 @@ describe("SplitScreenViewer", () => {
     });
   });
 
-  it("provides direct export links in the footer", () => {
+  it("provides async export actions in the footer", () => {
     render(<SplitScreenViewer document={mockDoc} initialIssues={mockIssues} />);
 
-    const docxLink = screen.getByRole("link", { name: /export docx/i });
-    expect(docxLink.getAttribute("href")).toBe("/api/v1/documents/doc-test-123/export?format=docx");
+    expect(screen.getByRole("button", { name: /export docx/i })).toBeDefined();
 
-    const pdfLink = screen.getByRole("link", { name: /export annotated pdf/i });
-    expect(pdfLink.getAttribute("href")).toBe("/api/v1/documents/doc-test-123/export?format=pdf");
+    expect(screen.getByRole("button", { name: /export annotated pdf/i })).toBeDefined();
+  });
+
+  it("explains when processing completed with warnings", () => {
+    render(
+      <SplitScreenViewer
+        document={{ ...mockDoc, status: "COMPLETED_WITH_WARNINGS" }}
+        initialIssues={mockIssues}
+      />
+    );
+
+    expect(
+      screen.getByText(/Review completed with warnings\. Check the findings before exporting/i)
+    ).toBeDefined();
   });
 });

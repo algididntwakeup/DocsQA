@@ -11,10 +11,10 @@ import {
   X,
 } from "lucide-react";
 import {
-  getExportUrl,
   getReportPreview,
   type ReviewReportPreview,
 } from "@/lib/api";
+import { downloadExport } from "@/lib/download";
 
 interface ReportPreviewModalProps {
   documentId: string;
@@ -190,22 +190,22 @@ export function ReportPreviewModal({
                   Export Deliverables
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <a
-                    href={getExportUrl(documentId, "docx")}
+                  <button
+                    type="button"
                     className="button button-primary flex items-center justify-center gap-2 py-2.5"
-                    download
+                    onClick={() => void downloadExport(documentId, "docx")}
                   >
                     <Download size={16} />
                     <span>Download DOCX Report</span>
-                  </a>
-                  <a
-                    href={getExportUrl(documentId, "pdf")}
+                  </button>
+                  <button
+                    type="button"
                     className="button button-secondary flex items-center justify-center gap-2 py-2.5"
-                    download
+                    onClick={() => void downloadExport(documentId, "pdf")}
                   >
                     <FileText size={16} />
                     <span>Download Annotated PDF</span>
-                  </a>
+                  </button>
                 </div>
               </div>
             </>

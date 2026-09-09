@@ -1,9 +1,10 @@
 """Unit tests for Near-Duplicate Content Detection Service (M4.3)."""
 
+from unittest.mock import patch
 from uuid import uuid4
 
 from schemas.extraction import CoordinateContract, ExtractionArtifact, PageMetadata, TextSpan
-from services.duplicate import analyze_duplicates
+from services.duplicate import MAX_FUZZY_COMPARISONS, analyze_duplicates
 
 
 def _make_span(text: str, page_index: int, y0: float = 200.0, y1: float = 240.0) -> TextSpan:
@@ -101,3 +102,57 @@ def test_ignores_headers_footers_and_short_snippets() -> None:
 
     analysis = analyze_duplicates(artifact)
     assert len(analysis.findings) == 0
+
+
+def test_large_document_uses_bounded_candidate_matching() -> None:
+    """Large documents do not fall back to an unbounded quadratic fuzzy scan."""
+    spans = [
+        _make_span(
+            f"Unrelated engineering paragraph {index} describes material qualification "
+            f"and inspection sequence {index} with unique evidence.",
+            page_index=index // 20,
+            y0=100 + (index % 20) * 25,
+            y1=120 + (index % 20) * 25,
+        )
+        for index in range(1200)
+    ]
+
+    with patch("services.duplicate.fuzz.token_sort_ratio", wraps=lambda left, right: 0) as matcher:
+        analysis = analyze_duplicates(
+            ExtractionArtifact(
+                document_id=uuid4(),
+                pages=[
+                    PageMetadata(page_index=index, width=612.0, height=792.0)
+                    for index in range(60)
+                ],
+                spans=spans,
+            )
+        )
+
+    assert matcher.call_count <= MAX_FUZZY_COMPARISONS
+    assert len(analysis.findings) >= 0
+
+
+def test_unrelated_token_sets_skip_fuzzy_matching() -> None:
+    """Paragraphs with no substantive token overlap never call fuzzy matching."""
+    artifact = ExtractionArtifact(
+        document_id=uuid4(),
+        pages=[PageMetadata(page_index=0, width=612.0, height=792.0)],
+        spans=[
+            _make_span(
+                "alpha alloy pressure vessel inspection sequence and acceptance criteria",
+                page_index=0,
+            ),
+            _make_span(
+                "banana chemical laboratory microscopy result calibration procedure",
+                page_index=0,
+                y0=300,
+                y1=340,
+            ),
+        ],
+    )
+
+    with patch("services.duplicate.fuzz.token_sort_ratio") as matcher:
+        analyze_duplicates(artifact)
+
+    matcher.assert_not_called()

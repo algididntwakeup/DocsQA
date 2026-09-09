@@ -3,7 +3,14 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, ArrowLeft, RotateCw } from "lucide-react";
-import { getDocument, listDocumentIssues, ApiError, type DocumentItem, type IssueItem } from "@/lib/api";
+import {
+  getDocument,
+  listAllDocumentIssues,
+  subscribeDocumentEvents,
+  ApiError,
+  type DocumentItem,
+  type IssueItem,
+} from "@/lib/api";
 import { SplitScreenViewer } from "./split-screen-viewer";
 
 export function ReviewWorkspaceView({ id }: { id: string }) {
@@ -20,13 +27,31 @@ export function ReviewWorkspaceView({ id }: { id: string }) {
       try {
         const [docData, issuesData] = await Promise.all([
           getDocument(id),
-          listDocumentIssues(id),
+          listAllDocumentIssues(id),
         ]);
         if (active) {
           setDocument(docData);
-          setIssues(issuesData.issues);
+           setIssues(issuesData);
           setError(null);
           setIsLoading(false);
+
+          // Findings are written asynchronously. Keep the workspace in sync when
+          // it was opened before the worker finished its audit stages.
+          if (docData.status === "QUEUED" || docData.status === "PROCESSING") {
+            const unsubscribe = subscribeDocumentEvents(id, (event) => {
+              if (
+                event.status === "COMPLETED" ||
+                event.status === "COMPLETED_WITH_WARNINGS" ||
+                event.status === "FAILED"
+              ) {
+                unsubscribe();
+                if (event.status !== "FAILED") {
+                  void fetchData();
+                }
+              }
+            });
+            return unsubscribe;
+          }
         }
       } catch (err: unknown) {
         if (active) {
@@ -42,10 +67,14 @@ export function ReviewWorkspaceView({ id }: { id: string }) {
       }
     };
 
-    void fetchData();
+    let cleanup: (() => void) | undefined;
+    void fetchData().then((result) => {
+      cleanup = typeof result === "function" ? result : undefined;
+    });
 
     return () => {
       active = false;
+      cleanup?.();
     };
   }, [id, reloadKey]);
 
