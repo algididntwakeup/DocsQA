@@ -1,8 +1,8 @@
 """Pydantic schemas for deterministic linguistic findings and stage analyses."""
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
-from domain.enums import IssueCategory, Severity
+from domain.enums import IssueCategory, Severity, cap_linguistic_severity
 from schemas.base import ApiModel
 from schemas.issues import BoundingBox
 
@@ -20,6 +20,12 @@ class LinguisticFinding(ApiModel):
     original_location: BoundingBox | None = None
     rule_id: str | None = None
     category: IssueCategory = IssueCategory.LINGUISTIC
+
+    @field_validator("severity", mode="before")
+    @classmethod
+    def cap_severity(cls, value: Severity | str) -> Severity:
+        """Spellcheck, grammar, and dictionary findings cannot outrank MINOR."""
+        return cap_linguistic_severity(value)
 
 
 class SpellcheckAnalysis(ApiModel):

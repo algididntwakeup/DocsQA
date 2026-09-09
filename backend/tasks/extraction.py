@@ -692,6 +692,30 @@ async def _run_extraction(document_id: str) -> dict[str, object]:
                 ),
             )
 
+            # The production Celery worker is the single execution path. Run the
+            # document-review stages in this same transaction/session so layout
+            # and Budinski findings reach the same issues endpoint as the core
+            # analyzers. The review pipeline is additive and does not erase the
+            # findings just aggregated above.
+            try:
+                from services.pipeline import execute_document_pipeline
+
+                review_uri = document.canonical_pdf_uri or document.storage_uri
+                review_path = Path(storage.resolve(review_uri))
+                await execute_document_pipeline(
+                    document=document,
+                    session=session,
+                    file_path=review_path,
+                )
+            except Exception as exc:  # noqa: BLE001 — preserve core findings
+                logger.exception(
+                    "Layout/Budinski review stages failed for document %s: %s",
+                    document.id,
+                    exc,
+                )
+                document.status = DocumentStatus.COMPLETED_WITH_WARNINGS
+                await session.commit()
+
     return {"document_id": document_id, "stage": EXTRACTION_STAGE}
 
 

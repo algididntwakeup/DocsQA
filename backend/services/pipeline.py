@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import re
+from io import BytesIO
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from pathlib import Path
@@ -12,14 +14,23 @@ from uuid import UUID, uuid4
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from domain.enums import DocumentStatus, IssueCategory, PipelineStage, Severity, StageStatus
+from domain.enums import (
+    DocumentStatus,
+    IssueCategory,
+    PipelineStage,
+    Severity,
+    StageStatus,
+    cap_linguistic_severity,
+)
+from core.config import settings
 from models.document import Document, StageRun
 from models.issue import Issue
-from schemas.extraction import LayoutAnomaly
+from schemas.extraction import ExtractionArtifact, LayoutAnomaly
 from schemas.issues import BoundingBox, BudinskiEvidence, LayoutEvidence
 from services.budinski_evaluator import BudinskiEvaluator
 from services.extract import extract_document
 from services.layout_inspector import DocumentLayoutInspector
+from services.storage import LocalStorage
 from tasks.extraction import extract_document_task
 
 EXTRACTION_STAGE = "extraction"
@@ -32,6 +43,66 @@ CANONICAL_PIPELINE_STAGES: list[PipelineStage] = [
     PipelineStage.LINGUISTIC_CHECK,
     PipelineStage.AGGREGATING,
 ]
+
+
+def _build_content_signals(artifact: ExtractionArtifact) -> dict[str, Any]:
+    """Build conservative Budinski inputs from extracted text and headings."""
+    text = "\n".join(span.text for span in artifact.spans)
+    lowered = text.lower()
+    headings = [h.text.strip() for h in artifact.headings if h.text.strip()]
+    procedure = "\n".join(s.text for s in artifact.spans if re.search(r"\b(method|procedure|methodology|calculation|assessment)\b", s.text, re.I))
+    conclusions = "\n".join(s.text for s in artifact.spans if re.search(r"\b(conclusion|conclusions)\b", s.text, re.I))
+    recommendations = "\n".join(s.text for s in artifact.spans if re.search(r"\b(recommendation|recommended|action)\b", s.text, re.I))
+    return {
+        "headings": headings,
+        "references": bool(re.search(r"\b(references?|bibliography|codes? and standards?)\b", lowered)),
+        "purpose_of_report_stated": bool(re.search(r"\bpurpose(?: of (?:this )?(?:report|document))?\b", lowered)),
+        "objective_of_work_clear": bool(re.search(r"\b(objective|objectives|scope of work)\b", lowered)),
+        "purpose_of_work_clear": bool(re.search(r"\b(objective|objectives|scope of work)\b", lowered)),
+        "format_stated": bool(re.search(r"\b(report format|format of (?:this )?report)\b", lowered)),
+        "scope_stated": bool(re.search(r"\bscope(?: of work)?\b", lowered)),
+        "procedure": procedure,
+        "procedure_repeatable": len(procedure) >= 120,
+        "steps_outlined": bool(re.search(r"\b(step|procedure|methodology)\b", lowered)),
+        "conclusions": conclusions,
+        "recommendations": recommendations,
+        "recommendations_has_owner_column": bool(re.search(r"\b(owner|responsible|by whom)\b", lowered)),
+        "standards_edition_cited": bool(re.search(r"\b(?:ASME|API|ASTM|ISO)\b[^\n]{0,60}\b(?:19|20)\d{2}\b", text, re.I)),
+        "section_evidence": {
+            "Report Mechanics": next((h for h in artifact.headings if re.search(r"introduction|method|procedure|scope", h.text, re.I)), None),
+            "Conclusions & Craft": next((h for h in artifact.headings if re.search(r"conclusion|result|discussion", h.text, re.I)), None),
+            "Style": next((h for h in artifact.headings if re.search(r"style|language|writing", h.text, re.I)), None),
+        },
+    }
+
+
+def _discover_navigation_targets(doc_pdf: Any, toc: list[Any]) -> dict[str, int]:
+    """Resolve TOC titles to actual 1-based PDF pages using normalized text."""
+    targets: dict[str, int] = {}
+    pages_text = [str(page.get_text("text") or "") for page in doc_pdf]
+    for entry in toc or []:
+        if not isinstance(entry, (list, tuple)) or len(entry) < 2:
+            continue
+        title = str(entry[1]).strip()
+        if not title or len(title) < 3:
+            continue
+        words = re.findall(r"[a-z0-9]+", title.lower())
+        if not words:
+            continue
+        for page_index, page_text in enumerate(pages_text):
+            normalized = re.findall(r"[a-z0-9]+", page_text.lower())
+            if not normalized:
+                continue
+            # Headings can wrap or carry numbering; compare the meaningful
+            # title tokens rather than requiring a byte-for-byte match.
+            if len(words) <= 3:
+                matched = " ".join(words) in " ".join(normalized)
+            else:
+                matched = sum(1 for word in words if word in normalized) / len(words) >= 0.75
+            if matched:
+                targets[title] = page_index + 1
+                break
+    return targets
 
 
 def format_sse_stage_event(
@@ -64,12 +135,7 @@ def deprioritize_linguistic_severity(severity: Severity | str) -> Severity:
     Ensures findings never exceed MINOR severity so that critical blockers
     from Budinski rules and Layout inspections dominate reviewer attention.
     """
-    sev_str = severity.value if hasattr(severity, "value") else str(severity)
-    if sev_str in ("BLOCKER", "CRITICAL", "MAJOR", "HIGH", "MEDIUM", "MINOR", "LOW"):
-        return Severity.MINOR
-    if sev_str == "INFO":
-        return Severity.INFO
-    return Severity.MINOR
+    return cap_linguistic_severity(severity)
 
 
 def select_reference_packs(
@@ -144,7 +210,7 @@ async def execute_document_pipeline(
     1) EXTRACTING: Text, font, bounding box extraction via PyMuPDF/pdfplumber
     2) LAYOUT_INSPECTION: Layout geometry, broken sentences, void whitespace, uncontrolled pages
     3) BUDINSKI_AUDIT: Kenneth G. Budinski rules, 4 baseline measures, 41 scorecard items
-    4) STANDARDS_CHECK: ASME/API engineering standard citations and reference pack rules
+    4) STANDARDS_CHECK: reserved stage; external standards packs are disabled in v1
     5) LINGUISTIC_CHECK: Spellcheck/grammar/dictionary (findings de-prioritized to MINOR)
     6) AGGREGATING: Issue consolidation, blocker ranking, and final score computation
     """
@@ -176,9 +242,10 @@ async def execute_document_pipeline(
 
     # 1. EXTRACTING
     stage_1 = await _emit_transition(PipelineStage.EXTRACTING, StageStatus.RUNNING, 10)
+    extracted_artifact: ExtractionArtifact | None = None
     if file_path is not None and file_path.exists():
         try:
-            extract_document(file_path, document.id, document.media_type)
+            extracted_artifact = extract_document(file_path, document.id, document.media_type)
             stage_1.status = StageStatus.SUCCEEDED
         except Exception as exc:  # noqa: BLE001
             stage_1.status = StageStatus.SUCCEEDED_WITH_WARNINGS
@@ -216,8 +283,11 @@ async def execute_document_pipeline(
             layout_anomalies.extend(layout_inspector.detect_style_misclassification(blocks))
             layout_anomalies.extend(layout_inspector.detect_unintended_whitespace(metrics))
             layout_anomalies.extend(layout_inspector.audit_uncontrolled_pages(pages))
+            actual_navigation_targets = _discover_navigation_targets(doc_pdf, doc_pdf.get_toc())
             layout_anomalies.extend(
-                layout_inspector.validate_front_matter_navigation(doc_pdf.get_toc(), {})
+                layout_inspector.validate_front_matter_navigation(
+                    doc_pdf.get_toc(), actual_navigation_targets
+                )
             )
             stage_2.status = StageStatus.SUCCEEDED
         except Exception as exc:  # noqa: BLE001
@@ -248,11 +318,25 @@ async def execute_document_pipeline(
             "MEPG" in document.original_filename or "ALE" in document.original_filename
         ),
     }
+    if extracted_artifact is not None:
+        doc_sections.update(_build_content_signals(extracted_artifact))
     scorecard = evaluator.evaluate_41_checklist_items(
         doc_sections, layout_anomalies=layout_anomalies
     )
     baselines = evaluator.evaluate_four_baselines(doc_sections)
     scorecard.baseline_measures = baselines
+    # Persist the complete 41-item scorecard so report generation can render
+    # passing items as well as rework findings.
+    scorecard_storage = LocalStorage(settings.STORAGE_ROOT)
+    scorecard_path = scorecard_storage._path_for_key(
+        f"artifacts/{document.id}/budinski_scorecard.json"
+    )
+    scorecard_path.unlink(missing_ok=True)
+    scorecard_uri = scorecard_storage.put_stream(
+        f"artifacts/{document.id}/budinski_scorecard.json",
+        BytesIO(scorecard.model_dump_json().encode("utf-8")),
+    ).uri
+    stage_3.artifact_uri = scorecard_uri
     stage_3.status = StageStatus.SUCCEEDED
     stage_3.progress_pct = 100
     stage_3.finished_at = datetime.now(UTC)
@@ -268,9 +352,10 @@ async def execute_document_pipeline(
             )
         )
 
-    # 4. STANDARDS_CHECK
+    # 4. STANDARDS_CHECK (intentionally disabled until a governed rulebook exists)
     stage_4 = await _emit_transition(PipelineStage.STANDARDS_CHECK, StageStatus.RUNNING, 60)
-    stage_4.status = StageStatus.SUCCEEDED
+    stage_4.status = StageStatus.SKIPPED
+    stage_4.error_message = "Standards packs are disabled; internal citation checks remain in the core analyzers."
     stage_4.progress_pct = 100
     stage_4.finished_at = datetime.now(UTC)
     await session.commit()
@@ -305,29 +390,18 @@ async def execute_document_pipeline(
     # 6. AGGREGATING
     stage_6 = await _emit_transition(PipelineStage.AGGREGATING, StageStatus.RUNNING, 90)
 
-    # Clean existing issues
-    await session.execute(delete(Issue).where(Issue.document_id == document.id))
-
     new_issues: list[Issue] = []
 
     # Map Layout Anomalies to Issue models with category LAYOUT
     for anomaly in layout_anomalies:
-        is_sentence_break = anomaly.anomaly_type == "CROSS_PAGE_SENTENCE_BREAK"
+        is_sentence_break = anomaly.anomaly_type == "CROSS_PAGE_BREAK"
         is_uncontrolled = anomaly.anomaly_type == "UNCONTROLLED_PAGE"
         sev = (
             Severity.BLOCKER
             if is_sentence_break
             else (Severity.MAJOR if is_uncontrolled else Severity.MINOR)
         )
-        bbox = BoundingBox(
-            page_index=anomaly.page_index,
-            x0=0.0,
-            y0=0.0,
-            x1=612.0,
-            y1=792.0,
-            page_width=612.0,
-            page_height=792.0,
-        )
+        bbox = anomaly.bbox or anomaly.location
         ev = LayoutEvidence(
             extractor_version="1.0",
             rule_version="layout/1.0",
@@ -356,20 +430,16 @@ async def execute_document_pipeline(
 
     # Map Budinski Findings to Issue models with category BUDINSKI
     for group_name, item_key, item in scorecard.get_rework_items():
-        bbox = BoundingBox(
-            page_index=0,
-            x0=0.0,
-            y0=0.0,
-            x1=612.0,
-            y1=792.0,
-            page_width=612.0,
-            page_height=792.0,
-        )
+        heading = doc_sections.get("section_evidence", {}).get(group_name)
+        bbox = heading.bbox if heading is not None else None
         ev_budinski = BudinskiEvidence(
             extractor_version="1.0",
             rule_version="budinski/1.0",
             rule_number=item_key,
+            where_location=(f"page {bbox.page_index + 1}" if bbox else None),
+            what_it_says=item.note,
             why_it_matters=item.note,
+            what_would_fix_it="Review this checklist item against the cited document section.",
             bounding_box=bbox,
         )
         new_issues.append(
@@ -384,7 +454,7 @@ async def execute_document_pipeline(
                     f"Budinski parameter [{group_name}] {item_key} ({item.name}) scored "
                     f"{item.score}/5: {item.note}"
                 ),
-                page_number=1,
+                page_number=(bbox.page_index + 1 if bbox else None),
                 evidence=ev_budinski.model_dump(mode="json"),
                 included_in_report=True,
                 created_at=now,

@@ -868,8 +868,11 @@ export interface components {
              * Format: uuid
              */
             id: string;
-            /** Name */
-            name: string;
+            /**
+             * Name
+             * @enum {string}
+             */
+            name: "EXTRACTING" | "LAYOUT_INSPECTION" | "BUDINSKI_AUDIT" | "STANDARDS_CHECK" | "LINGUISTIC_CHECK" | "AGGREGATING";
             /** Progress Pct */
             progress_pct: number;
             /** Started At */

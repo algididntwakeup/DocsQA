@@ -147,6 +147,16 @@ export function getIssueLocation(issue: IssueItem): {
     }
     return { page_number: loc.page_index + 1 };
   }
+  if (ev.kind === "LAYOUT") {
+    return ev.bounding_box
+      ? { page_number: ev.page_index + 1, bbox: ev.bounding_box }
+      : { page_number: ev.page_index + 1 };
+  }
+  if (ev.kind === "BUDINSKI") {
+    return ev.bounding_box
+      ? { page_number: ev.bounding_box.page_index + 1, bbox: ev.bounding_box }
+      : {};
+  }
   return {};
 }
 

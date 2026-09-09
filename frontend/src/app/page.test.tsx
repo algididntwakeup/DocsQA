@@ -26,9 +26,9 @@ describe("Home", () => {
       status: "PROCESSING",
       progress_pct: 42,
       updated_at: "2026-09-04T00:00:00Z",
-      stages: [{ id: "17471ea1-5671-49bc-825a-8300f4c7bf10", name: "extract", status: "RUNNING", progress_pct: 42, attempt: 1 }],
+       stages: [{ id: "17471ea1-5671-49bc-825a-8300f4c7bf10", name: "EXTRACTING", status: "RUNNING", progress_pct: 42, attempt: 1 }],
     }} />);
     expect(screen.getAllByText("42%").length).toBeGreaterThan(0);
-    expect(screen.getByText("extract")).toBeDefined();
+     expect(screen.getByText("extracting")).toBeDefined();
   });
 });

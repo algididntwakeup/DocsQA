@@ -99,7 +99,7 @@ describe("IssuePanel", () => {
     },
   ];
 
-  it("separates traceability and language issues into tabs", () => {
+  it("separates audit, standards, and language issues into tabs", () => {
     render(
       <IssuePanel
         issues={sampleIssues}
@@ -109,13 +109,17 @@ describe("IssuePanel", () => {
       />
     );
 
-    // Initial tab is Traceability & Compliance
-    expect(screen.getByText("RULE_TABLE_MATH_001")).toBeDefined();
-    expect(screen.getByText("RULE_STANDARDS_STRICTNESS_001")).toBeDefined();
+    // Standards findings are separated from the Budinski/Layout audit queue.
+    expect(screen.queryByText("RULE_TABLE_MATH_001")).toBeNull();
+    expect(screen.queryByText("RULE_STANDARDS_STRICTNESS_001")).toBeNull();
     expect(screen.queryByText("RULE_PASSIVE_VOICE")).toBeNull();
 
-    // Switch to Language & Mechanics tab
-    const languageTab = screen.getByRole("tab", { name: /language & mechanics/i });
+    fireEvent.click(screen.getByRole("tab", { name: /standards audit/i }));
+    expect(screen.getByText("RULE_TABLE_MATH_001")).toBeDefined();
+    expect(screen.getByText("RULE_STANDARDS_STRICTNESS_001")).toBeDefined();
+
+    // Switch to Language tab
+    const languageTab = screen.getByRole("tab", { name: /^language/i });
     fireEvent.click(languageTab);
 
     expect(screen.getByText("RULE_PASSIVE_VOICE")).toBeDefined();
@@ -133,6 +137,8 @@ describe("IssuePanel", () => {
     );
 
     const severitySelect = screen.getByLabelText(/filter by severity/i);
+    // Standards tab contains the legacy HIGH standards finding.
+    fireEvent.click(screen.getByRole("tab", { name: /standards audit/i }));
     // Filter by HIGH
     fireEvent.change(severitySelect, { target: { value: "HIGH" } });
 
@@ -151,6 +157,7 @@ describe("IssuePanel", () => {
     );
 
     const curationSelect = screen.getByLabelText(/filter by report status/i);
+    fireEvent.click(screen.getByRole("tab", { name: /standards audit/i }));
 
     // Filter to INCLUDED
     fireEvent.change(curationSelect, { target: { value: "INCLUDED" } });
@@ -173,6 +180,7 @@ describe("IssuePanel", () => {
       />
     );
 
+    fireEvent.click(screen.getByRole("tab", { name: /standards audit/i }));
     const searchInput = screen.getByPlaceholderText(/filter by rule/i);
     fireEvent.change(searchInput, { target: { value: "subtotals" } });
 
@@ -191,7 +199,8 @@ describe("IssuePanel", () => {
       />
     );
 
-    // trace-1 is included, so click Exclude
+    fireEvent.click(screen.getByRole("tab", { name: /standards audit/i }));
+    // trace-1 is included in the audit queue, so click Exclude.
     const excludeButtons = screen.getAllByRole("button", { name: /exclude from report/i });
     fireEvent.click(excludeButtons[0]);
 

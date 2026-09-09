@@ -1342,6 +1342,14 @@
             "type": "string"
           },
           "name": {
+            "enum": [
+              "EXTRACTING",
+              "LAYOUT_INSPECTION",
+              "BUDINSKI_AUDIT",
+              "STANDARDS_CHECK",
+              "LINGUISTIC_CHECK",
+              "AGGREGATING"
+            ],
             "maxLength": 64,
             "minLength": 1,
             "title": "Name",

@@ -55,6 +55,7 @@ def _extract_locations(
         "body_location",
         "entry_location",
         "location",
+        "bounding_box",
         "target_location",
         "bibliography_location",
         "original_location",

@@ -192,6 +192,36 @@ export function IssueCard({
               </div>
             )}
 
+            {evidence.kind === "LAYOUT" && (
+              <div className="p-2.5 rounded bg-cyan-500/5 border border-cyan-500/20 space-y-2 text-xs">
+                <div className="flex items-center gap-1.5 font-medium text-cyan-700 dark:text-cyan-300 text-[11px] uppercase tracking-wider">
+                  <MapPin size={13} />
+                  <span>Layout Inspection</span>
+                </div>
+                <p><span className="text-muted">Anomaly:</span> {String(evidence.anomaly_type ?? "—")}</p>
+                {Boolean(evidence.snippet) && (
+                  <p className="rounded bg-surface border border-line p-2 font-mono text-[11px] whitespace-pre-wrap">
+                    {String(evidence.snippet)}
+                  </p>
+                )}
+                {Boolean(evidence.suggested_fix) && <p><span className="text-muted">Suggested fix:</span> {String(evidence.suggested_fix)}</p>}
+              </div>
+            )}
+
+            {evidence.kind === "BUDINSKI" && (
+              <div className="p-2.5 rounded bg-violet-500/5 border border-violet-500/20 space-y-2 text-xs">
+                <div className="flex items-center gap-1.5 font-medium text-violet-700 dark:text-violet-300 text-[11px] uppercase tracking-wider">
+                  <CheckCircle2 size={13} />
+                  <span>Budinski Rule Audit {evidence.rule_number ? `· ${String(evidence.rule_number)}` : ""}</span>
+                </div>
+                {Boolean(evidence.measure) && <p><span className="text-muted">Measure:</span> {String(evidence.measure)}</p>}
+                {Boolean(evidence.where_location) && <p><span className="text-muted">Where:</span> {String(evidence.where_location)}</p>}
+                {Boolean(evidence.what_it_says) && <p><span className="text-muted">Standard says:</span> {String(evidence.what_it_says)}</p>}
+                {Boolean(evidence.what_body_has) && <p><span className="text-muted">Document has:</span> {String(evidence.what_body_has)}</p>}
+                {Boolean(evidence.what_would_fix_it) && <p><span className="text-muted">Fix:</span> {String(evidence.what_would_fix_it)}</p>}
+              </div>
+            )}
+
             {/* Linguistic Evidence & Dictionary Action */}
             {evidence.kind === "LINGUISTIC" && (
               <div className="p-2.5 rounded bg-muted/10 border border-line space-y-2 text-xs">

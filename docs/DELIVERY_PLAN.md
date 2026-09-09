@@ -28,11 +28,14 @@
   - Expanded `IssueCategory` to include `LAYOUT` and `BUDINSKI` alongside legacy categories.
   - Added `BLOCKER` as topmost severity level with backward-compatible aliases.
   - Migrated `Issue` model `category` and `severity` to `String(50)` for migration safety.
-  - Codified 6 canonical pipeline stages (`EXTRACTING`, `LAYOUT_INSPECTION`, `BUDINSKI_AUDIT`, `STANDARDS_CHECK`, `LINGUISTIC_CHECK`, `AGGREGATING`) with uniform SSE stage tracking.
+  - Codified 6 canonical pipeline stages (`EXTRACTING`, `LAYOUT_INSPECTION`, `BUDINSKI_AUDIT`, `STANDARDS_CHECK`, `LINGUISTIC_CHECK`, `AGGREGATING`) with uniform SSE stage tracking. `STANDARDS_CHECK` is explicitly skipped until a licensed, governed rulebook exists; internal citation/bibliography checks remain enabled.
   - De-prioritized linguistic findings to cap severity at `MINOR`.
   - Synchronized OpenAPI 3.1 specification (`openapi.json`) and TypeScript contracts (`api-schema.d.ts`).
 
 ## Phase 3: Deployment & Hardening (Upcoming)
 - [ ] **Milestone 7: Docker Headless Visual Validation**
-  - Run headless LibreOffice inside Docker to verify PDF conversion of generated DOCX reports.
-  - Test pagination fidelity and margin alignment across platforms.
+  - [x] Compose and backend image now verify that `soffice --headless --version` is available in the worker.
+  - [x] Added `backend/scripts/verify_libreoffice.py` for deterministic DOCX-to-PDF smoke validation.
+  - [x] Run the LibreOffice smoke command on Docker Desktop; worker reports LibreOffice 25.2.3.2.
+  - [ ] Render the generated PDF to page PNGs and inspect pagination/margins.
+  - [ ] Test pagination fidelity and margin alignment across platforms.

@@ -464,7 +464,16 @@ async def export_document(
             headers={"Content-Disposition": f'attachment; filename="{safe_name}_annotated.pdf"'},
         )
     if format == "docx":
-        docx_bytes = build_review_report(document, list(issues))
+        scorecard: dict[str, Any] | None = None
+        scorecard_path = storage._path_for_key(
+            f"artifacts/{document.id}/budinski_scorecard.json"
+        )
+        if scorecard_path.exists():
+            try:
+                scorecard = json.loads(scorecard_path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                scorecard = None
+        docx_bytes = build_review_report(document, list(issues), scorecard=scorecard)
         return Response(
             content=docx_bytes,
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",

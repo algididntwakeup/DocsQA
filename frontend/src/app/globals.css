@@ -1,5 +1,45 @@
 @import "tailwindcss";
 
+@keyframes live-pulse {
+  0%, 100% { opacity: .35; transform: scale(.9); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
+
+@keyframes processing-sheen {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.live-monitor {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 14px;
+  padding: 10px 13px;
+  border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--line));
+  border-radius: 10px;
+  color: var(--ink-soft);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--primary) 8%, var(--panel)), var(--panel), color-mix(in srgb, var(--primary) 8%, var(--panel)));
+  background-size: 200% 100%;
+  animation: processing-sheen 3.2s linear infinite;
+  font-size: 12px;
+}
+
+.live-monitor svg { color: var(--primary); flex: 0 0 auto; }
+.live-monitor strong { color: var(--text); margin-right: 4px; }
+.live-pulse, .processing-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--primary);
+  animation: live-pulse 1.4s ease-in-out infinite;
+}
+.live-pulse { margin-left: auto; }
+.status-with-live { display: inline-flex; align-items: center; gap: 8px; }
+.document-row-active td { background: color-mix(in srgb, var(--primary) 2%, transparent); }
+.document-row-active .table-progress progress { accent-color: var(--primary); }
+
 @theme {
   --color-panel: var(--panel);
   --color-panel-raised: var(--panel-raised);
@@ -1849,4 +1889,3 @@ body.light .issue-card.selected {
   border-color: #3b82f6;
   box-shadow: 0 0 0 1px #3b82f6;
 }
-

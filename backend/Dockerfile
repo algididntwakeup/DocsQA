@@ -2,7 +2,10 @@ FROM python:3.13-slim AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    HOME=/tmp \
+    XDG_CONFIG_HOME=/tmp/.config \
+    XDG_CACHE_HOME=/tmp/.cache
 
 WORKDIR /app
 
@@ -13,12 +16,17 @@ RUN apt-get update \
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Fail the image build early if the headless office runtime needed for DOCX
+# coordinate extraction and report rendering is missing or not executable.
+RUN soffice --headless --version
+
 COPY . .
 
 RUN addgroup --system docqc \
     && adduser --system --ingroup docqc docqc \
     && mkdir -p /app/data \
-    && chown -R docqc:docqc /app
+    && mkdir -p /tmp/.config /tmp/.cache \
+    && chown -R docqc:docqc /app /tmp/.config /tmp/.cache
 
 USER docqc
 

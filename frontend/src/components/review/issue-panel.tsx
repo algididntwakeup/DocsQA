@@ -6,6 +6,7 @@ import {
   Layers,
   Search,
   Sparkles,
+  ShieldCheck,
 } from "lucide-react";
 import { getIssueLocation, type IssueItem } from "@/lib/api";
 import { IssueCard } from "./issue-card";
@@ -23,22 +24,17 @@ interface IssuePanelProps {
   isLoading?: boolean;
 }
 
-type TabType = "traceability" | "language";
-type SeverityFilter = "ALL" | "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "INFO";
+type TabType = "audit" | "standards" | "language";
+type SeverityFilter = "ALL" | "BLOCKER" | "CRITICAL" | "MAJOR" | "MINOR" | "INFO" | "HIGH" | "MEDIUM" | "LOW";
 type CurationFilter = "ALL" | "INCLUDED" | "EXCLUDED";
 
-function isTraceabilityIssue(issue: IssueItem): boolean {
-  if (issue.category === "TRACEABILITY" || issue.category === "SYSTEM") {
-    return true;
-  }
-  const rid = (issue.type || "").toUpperCase();
-  return (
-    rid.startsWith("RULE_TABLE_MATH") ||
-    rid.startsWith("RULE_REFERENCE_DRIFT") ||
-    rid.startsWith("RULE_REVISION_SYNC") ||
-    rid.startsWith("RULE_STANDARDS") ||
-    rid.startsWith("SYSTEM_")
-  );
+function getIssueTab(issue: IssueItem): TabType {
+  if (issue.category === "BUDINSKI" || issue.category === "LAYOUT") return "audit";
+  const rule = issue.type.toUpperCase();
+  if (issue.category === "TRACEABILITY" && rule.includes("STANDARD")) return "standards";
+  return issue.category === "LINGUISTIC" || issue.category === "SPELLING" || issue.category === "GRAMMAR" || issue.category === "DICTIONARY"
+    ? "language"
+    : "standards";
 }
 
 export function IssuePanel({
@@ -50,7 +46,7 @@ export function IssuePanel({
   onAddToDictionary,
   isLoading = false,
 }: IssuePanelProps) {
-  const [activeTab, setActiveTab] = useState<TabType>("traceability");
+  const [activeTab, setActiveTab] = useState<TabType>("audit");
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>("ALL");
   const [curationFilter, setCurationFilter] = useState<CurationFilter>("ALL");
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -58,16 +54,11 @@ export function IssuePanel({
   const activeCardRef = useRef<HTMLDivElement | null>(null);
 
   // Group issues into tabs
-  const traceabilityIssues = useMemo(
-    () => issues.filter((iss) => isTraceabilityIssue(iss)),
-    [issues]
-  );
-  const languageIssues = useMemo(
-    () => issues.filter((iss) => !isTraceabilityIssue(iss)),
-    [issues]
-  );
+  const auditIssues = useMemo(() => issues.filter((issue) => getIssueTab(issue) === "audit"), [issues]);
+  const standardsIssues = useMemo(() => issues.filter((issue) => getIssueTab(issue) === "standards"), [issues]);
+  const languageIssues = useMemo(() => issues.filter((issue) => getIssueTab(issue) === "language"), [issues]);
 
-  const currentTabIssues = activeTab === "traceability" ? traceabilityIssues : languageIssues;
+  const currentTabIssues = activeTab === "audit" ? auditIssues : activeTab === "standards" ? standardsIssues : languageIssues;
 
   // Filter issues based on active filters
   const filteredIssues = useMemo(() => {
@@ -105,7 +96,8 @@ export function IssuePanel({
     }
   }, [selectedIssueId]);
 
-  const traceIncludedCount = traceabilityIssues.filter((i) => i.included_in_report).length;
+  const auditIncludedCount = auditIssues.filter((i) => i.included_in_report).length;
+  const standardsIncludedCount = standardsIssues.filter((i) => i.included_in_report).length;
   const langIncludedCount = languageIssues.filter((i) => i.included_in_report).length;
 
   return (
@@ -118,18 +110,36 @@ export function IssuePanel({
         <button
           type="button"
           role="tab"
-          aria-selected={activeTab === "traceability"}
-          onClick={() => setActiveTab("traceability")}
+          aria-selected={activeTab === "audit"}
+          onClick={() => setActiveTab("audit")}
           className={`flex-1 py-3 px-4 text-xs font-semibold flex items-center justify-center gap-2 border-b-2 transition-colors ${
-            activeTab === "traceability"
+              activeTab === "audit"
+              ? "border-sky-500 text-sky-600 dark:text-sky-400 bg-surface"
+              : "border-transparent text-muted hover:text-ink hover:bg-muted/5"
+          }`}
+        >
+          <ShieldCheck size={15} />
+          <span>Budinski & Layout Audit</span>
+          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-muted/20 text-muted">
+            {auditIncludedCount}/{auditIssues.length}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === "standards"}
+          onClick={() => setActiveTab("standards")}
+          className={`flex-1 py-3 px-4 text-xs font-semibold flex items-center justify-center gap-2 border-b-2 transition-colors ${
+              activeTab === "standards"
               ? "border-sky-500 text-sky-600 dark:text-sky-400 bg-surface"
               : "border-transparent text-muted hover:text-ink hover:bg-muted/5"
           }`}
         >
           <Layers size={15} />
-          <span>Technical Consistency</span>
+          <span>Standards Audit</span>
           <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-muted/20 text-muted">
-            {traceIncludedCount}/{traceabilityIssues.length}
+            {standardsIncludedCount}/{standardsIssues.length}
           </span>
         </button>
 
@@ -139,15 +149,13 @@ export function IssuePanel({
           aria-selected={activeTab === "language"}
           onClick={() => setActiveTab("language")}
           className={`flex-1 py-3 px-4 text-xs font-semibold flex items-center justify-center gap-2 border-b-2 transition-colors ${
-            activeTab === "language"
-              ? "border-sky-500 text-sky-600 dark:text-sky-400 bg-surface"
-              : "border-transparent text-muted hover:text-ink hover:bg-muted/5"
+            activeTab === "language" ? "border-sky-500 text-sky-600 dark:text-sky-400 bg-surface" : "border-transparent text-muted hover:text-ink hover:bg-muted/5"
           }`}
         >
           <Sparkles size={15} />
-          <span>Language & Mechanics</span>
+          <span>Language</span>
           <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-muted/20 text-muted">
-            {langIncludedCount}/{languageIssues.length}
+            {languageIssues.filter((i) => i.included_in_report).length}/{languageIssues.length}
           </span>
         </button>
       </div>
@@ -176,7 +184,10 @@ export function IssuePanel({
               className="w-full text-xs py-1 px-2 rounded border border-line bg-sunken text-ink focus:outline-none focus:border-sky-500 transition-colors"
             >
               <option value="ALL">All Severities</option>
+              <option value="BLOCKER">Blocker Only</option>
               <option value="CRITICAL">Critical Only</option>
+              <option value="MAJOR">Major Only</option>
+              <option value="MINOR">Minor Only</option>
               <option value="HIGH">High Only</option>
               <option value="MEDIUM">Medium Only</option>
               <option value="LOW">Low Only</option>

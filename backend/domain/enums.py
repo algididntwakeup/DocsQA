@@ -64,6 +64,14 @@ class Severity(StrEnum):
 IssueSeverity = Severity
 
 
+def cap_linguistic_severity(severity: Severity | str) -> Severity:
+    """Keep language findings below the dashboard's high-priority tiers."""
+    value = severity.value if isinstance(severity, Severity) else str(severity)
+    if value == Severity.INFO.value:
+        return Severity.INFO
+    return Severity.MINOR
+
+
 class PipelineStage(StrEnum):
     """Canonical document review pipeline stages."""
 

@@ -86,6 +86,7 @@ describe("SplitScreenViewer", () => {
     expect(screen.getByRole("heading", { name: "hydraulic_spec_v2.pdf" })).toBeDefined();
     expect(screen.getByText("1 Included")).toBeDefined();
     expect(screen.getByText("1 Blockers")).toBeDefined();
+    fireEvent.click(screen.getByRole("tab", { name: /standards audit/i }));
     expect(screen.getByText("Row sum error in hydraulic test data")).toBeDefined();
   });
 
@@ -123,6 +124,7 @@ describe("SplitScreenViewer", () => {
 
     render(<SplitScreenViewer document={mockDoc} initialIssues={mockIssues} />);
 
+    fireEvent.click(screen.getByRole("tab", { name: /standards audit/i }));
     const excludeBtn = screen.getByRole("button", { name: /exclude from report/i });
     fireEvent.click(excludeBtn);
 

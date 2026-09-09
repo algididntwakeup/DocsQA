@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from domain.enums import DocumentStatus, IssueCategory, PipelineStage, Severity, StageStatus
 from models.document import Document
 from schemas.extraction import ExtractionArtifact, LayoutAnomaly
+from schemas.linguistic import LinguisticFinding
 from services.pipeline import (
     CANONICAL_PIPELINE_STAGES,
     deprioritize_linguistic_severity,
@@ -401,6 +402,26 @@ def test_deprioritize_linguistic_findings() -> None:
     assert deprioritize_linguistic_severity("INFO") == Severity.INFO
 
 
+def test_linguistic_schema_caps_legacy_high_severity() -> None:
+    """Legacy linguistic artifacts cannot promote findings above MINOR."""
+    finding = LinguisticFinding(
+        type="SPELLCHECK_TYPO",
+        message="Typo",
+        severity=Severity.BLOCKER,
+        original_text="teh",
+        location={
+            "page_index": 0,
+            "x0": 0.0,
+            "y0": 0.0,
+            "x1": 1.0,
+            "y1": 1.0,
+            "page_width": 612.0,
+            "page_height": 792.0,
+        },
+    )
+    assert finding.severity == Severity.MINOR
+
+
 def test_pipeline_stages_and_sse_events() -> None:
     """execute_document_pipeline sequences all 6 stages and emits SSE frames."""
     doc_id = uuid.uuid4()
@@ -497,4 +518,3 @@ def test_pipeline_creates_layout_blocker_issues() -> None:
 
     whitespace_issue = next(i for i in layout_issues if i.type == "UNINTENDED_WHITESPACE")
     assert whitespace_issue.severity == Severity.MINOR.value
-

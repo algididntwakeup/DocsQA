@@ -5,7 +5,7 @@ from uuid import UUID
 
 from pydantic import Field
 
-from domain.enums import DocumentStatus, StageStatus
+from domain.enums import DocumentStatus, PipelineStage, StageStatus
 from schemas.base import ApiModel
 from schemas.common import PageInfo
 
@@ -14,7 +14,12 @@ class StageRunRead(ApiModel):
     """Latest observable state for one pipeline stage execution."""
 
     id: UUID
-    name: str = Field(min_length=1, max_length=64, validation_alias="stage_name")
+    name: str = Field(
+        min_length=1,
+        max_length=64,
+        validation_alias="stage_name",
+        json_schema_extra={"enum": [stage.value for stage in PipelineStage]},
+    )
     status: StageStatus
     progress_pct: int = Field(ge=0, le=100)
     attempt: int = Field(ge=1)

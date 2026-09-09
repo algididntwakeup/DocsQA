@@ -12,7 +12,7 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID, uuid4
 
-from domain.enums import IssueCategory, Severity
+from domain.enums import IssueCategory, Severity, cap_linguistic_severity
 from schemas.base import ApiModel
 from schemas.extraction import CoordinateContract
 from schemas.issues import (
@@ -359,7 +359,7 @@ def _normalize_linguistic_finding(
         document_id=document_id,
         category=IssueCategory.LINGUISTIC,
         type=finding.type,
-        severity=finding.severity,
+        severity=cap_linguistic_severity(finding.severity),
         confidence=finding.confidence,
         message=finding.message,
         evidence=evidence,

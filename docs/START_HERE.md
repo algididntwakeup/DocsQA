@@ -8,6 +8,13 @@ This is the central index every new agent must read in full. Repository state al
 - **Core Deliverables**:
   1. Formal DOCX review report (`python-docx`).
   2. Annotated source PDF with highlight bounding boxes and notes (`pypdf`).
+- **Standards-pack boundary**: External API/ASME/ISO packs are intentionally disabled. The
+  `STANDARDS_CHECK` stage emits `SKIPPED`; only document-internal citation and bibliography
+  consistency checks remain in scope until a licensed, governed rulebook is supplied.
+- **Latest validation**: Docker worker is running LibreOffice 25.2.3.2 and the DOCX-to-PDF
+  smoke path is available. The remaining gate is PNG inspection plus the deferred full test suite.
+- **Current next ticket**: Render the generated review PDF to page PNGs, inspect pagination and
+  margins, then run the backend and frontend quality suites.
 - **Curation Workflow**:
   - Finding curation is strictly binary inclusion (`included_in_report: bool`, default `True`) and an optional engineering clarification (`reviewer_note: str | None`).
   - Completely removed: issue decisions (`ACCEPTED`/`REJECTED`), lead dispositions, audit trail events, and bulk decision workflows.
@@ -20,8 +27,8 @@ This is the central index every new agent must read in full. Repository state al
   - **Item 6 / Real-World E2E Test (Complete)**: Verified full scan and report generation for `docs/testcase/05.MEPG-Asset Life Extension 2026_Static Equipment_RevB.pdf` in `backend/tests/test_e2e_mepg_review.py`.
   - **Item 7 / Schema & Pipeline Synchronization (Complete)**: Synchronized `IssueCategory` (`LAYOUT`, `BUDINSKI`), `Severity` (`BLOCKER`), 6 canonical pipeline stages, SSE progress streaming, linguistic finding de-prioritization, OpenAPI 3.1 specification, and frontend TypeScript contracts.
 - **Quality Status**:
-  - Backend: **349 passed, 1 skipped, 0 failed** (Ruff check clean, Mypy clean with 0 issues in source files, Pytest clean).
-  - Frontend: TypeScript clean (`tsc --noEmit`), API contracts in exact sync (`api-schema.d.ts`), UI badges mapped.
+  - Historical baseline before the latest pipeline/report changes: **349 passed, 1 skipped, 0 failed**.
+  - Current Docker gate: LibreOffice is available in the worker; full backend/frontend rerun remains pending.
 - **Never push to GitHub**; the owner pushes. Local commits are allowed only after quality gates pass.
 
 ## Source precedence

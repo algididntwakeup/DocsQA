@@ -70,7 +70,7 @@ export function DocumentList({ documents, onRefresh }: { documents: DocumentItem
           </thead>
           <tbody>
             {documents.map((document) => (
-              <tr key={document.id}>
+              <tr key={document.id} className={document.status === "QUEUED" || document.status === "PROCESSING" ? "document-row-active" : undefined}>
                 <td>
                   <Link className="document-link" href={`/documents/${document.id}`}>
                     <FileText size={17} />
@@ -80,7 +80,12 @@ export function DocumentList({ documents, onRefresh }: { documents: DocumentItem
                     </span>
                   </Link>
                 </td>
-                <td><StatusBadge status={document.status} /></td>
+                <td>
+                  <div className="status-with-live">
+                    <StatusBadge status={document.status} />
+                    {(document.status === "QUEUED" || document.status === "PROCESSING") && <span className="processing-dot" aria-label="Live progress updating" title="Live progress updating" />}
+                  </div>
+                </td>
                 <td>
                   <div className="table-progress">
                     <progress max="100" value={document.progress_pct}>{document.progress_pct}%</progress>

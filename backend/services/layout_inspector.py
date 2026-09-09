@@ -180,7 +180,17 @@ class DocumentLayoutInspector:
             elif not has_terminal_punct:
                 # If neither terminal punctuation nor conjunction, check if text continues
                 # (e.g. starts with lowercase or continuation phrase on next page)
-                if first_text and (first_text[0].islower() or not has_terminal_punct):
+                # A new sentence normally starts with an uppercase letter. Only
+                # flag an unpunctuated boundary when the next page visibly
+                # continues the sentence (lowercase/continuation token).
+                continuation_start = bool(
+                    first_text
+                    and (
+                        first_text[0].islower()
+                        or re.match(r"^(and|or|but|which|that|with|as|to|for)\b", first_text, re.I)
+                    )
+                )
+                if continuation_start:
                     is_cross_page_break = True
                     reason = "lacks terminal punctuation and sentence continues"
 

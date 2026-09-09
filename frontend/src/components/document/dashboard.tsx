@@ -1,9 +1,9 @@
 "use client";
 
-import { Activity, AlertTriangle, CheckCircle2, Clock3, Plus } from "lucide-react";
+import { Activity, AlertTriangle, CheckCircle2, Clock3, Plus, Radio } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ApiError, listDocuments, type DocumentItem } from "@/lib/api";
+import { ApiError, listDocuments, subscribeDocumentEvents, type DocumentItem } from "@/lib/api";
 import { DocumentList } from "./document-list";
 
 export function Dashboard() {
@@ -20,6 +20,13 @@ export function Dashboard() {
       setLoading(false);
     }
   }, []);
+  const activeDocumentIds = useMemo(
+    () => documents
+      .filter((item) => item.status === "QUEUED" || item.status === "PROCESSING")
+      .map((item) => item.id)
+      .join(","),
+    [documents]
+  );
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
@@ -29,6 +36,38 @@ export function Dashboard() {
     const timer = window.setInterval(() => void load(), 5000);
     return () => window.clearInterval(timer);
   }, [documents, load]);
+  useEffect(() => {
+    if (!activeDocumentIds || typeof EventSource === "undefined") return;
+
+    const unsubscribers = activeDocumentIds.split(",").map((documentId) =>
+      subscribeDocumentEvents(
+        documentId,
+        (event) => {
+          setDocuments((current) =>
+            current.map((item) =>
+              item.id === documentId
+                ? {
+                    ...item,
+                    status: event.status as DocumentItem["status"],
+                    progress_pct: event.progress_pct,
+                    updated_at: new Date().toISOString(),
+                  }
+                : item
+            )
+          );
+          if (event.status === "COMPLETED" || event.status === "COMPLETED_WITH_WARNINGS" || event.status === "FAILED") {
+            void load();
+          }
+        },
+        undefined,
+        () => {
+          // The existing polling loop remains the fallback when SSE is unavailable.
+        }
+      )
+    );
+
+    return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
+  }, [activeDocumentIds, load]);
   const metrics = useMemo(() => ({
     active: documents.filter((d) => d.status === "QUEUED" || d.status === "PROCESSING").length,
     completed: documents.filter((d) => d.status.startsWith("COMPLETED")).length,
@@ -47,7 +86,10 @@ export function Dashboard() {
         <article><AlertTriangle /><span><small>Needs attention</small><strong>{metrics.failed}</strong></span></article>
       </div>
       {error && <div className="alert alert-error" role="alert"><AlertTriangle /><span><strong>API unavailable</strong>{error}</span><button type="button" onClick={() => void load()}>Retry</button></div>}
-      {loading ? <div className="panel loading-state" role="status">Loading inspection register…</div> : <DocumentList documents={documents} onRefresh={() => void load()} />}
+       {loading ? <div className="panel loading-state" role="status">Loading inspection register…</div> : <>
+         {metrics.active > 0 && <div className="live-monitor" role="status" aria-live="polite"><Radio size={15} /><span><strong>Live monitoring active</strong> Processing progress updates automatically. You can keep this page open.</span><span className="live-pulse" aria-hidden="true" /></div>}
+         <DocumentList documents={documents} onRefresh={() => void load()} />
+       </>}
     </>
   );
 }
