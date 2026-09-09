@@ -23,6 +23,20 @@ This file records implementation decisions that must not be reverted or duplicat
 - `backend/services/export.py` must render scorecard details from `BudinskiScorecard.items` when flat items are present.
 - Group averages and baseline values must come from the scorecard's computed data, not document-specific constants or sample-report prose.
 - Legacy grouped scorecards are still supported for existing fixtures and persisted data.
+- `backend/services/docx_styler.py` owns reusable XML styling primitives: cell shading,
+  cell margins, full-width callouts, repeating table headers, and document defaults.
+- `backend/services/report_synthesizer.py` owns deterministic executive narrative synthesis
+  for summary judgement, bottom line, baseline rows, blockers, major findings, language
+  rows, demonstration rewrite, and praise. It must not call external AI or LLM services.
+- Production DOCX export in `backend/api/documents.py` adapts persisted issues and
+  `artifacts/{document_id}/budinski_scorecard.json` through
+  `assessment_from_document_findings()` and then calls `generate_ale_review_docx()`.
+- The executive DOCX has ten narrative sections: title/metadata, summary/bottom line,
+  baseline measures, blockers, next revision actions, language/mechanics, demonstration
+  rewrite, Budinski scorecard, praise, and limits/REVIEWSCORE.
+- `backend/services/report.py` remains a compatibility builder for existing direct callers
+  and reference-pack tests. Do not route production DOCX export back to its raw findings
+  table path without an explicit migration decision.
 - Do not reintroduce sample-specific strings such as client names, asset names, dates, component counts, or report identifiers into the export service.
 - DOCX export supports `include_minors`; the default remains concise by excluding minor and informational findings from annotated PDF selection unless requested.
 
@@ -54,3 +68,11 @@ npm run lint       passed
 ```
 
 The focused backend Budinski/export verification must be rerun after changes to the evaluator, schemas, pipeline, or export service.
+
+Latest focused export verification:
+
+```text
+55 passed
+ruff check passed
+git diff --check passed
+```

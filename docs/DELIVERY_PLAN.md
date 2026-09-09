@@ -58,3 +58,10 @@
 - [x] **Milestone 11: Handoff Documentation**
   - Added `docs/AGENT_HANDOFF.md` with protected contracts, safe-change rules, and known
     API boundaries to prevent future agents from reverting completed work.
+- [x] **Milestone 12: Executive DOCX Narrative Export**
+  - Added deterministic `ReportSynthesizer` and `docx_styler` modules.
+  - Replaced the production raw alert-table DOCX path with the ten-section executive
+    `Review of [Document]` report and dynamic scorecard adapter.
+  - Added XML-level tests for callout borders, cell shading, repeating headers, and no raw
+    JSON/issue-object dump in the report.
+  - Preserved the legacy report builder for existing direct callers and compatibility tests.

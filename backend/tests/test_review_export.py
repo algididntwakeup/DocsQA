@@ -27,7 +27,9 @@ from schemas.budinski import (
     TechnicalContentGroup,
 )
 from services.budinski_evaluator import create_canonical_ale_assessment_data
+from services.docx_styler import create_callout_box, format_table_header, set_cell_shading
 from services.export import create_review_report_template, generate_ale_review_docx
+from services.report_synthesizer import ReportSynthesizer
 
 
 def _extract_all_doc_text(doc: DocxDocument) -> str:
@@ -344,6 +346,55 @@ class TestReviewExportDocx:
 
         assert found_tbl_header, "Expected at least one table to have w:tblHeader repeating header"
         assert found_cant_split, "Expected table rows to have w:cantSplit row protection"
+
+    def test_executive_report_sections_and_no_raw_alert_dump(
+        self,
+        canonical_assessment: AssessmentData,
+    ) -> None:
+        doc = docx.Document(io.BytesIO(generate_ale_review_docx(canonical_assessment)))
+        full_text = _extract_all_doc_text(doc)
+        for section in (
+            "DOCUMENT REVIEW ENGINEERING",
+            "Summary judgement",
+            "BOTTOM LINE",
+            "The four baseline measures",
+            "Blockers",
+            "Should fix in the next revision",
+            "Language and mechanics, by page",
+            "Demonstration rewrite",
+            "Scorecard",
+            "What this document does well",
+            "Limits of this review",
+        ):
+            assert section in full_text
+        assert '"evidence":' not in full_text
+        assert "IssueRead(" not in full_text
+
+    def test_styling_utilities_emit_valid_xml(self) -> None:
+        doc = docx.Document()
+        cell = create_callout_box(doc, "BLOCKER", ["Correct the source evidence."])
+        set_cell_shading(cell, "#F8FAFC")
+        table = doc.add_table(rows=1, cols=2)
+        table.cell(0, 0).text = "measure"
+        table.cell(0, 1).text = "result"
+        format_table_header(table.rows[0], [2.0, 1.0])
+        output = io.BytesIO()
+        doc.save(output)
+        parsed = docx.Document(io.BytesIO(output.getvalue()))
+        xml = " ".join(table._tbl.xml for table in parsed.tables)
+        assert "w:shd" in xml
+        assert "w:tcBorders" in xml
+        assert "w:tblHeader" in xml
+
+    def test_report_synthesizer_is_deterministic(self) -> None:
+        synthesizer = ReportSynthesizer()
+        metadata = {"document_reviewed": "DOC-001 Rev A"}
+        scorecard = {"baseline_score": 2}
+        findings = [{"type": "TOC_DRIFT", "message": "Contents page drift"}]
+        first = synthesizer.generate_summary_judgement(findings, scorecard, metadata)
+        second = synthesizer.generate_summary_judgement(findings, scorecard, metadata)
+        assert first == second
+        assert "DOC-001 Rev A" in first
 
     def test_edge_cases_empty_findings(self) -> None:
         """Report generates cleanly when blockers or findings lists are empty."""

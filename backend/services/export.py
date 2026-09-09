@@ -21,12 +21,143 @@ from docx.shared import Inches, Pt, RGBColor
 from docx.table import Table, _Cell, _Row
 from pypdf.annotations import Rectangle, Text
 
-from schemas.budinski import AssessmentData, ScoreItem
+from schemas.budinski import (
+    AssessmentData,
+    AssessmentMetadata,
+    BaselineMeasures,
+    BlockerFinding,
+    BudinskiScorecard,
+    LanguageFinding,
+    MajorFinding,
+    ScoreItem,
+)
+from services.docx_styler import apply_document_defaults
+from services.report_synthesizer import ReportSynthesizer
 
 if TYPE_CHECKING:
     from models.document import Document
     from models.issue import Issue
     from services.storage.local import LocalStorage
+
+
+def _issue_category(issue: Any) -> str:
+    return str(
+        getattr(getattr(issue, "category", ""), "value", getattr(issue, "category", ""))
+    ).upper()
+
+
+def _issue_severity(issue: Any) -> str:
+    return str(
+        getattr(getattr(issue, "severity", ""), "value", getattr(issue, "severity", ""))
+    ).upper()
+
+
+def assessment_from_document_findings(
+    document: Any,
+    issues: list[Any],
+    scorecard_data: dict[str, Any] | None = None,
+    include_minors: bool = False,
+) -> AssessmentData:
+    """Adapt persisted pipeline artifacts into the executive report contract."""
+    included = [
+        issue
+        for issue in issues
+        if getattr(issue, "included_in_report", True)
+        and (include_minors or _issue_severity(issue) not in {"MINOR", "INFO", "LOW"})
+    ]
+    scorecard = BudinskiScorecard.model_validate(scorecard_data or {})
+    baseline = scorecard.baseline_measures or BaselineMeasures(
+        purpose_distinct_from_objective=False,
+        procedure_repeatable=True,
+        conclusions_valid=False,
+        recommendations_actionable=False,
+        reasons={
+            "purpose_distinct_from_objective": "No persisted baseline assessment was available.",
+            "procedure_repeatable": (
+                "Procedure evidence was not reconstructed in the export adapter."
+            ),
+            "conclusions_valid": "No persisted baseline assessment was available.",
+            "recommendations_actionable": "No persisted baseline assessment was available.",
+        },
+    )
+    blockers = []
+    majors = []
+    language = []
+    blocker_levels = {"BLOCKER", "CRITICAL", "MAJOR", "HIGH"}
+    for issue in included:
+        evidence = getattr(issue, "evidence", None) or {}
+        message = str(getattr(issue, "message", ""))
+        suggestion = str(
+            evidence.get("suggestion")
+            or evidence.get("what_would_fix_it")
+            or "Correct and verify the affected evidence."
+        )
+        page = str(getattr(issue, "page_number", None) or evidence.get("page", "not located"))
+        if _issue_severity(issue) in blocker_levels:
+            blockers.append(
+                BlockerFinding(
+                    number=len(blockers) + 1,
+                    title=str(getattr(issue, "type", "Blocking finding")),
+                    where_location=f"Printed page {page}",
+                    what_it_says=message,
+                    what_body_has=str(
+                        evidence.get("detected_fact")
+                        or evidence.get("what_body_has")
+                        or "Not supplied."
+                    ),
+                    why_it_matters=(
+                        "The document cannot be relied upon as issued until this inconsistency "
+                        "is resolved."
+                    ),
+                    what_would_fix_it=suggestion,
+                )
+            )
+        elif _issue_category(issue) in {"LINGUISTIC", "SPELLING", "GRAMMAR", "DICTIONARY"}:
+            language.append(
+                LanguageFinding(
+                    page=page,
+                    as_written=str(evidence.get("original_text") or message),
+                    suggested=str(evidence.get("suggestion") or "Review wording."),
+                )
+            )
+        else:
+            majors.append(
+                MajorFinding(number=len(majors) + 1, finding=message, what_would_fix_it=suggestion)
+            )
+
+    metadata = AssessmentMetadata(
+        document_reviewed=(
+            f"{getattr(document, 'original_filename', 'document')} | {getattr(document, 'id', '')}"
+        ),
+        type_of_review="Deterministic engineering document review",
+        basis=(
+            "Budinski Appendix 12, internal consistency, layout, traceability, and language "
+            "findings."
+        ),
+        scoring="Budinski Appendix 12 scores 1-5; scores of 2 or below require rework.",
+        note="Generated from persisted document findings and scorecard artifacts.",
+        not_covered=(
+            "Engineering adequacy, operational safety, and external standards certification."
+        ),
+    )
+    return AssessmentData(
+        title=f"Review of {getattr(document, 'original_filename', 'Document')}",
+        subtitle="Executive engineering-document review report",
+        header_title="DOCUMENT REVIEW ENGINEERING",
+        running_header=str(getattr(document, "original_filename", "Document")),
+        metadata=metadata,
+        summary_judgement=[],
+        bottom_line="",
+        baseline_measures=baseline,
+        blockers=blockers,
+        major_findings=majors,
+        language_findings=language,
+        scorecard=scorecard,
+        what_it_does_well=[],
+        limits_of_review=[metadata.not_covered],
+        review_score_string=scorecard.review_score_string
+        or "REVIEWSCORE | generated deterministically from persisted findings",
+    )
 
 
 def _extract_locations(
@@ -425,6 +556,19 @@ def generate_ale_review_docx(assessment_result: AssessmentData) -> bytes:
     10. 'Limits of this review' & REVIEWSCORE summary string
     """
     doc = docx.Document()
+    apply_document_defaults(doc)
+    synthesizer = ReportSynthesizer()
+    if not assessment_result.summary_judgement:
+        summary = synthesizer.generate_summary_judgement(
+            assessment_result.major_findings,
+            assessment_result.scorecard,
+            assessment_result.metadata,
+        )
+        assessment_result.summary_judgement = summary.split("\n\n")
+    if not assessment_result.bottom_line:
+        assessment_result.bottom_line = synthesizer.generate_bottom_line(assessment_result.blockers)
+    if not assessment_result.what_it_does_well:
+        assessment_result.what_it_does_well = synthesizer.synthesize_praise({}, [])
     _setup_page_header_footer(doc, assessment_result)
 
     normal_style = doc.styles["Normal"]
@@ -439,7 +583,7 @@ def generate_ale_review_docx(assessment_result: AssessmentData) -> bytes:
     p_title.paragraph_format.space_before = Pt(0)
     p_title.paragraph_format.space_after = Pt(4)
     p_title.paragraph_format.keep_with_next = True
-    r_title = p_title.add_run(assessment_result.title)
+    r_title = p_title.add_run(f"DOCUMENT REVIEW ENGINEERING - {assessment_result.title}")
     r_title.bold = True
     r_title.font.name = "Arial"
     r_title.font.size = Pt(18)
@@ -459,6 +603,14 @@ def generate_ale_review_docx(assessment_result: AssessmentData) -> bytes:
     # -----------------------------------------------------------------------
     meta = assessment_result.metadata
     meta_entries = [
+        ("Doc No", meta.document_reviewed),
+        (
+            "Rev",
+            meta.document_reviewed.rsplit(" ", 1)[-1] if meta.document_reviewed else "Not supplied",
+        ),
+        ("Pages", "Not supplied by assessment metadata"),
+        ("File Date", "Not supplied by assessment metadata"),
+        ("Originator", "Not supplied by assessment metadata"),
         ("Document reviewed", meta.document_reviewed),
         ("Type of review", meta.type_of_review),
         ("Basis", meta.basis),
@@ -1018,75 +1170,101 @@ def generate_ale_review_docx(assessment_result: AssessmentData) -> bytes:
         st = scorecard.style
         rm = scorecard.report_mechanics
         cc = scorecard.conclusions_and_craft
-        if not all((tc, st, rm, cc)):
-            raise ValueError("Legacy scorecard groups are required when items is empty")
-        group_i_items = [
-            _get_item_tuple("I", 1, tc.message_clear, "The message to the reader is clear"),
-            _get_item_tuple("I", 2, tc.logical_approach, "The engineering approach is logical"),
-            _get_item_tuple("I", 3, tc.adequate_research, "Adequate research of previous work"),
-            _get_item_tuple(
-                "I", 4, tc.adequate_comparison, "Adequate comparison with work of others"
-            ),
-            _get_item_tuple("I", 5, tc.conclusions_supported, "Conclusions supported by the work"),
-            _get_item_tuple("I", 6, tc.value_stated, "The value of the work is clearly stated"),
-            _get_item_tuple("I", 7, tc.objective_met, "The work met the stated objective"),
-            _get_item_tuple(
-                "I", 8, tc.original_free_of_plagiarism, "Original and free of plagiarism"
-            ),
-            _get_item_tuple("I", 9, tc.timely, "Timely"),
-        ]
-        group_ii_items = [
-            _get_item_tuple("II", 1, st.objective_tone, "Objective, neutral tone"),
-            _get_item_tuple("II", 2, st.sections_logical, "Sections are logical"),
-            _get_item_tuple("II", 3, st.readership_level, "Writing level suits readership"),
-            _get_item_tuple("II", 4, st.free_of_jargon, "Free of jargon and commercialism"),
-            _get_item_tuple("II", 5, st.english_usage, "Use of English is satisfactory"),
-            _get_item_tuple("II", 6, st.concise, "Understandable and concise"),
-            _get_item_tuple("II", 7, st.interesting, "Interesting"),
-            _get_item_tuple("II", 8, st.free_of_personal_opinion, "Free of personal opinion"),
-            _get_item_tuple("II", 9, st.no_over_explain, "Does not over-explain"),
-            _get_item_tuple("II", 10, st.standard_writing_practice, "Conforms to writing practice"),
-            _get_item_tuple("II", 11, st.layout_and_whitespace, "Page layout and whitespace"),
-        ]
-        group_iii_items = [
-            _get_item_tuple(
-                "III", 1, rm.sufficient_background, "Sufficient background information"
-            ),
-            _get_item_tuple("III", 2, rm.purpose_of_work_clear, "Purpose of the work is clear"),
-            _get_item_tuple("III", 3, rm.objective_of_work_clear, "Objective of the work is clear"),
-            _get_item_tuple("III", 4, rm.purpose_of_report_clear, "Purpose of the report is clear"),
-            _get_item_tuple(
-                "III", 5, rm.objective_of_report_clear, "Objective of the report is clear"
-            ),
-            _get_item_tuple("III", 6, rm.format_stated, "Format of the report is stated"),
-            _get_item_tuple("III", 7, rm.work_referenced, "Work of others adequately referenced"),
-            _get_item_tuple(
-                "III", 8, rm.experimental_steps_outlined, "Experimental steps outlined"
-            ),
-            _get_item_tuple("III", 9, rm.adequate_detail_to_repeat, "Adequate detail to repeat"),
-            _get_item_tuple("III", 10, rm.free_of_trade_names, "Free of unnecessary trade names"),
-            _get_item_tuple("III", 11, rm.test_standards_cited, "Test standards properly cited"),
-        ]
-        group_iv_items = [
-            _get_item_tuple("IV", 1, cc.results_clearly_stated, "Results clearly stated"),
-            _get_item_tuple("IV", 2, cc.results_free_of_discussion, "Results free of discussion"),
-            _get_item_tuple("IV", 3, cc.graphs_and_tables_proper, "Graphs and tables proper"),
-            _get_item_tuple("IV", 4, cc.sufficient_results, "Sufficient results presented"),
-            _get_item_tuple(
-                "IV", 5, cc.discussion_relates_to_others, "Discussion relates to others"
-            ),
-            _get_item_tuple(
-                "IV", 6, cc.discussion_length_appropriate, "Discussion length appropriate"
-            ),
-            _get_item_tuple(
-                "IV", 7, cc.conclusions_follow_from_results, "Conclusions follow results"
-            ),
-            _get_item_tuple("IV", 8, cc.conclusions_clear, "Conclusions clear and unambiguous"),
-            _get_item_tuple("IV", 9, cc.references_properly_attributed, "References attributed"),
-            _get_item_tuple(
-                "IV", 10, cc.sentence_paragraph_length, "Sentence and paragraph length"
-            ),
-        ]
+        if not any((tc, st, rm, cc)):
+            group_i_items = []
+            group_ii_items = []
+            group_iii_items = []
+            group_iv_items = []
+        else:
+            if not all((tc, st, rm, cc)):
+                raise ValueError("Legacy scorecard groups are required when items is empty")
+            group_i_items = [
+                _get_item_tuple("I", 1, tc.message_clear, "The message to the reader is clear"),
+                _get_item_tuple("I", 2, tc.logical_approach, "The engineering approach is logical"),
+                _get_item_tuple("I", 3, tc.adequate_research, "Adequate research of previous work"),
+                _get_item_tuple(
+                    "I", 4, tc.adequate_comparison, "Adequate comparison with work of others"
+                ),
+                _get_item_tuple(
+                    "I", 5, tc.conclusions_supported, "Conclusions supported by the work"
+                ),
+                _get_item_tuple("I", 6, tc.value_stated, "The value of the work is clearly stated"),
+                _get_item_tuple("I", 7, tc.objective_met, "The work met the stated objective"),
+                _get_item_tuple(
+                    "I", 8, tc.original_free_of_plagiarism, "Original and free of plagiarism"
+                ),
+                _get_item_tuple("I", 9, tc.timely, "Timely"),
+            ]
+            group_ii_items = [
+                _get_item_tuple("II", 1, st.objective_tone, "Objective, neutral tone"),
+                _get_item_tuple("II", 2, st.sections_logical, "Sections are logical"),
+                _get_item_tuple("II", 3, st.readership_level, "Writing level suits readership"),
+                _get_item_tuple("II", 4, st.free_of_jargon, "Free of jargon and commercialism"),
+                _get_item_tuple("II", 5, st.english_usage, "Use of English is satisfactory"),
+                _get_item_tuple("II", 6, st.concise, "Understandable and concise"),
+                _get_item_tuple("II", 7, st.interesting, "Interesting"),
+                _get_item_tuple("II", 8, st.free_of_personal_opinion, "Free of personal opinion"),
+                _get_item_tuple("II", 9, st.no_over_explain, "Does not over-explain"),
+                _get_item_tuple(
+                    "II", 10, st.standard_writing_practice, "Conforms to writing practice"
+                ),
+                _get_item_tuple("II", 11, st.layout_and_whitespace, "Page layout and whitespace"),
+            ]
+            group_iii_items = [
+                _get_item_tuple(
+                    "III", 1, rm.sufficient_background, "Sufficient background information"
+                ),
+                _get_item_tuple("III", 2, rm.purpose_of_work_clear, "Purpose of the work is clear"),
+                _get_item_tuple(
+                    "III", 3, rm.objective_of_work_clear, "Objective of the work is clear"
+                ),
+                _get_item_tuple(
+                    "III", 4, rm.purpose_of_report_clear, "Purpose of the report is clear"
+                ),
+                _get_item_tuple(
+                    "III", 5, rm.objective_of_report_clear, "Objective of the report is clear"
+                ),
+                _get_item_tuple("III", 6, rm.format_stated, "Format of the report is stated"),
+                _get_item_tuple(
+                    "III", 7, rm.work_referenced, "Work of others adequately referenced"
+                ),
+                _get_item_tuple(
+                    "III", 8, rm.experimental_steps_outlined, "Experimental steps outlined"
+                ),
+                _get_item_tuple(
+                    "III", 9, rm.adequate_detail_to_repeat, "Adequate detail to repeat"
+                ),
+                _get_item_tuple(
+                    "III", 10, rm.free_of_trade_names, "Free of unnecessary trade names"
+                ),
+                _get_item_tuple(
+                    "III", 11, rm.test_standards_cited, "Test standards properly cited"
+                ),
+            ]
+            group_iv_items = [
+                _get_item_tuple("IV", 1, cc.results_clearly_stated, "Results clearly stated"),
+                _get_item_tuple(
+                    "IV", 2, cc.results_free_of_discussion, "Results free of discussion"
+                ),
+                _get_item_tuple("IV", 3, cc.graphs_and_tables_proper, "Graphs and tables proper"),
+                _get_item_tuple("IV", 4, cc.sufficient_results, "Sufficient results presented"),
+                _get_item_tuple(
+                    "IV", 5, cc.discussion_relates_to_others, "Discussion relates to others"
+                ),
+                _get_item_tuple(
+                    "IV", 6, cc.discussion_length_appropriate, "Discussion length appropriate"
+                ),
+                _get_item_tuple(
+                    "IV", 7, cc.conclusions_follow_from_results, "Conclusions follow results"
+                ),
+                _get_item_tuple("IV", 8, cc.conclusions_clear, "Conclusions clear and unambiguous"),
+                _get_item_tuple(
+                    "IV", 9, cc.references_properly_attributed, "References attributed"
+                ),
+                _get_item_tuple(
+                    "IV", 10, cc.sentence_paragraph_length, "Sentence and paragraph length"
+                ),
+            ]
 
     all_groups_data = [
         (

@@ -3,6 +3,7 @@
 The report describes document-internal evidence only; it never certifies
 engineering adequacy, code compliance, or operational safety.
 """
+
 from __future__ import annotations
 
 import io
@@ -84,10 +85,7 @@ def _group_issue_rows(issues: Iterable[Issue]) -> list[tuple[Issue, int, str]]:
             location = _page(issue)
         if location not in locations[key]:
             locations[key].append(location)
-    rows = [
-        (issue, counts[key], ", ".join(locations[key]))
-        for key, issue in grouped.items()
-    ]
+    rows = [(issue, counts[key], ", ".join(locations[key])) for key, issue in grouped.items()]
     return sorted(
         rows,
         key=lambda row: (
@@ -172,8 +170,7 @@ def build_review_report(
     included = [
         item
         for item in issues
-        if item.included_in_report
-        and (include_minors or _severity(item) not in {"MINOR", "INFO", "LOW"})
+        if item.included_in_report and (include_minors or _severity(item) not in {"MINOR", "INFO"})
     ]
     counts = Counter(getattr(item.severity, "value", str(item.severity)) for item in included)
     blocker_levels = {
@@ -225,9 +222,7 @@ def build_review_report(
     )
     if not include_minors:
         suppressed_minors = sum(
-            1
-            for item in issues
-            if item.included_in_report and _severity(item) in {"MINOR", "INFO", "LOW"}
+            1 for item in issues if item.included_in_report and _severity(item) in {"MINOR", "INFO"}
         )
         if suppressed_minors:
             report.add_paragraph(
@@ -336,6 +331,34 @@ def build_review_report(
                 cells[3].text = str(item.get("note", ""))
 
     finding_rows = _group_issue_rows(included)
+
+    for issue in reference_issues:
+        evidence = issue.evidence or {}
+        standard = evidence.get("standard")
+        if not standard:
+            continue
+        edition = evidence.get("edition", "")
+        clause = evidence.get("clause", "")
+        standard_page = evidence.get("standard_page", "")
+        report.add_paragraph(
+            "Evidence source: Standard "
+            f"{standard} ({edition}), Clause {clause}, Standard Page {standard_page}."
+        )
+        if issue.reviewer_note:
+            report.add_paragraph(f"Reviewer note: {issue.reviewer_note}")
+        clause_suffix = f" clause {clause}" if clause else ""
+        report.add_paragraph(
+            f"Align specification and design parameters with {standard}{clause_suffix}."
+        )
+        status = str(evidence.get("compliance_status", "NON-COMPLIANT")).upper()
+        if status == "UNRESOLVED":
+            report.add_paragraph(
+                "Compliance status: UNRESOLVED (Requires Licensed Professional Engineer "
+                "evaluation)."
+            )
+        else:
+            report.add_paragraph("Compliance status: NON-COMPLIANT.")
+
     def add_findings_table(title: str, rows: list[tuple[Issue, int, str]]) -> None:
         report.add_heading(title, level=1)
         if not rows:
@@ -415,6 +438,24 @@ def build_review_report(
         "This is an internal-consistency and document-quality review. It does not approve "
         "engineering work, certify safety, or validate design fitness or external compliance."
     )
+    report.add_paragraph(
+        "DocsQA does not approve designs, verify engineering safety, or replace licensed "
+        "professional engineering judgement."
+    )
+    report.add_heading("Governed Reference Standards Verification", level=1)
+    standards_table = report.add_table(rows=1, cols=2)
+    standards_table.style = "Table Grid"
+    standards_table.rows[0].cells[0].text = "Reference standard"
+    standards_table.rows[0].cells[1].text = "Status"
+    for standard, status in (
+        ("ASME BPVC.VIII.1", "CONFIGURED"),
+        ("API RP 580", "CONFIGURED"),
+        ("API 510", "CONFIGURED"),
+        ("API 579-1/ASME FFS-1", "UNCONFIGURED"),
+    ):
+        cells = standards_table.add_row().cells
+        cells[0].text = standard
+        cells[1].text = status
     report.add_paragraph("REVIEWSCORE | generated deterministically from included findings")
     output = io.BytesIO()
     report.save(output)

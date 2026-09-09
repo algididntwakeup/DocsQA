@@ -27,9 +27,12 @@ from schemas.documents import (
     TraceabilitySummaryResponse,
 )
 from schemas.issues import IssueListResponse, IssueRead
-from services.export import export_annotated_pdf
+from services.export import (
+    assessment_from_document_findings,
+    export_annotated_pdf,
+    generate_ale_review_docx,
+)
 from services.pipeline import enqueue_extraction
-from services.report import build_review_report
 from services.storage.local import LocalStorage
 from services.uploads import UploadService
 
@@ -159,7 +162,6 @@ async def delete_document(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-
 @router.get(
     "/{document_id}/status",
     response_model=DocumentStatusResponse,
@@ -184,7 +186,7 @@ async def get_document_status(
                 .where(StageRun.document_id == document_id)
                 .order_by(StageRun.created_at.asc(), StageRun.id.asc())
             )
-    )
+        )
         .scalars()
         .all()
     )
@@ -197,9 +199,7 @@ async def get_document_status(
         )
         latest_by_stage[stage_name] = stage_run
     ordered_stage_runs = [
-        latest_by_stage[stage.value]
-        for stage in PipelineStage
-        if stage.value in latest_by_stage
+        latest_by_stage[stage.value] for stage in PipelineStage if stage.value in latest_by_stage
     ]
     ordered_stage_runs.extend(
         stage_run
@@ -517,20 +517,16 @@ async def export_document(
         )
     if format == "docx":
         scorecard: dict[str, Any] | None = None
-        scorecard_path = storage._path_for_key(
-            f"artifacts/{document.id}/budinski_scorecard.json"
-        )
+        scorecard_path = storage._path_for_key(f"artifacts/{document.id}/budinski_scorecard.json")
         if scorecard_path.exists():
             try:
                 scorecard = json.loads(scorecard_path.read_text(encoding="utf-8"))
             except (OSError, ValueError):
                 scorecard = None
-        docx_bytes = build_review_report(
-            document,
-            list(issues),
-            scorecard=scorecard,
-            include_minors=include_minors,
+        assessment = assessment_from_document_findings(
+            document, list(issues), scorecard_data=scorecard, include_minors=include_minors
         )
+        docx_bytes = generate_ale_review_docx(assessment)
         return Response(
             content=docx_bytes,
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -574,9 +570,7 @@ async def stream_document_events(
         while elapsed < MAX_POLL_DURATION:
             async with async_session_factory() as poll_session:
                 doc = (
-                    await poll_session.execute(
-                        select(Document).where(Document.id == document_id)
-                    )
+                    await poll_session.execute(select(Document).where(Document.id == document_id))
                 ).scalar_one_or_none()
                 if doc is None:
                     yield "event: close\ndata: {}\n\n"

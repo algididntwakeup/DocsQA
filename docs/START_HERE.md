@@ -20,6 +20,10 @@ This is the central index every new agent must read in full. Repository state al
   scorecard rendering prefers that flat contract and retains legacy grouped-field
   compatibility. The review workspace loads all finding pages, follows SSE completion
   events, and reflects current severity behavior.
+- **Latest export checkpoint**: Production DOCX export now uses the ten-section executive
+  report through `assessment_from_document_findings()` and `generate_ale_review_docx()`.
+  `ReportSynthesizer` and `docx_styler` provide deterministic narrative and XML styling;
+  the older `services/report.py` builder remains compatibility-only.
 - **Curation Workflow**:
   - Finding curation is strictly binary inclusion (`included_in_report: bool`, default `True`) and an optional engineering clarification (`reviewer_note: str | None`).
   - Completely removed: issue decisions (`ACCEPTED`/`REJECTED`), lead dispositions, audit trail events, and bulk decision workflows.
@@ -34,6 +38,7 @@ This is the central index every new agent must read in full. Repository state al
 - **Quality Status**:
   - Frontend checkpoint: **42 passed, typecheck passed, lint passed**.
   - Focused backend checkpoint: Budinski evaluator, rule engine, schema, pipeline, and export tests pass.
+  - Latest export/reference regression: **55 passed**, Ruff passed, and `git diff --check` passed.
   - Current Docker gate: LibreOffice is available in the worker; full backend/frontend rerun remains pending.
 - **Never push to GitHub**; the owner pushes. Local commits are allowed only after quality gates pass.
 
