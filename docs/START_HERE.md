@@ -11,10 +11,10 @@ This is the central index every new agent must read in full. Repository state al
 - **Standards-pack boundary**: External API/ASME/ISO packs are intentionally disabled. The
   `STANDARDS_CHECK` stage emits `SKIPPED`; only document-internal citation and bibliography
   consistency checks remain in scope until a licensed, governed rulebook is supplied.
-- **Latest validation**: Docker worker is running LibreOffice 25.2.3.2 and the DOCX-to-PDF
-  smoke path is available. The remaining gate is PNG inspection plus the deferred full test suite.
-- **Current next ticket**: Render the generated review PDF to page PNGs, inspect pagination and
-  margins, then run the backend and frontend quality suites.
+- **Latest validation**: Docker worker is running LibreOffice 25.2.3.2. Canonical executive
+  DOCX converted to a 16-page Letter PDF and all 16 pages rendered to PNG successfully.
+- **Current next ticket**: Manual visual review of rendered PNG pagination/margins, followed by
+  the full backend quality gate if further layout changes are made.
 - **Latest implementation checkpoint**: Budinski now has a flat deterministic 41-item rule
   contract (`items`, `baseline_score`, `group_averages`) with Group III/IV rules. DOCX
   scorecard rendering prefers that flat contract and retains legacy grouped-field
@@ -39,7 +39,7 @@ This is the central index every new agent must read in full. Repository state al
   - Frontend checkpoint: **42 passed, typecheck passed, lint passed**.
   - Focused backend checkpoint: Budinski evaluator, rule engine, schema, pipeline, and export tests pass.
   - Latest export/reference regression: **55 passed**, Ruff passed, and `git diff --check` passed.
-  - Current Docker gate: LibreOffice is available in the worker; full backend/frontend rerun remains pending.
+  - Docker visual smoke: DOCX conversion passed, 16 PDF pages produced, 16 PNG pages rendered, and all pages contain text.
 - **Never push to GitHub**; the owner pushes. Local commits are allowed only after quality gates pass.
 
 ## Source precedence

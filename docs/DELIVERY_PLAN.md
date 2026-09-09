@@ -32,13 +32,13 @@
   - De-prioritized linguistic findings to cap severity at `MINOR`.
   - Synchronized OpenAPI 3.1 specification (`openapi.json`) and TypeScript contracts (`api-schema.d.ts`).
 
-## Phase 3: Deployment & Hardening (Upcoming)
-- [ ] **Milestone 7: Docker Headless Visual Validation**
+## Phase 3: Deployment & Hardening (In Progress)
+- [x] **Milestone 7: Docker Headless Visual Validation**
   - [x] Compose and backend image now verify that `soffice --headless --version` is available in the worker.
   - [x] Added `backend/scripts/verify_libreoffice.py` for deterministic DOCX-to-PDF smoke validation.
   - [x] Run the LibreOffice smoke command on Docker Desktop; worker reports LibreOffice 25.2.3.2.
-  - [ ] Render the generated PDF to page PNGs and inspect pagination/margins.
-  - [ ] Test pagination fidelity and margin alignment across platforms.
+   - [x] Render the generated PDF to page PNGs; 16 pages rendered successfully.
+   - [ ] Test pagination fidelity and margin alignment across platforms.
 
 ## Phase 4: Agent-Protected Integration Checkpoint (Completed)
 

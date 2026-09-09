@@ -76,3 +76,18 @@ Latest focused export verification:
 ruff check passed
 git diff --check passed
 ```
+
+Latest Docker visual smoke:
+
+```text
+worker: healthy
+LibreOffice: available in worker
+DOCX -> PDF: passed
+PDF pages: 16
+PNG pages rendered: 16
+page size: 612 x 792 pt (Letter)
+all rendered pages: non-empty text content
+```
+
+The smoke files were created under the worker's `/tmp` directory only and were not added to
+Git. Manual visual inspection remains a separate step from this automated conversion check.
