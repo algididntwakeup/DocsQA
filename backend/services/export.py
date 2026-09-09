@@ -52,6 +52,27 @@ def _issue_severity(issue: Any) -> str:
     ).upper()
 
 
+def _load_scorecard(scorecard_data: dict[str, Any] | None) -> BudinskiScorecard:
+    """Validate persisted scorecards while ignoring Pydantic computed fields."""
+    if not scorecard_data:
+        return BudinskiScorecard()
+    computed_fields = {"average", "score", "summary_ratio", "baseline_score", "group_averages"}
+    cleaned = {
+        key: (
+            {
+                child_key: child_value
+                for child_key, child_value in value.items()
+                if child_key not in computed_fields
+            }
+            if isinstance(value, dict)
+            else value
+        )
+        for key, value in scorecard_data.items()
+        if key not in computed_fields
+    }
+    return BudinskiScorecard.model_validate(cleaned)
+
+
 def assessment_from_document_findings(
     document: Any,
     issues: list[Any],
@@ -65,7 +86,7 @@ def assessment_from_document_findings(
         if getattr(issue, "included_in_report", True)
         and (include_minors or _issue_severity(issue) not in {"MINOR", "INFO", "LOW"})
     ]
-    scorecard = BudinskiScorecard.model_validate(scorecard_data or {})
+    scorecard = _load_scorecard(scorecard_data)
     baseline = scorecard.baseline_measures or BaselineMeasures(
         purpose_distinct_from_objective=False,
         procedure_repeatable=True,

@@ -28,7 +28,11 @@ from schemas.budinski import (
 )
 from services.budinski_evaluator import create_canonical_ale_assessment_data
 from services.docx_styler import create_callout_box, format_table_header, set_cell_shading
-from services.export import create_review_report_template, generate_ale_review_docx
+from services.export import (
+    assessment_from_document_findings,
+    create_review_report_template,
+    generate_ale_review_docx,
+)
 from services.report_synthesizer import ReportSynthesizer
 
 
@@ -395,6 +399,17 @@ class TestReviewExportDocx:
         second = synthesizer.generate_summary_judgement(findings, scorecard, metadata)
         assert first == second
         assert "DOC-001 Rev A" in first
+
+    def test_export_adapter_accepts_persisted_computed_scorecard_fields(
+        self, canonical_assessment: AssessmentData
+    ) -> None:
+        persisted = canonical_assessment.scorecard.model_dump(mode="json")
+        adapted = assessment_from_document_findings(
+            type("Document", (), {"original_filename": "fixture.pdf", "id": "doc-1"})(),
+            [],
+            scorecard_data=persisted,
+        )
+        assert adapted.scorecard.baseline_score == canonical_assessment.scorecard.baseline_score
 
     def test_edge_cases_empty_findings(self) -> None:
         """Report generates cleanly when blockers or findings lists are empty."""

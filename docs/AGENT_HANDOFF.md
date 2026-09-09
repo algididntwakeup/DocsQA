@@ -31,6 +31,10 @@ This file records implementation decisions that must not be reverted or duplicat
 - Production DOCX export in `backend/api/documents.py` adapts persisted issues and
   `artifacts/{document_id}/budinski_scorecard.json` through
   `assessment_from_document_findings()` and then calls `generate_ale_review_docx()`.
+- Persisted scorecards created with Pydantic `model_dump_json()` include computed fields
+  such as `average`, `score`, `summary_ratio`, `baseline_score`, and `group_averages`.
+  `_load_scorecard()` in `export.py` strips only those derived fields before strict model
+  validation; do not replace it with direct validation of the raw artifact.
 - The executive DOCX has ten narrative sections: title/metadata, summary/bottom line,
   baseline measures, blockers, next revision actions, language/mechanics, demonstration
   rewrite, Budinski scorecard, praise, and limits/REVIEWSCORE.
@@ -91,3 +95,10 @@ all rendered pages: non-empty text content
 
 The smoke files were created under the worker's `/tmp` directory only and were not added to
 Git. Manual visual inspection remains a separate step from this automated conversion check.
+
+Export incident regression:
+
+```text
+persisted computed scorecard fields -> normalized -> strict validation -> DOCX
+production endpoint: HTTP 200
+```
