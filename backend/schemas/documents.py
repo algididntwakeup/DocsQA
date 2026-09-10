@@ -56,7 +56,6 @@ class DocumentRead(ApiModel):
     created_at: datetime
     updated_at: datetime
 
-
 class DocumentWorkflowUpdate(ApiModel):
     """Payload for assigning a document and changing its review workflow."""
 

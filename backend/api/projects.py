@@ -142,8 +142,8 @@ async def list_project_documents(
     documents = (await session.execute(query.order_by(order))).scalars().all()
     return DocumentListResponse(
         documents=[
-            DocumentRead.model_validate(
-                {**DocumentRead.model_validate(document).model_dump(), "owner_name": document.owner.full_name if document.owner else None}
+            DocumentRead.model_validate(document, from_attributes=True).model_copy(
+                update={"owner_name": document.owner.full_name if document.owner else None}
             )
             for document in documents
         ],
