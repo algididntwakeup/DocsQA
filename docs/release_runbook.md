@@ -151,6 +151,9 @@ asyncio.run(run())
   - `event: progress` with payload `{"document_id": "...", "status": "...", "progress_pct": 50, "stages": [...]}`
   - `event: close` when document reaches terminal status (`COMPLETED`, `COMPLETED_WITH_WARNINGS`, `FAILED`).
 - **Client Fallback**: The frontend client automatically falls back to exponential backoff HTTP polling if SSE encounters network interruptions.
+- **Dashboard Behavior**: `/documents` opens one SSE subscription per `QUEUED` or `PROCESSING` document. The row progress, status, active-document metric, and live-monitoring banner update without a manual reload.
+- **Visual Liveness**: Active document rows display a pulse indicator and animated progress treatment. Treat the `Live monitoring active` banner as confirmation that the browser is receiving or attempting live status updates.
+- **Fallback Polling**: The dashboard refreshes the document list every five seconds while work is active. If SSE is unavailable, this polling path keeps progress visible; after a terminal event it reloads once to reconcile final metadata.
 
 ---
 

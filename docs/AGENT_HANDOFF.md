@@ -48,8 +48,9 @@ This file records implementation decisions that must not be reverted or duplicat
 
 - `frontend/src/components/review/review-workspace-view.tsx` loads all issue pages through `listAllDocumentIssues()` and subscribes to SSE completion events while processing.
 - `frontend/src/components/review/split-screen-viewer.tsx` owns the document viewer, issue curation, report preview, dictionary, and export actions.
-- The default findings tabs are `Technical & Layout`, `Standards`, and `Language`. `BUDINSKI` and `LAYOUT` findings belong to the first tab.
+- The default findings tabs are `Budinski & Layout Audit`, `Standards Audit`, and `Language`. `BUDINSKI` and `LAYOUT` findings belong to the first tab.
 - Current workspace status banners cover `QUEUED`, `PROCESSING`, `COMPLETED_WITH_WARNINGS`, and `FAILED` without inventing scorecard data.
+- The `/documents` dashboard subscribes to SSE for active documents, updates rows without reload, and retains five-second polling as a fallback. Active rows use a pulse indicator and the `Live monitoring active` banner.
 - `DocumentRead` currently exposes metadata only. It does not expose the persisted `BudinskiScorecard`; do not add baseline or Group I-IV values to the workspace until a backend endpoint/response contract exposes them.
 - Export controls are buttons using `frontend/src/lib/download.ts`, not direct anchor links, so asynchronous download errors can be surfaced consistently.
 

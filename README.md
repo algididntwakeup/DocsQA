@@ -54,6 +54,8 @@ Unlike generative AI tools that hallucinate, DocsQA runs on **100% deterministic
 - **Flat CSV**: RFC 4180 compliant tabular export for data science, BI, and spreadsheet analysis.
 - **Cryptographic JSON Audit Package**: Machine-readable artifact (`schema_version: 1.0`) with document SHA-256 hash, raw evidence trees, and tamper-evident event history.
 - **Real-Time Scan Telemetry (SSE)**: Streams pipeline progress (`text/event-stream`) to the browser with automatic fallback to exponential backoff HTTP polling.
+- **Live Inspection Register**: The `/documents` dashboard subscribes to each queued or processing document, updates status/progress without a browser reload, and shows an animated live-monitoring indicator while work is active. The document status page uses the same SSE stream.
+- **Audit-First Review Workspace**: Review findings are organized into `Budinski & Layout Audit`, `Standards Audit`, and `Language`; layout evidence includes cross-page sentence snippets and page navigation, while Budinski evidence exposes rule context and suggested fixes.
 - **Retention Policy Worker**: Enforces ephemeral upload boundaries (default 30 days), automatically pruning expired database records, local storage files, and extraction artifacts.
 - **Security Middleware**: Injects `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, and `Referrer-Policy` headers on all responses.
 
@@ -224,4 +226,3 @@ For detailed deployment instructions, secret management, offline migration execu
 ## Troubleshooting & Incident Response
 
 - For issues with background pipeline extraction hanging or long-running worker tasks on dense engineering vector drawings, see [`docs/troubleshooting_pipeline_stuck.md`](docs/troubleshooting_pipeline_stuck.md).
-
