@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { FolderKanban, LogOut, Menu, ShieldCheck, Users } from "lucide-react";
+import { FolderKanban, KeyRound, LogOut, Menu, ShieldCheck, Users } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 import { getCurrentUser, logout, type UserSession } from "@/lib/api";
@@ -30,6 +30,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Link className={pathname?.startsWith("/projects") ? "rq-nav-link rq-nav-link-active" : "rq-nav-link"} href="/projects" onClick={() => setMenuOpen(false)}><FolderKanban size={16} />Projects</Link>
             <Link className="rq-nav-link" href="/" onClick={() => setMenuOpen(false)}><ShieldCheck size={16} />Reference Library</Link>
             {canManageUsers && <Link className={pathname?.startsWith("/admin/users") ? "rq-nav-link rq-nav-link-active" : "rq-nav-link"} href="/admin/users" onClick={() => setMenuOpen(false)}><Users size={16} />Manage Users</Link>}
+            <Link className={pathname?.startsWith("/settings/password") ? "rq-nav-link rq-nav-link-active" : "rq-nav-link"} href="/settings/password" onClick={() => setMenuOpen(false)}><KeyRound size={16} />Change Password</Link>
           </nav>
           <div className="rq-profile"><span className="rq-avatar">{initials}</span><span className="rq-profile-copy"><strong>{user?.full_name ?? "Workspace user"}</strong><small>{user?.role?.replaceAll("_", " ") ?? "Authenticated"}</small></span><button className="rq-logout" type="button" onClick={() => void logout()}><LogOut size={15} />Logout</button></div>
         </div>

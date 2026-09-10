@@ -61,44 +61,123 @@ Unlike generative AI tools that hallucinate, DocsQA runs on **100% deterministic
 
 ---
 
-## Quickstart with Docker Compose
+## Docker Deployment
 
-Running DocsQA with Docker Compose starts the entire production stack: PostgreSQL 17, Redis 7, database migrations, FastAPI backend, Celery analyzer worker, and Next.js 16 frontend.
+Docker Compose starts the complete stack: PostgreSQL 17, Redis 7, Alembic migrations, FastAPI, Celery, and Next.js. Authentication is enabled by default. The canonical Compose file is `compose.yaml`; Docker Compose automatically prefers it when both Compose files exist.
 
-### 1. Prerequisites
-- [Docker](https://docs.docker.com/get-docker/) & Docker Compose (v2.20+)
+### Prerequisites
 
-### 2. Clone & Setup Environment
+- [Docker](https://docs.docker.com/get-docker/) with Docker Compose v2.20+
+- A server with enough disk space for PostgreSQL data, uploaded documents, and generated artifacts
+- A reverse proxy and HTTPS certificate for production internet access
+
+### Fresh Server Installation
+
+1. Clone the repository and enter the project directory:
+
 ```bash
 git clone https://github.com/<your-org>/DocsQA.git
 cd DocsQA
+```
 
-# Copy example environment configuration
+2. Create the Docker environment file:
+
+```bash
 cp .env.docker.example .env
 ```
 
-### 3. Launch Services
-```bash
-docker compose up --build
+On Windows PowerShell, use `Copy-Item .env.docker.example .env`.
+
+3. Edit `.env` before starting the server. At minimum, set unique values for:
+
+```env
+POSTGRES_PASSWORD=replace-with-a-database-password
+SECRET_KEY=replace-with-a-long-random-secret
+NEXT_PUBLIC_API_BASE_URL=http://your-server:8000/api/v1
+COOKIE_SECURE=false
 ```
 
-### 4. Access the Application
-- **Review Workspace & Inspection Register**: [http://localhost:3000](http://localhost:3000)
-- **FastAPI OpenAPI Interactive Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
-- **Health Check**: [http://localhost:8000/health](http://localhost:8000/health)
+Use `COOKIE_SECURE=true` when the browser reaches the application through HTTPS. If a reverse proxy exposes only the frontend and proxies `/api` internally, set `NEXT_PUBLIC_API_BASE_URL` to the public API URL expected by the browser.
 
-### 5. Managing the Containers
+4. Build the application images and start PostgreSQL, Redis, and the migration job:
+
 ```bash
-# View service status
+docker compose build migrate api worker frontend
+docker compose up -d postgres redis
+docker compose up migrate
+```
+
+The `migrate` command creates the schema and seeds these initial accounts:
+
+| Email | Initial password | Role |
+|---|---|---|
+| `admin@localhost` | `super123` | `SUPERUSER` |
+| `lead.engineer@localhost` | `super123` | `LEAD_ENGINEER` |
+| `engineer@localhost` | `user123` | `ENGINEER` |
+
+5. Start the API, worker, and frontend after migration succeeds:
+
+```bash
+docker compose up -d api worker frontend
+```
+
+6. Open the application and immediately change the initial account password from `Change Password`:
+
+- Frontend: `http://localhost:3000`
+- API docs: `http://localhost:8000/docs`
+- Health check: `http://localhost:8000/health`
+
+The initial passwords are development/bootstrap credentials. Do not keep them on an exposed server.
+
+### Updating an Existing Server
+
+For source changes, rebuild the application images. Do not rebuild or delete PostgreSQL and Redis volumes. From the repository directory on the server:
+
+```bash
+git pull
+docker compose build migrate api worker frontend
+docker compose up migrate
+docker compose up -d api worker frontend
+```
+
+`docker compose up migrate` runs all pending Alembic migrations, including account seed changes. The migration is safe for an existing database: it updates the documented local accounts and creates `admin@localhost` if the account does not already exist. The migration is not a password rotation mechanism for accounts that have already been changed manually.
+
+If only frontend files changed, rebuilding `frontend` is sufficient. If backend Python, schema, migration, or worker code changed, rebuild `migrate`, `api`, and `worker`. If `compose.yaml`, `.env`, or Dockerfile changed, recreate the affected services after rebuilding. PostgreSQL and Redis only need to be recreated when their image or service configuration changes.
+
+Useful update/status commands:
+
+```bash
 docker compose ps
-
-# Follow live container logs
+docker compose logs --tail=200 migrate
 docker compose logs -f api worker frontend
+docker compose restart api worker frontend
+```
 
-# Stop containers (preserves database and uploaded files)
+### Authentication and Password Management
+
+`AUTH_MODE=required` is set by the Compose file. The frontend login uses the accounts in the table above. `SUPERUSER` has the same lead workflow and user-management permissions as `LEAD_ENGINEER`.
+
+Every authenticated user can change their own password at `/settings/password`. The API endpoint is `POST /api/v1/auth/change-password` and requires the current password plus a new password of at least eight characters. A lead or superuser can reset another account's temporary password from `Manage Users`.
+
+For a production deployment:
+
+- Replace `SECRET_KEY` with a long random secret and keep it outside version control.
+- Replace `POSTGRES_PASSWORD` with a strong database password.
+- Set `COOKIE_SECURE=true` behind HTTPS.
+- Change all bootstrap passwords immediately after the first login.
+- Restrict PostgreSQL and Redis ports to the private network or bind them only to localhost.
+- Back up the `postgres-data` and `backend-data` Docker volumes.
+
+### Container Management
+
+```bash
+# Stop containers while preserving database and uploaded files
 docker compose down
 
-# Stop and wipe database volume (clean slate reset)
+# Start the existing images again
+docker compose up -d
+
+# Clean-slate reset: permanently deletes database, Redis, and uploaded-file volumes
 docker compose down --volumes
 ```
 

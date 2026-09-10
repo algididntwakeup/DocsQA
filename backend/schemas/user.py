@@ -55,3 +55,10 @@ class UserPasswordReset(ApiModel):
     """Password replacement requested by an authorized administrator."""
 
     temporary_password: str = Field(min_length=8, max_length=255)
+
+
+class ChangePasswordRequest(ApiModel):
+    """Password replacement requested by the authenticated account owner."""
+
+    current_password: str = Field(min_length=1, max_length=255)
+    new_password: str = Field(min_length=8, max_length=255)

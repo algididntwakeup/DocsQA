@@ -1,13 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect, useRef } from "react";
-import {
-  Filter,
-  Layers,
-  Search,
-  Sparkles,
-  ShieldCheck,
-} from "lucide-react";
+import { Filter, Layers, Search, Sparkles, ShieldCheck, ListFilter } from "lucide-react";
 import { getIssueLocation, type IssueItem } from "@/lib/api";
 import { IssueCard } from "./issue-card";
 
@@ -24,7 +18,7 @@ interface IssuePanelProps {
   isLoading?: boolean;
 }
 
-type TabType = "audit" | "standards" | "language";
+type TabType = "all" | "audit" | "budinski" | "standards" | "language";
 type SeverityFilter =
   | "ALL"
   | "BLOCKER"
@@ -92,8 +86,9 @@ export function IssuePanel({
     () => sortIssues(issues.filter((issue) => getIssueTab(issue) === "language")),
     [issues]
   );
+  const budinskiIssues = useMemo(() => sortIssues(issues.filter((issue) => issue.category === "BUDINSKI")), [issues]);
 
-  const currentTabIssues = activeTab === "audit" ? auditIssues : activeTab === "standards" ? standardsIssues : languageIssues;
+  const currentTabIssues = activeTab === "all" ? sortIssues(issues) : activeTab === "audit" ? auditIssues : activeTab === "budinski" ? budinskiIssues : activeTab === "standards" ? standardsIssues : languageIssues;
 
   // Filter issues based on active filters
   const filteredIssues = useMemo(() => {
@@ -131,34 +126,39 @@ export function IssuePanel({
     }
   }, [selectedIssueId]);
 
+  const allIncludedCount = issues.filter((i) => i.included_in_report).length;
   const auditIncludedCount = auditIssues.filter((i) => i.included_in_report).length;
   const standardsIncludedCount = standardsIssues.filter((i) => i.included_in_report).length;
   const langIncludedCount = languageIssues.filter((i) => i.included_in_report).length;
 
   return (
     <aside
-      className="flex flex-col h-full min-h-0 min-w-0 bg-surface border-l border-line overflow-hidden"
+      className="rq-issue-panel flex flex-col h-full min-h-0 min-w-0 bg-surface border-l border-line overflow-hidden"
       aria-label="Findings Panel"
     >
       {/* Tab Switcher */}
-      <div className="grid grid-cols-3 border-b border-line bg-panel shrink-0">
+      <div className="rq-issue-tabs border-b border-line bg-panel shrink-0">
+        <button type="button" role="tab" aria-selected={activeTab === "all"} onClick={() => setActiveTab("all")} className={`rq-issue-tab ${activeTab === "all" ? "rq-issue-tab-active" : ""}`}><ListFilter size={14} /><span>All Issues</span><b>{allIncludedCount}/{issues.length} total</b></button>
         <button
           type="button"
           role="tab"
           aria-selected={activeTab === "audit"}
           onClick={() => setActiveTab("audit")}
-          className={`min-w-0 px-2 py-3 text-[11px] font-semibold flex items-center justify-center gap-1 border-b-2 transition-colors ${
+          aria-label="Layout & Format"
+          className={`rq-issue-tab ${activeTab === "audit" ? "rq-issue-tab-active" : ""} ${
               activeTab === "audit"
               ? "border-sky-500 text-sky-600 dark:text-sky-400 bg-surface"
               : "border-transparent text-muted hover:text-ink hover:bg-muted/5"
           }`}
         >
           <ShieldCheck size={15} />
-          <span className="truncate">Technical & Layout</span>
+          <span className="truncate">Layout & Format</span>
           <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-muted/20 text-muted">
             {auditIncludedCount}/{auditIssues.length}
           </span>
         </button>
+
+        <button type="button" role="tab" aria-label="Budinski Compliance" aria-selected={activeTab === "budinski"} onClick={() => setActiveTab("budinski")} className={`rq-issue-tab ${activeTab === "budinski" ? "rq-issue-tab-active" : ""}`}><ShieldCheck size={14} /><span>Budinski Compliance</span><b>{budinskiIssues.filter((i) => i.included_in_report).length}/{budinskiIssues.length}</b></button>
 
         <button
           type="button"
@@ -166,14 +166,14 @@ export function IssuePanel({
           aria-label="Standards Audit"
           aria-selected={activeTab === "standards"}
           onClick={() => setActiveTab("standards")}
-          className={`min-w-0 px-2 py-3 text-[11px] font-semibold flex items-center justify-center gap-1 border-b-2 transition-colors ${
+          className={`rq-issue-tab ${activeTab === "standards" ? "rq-issue-tab-active" : ""} ${
               activeTab === "standards"
               ? "border-sky-500 text-sky-600 dark:text-sky-400 bg-surface"
               : "border-transparent text-muted hover:text-ink hover:bg-muted/5"
           }`}
         >
           <Layers size={15} />
-          <span className="truncate">Standards</span>
+          <span className="truncate">Standards & Citations</span>
           <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-muted/20 text-muted">
             {standardsIncludedCount}/{standardsIssues.length}
           </span>
@@ -184,12 +184,12 @@ export function IssuePanel({
           role="tab"
           aria-selected={activeTab === "language"}
           onClick={() => setActiveTab("language")}
-          className={`min-w-0 px-2 py-3 text-[11px] font-semibold flex items-center justify-center gap-1 border-b-2 transition-colors ${
+          className={`rq-issue-tab ${activeTab === "language" ? "rq-issue-tab-active" : ""} ${
             activeTab === "language" ? "border-sky-500 text-sky-600 dark:text-sky-400 bg-surface" : "border-transparent text-muted hover:text-ink hover:bg-muted/5"
           }`}
         >
           <Sparkles size={15} />
-          <span className="truncate">Language</span>
+          <span className="truncate">Language & Typos</span>
           <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-muted/20 text-muted">
             {langIncludedCount}/{languageIssues.length}
           </span>
@@ -197,7 +197,7 @@ export function IssuePanel({
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="p-3 border-b border-line bg-panel space-y-2.5 shrink-0">
+      <div className="rq-issue-filters p-3 border-b border-line bg-panel space-y-2.5 shrink-0">
         <div className="relative">
           <Search size={14} className="absolute left-2.5 top-2.5 text-muted" />
           <input

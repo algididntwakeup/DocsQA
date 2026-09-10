@@ -12,6 +12,7 @@ import {
   FileCheck2,
   FileText,
   RotateCw,
+  ShieldCheck,
   X,
 } from "lucide-react";
 import type { DocumentItem, IssueItem } from "@/lib/api";
@@ -52,6 +53,7 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
   const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
   const [isDictionaryOpen, setIsDictionaryOpen] = useState<boolean>(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
+  const [isScorecardOpen, setIsScorecardOpen] = useState(false);
   const [dictionaryInitialTerm, setDictionaryInitialTerm] = useState<string | undefined>(undefined);
 
   // Global feedback alert
@@ -134,10 +136,12 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
         ? "Review completed with warnings. Check the findings before exporting."
         : isProcessing
           ? "The review pipeline is still running. Findings may continue to appear."
-          : null;
+           : null;
+  const budinskiIssues = issues.filter((issue) => issue.category === "BUDINSKI");
+  const baselinePasses = budinskiIssues.filter((issue) => issue.severity !== "BLOCKER" && issue.severity !== "CRITICAL").length;
 
   return (
-    <div className="flex flex-col w-full min-h-full min-w-0 text-ink">
+    <div className="rq-split-workspace flex flex-col w-full min-h-full min-w-0 text-ink">
       {/* Above Card Header: Breadcrumbs & Document Info & Status */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-3 shrink-0">
         {/* Left: Return Link & Document Title */}
@@ -204,7 +208,7 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
       )}
 
       {/* Main Review Workspace Card */}
-      <div className="panel flex flex-col flex-1 min-h-[480px] w-full overflow-hidden shadow-xs border-line">
+      <div className="rq-workspace-card panel flex flex-col flex-1 min-h-[480px] w-full overflow-hidden shadow-xs border-line">
         {/* Card Header / Action Toolbar */}
         <header className="h-12 border-b border-line bg-panel flex items-center justify-between px-3 sm:px-4 shrink-0 gap-3">
           {/* Left: Eyebrow label & Mobile Pane Switcher */}
@@ -264,6 +268,15 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
             >
               <BookOpen size={14} className="text-amber-500" />
               <span className="hidden md:inline">Dictionary</span>
+            </button>
+
+            <button
+              type="button"
+              className="rq-scorecard-button button button-secondary btn-sm flex items-center gap-1.5"
+              onClick={() => setIsScorecardOpen(true)}
+            >
+              <ShieldCheck size={14} className="text-violet-500" />
+              <span>Budinski Scorecard</span>
             </button>
 
             <button
@@ -402,6 +415,17 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
       />
+
+      {isScorecardOpen && (
+        <div className="rq-scorecard-backdrop" role="dialog" aria-modal="true" aria-labelledby="scorecard-title" onClick={() => setIsScorecardOpen(false)}>
+          <div className="rq-scorecard-modal" onClick={(event) => event.stopPropagation()}>
+            <header><div><p className="rq-kicker">Technical writing audit</p><h2 id="scorecard-title">Budinski Scorecard</h2><p>41 Appendix 12 items and 4 baseline measures.</p></div><button type="button" aria-label="Close scorecard" onClick={() => setIsScorecardOpen(false)}><X size={17} /></button></header>
+            <div className="rq-scorecard-kpis"><div><strong>{budinskiIssues.length}</strong><span>Items flagged</span></div><div><strong>{Math.max(0, 41 - budinskiIssues.length)}</strong><span>Items clear</span></div><div><strong>{baselinePasses}/4</strong><span>Baselines passing</span></div></div>
+            <div className="rq-scorecard-progress"><div><span>Appendix 12 coverage</span><b>{Math.round(((41 - budinskiIssues.length) / 41) * 100)}%</b></div><progress value={Math.max(0, 41 - budinskiIssues.length)} max="41" /></div>
+            <footer><span>Detailed scorecard values remain in the exported DOCX report.</span><button type="button" className="rq-signoff-secondary" onClick={() => setIsScorecardOpen(false)}>Close</button></footer>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

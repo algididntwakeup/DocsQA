@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, ArrowLeft, CheckCircle2, RotateCw, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CheckCircle2, RotateCw, ShieldCheck, UserRound } from "lucide-react";
 import {
   getDocument,
   getApiBaseUrl,
@@ -25,6 +25,7 @@ export function ReviewWorkspaceView({ id }: { id: string }) {
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [workflowBusy, setWorkflowBusy] = useState(false);
   const [workflowError, setWorkflowError] = useState<string | null>(null);
+  const [revisionNote, setRevisionNote] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -137,7 +138,7 @@ export function ReviewWorkspaceView({ id }: { id: string }) {
             Accept: "application/json",
             ...(action === "request-revision" ? { "Content-Type": "application/json" } : {}),
           },
-          body: action === "request-revision" ? JSON.stringify({ workflow_status: "REVIEWED_BY_ENGINEER" }) : undefined,
+             body: action === "request-revision" ? JSON.stringify({ workflow_status: "REVIEWED_BY_ENGINEER", verification_notes: revisionNote.trim() || undefined }) : undefined,
         },
       );
       if (!response.ok) {
@@ -155,42 +156,38 @@ export function ReviewWorkspaceView({ id }: { id: string }) {
 
   const workflowStatus = document.workflow_status ?? "ANALYZING";
   const canSubmitReview = userRole === "ENGINEER" && workflowStatus === "ANALYZING";
-  const canLeadDecide = userRole === "LEAD_ENGINEER" && workflowStatus === "REVIEWED_BY_ENGINEER";
+  const canLeadDecide = (userRole === "LEAD_ENGINEER" || userRole === "SUPERUSER") && workflowStatus === "REVIEWED_BY_ENGINEER";
 
   return (
-    <div className="relative">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3" role="status" aria-live="polite">
-        <div className="flex items-center gap-2 text-xs text-muted">
-          <ShieldCheck size={15} className="text-primary" />
-          <span>Workflow status</span>
+    <div className="rq-review-page">
+      <header className="rq-review-header">
+        <div className="rq-review-heading">
+          <Link href={document.project_id ? `/projects/${document.project_id}` : "/projects"} className="rq-review-back"><ArrowLeft size={15} /> Project / Inspection</Link>
+          <div className="rq-review-title-row"><div className="rq-review-file-icon"><ShieldCheck size={19} /></div><div><h1>{document.filename}</h1><div className="rq-review-meta"><span className={`rq-review-status rq-review-status-${workflowStatus.toLowerCase()}`}><i />{workflowStatus.replaceAll("_", " ")}</span><span><UserRound size={13} /> Prepared by: {document.owner_id ? `${document.owner_id.slice(0, 8)}...` : "Engineering team"}</span><span>Revision {document.filename.match(/rev[-_ ]?([a-z0-9]+)/i)?.[1]?.toUpperCase() ?? "—"}</span></div></div></div>
         </div>
-        <span
-          className={`status-badge ${workflowStatus === "VERIFIED_BY_LEAD" ? "status-success" : workflowStatus === "REVIEWED_BY_ENGINEER" ? "status-active" : "status-warning"}`}
-        >
-          <i />{workflowStatus.replaceAll("_", " ")}
-        </span>
-      </div>
+        <div className="rq-review-actions"><Link href={document.project_id ? `/projects/${document.project_id}` : "/projects"} className="rq-review-action-secondary"><ArrowLeft size={15} /> Kembali</Link><span className="rq-review-divider" /><span className="rq-review-status-count">{issues.length} findings</span></div>
+      </header>
+
+      <div className="rq-review-live-status" role="status" aria-live="polite"><ShieldCheck size={15} /><span>Workflow status</span><span className={`rq-review-status rq-review-status-${workflowStatus.toLowerCase()}`}><i />{workflowStatus.replaceAll("_", " ")}</span></div>
 
       <SplitScreenViewer document={document} initialIssues={issues} />
 
       {(canSubmitReview || canLeadDecide || workflowError) && (
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border border-line bg-panel px-4 py-3 text-xs shadow-sm" role="region" aria-label="Workflow actions">
-          <div className="flex items-center gap-2 text-muted">
-            <CheckCircle2 size={15} className={workflowError ? "text-danger" : "text-success"} />
-            <span>{workflowError ?? "Review disposition"}</span>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="rq-signoff-bar" role="region" aria-label="Workflow actions">
+          <div className="rq-signoff-copy"><CheckCircle2 size={17} className={workflowError ? "rq-danger" : "rq-success"} /><span>{workflowError ?? "Review sign-off"}<small>{workflowError ? "Resolve the issue before submitting." : "Your decision will update the controlled workflow record."}</small></span></div>
+          <div className="rq-signoff-actions">
             {canSubmitReview && (
-              <button className="button button-primary btn-sm" type="button" disabled={workflowBusy} onClick={() => void updateWorkflow("mark-reviewed")}>
-                {workflowBusy ? "Submitting..." : "Tandai Selesai Di-review (Submit to Lead)"}
+              <button aria-label="Tandai selesai di-review" className="rq-signoff-primary" type="button" disabled={workflowBusy} onClick={() => void updateWorkflow("mark-reviewed")}>
+                {workflowBusy ? "Submitting..." : "Selesaikan Review Saya"}
               </button>
             )}
             {canLeadDecide && (
               <>
-                <button className="button button-primary btn-sm" type="button" disabled={workflowBusy} onClick={() => void updateWorkflow("verify")}>
-                  {workflowBusy ? "Saving..." : "Verifikasi & Approve Laporan"}
+                <button className="rq-signoff-primary" type="button" disabled={workflowBusy} onClick={() => void updateWorkflow("verify")}>
+                  {workflowBusy ? "Saving..." : "Verifikasi & Setujui Dokumen"}
                 </button>
-                <button className="button button-secondary btn-sm" type="button" disabled={workflowBusy} onClick={() => void updateWorkflow("request-revision")}>
+                <input className="rq-revision-input" value={revisionNote} onChange={(event) => setRevisionNote(event.target.value)} placeholder="Catatan revisi (opsional)" aria-label="Revision note" />
+                <button className="rq-signoff-secondary" type="button" disabled={workflowBusy} onClick={() => void updateWorkflow("request-revision")}>
                   Minta Revisi
                 </button>
               </>

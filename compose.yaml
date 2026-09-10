@@ -44,7 +44,9 @@ services:
       CELERY_RESULT_BACKEND: redis://redis:6379/1
       STORAGE_ROOT: /app/data
       CORS_ORIGINS: '["http://localhost:3000","http://127.0.0.1:3000"]'
-      AUTH_MODE: disabled
+      AUTH_MODE: required
+      SECRET_KEY: ${SECRET_KEY:-change-this-development-secret-key}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
     depends_on:
       postgres:
         condition: service_healthy

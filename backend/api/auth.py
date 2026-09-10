@@ -16,6 +16,7 @@ from domain.enums import UserRole
 from models.user import User
 from models.document import Document
 from schemas.user import (
+    ChangePasswordRequest,
     ManagedUserCreate,
     UserManagementRead,
     UserPasswordReset,
@@ -76,6 +77,25 @@ async def logout(response: Response) -> None:
 
 @router.get("/me", response_model=UserRead)
 async def me(current_user: Annotated[User, Depends(get_current_user)]) -> UserRead:
+    return UserRead.model_validate(current_user)
+
+
+@router.post("/change-password", response_model=UserRead)
+async def change_password(
+    payload: ChangePasswordRequest,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> UserRead:
+    """Change the password for the authenticated account owner."""
+    if not current_user.hashed_password or not verify_password(
+        payload.current_password, current_user.hashed_password
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect."
+        )
+    current_user.hashed_password = hash_password(payload.new_password)
+    await session.commit()
+    await session.refresh(current_user)
     return UserRead.model_validate(current_user)
 
 

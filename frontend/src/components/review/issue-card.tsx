@@ -92,7 +92,7 @@ export function IssueCard({
   return (
     <article
       data-issue-id={issue.id}
-      className={`border rounded-lg transition-all ${
+      className={`rq-issue-card border rounded-lg transition-all ${
         isSelected
           ? "border-sky-500 shadow-sm ring-1 ring-sky-500/30 bg-surface"
           : "border-line hover:border-line-strong bg-panel"
@@ -103,7 +103,7 @@ export function IssueCard({
       <header className="p-3.5 pb-2.5 flex items-start justify-between gap-2 border-b border-line">
         <div className="flex flex-wrap items-center gap-1.5 min-w-0">
           <span
-            className={`text-[10px] font-bold tracking-wider px-2 py-0.5 rounded border uppercase ${badgeStyle}`}
+            className={`rq-severity-badge rq-severity-${issue.severity.toLowerCase()} text-[10px] font-bold tracking-wider px-2 py-0.5 rounded border uppercase ${badgeStyle}`}
           >
             {issue.severity}
           </span>
@@ -158,7 +158,7 @@ export function IssueCard({
       {/* Body */}
       <div className="p-3.5 space-y-3">
         {/* Message */}
-        <p className="text-xs text-ink leading-relaxed">
+        <p className="rq-issue-message text-xs text-ink leading-relaxed">
           {issue.message}
         </p>
 
@@ -220,6 +220,13 @@ export function IssueCard({
                 {Boolean(evidence.what_body_has) && <p><span className="text-muted">Document has:</span> {String(evidence.what_body_has)}</p>}
                 {Boolean(evidence.what_would_fix_it) && <p><span className="text-muted">Fix:</span> {String(evidence.what_would_fix_it)}</p>}
               </div>
+            )}
+
+            {typeof evidence.snippet === "string" && evidence.snippet && (
+              <div className="rq-evidence-snippet"><span>Evidence excerpt</span><p>{evidence.snippet}</p></div>
+            )}
+            {typeof evidence.suggested_fix === "string" && evidence.suggested_fix && (
+              <div className="rq-recommendation"><span>Recommended fix</span><p>{evidence.suggested_fix}</p></div>
             )}
 
             {/* Linguistic Evidence & Dictionary Action */}
@@ -342,21 +349,22 @@ export function IssueCard({
                   void handleToggleInclude();
                 }}
                 disabled={isSubmitting}
+                aria-label={issue.included_in_report ? "Exclude from Report" : "Include in Report"}
                 className={`button btn-sm flex items-center gap-1.5 transition-colors ${
                   issue.included_in_report
                     ? "button-secondary text-muted hover:text-ink"
                     : "button-primary"
                 }`}
               >
-                {issue.included_in_report ? (
+                  {issue.included_in_report ? (
                   <>
                     <XCircle size={13} />
-                    <span>Exclude from Report</span>
+                      <span>Ignore finding</span>
                   </>
                 ) : (
                   <>
                     <CheckCircle2 size={13} />
-                    <span>Include in Report</span>
+                      <span>Accept finding</span>
                   </>
                 )}
               </button>

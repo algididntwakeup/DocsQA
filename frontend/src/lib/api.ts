@@ -43,6 +43,11 @@ export interface CreateProjectPayload {
   description?: string;
 }
 
+export interface ChangePasswordPayload {
+  current_password: string;
+  new_password: string;
+}
+
 export interface ManagedUser extends UserSession {
   total_documents_owned: number;
 }
@@ -121,6 +126,14 @@ export async function logout(): Promise<void> {
 
 export function getCurrentUser(): Promise<UserSession> {
   return request<UserSession>("/auth/me", { cache: "no-store" });
+}
+
+export function changePassword(payload: ChangePasswordPayload): Promise<UserSession> {
+  return request<UserSession>("/auth/change-password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
 }
 
 export function listManagedUsers(): Promise<ManagedUser[]> {
