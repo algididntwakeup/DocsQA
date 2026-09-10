@@ -4,6 +4,147 @@
  */
 
 export interface paths {
+    "/api/v1/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Login
+         * @description Authenticate an active user and issue a JWT.
+         */
+        post: operations["login_api_v1_auth_login_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Logout
+         * @description Clear the browser session cookie.
+         */
+        post: operations["logout_api_v1_auth_logout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Me */
+        get: operations["me_api_v1_auth_me_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/register-engineer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register Engineer
+         * @description Allow only lead engineers to create engineer accounts.
+         */
+        post: operations["register_engineer_api_v1_auth_register_engineer_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Users
+         * @description List all accounts for the lead/superuser administration console.
+         */
+        get: operations["list_users_api_v1_auth_users_get"];
+        put?: never;
+        /**
+         * Create User
+         * @description Create an engineer or lead account with a temporary password.
+         */
+        post: operations["create_user_api_v1_auth_users_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/users/{user_id}/reset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset User Password
+         * @description Replace an account password without exposing its hash.
+         */
+        post: operations["reset_user_password_api_v1_auth_users__user_id__reset_password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/users/{user_id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update User Status
+         * @description Activate or deactivate an account.
+         */
+        patch: operations["update_user_status_api_v1_auth_users__user_id__status_patch"];
+        trace?: never;
+    };
     "/api/v1/dictionary/terms": {
         parameters: {
             query?: never;
@@ -172,6 +313,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/documents/{document_id}/mark-reviewed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark Document Reviewed
+         * @description Mark an owned document as reviewed by its engineer owner.
+         */
+        post: operations["mark_document_reviewed_api_v1_documents__document_id__mark_reviewed_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/documents/{document_id}/pdf": {
         parameters: {
             query?: never;
@@ -206,6 +367,26 @@ export interface paths {
         get: operations["get_report_preview_api_v1_documents__document_id__report_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/{document_id}/request-revision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request Document Revision
+         * @description Return a document to an engineer for revision.
+         */
+        post: operations["request_document_revision_api_v1_documents__document_id__request_revision_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -252,6 +433,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/documents/{document_id}/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify Document
+         * @description Verify a document as a lead engineer.
+         */
+        post: operations["verify_document_api_v1_documents__document_id__verify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/issues/{issue_id}/curation": {
         parameters: {
             query?: never;
@@ -270,6 +471,66 @@ export interface paths {
          * @description Include/exclude a finding from the generated report and attach a note.
          */
         patch: operations["curate_issue_api_v1_issues__issue_id__curation_patch"];
+        trace?: never;
+    };
+    "/api/v1/projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Projects
+         * @description List projects visible to the authenticated user.
+         */
+        get: operations["list_projects_api_v1_projects_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Project Documents
+         * @description List project documents with lead-only cross-engineer filters.
+         */
+        get: operations["list_project_documents_api_v1_projects__project_id__documents_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/documents/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload Project Document
+         * @description Upload a document and assign its project and owner.
+         */
+        post: operations["upload_project_document_api_v1_projects__project_id__documents_upload_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/standards-registry": {
@@ -325,6 +586,14 @@ export interface components {
              */
             file: string;
         };
+        /** Body_upload_project_document_api_v1_projects__project_id__documents_upload_post */
+        Body_upload_project_document_api_v1_projects__project_id__documents_upload_post: {
+            /**
+             * File
+             * @description Native-text PDF or DOCX
+             */
+            file: string;
+        };
         /**
          * BoundingBox
          * @description PDF-point rectangle in the canonical top-left coordinate system.
@@ -374,6 +643,35 @@ export interface components {
             where_location?: string | null;
             /** Why It Matters */
             why_it_matters?: string | null;
+        };
+        /**
+         * CategoryBandEvidence
+         * @description Evidence for a categorical numeric-band contradiction.
+         */
+        CategoryBandEvidence: {
+            /** Category Id */
+            category_id?: string | null;
+            /** Extractor Version */
+            extractor_version: string;
+            /** Interval */
+            interval?: string | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "CATEGORY_BAND";
+            /** Rule Version */
+            rule_version: string;
+            /** What Body Has */
+            what_body_has?: string | null;
+            /** What It Says */
+            what_it_says: string;
+            /** What Would Fix It */
+            what_would_fix_it: string;
+            /** Where */
+            where: string;
+            /** Why It Matters */
+            why_it_matters: string;
         };
         /**
          * DictionaryTermApprovalRequest
@@ -460,10 +758,16 @@ export interface components {
             id: string;
             /** Media Type */
             media_type: string;
+            /** Owner Id */
+            owner_id?: string | null;
             /** Page Count */
             page_count?: number | null;
             /** Progress Pct */
             progress_pct: number;
+            /** Project Id */
+            project_id?: string | null;
+            /** Reviewed At */
+            reviewed_at?: string | null;
             /** Sha256 */
             sha256: string;
             /** Size Bytes */
@@ -474,6 +778,13 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /** Verification Notes */
+            verification_notes?: string | null;
+            /** Verified At */
+            verified_at?: string | null;
+            /** Verified By Id */
+            verified_by_id?: string | null;
+            workflow_status: components["schemas"]["DocumentWorkflowStatus"];
         };
         /**
          * DocumentStatus
@@ -532,6 +843,27 @@ export interface components {
              */
             id: string;
             status: components["schemas"]["DocumentStatus"];
+        };
+        /**
+         * DocumentWorkflowStatus
+         * @description Human review lifecycle for a document.
+         * @enum {string}
+         */
+        DocumentWorkflowStatus: "ANALYZING" | "REVIEWED_BY_ENGINEER" | "VERIFIED_BY_LEAD";
+        /**
+         * DocumentWorkflowUpdate
+         * @description Payload for assigning a document and changing its review workflow.
+         */
+        DocumentWorkflowUpdate: {
+            /** Owner Id */
+            owner_id?: string | null;
+            /** Project Id */
+            project_id?: string | null;
+            /** Verification Notes */
+            verification_notes?: string | null;
+            /** Verified By Id */
+            verified_by_id?: string | null;
+            workflow_status?: components["schemas"]["DocumentWorkflowStatus"] | null;
         };
         /**
          * FieldViolation
@@ -598,7 +930,7 @@ export interface components {
              */
             document_id: string;
             /** Evidence */
-            evidence: components["schemas"]["TableMathEvidence"] | components["schemas"]["ReferenceDriftEvidence"] | components["schemas"]["RevisionEvidence"] | components["schemas"]["StandardEvidence"] | components["schemas"]["LinguisticEvidence"] | components["schemas"]["StageFailureEvidence"] | components["schemas"]["ReferenceRuleEvidence"] | components["schemas"]["LayoutEvidence"] | components["schemas"]["BudinskiEvidence"];
+            evidence: components["schemas"]["TableMathEvidence"] | components["schemas"]["ReferenceDriftEvidence"] | components["schemas"]["RevisionEvidence"] | components["schemas"]["StandardEvidence"] | components["schemas"]["LinguisticEvidence"] | components["schemas"]["StageFailureEvidence"] | components["schemas"]["ReferenceRuleEvidence"] | components["schemas"]["LayoutEvidence"] | components["schemas"]["BudinskiEvidence"] | components["schemas"]["CategoryBandEvidence"];
             /**
              * Id
              * Format: uuid
@@ -673,6 +1005,27 @@ export interface components {
             /** Suggestion */
             suggestion?: string | null;
         };
+        /** LoginRequest */
+        LoginRequest: {
+            /** Email */
+            email: string;
+            /** Password */
+            password: string;
+        };
+        /**
+         * ManagedUserCreate
+         * @description Payload for creating an engineer or lead account.
+         */
+        ManagedUserCreate: {
+            /** Email */
+            email: string;
+            /** Full Name */
+            full_name: string;
+            /** @default ENGINEER */
+            role: components["schemas"]["UserRole"];
+            /** Temporary Password */
+            temporary_password: string;
+        };
         /**
          * PageInfo
          * @description Cursor-free pagination metadata for the initial API contract.
@@ -716,6 +1069,35 @@ export interface components {
              * @default about:blank
              */
             type: string;
+        };
+        /**
+         * ProjectRead
+         * @description Project representation returned by the API.
+         */
+        ProjectRead: {
+            /** Code */
+            code?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Created By Id
+             * Format: uuid
+             */
+            created_by_id: string;
+            /** Description */
+            description?: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Plant Area */
+            plant_area?: string | null;
         };
         /**
          * ReferenceDriftEvidence
@@ -776,6 +1158,15 @@ export interface components {
             standard: string;
             /** Standard Page */
             standard_page: number;
+        };
+        /** RegisterEngineerRequest */
+        RegisterEngineerRequest: {
+            /** Email */
+            email: string;
+            /** Full Name */
+            full_name: string;
+            /** Password */
+            password: string;
         };
         /**
          * ReviewReportPreview
@@ -995,6 +1386,17 @@ export interface components {
             /** Start */
             start: number;
         };
+        /** TokenResponse */
+        TokenResponse: {
+            /** Access Token */
+            access_token: string;
+            /**
+             * Token Type
+             * @default bearer
+             */
+            token_type: string;
+            user: components["schemas"]["UserRead"];
+        };
         /**
          * TraceabilitySummaryResponse
          * @description Counts required by the audit-focused dashboard.
@@ -1018,6 +1420,79 @@ export interface components {
             /** Unresolved Count */
             unresolved_count: number;
         };
+        /**
+         * UserManagementRead
+         * @description User representation used by the lead user-management console.
+         */
+        UserManagementRead: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Email */
+            email: string;
+            /** Full Name */
+            full_name: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Is Active */
+            is_active: boolean;
+            role: components["schemas"]["UserRole"];
+            /**
+             * Total Documents Owned
+             * @default 0
+             */
+            total_documents_owned: number;
+        };
+        /**
+         * UserPasswordReset
+         * @description Password replacement requested by an authorized administrator.
+         */
+        UserPasswordReset: {
+            /** Temporary Password */
+            temporary_password: string;
+        };
+        /**
+         * UserRead
+         * @description Public user representation.
+         */
+        UserRead: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Email */
+            email: string;
+            /** Full Name */
+            full_name: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Is Active */
+            is_active: boolean;
+            role: components["schemas"]["UserRole"];
+        };
+        /**
+         * UserRole
+         * @description Authorization roles for project and document review workflows.
+         * @enum {string}
+         */
+        UserRole: "ENGINEER" | "LEAD_ENGINEER" | "SUPERUSER";
+        /**
+         * UserStatusUpdate
+         * @description Explicit account activation state update.
+         */
+        UserStatusUpdate: {
+            /** Is Active */
+            is_active: boolean;
+        };
         /** ValidationError */
         ValidationError: {
             /** Context */
@@ -1040,6 +1515,233 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    login_api_v1_auth_login_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    logout_api_v1_auth_logout_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    me_api_v1_auth_me_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserRead"];
+                };
+            };
+        };
+    };
+    register_engineer_api_v1_auth_register_engineer_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterEngineerRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_users_api_v1_auth_users_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserManagementRead"][];
+                };
+            };
+        };
+    };
+    create_user_api_v1_auth_users_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManagedUserCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserManagementRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reset_user_password_api_v1_auth_users__user_id__reset_password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserPasswordReset"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserManagementRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_user_status_api_v1_auth_users__user_id__status_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserStatusUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserManagementRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_dictionary_terms_api_v1_dictionary_terms_get: {
         parameters: {
             query?: {
@@ -1390,6 +2092,8 @@ export interface operations {
         parameters: {
             query: {
                 format: string;
+                /** @description Include minor and informational findings. */
+                include_minors?: boolean;
             };
             header?: never;
             path: {
@@ -1470,6 +2174,37 @@ export interface operations {
             };
         };
     };
+    mark_document_reviewed_api_v1_documents__document_id__mark_reviewed_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_document_pdf_api_v1_documents__document_id__pdf_get: {
         parameters: {
             query?: never;
@@ -1526,6 +2261,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReviewReportPreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    request_document_revision_api_v1_documents__document_id__request_revision_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DocumentWorkflowUpdate"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentRead"];
                 };
             };
             /** @description Validation Error */
@@ -1619,6 +2389,41 @@ export interface operations {
             };
         };
     };
+    verify_document_api_v1_documents__document_id__verify_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DocumentWorkflowUpdate"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     curate_issue_api_v1_issues__issue_id__curation_patch: {
         parameters: {
             query?: never;
@@ -1641,6 +2446,97 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IssueRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_projects_api_v1_projects_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectRead"][];
+                };
+            };
+        };
+    };
+    list_project_documents_api_v1_projects__project_id__documents_get: {
+        parameters: {
+            query?: {
+                engineer_id?: string | null;
+                sort_by?: string;
+                status?: components["schemas"]["DocumentStatus"] | null;
+                has_blockers?: boolean | null;
+            };
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_project_document_api_v1_projects__project_id__documents_upload_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_project_document_api_v1_projects__project_id__documents_upload_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentUploadResponse"];
                 };
             };
             /** @description Validation Error */

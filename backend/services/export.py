@@ -124,7 +124,7 @@ def assessment_from_document_findings(
         blockers.append(
             BlockerFinding(
                 number=len(blockers) + 1,
-                title=f"{group['type']} ({group['count']} instances)",
+                title=f"{group.get('finding_codes', group['type'])} ({group['count']} instances)",
                 where_location="Consolidated across the affected printed pages",
                 what_it_says=group["message"],
                 what_body_has=group["message"],
@@ -602,6 +602,13 @@ def generate_ale_review_docx(assessment_result: AssessmentData, document: Any = 
             assessment_result.scorecard,
             assessment_result.metadata,
         )
+        blocker_codes = [
+            blocker.title.split(" (", 1)[0]
+            for blocker in assessment_result.blockers
+            if blocker.title
+        ]
+        if blocker_codes:
+            summary += f"\n\nBlocking finding codes: {', '.join(blocker_codes)}."
         assessment_result.summary_judgement = summary.split("\n\n")
     if not assessment_result.bottom_line:
         assessment_result.bottom_line = synthesizer.generate_bottom_line(assessment_result.blockers)

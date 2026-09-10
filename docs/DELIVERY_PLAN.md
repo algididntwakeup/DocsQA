@@ -88,5 +88,29 @@
   - Add backend integration tests for role isolation, project filters, upload ownership, and all
     workflow transitions.
 - [ ] **Milestone 18: Production Session and Release Validation**
-  - Move JWT persistence to a secure HttpOnly SameSite cookie with logout and expiry handling.
+  - Secure HttpOnly SameSite cookie authentication, logout, expiry handling, and unauthorized
+    frontend redirects are implemented; production deployment still requires `COOKIE_SECURE=true`
+    and environment validation.
   - Manually inspect report pagination/margins across rendered PNGs and rerun full quality gates.
+
+## Phase 6: Account Administration (Implemented; Integration Hardening In Progress)
+
+- [x] **Milestone 19: Lead/Superuser User Management API**
+  - Added `SUPERUSER` as an authorization role while restricting account creation to
+    `ENGINEER` and `LEAD_ENGINEER`.
+  - Added protected account listing with `total_documents_owned`.
+  - Added account creation with bcrypt-hashed temporary passwords.
+  - Added account activation/deactivation and password reset endpoints.
+  - Preserved the existing login, cookie session, and bearer-token fallback flow.
+- [x] **Milestone 20: Admin User Interface**
+  - Added `/admin/users` with a lead/superuser route guard.
+  - Added user table with name, email, role, status, creation date, owned-document count, and actions.
+  - Added create-user modal for name, email, temporary password, and Engineer/Lead role.
+  - Added status toggle and password reset actions using the cookie-authenticated API client.
+- [x] **Milestone 21: Account Management Verification**
+  - Added role-protection, listing, password hashing, status toggle, and password reset tests.
+  - Regenerated OpenAPI and frontend TypeScript definitions for the account-management contract.
+  - Focused user-management tests pass: 5 passed.
+- [ ] **Milestone 22: Account Management Release Hardening**
+  - Add HTTP integration and browser/e2e coverage for `/admin/users` and all management actions.
+  - Define and enforce policy for self-deactivation, lead demotion, and last-active-admin protection.

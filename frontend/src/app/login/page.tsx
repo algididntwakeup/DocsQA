@@ -3,7 +3,7 @@
 import { ArrowRight, LockKeyhole, ShieldCheck } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ApiError, login, setAuthToken } from "@/lib/api";
+import { ApiError, login } from "@/lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,8 +17,7 @@ export default function LoginPage() {
     setSubmitting(true);
     setError(null);
     try {
-      const session = await login(email.trim(), password);
-      setAuthToken(session.access_token);
+      await login(email.trim(), password);
       router.push("/projects");
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : "Unable to sign in.");

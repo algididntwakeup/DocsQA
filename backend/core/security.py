@@ -29,3 +29,12 @@ def create_access_token(data: dict[str, Any], expires_delta: timedelta | None = 
     return jwt.encode(
         {**data, "exp": expires}, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM
     )
+
+
+def access_token_cookie_kwargs() -> dict[str, Any]:
+    """Return the production-configurable cookie policy for the access token."""
+    return {
+        "httponly": True,
+        "samesite": "lax",
+        "secure": settings.COOKIE_SECURE,
+    }

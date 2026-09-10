@@ -122,6 +122,7 @@ class ReportSynthesizer:
                 f"{count} {finding_type.replace('_', ' ').lower()}"
                 for finding_type, count in sorted(type_counts.items())
             )
+            finding_codes = ", ".join(sorted(type_counts))
             pages = sorted(
                 {
                     str(_value(item, "page_number", ""))
@@ -139,7 +140,7 @@ class ReportSynthesizer:
             label_text = f" Examples include {', '.join(labels[:5])}." if labels else ""
             message = (
                 f"The review identified {count} related finding(s) ({breakdown}) on printed "
-                f"page(s) {page_text}.{label_text} These findings represent one recurring "
+                f"page(s) {page_text}. Finding code(s): {finding_codes}.{label_text} These findings represent one recurring "
                 "control issue, "
                 "not separate independent blockers; correct the underlying document-control "
                 "mechanism and verify the complete set before reissue."
@@ -147,6 +148,7 @@ class ReportSynthesizer:
             summaries.append(
                 {
                     "type": category or "FINDINGS",
+                    "finding_codes": finding_codes,
                     "category": category,
                     "count": str(count),
                     "message": message,

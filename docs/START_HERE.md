@@ -13,10 +13,8 @@ This is the central index every new agent must read in full. Repository state al
   consistency checks remain in scope until a licensed, governed rulebook is supplied.
 - **Latest validation**: Docker worker is running LibreOffice 25.2.3.2. Canonical executive
   DOCX converted to a 16-page Letter PDF and all 16 pages rendered to PNG successfully.
-- **Current next ticket**: Finish the release hardening queue below: regenerate the frontend
-  OpenAPI contract, add project/workflow UI coverage, replace browser token storage with a
-  production session cookie, then complete manual visual review of rendered PNG
-  pagination/margins and rerun the full quality gates.
+- **Current next ticket**: Complete manual visual review of rendered PNG pagination/margins,
+  then continue production release hardening and deployment validation.
 - **Latest implementation checkpoint**: Budinski now has a flat deterministic 41-item rule
   contract (`items`, `baseline_score`, `group_averages`) with Group III/IV rules. DOCX
   scorecard rendering prefers that flat contract and retains legacy grouped-field
@@ -30,6 +28,10 @@ This is the central index every new agent must read in full. Repository state al
   document listing/upload, owner and lead workflow transitions, project dashboard cards,
   project document tables, and review-workspace workflow status/actions. Existing review viewer
   and issue-panel internals remain protected.
+- **Latest account-management checkpoint**: Added lead/superuser-protected user management
+  endpoints for listing accounts with owned-document counts, creating engineer/lead accounts,
+  enabling/disabling accounts, and resetting passwords. Added the `/admin/users` interface with
+  role guard, user table, create-user modal, status actions, and password reset flow.
 - **Curation Workflow**:
   - Finding curation is strictly binary inclusion (`included_in_report: bool`, default `True`) and an optional engineering clarification (`reviewer_note: str | None`).
   - Completely removed: issue decisions (`ACCEPTED`/`REJECTED`), lead dispositions, audit trail events, and bulk decision workflows.
@@ -42,19 +44,14 @@ This is the central index every new agent must read in full. Repository state al
   - **Item 6 / Real-World E2E Test (Complete)**: Verified full scan and report generation for `docs/testcase/05.MEPG-Asset Life Extension 2026_Static Equipment_RevB.pdf` in `backend/tests/test_e2e_mepg_review.py`.
   - **Item 7 / Schema & Pipeline Synchronization (Complete)**: Synchronized `IssueCategory` (`LAYOUT`, `BUDINSKI`), `Severity` (`BLOCKER`), 6 canonical pipeline stages, SSE progress streaming, linguistic finding de-prioritization, OpenAPI 3.1 specification, and frontend TypeScript contracts.
 - **Quality Status**:
-  - Frontend checkpoint: **42 passed, typecheck passed, lint passed**.
-  - Focused backend checkpoint: Budinski evaluator, rule engine, schema, pipeline, and export tests pass.
+  - Frontend checkpoint: **48 passed, typecheck passed, lint passed**.
+  - Backend checkpoint: **386 passed, 1 skipped**, with the Redis integration test skipped when Redis/Postgres are unavailable.
   - Latest export/reference regression: **55 passed**, Ruff passed, and `git diff --check` passed.
   - Docker visual smoke: DOCX conversion passed, 16 PDF pages produced, 16 PNG pages rendered, and all pages contain text.
 - **Remaining Work**:
-  - Regenerate `frontend/src/lib/api-schema.d.ts` from the current backend OpenAPI contract and
-    remove any temporary local type extensions that become redundant.
-  - Add frontend tests for login, project cards, project document filtering/upload, and review
-    workflow action visibility and state transitions.
-  - Add backend/API integration coverage for project visibility, lead filters, project-scoped
-    upload, and JWT-protected workflow transitions.
-  - Replace `localStorage` JWT persistence with a secure, HttpOnly, SameSite session cookie before
-    production deployment; define logout, expiry, and unauthorized-request behavior.
+  - Add full HTTP integration coverage for the new admin user-management endpoints against a
+    migrated database, including superuser policy and self-disable policy if that rule is adopted.
+  - Add browser/e2e coverage for `/admin/users`, modal validation, status changes, and password reset.
   - Complete manual visual inspection of the 16 rendered report PNGs for pagination and margins,
     then rerun the backend and frontend quality gates after any changes.
 - **Never push to GitHub**; the owner pushes. Local commits are allowed only after quality gates pass.

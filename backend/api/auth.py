@@ -2,17 +2,26 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.dependencies import get_current_user, require_lead
-from core.security import create_access_token, hash_password, verify_password
+from core.dependencies import get_current_user, require_lead, require_user_manager
+from core.security import access_token_cookie_kwargs, create_access_token, hash_password, verify_password
 from db.session import get_session
 from domain.enums import UserRole
 from models.user import User
-from schemas.user import UserRead
+from models.document import Document
+from schemas.user import (
+    ManagedUserCreate,
+    UserManagementRead,
+    UserPasswordReset,
+    UserRead,
+    UserStatusUpdate,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -37,6 +46,7 @@ class RegisterEngineerRequest(BaseModel):
 @router.post("/login", response_model=TokenResponse)
 async def login(
     payload: LoginRequest,
+    response: Response,
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> TokenResponse:
     """Authenticate an active user and issue a JWT."""
@@ -50,7 +60,18 @@ async def login(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password."
         )
     token = create_access_token({"sub": str(user.id), "role": user.role.value})
+    response.set_cookie(
+        key="access_token",
+        value=f"Bearer {token}",
+        **access_token_cookie_kwargs(),
+    )
     return TokenResponse(access_token=token, user=UserRead.model_validate(user))
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+async def logout(response: Response) -> None:
+    """Clear the browser session cookie."""
+    response.delete_cookie(key="access_token")
 
 
 @router.get("/me", response_model=UserRead)
@@ -82,3 +103,82 @@ async def register_engineer(
     await session.commit()
     await session.refresh(user)
     return UserRead.model_validate(user)
+
+
+async def _managed_user_read(session: AsyncSession, user: User) -> UserManagementRead:
+    """Build the management representation with an ownership count."""
+    count = await session.scalar(
+        select(func.count(Document.id)).where(Document.owner_id == user.id)
+    )
+    return UserManagementRead(
+        **UserRead.model_validate(user).model_dump(),
+        total_documents_owned=int(count or 0),
+    )
+
+
+@router.get("/users", response_model=list[UserManagementRead])
+async def list_users(
+    session: Annotated[AsyncSession, Depends(get_session)],
+    _: Annotated[User, Depends(require_user_manager)],
+) -> list[UserManagementRead]:
+    """List all accounts for the lead/superuser administration console."""
+    users = (await session.execute(select(User).order_by(User.created_at.desc()))).scalars().all()
+    return [await _managed_user_read(session, user) for user in users]
+
+
+@router.post("/users", response_model=UserManagementRead, status_code=status.HTTP_201_CREATED)
+async def create_user(
+    payload: ManagedUserCreate,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    _: Annotated[User, Depends(require_user_manager)],
+) -> UserManagementRead:
+    """Create an engineer or lead account with a temporary password."""
+    if payload.role == UserRole.SUPERUSER:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="SUPERUSER cannot be created here.")
+    existing = (await session.execute(select(User).where(User.email == payload.email))).scalar_one_or_none()
+    if existing is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered.")
+    user = User(
+        email=payload.email,
+        full_name=payload.full_name,
+        role=payload.role,
+        hashed_password=hash_password(payload.temporary_password),
+    )
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+    return await _managed_user_read(session, user)
+
+
+@router.patch("/users/{user_id}/status", response_model=UserManagementRead)
+async def update_user_status(
+    user_id: UUID,
+    payload: UserStatusUpdate,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    _: Annotated[User, Depends(require_user_manager)],
+) -> UserManagementRead:
+    """Activate or deactivate an account."""
+    user = (await session.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+    user.is_active = payload.is_active
+    await session.commit()
+    await session.refresh(user)
+    return await _managed_user_read(session, user)
+
+
+@router.post("/users/{user_id}/reset-password", response_model=UserManagementRead)
+async def reset_user_password(
+    user_id: UUID,
+    payload: UserPasswordReset,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    _: Annotated[User, Depends(require_user_manager)],
+) -> UserManagementRead:
+    """Replace an account password without exposing its hash."""
+    user = (await session.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+    user.hashed_password = hash_password(payload.temporary_password)
+    await session.commit()
+    await session.refresh(user)
+    return await _managed_user_read(session, user)

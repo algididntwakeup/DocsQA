@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "change-this-development-secret-key"
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    COOKIE_SECURE: bool = False
 
     # ── NLP / LanguageTool ───────────────────────────────────────────
     LANGUAGE_TOOL_HOST: str = "http://localhost:8081"

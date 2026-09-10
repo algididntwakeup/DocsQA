@@ -576,7 +576,12 @@ async def export_document(
     if format == "docx":
         refresh = getattr(session, "refresh", None)
         if refresh is not None:
-            await refresh(document, ["owner", "verified_by"])
+            try:
+                await refresh(document, ["owner", "verified_by"])
+            except TypeError:
+                # Lightweight test sessions and compatibility adapters may only
+                # implement SQLAlchemy's single-argument refresh form.
+                await refresh(document)
         scorecard: dict[str, Any] | None = None
         scorecard_path = storage._path_for_key(f"artifacts/{document.id}/budinski_scorecard.json")
         if scorecard_path.exists():

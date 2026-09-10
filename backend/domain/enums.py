@@ -8,6 +8,7 @@ class UserRole(StrEnum):
 
     ENGINEER = "ENGINEER"
     LEAD_ENGINEER = "LEAD_ENGINEER"
+    SUPERUSER = "SUPERUSER"
 
 
 class DocumentWorkflowStatus(StrEnum):

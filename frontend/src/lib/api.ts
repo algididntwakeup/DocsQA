@@ -1,12 +1,7 @@
 import type { components } from "./api-schema";
 
-export type DocumentItem = components["schemas"]["DocumentRead"] & {
-  owner_id?: string | null;
-  verified_by_id?: string | null;
-  workflow_status?: "ANALYZING" | "REVIEWED_BY_ENGINEER" | "VERIFIED_BY_LEAD";
-  reviewed_at?: string | null;
-  verified_at?: string | null;
-  verification_notes?: string | null;
+export type DocumentItem = Omit<components["schemas"]["DocumentRead"], "workflow_status"> & {
+  workflow_status?: components["schemas"]["DocumentWorkflowStatus"];
 };
 export type DocumentList = components["schemas"]["DocumentListResponse"];
 export type DocumentStatus = components["schemas"]["DocumentStatusResponse"];
@@ -17,7 +12,7 @@ export type IssueCuration = components["schemas"]["IssueCurationRequest"];
 export type ReviewReportPreview = components["schemas"]["ReviewReportPreview"];
 export type TraceabilitySummary = components["schemas"]["TraceabilitySummaryResponse"];
 
-export type UserRole = "ENGINEER" | "LEAD_ENGINEER";
+export type UserRole = "ENGINEER" | "LEAD_ENGINEER" | "SUPERUSER";
 export interface UserSession {
   id: string;
   email: string;
@@ -41,19 +36,15 @@ export interface ProjectItem {
   created_at: string;
 }
 
-const AUTH_TOKEN_KEY = "docsqa-access-token";
-
-export function getAuthToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return window.localStorage.getItem(AUTH_TOKEN_KEY);
+export interface ManagedUser extends UserSession {
+  total_documents_owned: number;
 }
 
-export function setAuthToken(token: string): void {
-  window.localStorage.setItem(AUTH_TOKEN_KEY, token);
-}
-
-export function clearAuthToken(): void {
-  window.localStorage.removeItem(AUTH_TOKEN_KEY);
+export interface CreateManagedUserPayload {
+  email: string;
+  full_name: string;
+  role: Exclude<UserRole, "SUPERUSER">;
+  temporary_password: string;
 }
 
 export function getApiBaseUrl(): string {
@@ -80,14 +71,16 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = getAuthToken();
   const headers = new Headers(init?.headers);
   headers.set("Accept", "application/json");
-  if (token) headers.set("Authorization", `Bearer ${token}`);
   const response = await fetch(`${getApiBaseUrl()}${path}`, {
     ...init,
     headers,
+    credentials: "include",
   });
+  if (response.status === 401 && typeof window !== "undefined" && window.location.pathname !== "/login") {
+    window.location.pathname = "/login";
+  }
   if (!response.ok) {
     let message = `Request failed (${response.status}).`;
     let code: string | undefined;
@@ -114,8 +107,41 @@ export function login(email: string, password: string): Promise<LoginResponse> {
   });
 }
 
+export async function logout(): Promise<void> {
+  await request<void>("/auth/logout", { method: "POST" });
+  if (typeof window !== "undefined") window.location.pathname = "/login";
+}
+
 export function getCurrentUser(): Promise<UserSession> {
   return request<UserSession>("/auth/me", { cache: "no-store" });
+}
+
+export function listManagedUsers(): Promise<ManagedUser[]> {
+  return request<ManagedUser[]>("/auth/users", { cache: "no-store" });
+}
+
+export function createManagedUser(payload: CreateManagedUserPayload): Promise<ManagedUser> {
+  return request<ManagedUser>("/auth/users", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateManagedUserStatus(userId: string, isActive: boolean): Promise<ManagedUser> {
+  return request<ManagedUser>(`/auth/users/${encodeURIComponent(userId)}/status`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ is_active: isActive }),
+  });
+}
+
+export function resetManagedUserPassword(userId: string, temporaryPassword: string): Promise<ManagedUser> {
+  return request<ManagedUser>(`/auth/users/${encodeURIComponent(userId)}/reset-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ temporary_password: temporaryPassword }),
+  });
 }
 
 export function listProjects(): Promise<ProjectItem[]> {
@@ -347,7 +373,7 @@ export function subscribeDocumentEvents(
   onError?: (err: Event) => void
 ): () => void {
   const url = `${getApiBaseUrl()}/documents/${encodeURIComponent(documentId)}/events`;
-  const eventSource = new EventSource(url);
+  const eventSource = new EventSource(url, { withCredentials: true });
 
   eventSource.addEventListener("progress", (e) => {
     try {

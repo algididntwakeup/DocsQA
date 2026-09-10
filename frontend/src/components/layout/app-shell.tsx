@@ -5,6 +5,7 @@ import { ClipboardCheck, FileStack, Gauge, Menu, Settings, X } from "lucide-reac
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { ThemeToggle } from "./theme-toggle";
+import { logout } from "@/lib/api";
 
 const navigation = [
   { href: "/", label: "Documents", icon: FileStack },
@@ -90,7 +91,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
           <div className="topbar-actions">
             <ThemeToggle />
-            <div className="operator"><span>QA</span><p><strong>QA Engineer</strong><small>Single-user mode</small></p></div>
+             <div className="operator"><span>QA</span><p><strong>QA Engineer</strong><small>Authenticated workspace</small></p><button className="text-xs text-muted underline" type="button" onClick={() => void logout()}>Log out</button></div>
           </div>
         </header>
         <main className={isReviewPage ? "content content-compact" : "content"}>{children}</main>

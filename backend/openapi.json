@@ -16,6 +16,21 @@
         "title": "Body_upload_document_api_v1_documents_upload_post",
         "type": "object"
       },
+      "Body_upload_project_document_api_v1_projects__project_id__documents_upload_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "description": "Native-text PDF or DOCX",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_project_document_api_v1_projects__project_id__documents_upload_post",
+        "type": "object"
+      },
       "BoundingBox": {
         "additionalProperties": false,
         "description": "PDF-point rectangle in the canonical top-left coordinate system.",
@@ -179,6 +194,85 @@
           "rule_version"
         ],
         "title": "BudinskiEvidence",
+        "type": "object"
+      },
+      "CategoryBandEvidence": {
+        "additionalProperties": false,
+        "description": "Evidence for a categorical numeric-band contradiction.",
+        "properties": {
+          "category_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Id"
+          },
+          "extractor_version": {
+            "title": "Extractor Version",
+            "type": "string"
+          },
+          "interval": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interval"
+          },
+          "kind": {
+            "const": "CATEGORY_BAND",
+            "default": "CATEGORY_BAND",
+            "title": "Kind",
+            "type": "string"
+          },
+          "rule_version": {
+            "title": "Rule Version",
+            "type": "string"
+          },
+          "what_body_has": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "What Body Has"
+          },
+          "what_it_says": {
+            "title": "What It Says",
+            "type": "string"
+          },
+          "what_would_fix_it": {
+            "title": "What Would Fix It",
+            "type": "string"
+          },
+          "where": {
+            "title": "Where",
+            "type": "string"
+          },
+          "why_it_matters": {
+            "title": "Why It Matters",
+            "type": "string"
+          }
+        },
+        "required": [
+          "extractor_version",
+          "rule_version",
+          "where",
+          "what_it_says",
+          "why_it_matters",
+          "what_would_fix_it"
+        ],
+        "title": "CategoryBandEvidence",
         "type": "object"
       },
       "DictionaryTermApprovalRequest": {
@@ -354,6 +448,18 @@
             "title": "Media Type",
             "type": "string"
           },
+          "owner_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Id"
+          },
           "page_count": {
             "anyOf": [
               {
@@ -372,6 +478,30 @@
             "title": "Progress Pct",
             "type": "integer"
           },
+          "project_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Id"
+          },
+          "reviewed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed At"
+          },
           "sha256": {
             "pattern": "^[a-f0-9]{64}$",
             "title": "Sha256",
@@ -389,6 +519,44 @@
             "format": "date-time",
             "title": "Updated At",
             "type": "string"
+          },
+          "verification_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verification Notes"
+          },
+          "verified_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verified At"
+          },
+          "verified_by_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verified By Id"
+          },
+          "workflow_status": {
+            "$ref": "#/components/schemas/DocumentWorkflowStatus"
           }
         },
         "required": [
@@ -399,6 +567,7 @@
           "sha256",
           "status",
           "progress_pct",
+          "workflow_status",
           "created_at",
           "updated_at"
         ],
@@ -501,6 +670,81 @@
           "created_at"
         ],
         "title": "DocumentUploadResponse",
+        "type": "object"
+      },
+      "DocumentWorkflowStatus": {
+        "description": "Human review lifecycle for a document.",
+        "enum": [
+          "ANALYZING",
+          "REVIEWED_BY_ENGINEER",
+          "VERIFIED_BY_LEAD"
+        ],
+        "title": "DocumentWorkflowStatus",
+        "type": "string"
+      },
+      "DocumentWorkflowUpdate": {
+        "additionalProperties": false,
+        "description": "Payload for assigning a document and changing its review workflow.",
+        "properties": {
+          "owner_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Id"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Id"
+          },
+          "verification_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verification Notes"
+          },
+          "verified_by_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verified By Id"
+          },
+          "workflow_status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DocumentWorkflowStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "DocumentWorkflowUpdate",
         "type": "object"
       },
       "FieldViolation": {
@@ -644,6 +888,7 @@
             "discriminator": {
               "mapping": {
                 "BUDINSKI": "#/components/schemas/BudinskiEvidence",
+                "CATEGORY_BAND": "#/components/schemas/CategoryBandEvidence",
                 "LAYOUT": "#/components/schemas/LayoutEvidence",
                 "LINGUISTIC": "#/components/schemas/LinguisticEvidence",
                 "REFERENCE_DRIFT": "#/components/schemas/ReferenceDriftEvidence",
@@ -682,6 +927,9 @@
               },
               {
                 "$ref": "#/components/schemas/BudinskiEvidence"
+              },
+              {
+                "$ref": "#/components/schemas/CategoryBandEvidence"
               }
             ],
             "title": "Evidence"
@@ -876,6 +1124,63 @@
         "title": "LinguisticEvidence",
         "type": "object"
       },
+      "LoginRequest": {
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "password": {
+            "title": "Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ],
+        "title": "LoginRequest",
+        "type": "object"
+      },
+      "ManagedUserCreate": {
+        "additionalProperties": false,
+        "description": "Payload for creating an engineer or lead account.",
+        "properties": {
+          "email": {
+            "maxLength": 255,
+            "title": "Email",
+            "type": "string"
+          },
+          "full_name": {
+            "maxLength": 150,
+            "minLength": 1,
+            "title": "Full Name",
+            "type": "string"
+          },
+          "role": {
+            "default": "ENGINEER",
+            "enum": [
+              "ENGINEER",
+              "LEAD_ENGINEER"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "temporary_password": {
+            "maxLength": 255,
+            "minLength": 8,
+            "title": "Temporary Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "full_name",
+          "temporary_password"
+        ],
+        "title": "ManagedUserCreate",
+        "type": "object"
+      },
       "PageInfo": {
         "additionalProperties": false,
         "description": "Cursor-free pagination metadata for the initial API contract.",
@@ -975,6 +1280,72 @@
           "code"
         ],
         "title": "ProblemDetail",
+        "type": "object"
+      },
+      "ProjectRead": {
+        "additionalProperties": false,
+        "description": "Project representation returned by the API.",
+        "properties": {
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by_id": {
+            "format": "uuid",
+            "title": "Created By Id",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "plant_area": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plant Area"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "created_by_id",
+          "created_at"
+        ],
+        "title": "ProjectRead",
         "type": "object"
       },
       "ReferenceDriftEvidence": {
@@ -1111,6 +1482,34 @@
           "location"
         ],
         "title": "ReferenceRuleEvidence",
+        "type": "object"
+      },
+      "RegisterEngineerRequest": {
+        "properties": {
+          "email": {
+            "maxLength": 255,
+            "title": "Email",
+            "type": "string"
+          },
+          "full_name": {
+            "maxLength": 150,
+            "minLength": 1,
+            "title": "Full Name",
+            "type": "string"
+          },
+          "password": {
+            "maxLength": 255,
+            "minLength": 8,
+            "title": "Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "password",
+          "full_name"
+        ],
+        "title": "RegisterEngineerRequest",
         "type": "object"
       },
       "ReviewReportPreview": {
@@ -1678,6 +2077,28 @@
         "title": "TextSpan",
         "type": "object"
       },
+      "TokenResponse": {
+        "properties": {
+          "access_token": {
+            "title": "Access Token",
+            "type": "string"
+          },
+          "token_type": {
+            "default": "bearer",
+            "title": "Token Type",
+            "type": "string"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserRead"
+          }
+        },
+        "required": [
+          "access_token",
+          "user"
+        ],
+        "title": "TokenResponse",
+        "type": "object"
+      },
       "TraceabilitySummaryResponse": {
         "additionalProperties": false,
         "description": "Counts required by the audit-focused dashboard.",
@@ -1722,6 +2143,135 @@
         "title": "TraceabilitySummaryResponse",
         "type": "object"
       },
+      "UserManagementRead": {
+        "additionalProperties": false,
+        "description": "User representation used by the lead user-management console.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "full_name": {
+            "title": "Full Name",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "role": {
+            "$ref": "#/components/schemas/UserRole"
+          },
+          "total_documents_owned": {
+            "default": 0,
+            "title": "Total Documents Owned",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "full_name",
+          "role",
+          "is_active",
+          "created_at"
+        ],
+        "title": "UserManagementRead",
+        "type": "object"
+      },
+      "UserPasswordReset": {
+        "additionalProperties": false,
+        "description": "Password replacement requested by an authorized administrator.",
+        "properties": {
+          "temporary_password": {
+            "maxLength": 255,
+            "minLength": 8,
+            "title": "Temporary Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "temporary_password"
+        ],
+        "title": "UserPasswordReset",
+        "type": "object"
+      },
+      "UserRead": {
+        "additionalProperties": false,
+        "description": "Public user representation.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "full_name": {
+            "title": "Full Name",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "role": {
+            "$ref": "#/components/schemas/UserRole"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "full_name",
+          "role",
+          "is_active",
+          "created_at"
+        ],
+        "title": "UserRead",
+        "type": "object"
+      },
+      "UserRole": {
+        "description": "Authorization roles for project and document review workflows.",
+        "enum": [
+          "ENGINEER",
+          "LEAD_ENGINEER",
+          "SUPERUSER"
+        ],
+        "title": "UserRole",
+        "type": "string"
+      },
+      "UserStatusUpdate": {
+        "additionalProperties": false,
+        "description": "Explicit account activation state update.",
+        "properties": {
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "is_active"
+        ],
+        "title": "UserStatusUpdate",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -1762,6 +2312,12 @@
         "title": "ValidationError",
         "type": "object"
       }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "scheme": "bearer",
+        "type": "http"
+      }
     }
   },
   "info": {
@@ -1771,6 +2327,330 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/auth/login": {
+      "post": {
+        "description": "Authenticate an active user and issue a JWT.",
+        "operationId": "login_api_v1_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Login",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "description": "Clear the browser session cookie.",
+        "operationId": "logout_api_v1_auth_logout_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Logout",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "operationId": "me_api_v1_auth_me_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Me",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/register-engineer": {
+      "post": {
+        "description": "Allow only lead engineers to create engineer accounts.",
+        "operationId": "register_engineer_api_v1_auth_register_engineer_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterEngineerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Register Engineer",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/users": {
+      "get": {
+        "description": "List all accounts for the lead/superuser administration console.",
+        "operationId": "list_users_api_v1_auth_users_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/UserManagementRead"
+                  },
+                  "title": "Response List Users Api V1 Auth Users Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Users",
+        "tags": [
+          "auth"
+        ]
+      },
+      "post": {
+        "description": "Create an engineer or lead account with a temporary password.",
+        "operationId": "create_user_api_v1_auth_users_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManagedUserCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserManagementRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create User",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/users/{user_id}/reset-password": {
+      "post": {
+        "description": "Replace an account password without exposing its hash.",
+        "operationId": "reset_user_password_api_v1_auth_users__user_id__reset_password_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserPasswordReset"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserManagementRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Reset User Password",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/users/{user_id}/status": {
+      "patch": {
+        "description": "Activate or deactivate an account.",
+        "operationId": "update_user_status_api_v1_auth_users__user_id__status_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserStatusUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserManagementRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update User Status",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/v1/dictionary/terms": {
       "get": {
         "description": "List governed dictionary terms with optional scope and status filtering.",
@@ -2055,6 +2935,11 @@
             "description": "Feature not implemented"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "List Documents",
         "tags": [
           "documents"
@@ -2117,6 +3002,11 @@
             "description": "Feature not implemented"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Upload Document",
         "tags": [
           "documents"
@@ -2164,6 +3054,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Delete Document",
         "tags": [
           "documents"
@@ -2216,6 +3111,11 @@
             "description": "Feature not implemented"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Get Document",
         "tags": [
           "documents"
@@ -2263,6 +3163,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Stream Document Events",
         "tags": [
           "documents"
@@ -2293,6 +3198,18 @@
               "title": "Format",
               "type": "string"
             }
+          },
+          {
+            "description": "Include minor and informational findings.",
+            "in": "query",
+            "name": "include_minors",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Include minor and informational findings.",
+              "title": "Include Minors",
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -2320,6 +3237,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Export Document",
         "tags": [
           "documents"
@@ -2413,7 +3335,61 @@
             "description": "Feature not implemented"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "List Document Issues",
+        "tags": [
+          "documents"
+        ]
+      }
+    },
+    "/api/v1/documents/{document_id}/mark-reviewed": {
+      "post": {
+        "description": "Mark an owned document as reviewed by its engineer owner.",
+        "operationId": "mark_document_reviewed_api_v1_documents__document_id__mark_reviewed_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Document Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Mark Document Reviewed",
         "tags": [
           "documents"
         ]
@@ -2460,6 +3436,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Get Document Pdf",
         "tags": [
           "documents"
@@ -2504,7 +3485,78 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Get Report Preview",
+        "tags": [
+          "documents"
+        ]
+      }
+    },
+    "/api/v1/documents/{document_id}/request-revision": {
+      "post": {
+        "description": "Return a document to an engineer for revision.",
+        "operationId": "request_document_revision_api_v1_documents__document_id__request_revision_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Document Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/DocumentWorkflowUpdate"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Request Document Revision",
         "tags": [
           "documents"
         ]
@@ -2558,6 +3610,11 @@
             "description": "Feature not implemented"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Get Document Status",
         "tags": [
           "documents"
@@ -2612,7 +3669,78 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Get Traceability Summary",
+        "tags": [
+          "documents"
+        ]
+      }
+    },
+    "/api/v1/documents/{document_id}/verify": {
+      "post": {
+        "description": "Verify a document as a lead engineer.",
+        "operationId": "verify_document_api_v1_documents__document_id__verify_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Document Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/DocumentWorkflowUpdate"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Verify Document",
         "tags": [
           "documents"
         ]
@@ -2666,9 +3794,213 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Curate Issue",
         "tags": [
           "issues"
+        ]
+      }
+    },
+    "/api/v1/projects": {
+      "get": {
+        "description": "List projects visible to the authenticated user.",
+        "operationId": "list_projects_api_v1_projects_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProjectRead"
+                  },
+                  "title": "Response List Projects Api V1 Projects Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Projects",
+        "tags": [
+          "projects"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/documents": {
+      "get": {
+        "description": "List project documents with lead-only cross-engineer filters.",
+        "operationId": "list_project_documents_api_v1_projects__project_id__documents_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "engineer_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Engineer Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort_by",
+            "required": false,
+            "schema": {
+              "default": "date_desc",
+              "pattern": "^(date_desc|date_asc)$",
+              "title": "Sort By",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/DocumentStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "has_blockers",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Has Blockers"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Project Documents",
+        "tags": [
+          "projects"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/documents/upload": {
+      "post": {
+        "description": "Upload a document and assign its project and owner.",
+        "operationId": "upload_project_document_api_v1_projects__project_id__documents_upload_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_project_document_api_v1_projects__project_id__documents_upload_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentUploadResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Upload Project Document",
+        "tags": [
+          "projects"
         ]
       }
     },

@@ -6,7 +6,6 @@ import { AlertTriangle, ArrowLeft, CheckCircle2, RotateCw, ShieldCheck } from "l
 import {
   getDocument,
   getApiBaseUrl,
-  getAuthToken,
   getCurrentUser,
   listAllDocumentIssues,
   subscribeDocumentEvents,
@@ -129,20 +128,20 @@ export function ReviewWorkspaceView({ id }: { id: string }) {
     setWorkflowBusy(true);
     setWorkflowError(null);
     try {
-      const token = getAuthToken();
       const response = await fetch(
         `${getApiBaseUrl()}/documents/${encodeURIComponent(loadedDocument.id)}/${action}`,
         {
           method: "POST",
+          credentials: "include",
           headers: {
             Accept: "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
             ...(action === "request-revision" ? { "Content-Type": "application/json" } : {}),
           },
           body: action === "request-revision" ? JSON.stringify({ workflow_status: "REVIEWED_BY_ENGINEER" }) : undefined,
         },
       );
       if (!response.ok) {
+        if (response.status === 401) window.location.pathname = "/login";
         const payload = (await response.json().catch(() => null)) as { detail?: string } | null;
         throw new Error(payload?.detail ?? `Workflow update failed (${response.status}).`);
       }

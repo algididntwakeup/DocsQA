@@ -60,9 +60,9 @@ This file records implementation decisions that must not be reverted or duplicat
   export modal remain protected internals.
 - Workflow actions call `/documents/{id}/mark-reviewed`, `/verify`, and `/request-revision` and
   update the document state from the response without a full-page reload.
-- The current frontend login stores the bearer token in `localStorage` for development. This is
-  not an acceptable production session boundary; replace it with a secure HttpOnly SameSite
-  cookie before release and add logout/expiry handling.
+- Frontend authentication uses the HttpOnly `access_token` cookie with `credentials: "include"`.
+  The API client redirects 401 responses to `/login`; do not reintroduce JWT storage in
+  `localStorage`.
 
 ## Multi-User API Contract
 
@@ -74,6 +74,16 @@ This file records implementation decisions that must not be reverted or duplicat
   project and current user.
 - Engineer owners can mark their own document reviewed. Lead engineers can verify or request
   revision. Do not broaden these permissions in the UI without changing backend authorization.
+- `SUPERUSER` is an authorization role accepted by `require_lead` and `require_user_manager`.
+  It is not creatable through the user-management API; managed account creation accepts only
+  `ENGINEER` and `LEAD_ENGINEER`.
+- `GET /api/v1/auth/users` returns `UserManagementRead` entries with
+  `total_documents_owned`. `POST /api/v1/auth/users` creates an account from a temporary
+  password. `PATCH /api/v1/auth/users/{user_id}/status` changes `is_active`, and
+  `POST /api/v1/auth/users/{user_id}/reset-password` replaces the bcrypt password hash.
+- The `/admin/users` route is guarded client-side using `/auth/me`; only lead engineers and
+  superusers may remain on the page. The table and modal are in
+  `frontend/src/components/admin/`.
 - Regenerate `frontend/src/lib/api-schema.d.ts` once the backend OpenAPI contract is finalized;
   temporary local type extensions in `frontend/src/lib/api.ts` should then be removed where
   generated types cover the same fields.
@@ -92,7 +102,9 @@ This file records implementation decisions that must not be reverted or duplicat
   transitions.
 - Add backend integration tests for project visibility, lead filters, upload ownership, and JWT
   workflow authorization.
-- Replace browser JWT storage with secure cookie sessions and document logout/expiry behavior.
+- Add HTTP integration and browser/e2e coverage for user-management authorization and actions.
+- Decide whether self-disable, lead demotion, and last-active-admin protection are allowed, then
+  enforce those rules in the backend rather than relying on the UI.
 - Complete manual visual inspection of the rendered report PNGs for pagination and margins.
 
 ## Verification Snapshot
@@ -101,7 +113,7 @@ The latest completed frontend verification is:
 
 ```text
 npm run typecheck  passed
-npm run test       42 passed
+npm run test       48 passed
 npm run lint       passed
 ```
 
@@ -113,6 +125,15 @@ Latest focused export verification:
 55 passed
 ruff check passed
 git diff --check passed
+```
+
+Latest account-management verification:
+
+```text
+backend/tests/test_user_management.py: 5 passed
+frontend typecheck: passed
+frontend lint: passed
+OpenAPI and TypeScript contract regeneration: passed
 ```
 
 Latest Docker visual smoke:
