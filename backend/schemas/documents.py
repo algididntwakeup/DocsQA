@@ -47,6 +47,7 @@ class DocumentRead(ApiModel):
     page_count: int | None = Field(default=None, ge=1)
     project_id: UUID | None = None
     owner_id: UUID | None = None
+    owner_name: str | None = None
     verified_by_id: UUID | None = None
     workflow_status: DocumentWorkflowStatus
     reviewed_at: datetime | None = None

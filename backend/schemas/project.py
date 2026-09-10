@@ -26,4 +26,15 @@ class ProjectRead(ApiModel):
     description: str | None = None
     plant_area: str | None = None
     created_by_id: UUID
+    created_by_name: str | None = None
+    assigned_to_id: UUID | None = None
+    assigned_to_name: str | None = None
+    total_documents: int = 0
+    status: str = "NO_DOCUMENTS"
     created_at: datetime
+
+
+class ProjectAssignment(ApiModel):
+    """Payload used by leads to assign a project to an engineer."""
+
+    assigned_to_id: UUID | None = None

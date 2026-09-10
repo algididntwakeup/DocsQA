@@ -21,11 +21,6 @@ export interface UserSession {
   is_active: boolean;
   created_at: string;
 }
-export interface LoginResponse {
-  access_token: string;
-  token_type: string;
-  user: UserSession;
-}
 export interface ProjectItem {
   id: string;
   name: string;
@@ -33,9 +28,18 @@ export interface ProjectItem {
   description?: string | null;
   plant_area?: string | null;
   created_by_id: string;
+  created_by_name?: string | null;
+  assigned_to_id?: string | null;
+  assigned_to_name?: string | null;
+  total_documents?: number;
+  status?: string;
   created_at: string;
 }
-
+export interface LoginResponse {
+  access_token: string;
+  token_type: string;
+  user: UserSession;
+}
 export interface CreateProjectPayload {
   name: string;
   plant_area?: string;
@@ -47,6 +51,8 @@ export interface ChangePasswordPayload {
   current_password: string;
   new_password: string;
 }
+
+export interface UpdateProfilePayload { full_name: string; email: string }
 
 export interface ManagedUser extends UserSession {
   total_documents_owned: number;
@@ -128,6 +134,14 @@ export function getCurrentUser(): Promise<UserSession> {
   return request<UserSession>("/auth/me", { cache: "no-store" });
 }
 
+export function updateProfile(payload: UpdateProfilePayload): Promise<UserSession> {
+  return request<UserSession>("/auth/me", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
 export function changePassword(payload: ChangePasswordPayload): Promise<UserSession> {
   return request<UserSession>("/auth/change-password", {
     method: "POST",
@@ -166,6 +180,10 @@ export function resetManagedUserPassword(userId: string, temporaryPassword: stri
 
 export function listProjects(): Promise<ProjectItem[]> {
   return request<ProjectItem[]>("/projects", { cache: "no-store" });
+}
+
+export function listProjectsForUser(userId: string): Promise<ProjectItem[]> {
+  return request<ProjectItem[]>(`/projects?user_id=${encodeURIComponent(userId)}`, { cache: "no-store" });
 }
 
 export function createProject(payload: CreateProjectPayload): Promise<ProjectItem> {

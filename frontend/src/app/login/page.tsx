@@ -30,7 +30,7 @@ export default function LoginPage() {
     <div className="rq-login-page">
       <div className="rq-login-card">
         <section className="rq-login-aside">
-          <div className="rq-brand rq-brand-light"><span className="rq-brand-mark">R</span><span>Reksolindo</span><b>v1.0</b></div>
+          <div className="rq-brand rq-brand-light"><span className="rq-brand-mark">R</span><span>Reksolindo QA</span><b>v1.0</b></div>
           <div><p className="rq-kicker">Document assurance platform</p><h1>Clarity for every engineering review.</h1><p>Keep plant documents, ownership, and lead verification in one calm workspace.</p></div>
           <div className="rq-login-trust"><ShieldCheck size={18} /> Role-aware project access</div>
         </section>

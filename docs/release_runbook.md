@@ -2,7 +2,7 @@
 
 **Milestone**: M5 — Export, Hardening, and Production Release  
 **Version**: 1.0.0  
-**Status**: Production-Ready  
+**Status**: Release Candidate; identity and project-assignment integration hardening in progress
 **Audience**: DevOps, SRE, Platform Engineers, QA Lead Reviewers  
 
 ---
@@ -43,6 +43,8 @@ graph TD
 - [x] Backend quality suite 100% passing (`backend/scripts/quality.ps1`).
 - [x] Frontend checks 100% passing (`npm run check`: lint, typecheck, tests, production build).
 - [x] Zero uncommitted local modifications.
+- [ ] Apply and verify Alembic migration `20260910_0009_project_assignment` against the release database.
+- [ ] Verify profile update, project assignment visibility, and admin project modal with HTTP/browser tests.
 
 ---
 
@@ -73,6 +75,19 @@ python -m alembic upgrade head
 python -m alembic downgrade -1
 ```
 
+The current head adds `projects.assigned_to_id`. On Docker, run the migration job before recreating
+the application services:
+
+```bash
+docker compose build migrate api worker frontend
+docker compose up migrate
+docker compose up -d api worker frontend
+```
+
+Do not delete `postgres-data` or `backend-data` during a normal release update. The migration is
+additive and preserves existing projects; existing projects remain unassigned until a lead assigns
+them through the API/UI.
+
 ---
 
 ## 4. Environment Variables & Security Configuration
@@ -87,6 +102,9 @@ Configure the following environment variables in `.env` or container orchestrato
 | `DOCSQA_RETENTION_DAYS` | Days before expired uploads are purged | `30` | Per PRD §4.3 ephemeral policy |
 | `DOCSQA_CORS_ORIGINS` | Permitted browser origins | `http://localhost:3000` | Set to exact production domain |
 | `NEXT_PUBLIC_API_BASE_URL`| Frontend API endpoint | `http://localhost:8000/api/v1`| Use HTTPS in production |
+| `AUTH_MODE` | Authentication mode | `required` in Docker | Keep required outside local development |
+| `SECRET_KEY` | JWT signing secret | none for production | Use a long random secret from a secret manager |
+| `COOKIE_SECURE` | Require secure auth cookies | `false` locally | Set `true` behind HTTPS |
 
 ### HTTP Security Headers
 Every HTTP response automatically includes enterprise security headers enforced via `backend/main.py`:
@@ -169,3 +187,16 @@ asyncio.run(run())
 3. **Corrupted File or Malformed Upload**:
    - Storage service isolates uploads into safe subdirectories with SHA-256 deduplication.
    - If an upload fails validation, temporary unlinked files are cleaned up immediately via `_delete_stored_object`.
+
+## 9. Identity and Project Assignment Smoke Checklist
+
+Run this checklist after migration and before exposing the server:
+
+1. Log in as a lead or superuser and confirm `/admin/users` loads.
+2. Open `Lihat Projects` for an engineer and confirm the modal lists only projects assigned to that user.
+3. Assign an active engineer through `PATCH /api/v1/projects/{project_id}/assign` and confirm the engineer sees the project.
+4. Confirm an engineer can create a project but cannot assign a project to another user.
+5. Open `/settings/profile`, update the name, and confirm the navbar reflects it after reload.
+6. Attempt a duplicate email update and confirm the API returns `409` without changing the profile.
+7. Confirm document list responses include a real `owner_name` for owned documents.
+8. Confirm long project, admin, and settings pages scroll from top to bottom on desktop and mobile widths.

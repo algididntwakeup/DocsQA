@@ -70,6 +70,10 @@ This file records implementation decisions that must not be reverted or duplicat
   the current user.
 - `GET /api/v1/projects` lists visible projects. `GET /api/v1/projects/{project_id}/documents`
   applies engineer isolation and lead-only engineer/date/blocker filters.
+- `POST /api/v1/projects` can be used by any authenticated user. Project responses include
+  `created_by_name`, `assigned_to_id`, `assigned_to_name`, `total_documents`, and `status`.
+- `PATCH /api/v1/projects/{project_id}/assign` is lead/superuser-only and accepts an active user's
+  UUID or `null`. `GET /api/v1/projects?user_id=...` returns projects assigned to that user.
 - `POST /api/v1/projects/{project_id}/documents/upload` assigns the uploaded document to the
   project and current user.
 - Engineer owners can mark their own document reviewed. Lead engineers can verify or request
@@ -81,12 +85,18 @@ This file records implementation decisions that must not be reverted or duplicat
   `total_documents_owned`. `POST /api/v1/auth/users` creates an account from a temporary
   password. `PATCH /api/v1/auth/users/{user_id}/status` changes `is_active`, and
   `POST /api/v1/auth/users/{user_id}/reset-password` replaces the bcrypt password hash.
+- `PATCH /api/v1/auth/me` updates only the authenticated user's `full_name` and `email`; email
+  uniqueness is checked case-insensitively and stored values are normalized to lowercase.
+- `POST /api/v1/auth/change-password` requires the current password and replaces the authenticated
+  user's bcrypt hash. The corresponding UI routes are `/settings/profile` and `/settings/password`.
 - The `/admin/users` route is guarded client-side using `/auth/me`; only lead engineers and
   superusers may remain on the page. The table and modal are in
   `frontend/src/components/admin/`.
 - Regenerate `frontend/src/lib/api-schema.d.ts` once the backend OpenAPI contract is finalized;
   temporary local type extensions in `frontend/src/lib/api.ts` should then be removed where
   generated types cover the same fields.
+- `DocumentRead.owner_name` is populated by document list queries using `joinedload(Document.owner)`;
+  do not replace it with an owner-ID placeholder.
 
 ## Safe Change Rules
 
@@ -103,6 +113,10 @@ This file records implementation decisions that must not be reverted or duplicat
 - Add backend integration tests for project visibility, lead filters, upload ownership, and JWT
   workflow authorization.
 - Add HTTP integration and browser/e2e coverage for user-management authorization and actions.
+- Add HTTP coverage for profile update and project assignment authorization/visibility.
+- Add browser coverage for `/settings/profile`, `Lihat Projects`, and long-page scrolling.
+- Run the full Alembic chain against PostgreSQL before release; the local database is behind until
+  migration `20260910_0009` is applied.
 - Decide whether self-disable, lead demotion, and last-active-admin protection are allowed, then
   enforce those rules in the backend rather than relying on the UI.
 - Complete manual visual inspection of the rendered report PNGs for pagination and margins.
@@ -115,6 +129,13 @@ The latest completed frontend verification is:
 npm run typecheck  passed
 npm run test       48 passed
 npm run lint       passed
+npm run build      passed
+```
+
+Latest focused auth-isolation verification:
+
+```text
+backend/tests/test_auth_isolation.py: 7 passed
 ```
 
 The focused backend Budinski/export verification must be rerun after changes to the evaluator, schemas, pipeline, or export service.

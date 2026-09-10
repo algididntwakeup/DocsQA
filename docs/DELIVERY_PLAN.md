@@ -114,3 +114,24 @@
 - [ ] **Milestone 22: Account Management Release Hardening**
   - Add HTTP integration and browser/e2e coverage for `/admin/users` and all management actions.
   - Define and enforce policy for self-deactivation, lead demotion, and last-active-admin protection.
+
+## Phase 7: Identity and Project Assignment (Implemented; Verification In Progress)
+
+- [x] **Milestone 23: Profile and Password Self-Service**
+  - Added authenticated `PATCH /api/v1/auth/me` for normalized, unique email and full-name updates.
+  - Added `/settings/profile` with success toast and error feedback.
+  - Preserved `/settings/password` and the authenticated password-change API.
+- [x] **Milestone 24: Project Assignment Contract**
+  - Added nullable `projects.assigned_to_id` and Alembic migration `20260910_0009_project_assignment`.
+  - Added explicit SQLAlchemy relationships for creator and assignee to avoid ambiguous foreign keys.
+  - Added lead/superuser assignment endpoint, `user_id` filtering, and engineer project creation.
+  - Exposed creator/assignee names and document counts in project responses.
+- [x] **Milestone 25: Admin Assignment Visibility and Scroll Fix**
+  - Added `Lihat Projects` modal with assigned project metadata and direct project links.
+  - Added real `owner_name` to document list responses through eager-loaded owner relations.
+  - Removed whole-page layout constraints that prevented normal scrolling on project, admin, and settings pages.
+- [ ] **Milestone 26: Assignment and Identity Verification**
+  - Add backend HTTP tests for profile update, duplicate email, project assignment, visibility, and role boundaries.
+  - Add frontend tests for profile form, project modal, assignment visibility, and responsive scrolling.
+  - Regenerate OpenAPI and TypeScript contracts after finalizing the new response fields.
+  - Run the full backend suite, frontend suite, Docker migration, and production smoke test.

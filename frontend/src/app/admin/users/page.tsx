@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ApiError, createManagedUser, getCurrentUser, listManagedUsers, resetManagedUserPassword, updateManagedUserStatus, type CreateManagedUserPayload, type ManagedUser } from "@/lib/api";
 import { CreateUserModal } from "@/components/admin/create-user-modal";
 import { UserTable } from "@/components/admin/user-table";
+import { UserProjectsModal } from "@/components/admin/user-projects-modal";
 
 export default function AdminUsersPage() {
   const router = useRouter();
@@ -15,6 +16,7 @@ export default function AdminUsersPage() {
   const [busyUserId, setBusyUserId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [projectsUser, setProjectsUser] = useState<ManagedUser | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -55,5 +57,5 @@ export default function AdminUsersPage() {
     finally { setBusyUserId(null); }
   }
 
-  return <><div className="page-heading"><div><p className="eyebrow">Access control</p><h1>User Management</h1><p>Lead engineers and superusers can provision accounts, change status, and reset passwords.</p></div><button className="button button-primary" type="button" onClick={() => setModalOpen(true)}><Plus size={16} />Tambah User Baru</button></div>{error && <div className="alert alert-error" role="alert"><AlertTriangle size={16} /><span>{error}</span></div>}{loading ? <div className="panel loading-state"><LoaderCircle className="mx-auto animate-spin" size={20} />Loading users...</div> : users.length === 0 ? <div className="panel empty-state"><Users className="mx-auto text-primary" size={34} /><h2>No users found</h2></div> : <UserTable users={users} busyUserId={busyUserId} onToggleStatus={(user) => void toggleStatus(user)} onResetPassword={(user) => void resetPassword(user)} />}<CreateUserModal open={modalOpen} busy={creating} onClose={() => setModalOpen(false)} onSubmit={create} /></>;
+  return <><div className="page-heading"><div><p className="eyebrow">Access control</p><h1>User Management</h1><p>Lead engineers and superusers can provision accounts, change status, and reset passwords.</p></div><button className="button button-primary" type="button" onClick={() => setModalOpen(true)}><Plus size={16} />Tambah User Baru</button></div>{error && <div className="alert alert-error" role="alert"><AlertTriangle size={16} /><span>{error}</span></div>}{loading ? <div className="panel loading-state"><LoaderCircle className="mx-auto animate-spin" size={20} />Loading users...</div> : users.length === 0 ? <div className="panel empty-state"><Users className="mx-auto text-primary" size={34} /><h2>No users found</h2></div> : <UserTable users={users} busyUserId={busyUserId} onToggleStatus={(user) => void toggleStatus(user)} onResetPassword={(user) => void resetPassword(user)} onViewProjects={setProjectsUser} />}<CreateUserModal open={modalOpen} busy={creating} onClose={() => setModalOpen(false)} onSubmit={create} /><UserProjectsModal user={projectsUser} onClose={() => setProjectsUser(null)} /></>;
 }

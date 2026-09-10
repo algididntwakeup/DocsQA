@@ -13,8 +13,9 @@ This is the central index every new agent must read in full. Repository state al
   consistency checks remain in scope until a licensed, governed rulebook is supplied.
 - **Latest validation**: Docker worker is running LibreOffice 25.2.3.2. Canonical executive
   DOCX converted to a 16-page Letter PDF and all 16 pages rendered to PNG successfully.
-- **Current next ticket**: Complete manual visual review of rendered PNG pagination/margins,
-  then continue production release hardening and deployment validation.
+- **Current next ticket**: Add HTTP/browser coverage for profile editing and project assignment,
+  complete manual visual review of rendered PNG pagination/margins, then continue production
+  release hardening and deployment validation.
 - **Latest implementation checkpoint**: Budinski now has a flat deterministic 41-item rule
   contract (`items`, `baseline_score`, `group_averages`) with Group III/IV rules. DOCX
   scorecard rendering prefers that flat contract and retains legacy grouped-field
@@ -32,6 +33,14 @@ This is the central index every new agent must read in full. Repository state al
   endpoints for listing accounts with owned-document counts, creating engineer/lead accounts,
   enabling/disabling accounts, and resetting passwords. Added the `/admin/users` interface with
   role guard, user table, create-user modal, status actions, and password reset flow.
+- **Latest identity/workspace checkpoint**: Added authenticated profile editing at
+  `PATCH /api/v1/auth/me` and `/settings/profile`, self-service password management, and
+  normal page scrolling in the application shell.
+- **Latest project-assignment checkpoint**: Added nullable `projects.assigned_to_id`, migration
+  `20260910_0009_project_assignment`, lead-only project assignment, user project filtering,
+  engineer project creation, creator/assignee names, document counts, and assigned visibility.
+- **Latest admin UI checkpoint**: Added `Lihat Projects` to `/admin/users` with a project modal and
+  direct links to assigned project registers. Document list responses now include `owner_name`.
 - **Curation Workflow**:
   - Finding curation is strictly binary inclusion (`included_in_report: bool`, default `True`) and an optional engineering clarification (`reviewer_note: str | None`).
   - Completely removed: issue decisions (`ACCEPTED`/`REJECTED`), lead dispositions, audit trail events, and bulk decision workflows.
@@ -44,16 +53,18 @@ This is the central index every new agent must read in full. Repository state al
   - **Item 6 / Real-World E2E Test (Complete)**: Verified full scan and report generation for `docs/testcase/05.MEPG-Asset Life Extension 2026_Static Equipment_RevB.pdf` in `backend/tests/test_e2e_mepg_review.py`.
   - **Item 7 / Schema & Pipeline Synchronization (Complete)**: Synchronized `IssueCategory` (`LAYOUT`, `BUDINSKI`), `Severity` (`BLOCKER`), 6 canonical pipeline stages, SSE progress streaming, linguistic finding de-prioritization, OpenAPI 3.1 specification, and frontend TypeScript contracts.
 - **Quality Status**:
-  - Frontend checkpoint: **48 passed, typecheck passed, lint passed**.
-  - Backend checkpoint: **386 passed, 1 skipped**, with the Redis integration test skipped when Redis/Postgres are unavailable.
+  - Frontend checkpoint: **48 passed, typecheck passed, lint passed, production build passed**.
+  - Backend focused checkpoint: `test_auth_isolation.py` **7 passed**; full suite remains a release-gate run after the assignment migration.
   - Latest export/reference regression: **55 passed**, Ruff passed, and `git diff --check` passed.
   - Docker visual smoke: DOCX conversion passed, 16 PDF pages produced, 16 PNG pages rendered, and all pages contain text.
 - **Remaining Work**:
-  - Add full HTTP integration coverage for the new admin user-management endpoints against a
-    migrated database, including superuser policy and self-disable policy if that rule is adopted.
-  - Add browser/e2e coverage for `/admin/users`, modal validation, status changes, and password reset.
-  - Complete manual visual inspection of the 16 rendered report PNGs for pagination and margins,
-    then rerun the backend and frontend quality gates after any changes.
+  - Run the full backend suite and migration against a disposable migrated PostgreSQL database.
+  - Add HTTP coverage for profile update, email uniqueness, project assignment, assigned visibility,
+    engineer project creation, and owner-name responses.
+  - Add browser/e2e coverage for `/settings/profile`, the admin project modal, and assignment UI.
+  - Regenerate `frontend/src/lib/api-schema.d.ts` from the finalized OpenAPI contract.
+  - Decide and enforce self-disable, lead demotion, and last-active-admin protection policies.
+  - Complete manual visual inspection of the 16 rendered report PNGs, then rerun all quality gates.
 - **Never push to GitHub**; the owner pushes. Local commits are allowed only after quality gates pass.
 
 ## Source precedence
@@ -96,6 +107,16 @@ npm run lint
 npm run test
 npm run build
 ```
+
+## Immediate Next Work
+
+1. Apply migrations to a disposable database and verify `20260910_0009_project_assignment`.
+2. Add backend HTTP tests for profile update, duplicate email handling, project assignment,
+   `user_id` filtering, and engineer/lead authorization boundaries.
+3. Add frontend tests for profile save/error states and the `/admin/users` project modal.
+4. Regenerate OpenAPI/TypeScript contracts and remove temporary handwritten API types where safe.
+5. Run the full backend suite, frontend suite, production build, and Docker smoke deployment.
+6. Perform manual UI review at desktop and mobile widths, especially long admin tables and modal scrolling.
 
 ## Commitments & Rules
 

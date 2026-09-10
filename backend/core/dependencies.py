@@ -91,7 +91,7 @@ async def require_user_manager(
 def accessible_document_query(document_id: UUID, current_user: User):
     """Build the common document ownership predicate."""
     query = select(Document).where(Document.id == document_id)
-    if current_user.role != UserRole.LEAD_ENGINEER:
+    if current_user.role not in {UserRole.LEAD_ENGINEER, UserRole.SUPERUSER}:
         query = query.where(Document.owner_id == current_user.id)
     return query
 

@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, Up
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
 from core.dependencies import (
     get_accessible_document,
@@ -141,8 +142,8 @@ async def list_documents(
 ) -> DocumentListResponse:
     """List documents visible to the current user."""
 
-    query = select(Document)
-    if current_user.role != UserRole.LEAD_ENGINEER:
+    query = select(Document).options(joinedload(Document.owner))
+    if current_user.role not in {UserRole.LEAD_ENGINEER, UserRole.SUPERUSER}:
         query = query.where(Document.owner_id == current_user.id)
     total = (await session.execute(select(func.count()).select_from(query.subquery()))).scalar_one()
     rows = (
@@ -158,7 +159,12 @@ async def list_documents(
         .all()
     )
     return DocumentListResponse(
-        documents=[DocumentRead.model_validate(d) for d in rows],
+        documents=[
+            DocumentRead.model_validate(
+                {**DocumentRead.model_validate(d).model_dump(), "owner_name": d.owner.full_name if d.owner else None}
+            )
+            for d in rows
+        ],
         pagination=PageInfo(page=page, page_size=page_size, total=total),
     )
 

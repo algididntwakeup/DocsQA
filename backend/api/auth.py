@@ -22,6 +22,7 @@ from schemas.user import (
     UserPasswordReset,
     UserRead,
     UserStatusUpdate,
+    UserProfileUpdate,
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -94,6 +95,28 @@ async def change_password(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect."
         )
     current_user.hashed_password = hash_password(payload.new_password)
+    await session.commit()
+    await session.refresh(current_user)
+    return UserRead.model_validate(current_user)
+
+
+@router.patch("/me", response_model=UserRead)
+async def update_profile(
+    payload: UserProfileUpdate,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> UserRead:
+    """Update the authenticated user's profile fields."""
+    email = payload.email.strip().lower()
+    existing = (
+        await session.execute(
+            select(User).where(func.lower(User.email) == email, User.id != current_user.id)
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered.")
+    current_user.full_name = payload.full_name.strip()
+    current_user.email = email
     await session.commit()
     await session.refresh(current_user)
     return UserRead.model_validate(current_user)
