@@ -1021,8 +1021,12 @@ export interface components {
             email: string;
             /** Full Name */
             full_name: string;
-            /** @default ENGINEER */
-            role: components["schemas"]["UserRole"];
+            /**
+             * Role
+             * @default ENGINEER
+             * @enum {string}
+             */
+            role: "ENGINEER" | "LEAD_ENGINEER";
             /** Temporary Password */
             temporary_password: string;
         };

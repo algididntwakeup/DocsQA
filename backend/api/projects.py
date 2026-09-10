@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, 
 from sqlalchemy import exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.dependencies import get_current_user, get_upload_service
+from core.dependencies import get_current_user, get_upload_service, require_lead
 from db.session import get_session
 from domain.enums import DocumentStatus, Severity, UserRole
 from models.document import Document
@@ -15,11 +15,31 @@ from models.issue import Issue
 from models.project import Project
 from models.user import User
 from schemas.documents import DocumentListResponse, DocumentRead, DocumentUploadResponse
-from schemas.project import ProjectRead
+from schemas.project import ProjectCreate, ProjectRead
 from services.pipeline import enqueue_extraction
 from services.uploads import UploadService
 
 router = APIRouter(prefix="/projects", tags=["projects"])
+
+
+@router.post("", response_model=ProjectRead, status_code=201)
+async def create_project(
+    payload: ProjectCreate,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    current_user: Annotated[User, Depends(require_lead)],
+) -> ProjectRead:
+    """Create a project for lead users."""
+    project = Project(
+        name=payload.name,
+        code=payload.code,
+        description=payload.description,
+        plant_area=payload.plant_area,
+        created_by_id=current_user.id,
+    )
+    session.add(project)
+    await session.commit()
+    await session.refresh(project)
+    return ProjectRead.model_validate(project)
 
 
 @router.get("", response_model=list[ProjectRead])
@@ -29,7 +49,7 @@ async def list_projects(
 ) -> list[ProjectRead]:
     """List projects visible to the authenticated user."""
     query = select(Project)
-    if current_user.role != UserRole.LEAD_ENGINEER:
+    if current_user.role not in {UserRole.LEAD_ENGINEER, UserRole.SUPERUSER}:
         query = query.where(
             exists().where(Document.project_id == Project.id, Document.owner_id == current_user.id)
         )
@@ -49,7 +69,7 @@ async def list_project_documents(
 ) -> DocumentListResponse:
     """List project documents with lead-only cross-engineer filters."""
     query = select(Document).where(Document.project_id == project_id)
-    if current_user.role != UserRole.LEAD_ENGINEER:
+    if current_user.role not in {UserRole.LEAD_ENGINEER, UserRole.SUPERUSER}:
         query = query.where(Document.owner_id == current_user.id)
     elif engineer_id is not None:
         query = query.where(Document.owner_id == engineer_id)

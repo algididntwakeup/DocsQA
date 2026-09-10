@@ -1,101 +1,40 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { ClipboardCheck, FileStack, Gauge, Menu, Settings, X } from "lucide-react";
+import { FolderKanban, LogOut, Menu, ShieldCheck, Users } from "lucide-react";
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
-import { ThemeToggle } from "./theme-toggle";
-import { logout } from "@/lib/api";
-
-const navigation = [
-  { href: "/", label: "Documents", icon: FileStack },
-  { href: "/upload", label: "New inspection", icon: ClipboardCheck },
-];
+import { useEffect, useState, type ReactNode } from "react";
+import { getCurrentUser, logout, type UserSession } from "@/lib/api";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const isReviewPage = pathname?.includes("/review");
-  const [sidebarOpen, setSidebarOpen] = useState(
-    () => typeof window === "undefined" || window.innerWidth > 1000,
-  );
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [user, setUser] = useState<UserSession | null>(null);
+
+  useEffect(() => {
+    if (pathname !== "/login") void getCurrentUser().then(setUser).catch(() => setUser(null));
+  }, [pathname]);
+
+  if (pathname === "/login") return <>{children}</>;
+  const canManageUsers = user?.role === "LEAD_ENGINEER" || user?.role === "SUPERUSER";
+  const initials = user?.full_name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase() || "RQ";
 
   return (
-    <div className={`app-frame${sidebarOpen ? " sidebar-open" : " sidebar-collapsed"}`}>
-      <button
-        className="sidebar-backdrop"
-        type="button"
-        aria-label="Close navigation"
-        onClick={() => setSidebarOpen(false)}
-      />
-      <aside className="sidebar" aria-label="Primary navigation">
-        <div className="sidebar-header">
-          <Link className="brand" href="/" aria-label="REKSOLINDOQA home">
-          <span className="brand-mark" aria-hidden="true">R</span>
-          <span><strong>REKSOLINDO</strong><small>Document assurance</small></span>
-          </Link>
-          <button
-            className="sidebar-collapse-button"
-            type="button"
-            aria-label={sidebarOpen ? "Collapse navigation" : "Expand navigation"}
-            title={sidebarOpen ? "Collapse navigation" : "Expand navigation"}
-            onClick={() => setSidebarOpen((open) => !open)}
-          >
-            {sidebarOpen ? <X size={18} aria-hidden="true" /> : <Menu size={18} aria-hidden="true" />}
-          </button>
+    <div className="rq-app">
+      <header className="rq-nav">
+        <div className="rq-nav-inner">
+          <Link className="rq-brand" href="/projects"><span className="rq-brand-mark">R</span><span>Reksolindo</span><b>v1.0</b></Link>
+          <button className="rq-menu-button" type="button" aria-label="Toggle navigation" onClick={() => setMenuOpen((open) => !open)}><Menu size={20} /></button>
+          <nav className={`rq-main-nav${menuOpen ? " rq-main-nav-open" : ""}`} aria-label="Primary navigation">
+            <Link className={pathname?.startsWith("/projects") ? "rq-nav-link rq-nav-link-active" : "rq-nav-link"} href="/projects" onClick={() => setMenuOpen(false)}><FolderKanban size={16} />Projects</Link>
+            <Link className="rq-nav-link" href="/" onClick={() => setMenuOpen(false)}><ShieldCheck size={16} />Reference Library</Link>
+            {canManageUsers && <Link className={pathname?.startsWith("/admin/users") ? "rq-nav-link rq-nav-link-active" : "rq-nav-link"} href="/admin/users" onClick={() => setMenuOpen(false)}><Users size={16} />Manage Users</Link>}
+          </nav>
+          <div className="rq-profile"><span className="rq-avatar">{initials}</span><span className="rq-profile-copy"><strong>{user?.full_name ?? "Workspace user"}</strong><small>{user?.role?.replaceAll("_", " ") ?? "Authenticated"}</small></span><button className="rq-logout" type="button" onClick={() => void logout()}><LogOut size={15} />Logout</button></div>
         </div>
-        <nav aria-label="Primary navigation">
-          <p className="nav-label">Workspace</p>
-          {navigation.map(({ href, label, icon: Icon }) => (
-            <Link
-              className={`nav-link${
-                (href === "/" ? pathname === "/" : pathname?.startsWith(href))
-                  ? " nav-link-active"
-                  : ""
-              }`}
-              href={href}
-              key={href}
-              title={label}
-              aria-current={
-                (href === "/" ? pathname === "/" : pathname?.startsWith(href))
-                  ? "page"
-                  : undefined
-              }
-              onClick={() => setSidebarOpen(false)}
-            >
-              <Icon size={17} aria-hidden="true" />{label}
-            </Link>
-          ))}
-        </nav>
-        <div className="sidebar-spacer" />
-        <div className="system-panel">
-          <div><Gauge size={15} aria-hidden="true" /><span>Local processing</span></div>
-          <strong><i aria-hidden="true" />Operational</strong>
-        </div>
-        <button className="nav-link nav-button" type="button" disabled>
-          <Settings size={17} aria-hidden="true" />Settings <span>Soon</span>
-        </button>
-      </aside>
-      <div className="main-column">
-        <header className="topbar">
-          <div className="topbar-context">
-            <button
-              className="sidebar-toggle"
-              type="button"
-              aria-label={sidebarOpen ? "Close navigation" : "Open navigation"}
-              aria-expanded={sidebarOpen}
-              onClick={() => setSidebarOpen((open) => !open)}
-            >
-              {sidebarOpen ? <X size={18} aria-hidden="true" /> : <Menu size={18} aria-hidden="true" />}
-            </button>
-            <span className="environment-dot" />Local workspace
-          </div>
-          <div className="topbar-actions">
-            <ThemeToggle />
-             <div className="operator"><span>QA</span><p><strong>QA Engineer</strong><small>Authenticated workspace</small></p><button className="text-xs text-muted underline" type="button" onClick={() => void logout()}>Log out</button></div>
-          </div>
-        </header>
-        <main className={isReviewPage ? "content content-compact" : "content"}>{children}</main>
-      </div>
+      </header>
+      <main className={isReviewPage ? "rq-content rq-content-review" : "rq-content"}>{children}</main>
     </div>
   );
 }

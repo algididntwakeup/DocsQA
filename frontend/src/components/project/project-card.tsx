@@ -1,13 +1,13 @@
-import { CalendarDays, ChevronRight, FileText, MapPin } from "lucide-react";
+import { CalendarDays, CheckCircle2, ChevronRight, FileText, MapPin } from "lucide-react";
 import Link from "next/link";
 import type { ProjectItem } from "@/lib/api";
 
-export function ProjectCard({ project, documentCount }: { project: ProjectItem; documentCount: number }) {
+export function ProjectCard({ project, documentCount, verifiedCount = 0 }: { project: ProjectItem; documentCount: number; verifiedCount?: number }) {
   const date = new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(project.created_at));
   return (
-    <Link className="group panel block p-5 transition hover:-translate-y-0.5 hover:border-primary hover:shadow-md" href={`/projects/${project.id}`}>
-      <div className="flex items-start justify-between gap-4"><div><p className="eyebrow m-0">{project.code ?? "Project register"}</p><h2 className="mt-2 text-lg font-semibold tracking-tight text-ink">{project.name}</h2></div><ChevronRight className="text-muted transition group-hover:translate-x-1 group-hover:text-primary" size={19} /></div>
-      <div className="mt-7 grid grid-cols-2 gap-4 border-t border-line pt-4 text-xs"><span className="flex items-center gap-2 text-muted"><MapPin size={14} className="text-primary" />{project.plant_area ?? "Area not supplied"}</span><span className="flex items-center gap-2 text-muted"><FileText size={14} className="text-primary" />{documentCount} documents</span><span className="col-span-2 flex items-center gap-2 font-mono text-[10px] uppercase text-muted"><CalendarDays size={13} />{date}</span></div>
+    <Link className="rq-project-card" href={`/projects/${project.id}`}>
+      <div className="rq-project-card-top"><div><span className="rq-area-badge"><MapPin size={13} />{project.plant_area ?? "Area not supplied"}</span><h2>{project.name}</h2></div><ChevronRight size={20} /></div>
+      <div className="rq-project-stats"><span><FileText size={16} /><b>{documentCount}</b><small>Total documents</small></span><span><CheckCircle2 size={16} /><b>{verifiedCount}</b><small>Verified</small></span><span><CalendarDays size={16} /><b>{date}</b><small>Last update</small></span></div>
     </Link>
   );
 }

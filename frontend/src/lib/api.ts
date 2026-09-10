@@ -36,6 +36,13 @@ export interface ProjectItem {
   created_at: string;
 }
 
+export interface CreateProjectPayload {
+  name: string;
+  plant_area?: string;
+  code?: string;
+  description?: string;
+}
+
 export interface ManagedUser extends UserSession {
   total_documents_owned: number;
 }
@@ -146,6 +153,14 @@ export function resetManagedUserPassword(userId: string, temporaryPassword: stri
 
 export function listProjects(): Promise<ProjectItem[]> {
   return request<ProjectItem[]>("/projects", { cache: "no-store" });
+}
+
+export function createProject(payload: CreateProjectPayload): Promise<ProjectItem> {
+  return request<ProjectItem>("/projects", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
 }
 
 export function listProjectDocuments(
