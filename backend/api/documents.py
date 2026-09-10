@@ -3,6 +3,7 @@ import contextlib
 import json
 import shutil
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 from typing import Annotated, Any
 from uuid import UUID
 
@@ -11,17 +12,33 @@ from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.dependencies import get_storage, get_upload_service
+from core.dependencies import (
+    get_accessible_document,
+    get_current_user,
+    get_storage,
+    get_upload_service,
+    require_lead,
+)
 from db.session import async_session_factory, get_session
-from domain.enums import DocumentStatus, IssueCategory, PipelineStage, Severity, StageStatus
+from domain.enums import (
+    DocumentStatus,
+    DocumentWorkflowStatus,
+    IssueCategory,
+    PipelineStage,
+    Severity,
+    StageStatus,
+    UserRole,
+)
 from models.document import Document, StageRun
 from models.issue import Issue
+from models.user import User
 from schemas.common import PageInfo, ProblemDetail
 from schemas.documents import (
     DocumentListResponse,
     DocumentRead,
     DocumentStatusResponse,
     DocumentUploadResponse,
+    DocumentWorkflowUpdate,
     ReviewReportPreview,
     StageRunRead,
     TraceabilitySummaryResponse,
@@ -44,19 +61,94 @@ NOT_READY: dict[int | str, dict[str, Any]] = {
 }
 
 
+@router.post("/{document_id}/mark-reviewed", response_model=DocumentRead)
+async def mark_document_reviewed(
+    document_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    document: Annotated[Document, Depends(get_accessible_document)],
+) -> DocumentRead:
+    """Mark an owned document as reviewed by its engineer owner."""
+    if document.owner_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Document owner access required."
+        )
+    document.workflow_status = DocumentWorkflowStatus.REVIEWED_BY_ENGINEER
+    document.reviewed_at = datetime.now(UTC)
+    await session.commit()
+    await session.refresh(document)
+    return DocumentRead.model_validate(document)
+
+
+@router.post("/{document_id}/verify", response_model=DocumentRead)
+async def verify_document(
+    document_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    current_user: Annotated[User, Depends(require_lead)],
+    document: Annotated[Document, Depends(get_accessible_document)],
+    payload: DocumentWorkflowUpdate | None = None,
+) -> DocumentRead:
+    """Verify a document as a lead engineer."""
+    document.verified_by_id = current_user.id
+    document.verified_at = datetime.now(UTC)
+    document.workflow_status = DocumentWorkflowStatus.VERIFIED_BY_LEAD
+    if payload is not None and payload.verification_notes is not None:
+        document.verification_notes = payload.verification_notes
+    await session.commit()
+    await session.refresh(document)
+    return DocumentRead.model_validate(document)
+
+
+@router.post("/{document_id}/request-revision", response_model=DocumentRead)
+async def request_document_revision(
+    document_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    _: Annotated[User, Depends(require_lead)],
+    document: Annotated[Document, Depends(get_accessible_document)],
+    payload: DocumentWorkflowUpdate | None = None,
+) -> DocumentRead:
+    """Return a document to an engineer for revision."""
+    requested_status = (
+        payload.workflow_status
+        if payload is not None and payload.workflow_status is not None
+        else DocumentWorkflowStatus.ANALYZING
+    )
+    if requested_status not in {
+        DocumentWorkflowStatus.ANALYZING,
+        DocumentWorkflowStatus.REVIEWED_BY_ENGINEER,
+    }:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Revision status must be ANALYZING or REVIEWED_BY_ENGINEER.",
+        )
+    document.workflow_status = requested_status
+    document.verification_notes = payload.verification_notes if payload is not None else None
+    document.verified_by_id = None
+    document.verified_at = None
+    if requested_status == DocumentWorkflowStatus.ANALYZING:
+        document.reviewed_at = None
+    await session.commit()
+    await session.refresh(document)
+    return DocumentRead.model_validate(document)
+
+
 @router.get("", response_model=DocumentListResponse, responses=NOT_READY)
 async def list_documents(
     session: Annotated[AsyncSession, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> DocumentListResponse:
     """List documents visible to the current user."""
 
-    total = (await session.execute(select(func.count(Document.id)))).scalar_one()
+    query = select(Document)
+    if current_user.role != UserRole.LEAD_ENGINEER:
+        query = query.where(Document.owner_id == current_user.id)
+    total = (await session.execute(select(func.count()).select_from(query.subquery()))).scalar_one()
     rows = (
         (
             await session.execute(
-                select(Document)
+                query
                 .order_by(Document.created_at.desc())
                 .offset((page - 1) * page_size)
                 .limit(page_size)
@@ -82,10 +174,15 @@ async def upload_document(
     response: Response,
     session: Annotated[AsyncSession, Depends(get_session)],
     upload_service: Annotated[UploadService, Depends(get_upload_service)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> DocumentUploadResponse:
     """Persist a validated document and enqueue canonical extraction."""
 
     result = await upload_service.create_or_reuse(file, session)
+    if not result.deduplicated:
+        result.document.owner_id = current_user.id
+        await session.commit()
+        await session.refresh(result.document)
     if result.deduplicated:
         response.status_code = status.HTTP_200_OK
     else:
@@ -102,15 +199,10 @@ async def upload_document(
 @router.get("/{document_id}", response_model=DocumentRead, responses=NOT_READY)
 async def get_document(
     document_id: UUID,
-    session: Annotated[AsyncSession, Depends(get_session)],
+    document: Annotated[Document, Depends(get_accessible_document)],
 ) -> DocumentRead:
     """Return safe metadata for one document."""
 
-    document = (
-        await session.execute(select(Document).where(Document.id == document_id))
-    ).scalar_one_or_none()
-    if document is None:
-        raise HTTPException(status_code=404, detail="Document not found.")
     return DocumentRead.model_validate(document)
 
 
@@ -127,15 +219,10 @@ async def get_document(
 async def delete_document(
     document_id: UUID,
     session: Annotated[AsyncSession, Depends(get_session)],
+    document: Annotated[Document, Depends(get_accessible_document)],
     storage: Annotated[LocalStorage, Depends(get_storage)],
 ) -> Response:
     """Permanently delete a document, its database records, storage files, and artifacts."""
-
-    document = (
-        await session.execute(select(Document).where(Document.id == document_id))
-    ).scalar_one_or_none()
-    if document is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
 
     # 1. Clean up physical files from storage
     for uri in (document.storage_uri, document.canonical_pdf_uri):
@@ -170,14 +257,9 @@ async def delete_document(
 async def get_document_status(
     document_id: UUID,
     session: Annotated[AsyncSession, Depends(get_session)],
+    document: Annotated[Document, Depends(get_accessible_document)],
 ) -> DocumentStatusResponse:
     """Return processing progress and latest stage states."""
-
-    document = (
-        await session.execute(select(Document).where(Document.id == document_id))
-    ).scalar_one_or_none()
-    if document is None:
-        raise HTTPException(status_code=404, detail="Document not found.")
 
     stage_runs = (
         (
@@ -246,17 +328,12 @@ async def get_document_status(
 async def list_document_issues(
     document_id: UUID,
     session: Annotated[AsyncSession, Depends(get_session)],
+    document: Annotated[Document, Depends(get_accessible_document)],
     category: IssueCategory | None = None,
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> IssueListResponse:
     """List issues with optional canonical category filtering."""
-
-    document = (
-        await session.execute(select(Document).where(Document.id == document_id))
-    ).scalar_one_or_none()
-    if document is None:
-        raise HTTPException(status_code=404, detail="Document not found.")
 
     # Severity counts across all issues for this document
     counts_result = (
@@ -311,14 +388,9 @@ async def get_document_pdf(
     document_id: UUID,
     session: Annotated[AsyncSession, Depends(get_session)],
     storage: Annotated[LocalStorage, Depends(get_storage)],
+    document: Annotated[Document, Depends(get_accessible_document)],
 ) -> FileResponse:
     """Stream the canonical PDF rendition of an uploaded document."""
-
-    document = (
-        await session.execute(select(Document).where(Document.id == document_id))
-    ).scalar_one_or_none()
-    if document is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
 
     uri = document.canonical_pdf_uri or document.storage_uri
     if not uri:
@@ -359,14 +431,9 @@ async def get_document_pdf(
 async def get_traceability_summary(
     document_id: UUID,
     session: Annotated[AsyncSession, Depends(get_session)],
+    document: Annotated[Document, Depends(get_accessible_document)],
 ) -> TraceabilitySummaryResponse:
     """Return traceability counts for audit triage."""
-
-    document = (
-        await session.execute(select(Document).where(Document.id == document_id))
-    ).scalar_one_or_none()
-    if document is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
 
     issues = (
         (
@@ -411,13 +478,9 @@ async def get_traceability_summary(
 async def get_report_preview(
     document_id: UUID,
     session: Annotated[AsyncSession, Depends(get_session)],
+    document: Annotated[Document, Depends(get_accessible_document)],
 ) -> ReviewReportPreview:
     """Return the current draft-report composition without generating a file."""
-    document = (
-        await session.execute(select(Document).where(Document.id == document_id))
-    ).scalar_one_or_none()
-    if document is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
     issues = (
         (
             await session.execute(
@@ -473,17 +536,12 @@ async def export_document(
     format: Annotated[str, Query(pattern=r"^(pdf|docx)$")],
     session: Annotated[AsyncSession, Depends(get_session)],
     storage: Annotated[LocalStorage, Depends(get_storage)],
+    document: Annotated[Document, Depends(get_accessible_document)],
     include_minors: Annotated[
         bool, Query(description="Include minor and informational findings.")
     ] = False,
 ) -> Response:
     """Export the annotated original PDF or formal DOCX review report."""
-
-    document = (
-        await session.execute(select(Document).where(Document.id == document_id))
-    ).scalar_one_or_none()
-    if document is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
 
     issues = (
         (
@@ -516,6 +574,9 @@ async def export_document(
             headers={"Content-Disposition": f'attachment; filename="{safe_name}_annotated.pdf"'},
         )
     if format == "docx":
+        refresh = getattr(session, "refresh", None)
+        if refresh is not None:
+            await refresh(document, ["owner", "verified_by"])
         scorecard: dict[str, Any] | None = None
         scorecard_path = storage._path_for_key(f"artifacts/{document.id}/budinski_scorecard.json")
         if scorecard_path.exists():
@@ -526,7 +587,7 @@ async def export_document(
         assessment = assessment_from_document_findings(
             document, list(issues), scorecard_data=scorecard, include_minors=include_minors
         )
-        docx_bytes = generate_ale_review_docx(assessment)
+        docx_bytes = generate_ale_review_docx(assessment, document)
         return Response(
             content=docx_bytes,
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -548,14 +609,9 @@ async def export_document(
 async def stream_document_events(
     document_id: UUID,
     session: Annotated[AsyncSession, Depends(get_session)],
+    document: Annotated[Document, Depends(get_accessible_document)],
 ) -> StreamingResponse:
     """Stream real-time processing progress and stage transitions via Server-Sent Events (SSE)."""
-
-    document = (
-        await session.execute(select(Document).where(Document.id == document_id))
-    ).scalar_one_or_none()
-    if document is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
 
     TERMINAL_STATUSES = {
         DocumentStatus.COMPLETED,

@@ -227,6 +227,49 @@ def test_normalize_ref_drift_findings() -> None:
     assert duplicate.confidence == 0.8
 
 
+def test_compact_ref_drift_groups_navigation_findings() -> None:
+    doc_id = uuid4()
+    analysis = RefDriftAnalysis(
+        findings=[
+            RefDriftFinding(
+                kind="REF_DRIFT",
+                label="Section 1",
+                source_list="TOC",
+                referenced_page_label="10",
+                actual_page_label="11",
+                page_delta=1,
+                entry_location=_make_coord(0, 100.0),
+                target_location=_make_coord(10, 100.0),
+                message="drift",
+            ),
+            RefDriftFinding(
+                kind="REF_DRIFT",
+                label="Section 2",
+                source_list="TOC",
+                referenced_page_label="12",
+                actual_page_label="13",
+                page_delta=1,
+                entry_location=_make_coord(0, 120.0),
+                target_location=_make_coord(12, 120.0),
+                message="drift",
+            ),
+            RefDriftFinding(
+                kind="MISSING_TARGET",
+                label="Section 3",
+                source_list="TOC",
+                referenced_page_label="14",
+                entry_location=_make_coord(0, 140.0),
+                message="missing",
+            ),
+        ]
+    )
+    result = aggregate_document_findings(doc_id, ref_drift=analysis, compact_ref_drift=True)
+    assert result.total_issues == 2
+    assert "2 front-matter reference(s)" in next(
+        issue.message for issue in result.issues if issue.type == "REF_DRIFT"
+    )
+
+
 def test_normalize_standard_findings() -> None:
     """Standards findings map to StandardEvidence and appropriate severities."""
     doc_id = uuid4()

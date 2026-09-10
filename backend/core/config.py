@@ -44,6 +44,9 @@ class Settings(BaseSettings):
 
     # ── Authentication ──────────────────────────────────────────────
     AUTH_MODE: Literal["disabled", "required"] = "disabled"
+    SECRET_KEY: str = "change-this-development-secret-key"
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
 
     # ── NLP / LanguageTool ───────────────────────────────────────────
     LANGUAGE_TOOL_HOST: str = "http://localhost:8081"

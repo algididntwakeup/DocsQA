@@ -65,3 +65,28 @@
   - Added XML-level tests for callout borders, cell shading, repeating headers, and no raw
     JSON/issue-object dump in the report.
   - Preserved the legacy report builder for existing direct callers and compatibility tests.
+
+## Phase 5: Multi-User Project Review Workflow (Implemented; Hardening In Progress)
+
+- [x] **Milestone 13: Authentication and User Isolation**
+  - Added JWT login and current-user endpoints with engineer and lead-engineer roles.
+  - Restricted document/project visibility through the authenticated user context.
+- [x] **Milestone 14: Project Dashboard**
+  - Added Level 1 project cards and Level 2 project document register routes.
+  - Added project-scoped document upload, lead-only engineer/date/blocker filters, and direct
+    links into the existing review workspace.
+- [x] **Milestone 15: Document Review Workflow**
+  - Added owner `mark-reviewed`, lead `verify`, and lead `request-revision` transitions.
+  - Added workflow metadata to DOCX export without changing locked report-generation components.
+- [x] **Milestone 16: Review Workspace Workflow UI**
+  - Added isolated workflow status and role-aware action controls around the existing split-screen
+    viewer. Viewer, PDF canvas, findings panel, issue cards, and export modal internals remain
+    unchanged.
+- [ ] **Milestone 17: Contract and Test Hardening**
+  - Regenerate frontend OpenAPI types after the auth/project/workflow contract is finalized.
+  - Add frontend unit tests for login, project dashboard, filters, upload, and workflow actions.
+  - Add backend integration tests for role isolation, project filters, upload ownership, and all
+    workflow transitions.
+- [ ] **Milestone 18: Production Session and Release Validation**
+  - Move JWT persistence to a secure HttpOnly SameSite cookie with logout and expiry handling.
+  - Manually inspect report pagination/margins across rendered PNGs and rerun full quality gates.

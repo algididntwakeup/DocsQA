@@ -247,7 +247,7 @@ async def _run_standard_stage(
 
     standard_failed = False
     try:
-        analysis = analyze_standard_traceability(artifact)
+        analysis = analyze_standard_traceability(artifact, include_missing_bibliography=False)
         stage_run.artifact_uri = _persist_artifact(
             storage,
             document.id,
@@ -520,6 +520,7 @@ async def _run_aggregation_stage(
             duplicate=duplicate,
             ambiguity=ambiguity,
             failed_stages=failed_stages,
+            compact_ref_drift=True,
         )
 
         stage_run.artifact_uri = _persist_artifact(
@@ -636,6 +637,7 @@ async def _run_extraction(document_id: str) -> dict[str, object]:
             await session.commit()
 
         if artifact is not None:
+
             async def run_stage(name: str, operation: Any) -> Any:
                 started = time.monotonic()
                 result = await operation()
@@ -750,11 +752,7 @@ async def _run_extraction(document_id: str) -> dict[str, object]:
                     document.id,
                     time.monotonic() - review_started,
                 )
-                if (
-                    extraction_degraded
-                    or aggregation_failed
-                    or bool(failed_stages)
-                ):
+                if extraction_degraded or aggregation_failed or bool(failed_stages):
                     document.status = DocumentStatus.COMPLETED_WITH_WARNINGS
                 document.progress_pct = 100
                 await session.commit()
@@ -784,13 +782,17 @@ async def _mark_timed_out(document_id: str) -> None:
 
         # Mark any running stage runs so the UI doesn't spin indefinitely
         stage_runs = (
-            await session.execute(
-                select(StageRun).where(
-                    StageRun.document_id == doc_id,
-                    StageRun.status == StageStatus.RUNNING,
+            (
+                await session.execute(
+                    select(StageRun).where(
+                        StageRun.document_id == doc_id,
+                        StageRun.status == StageStatus.RUNNING,
+                    )
                 )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         for sr in stage_runs:
             sr.status = StageStatus.SUCCEEDED_WITH_WARNINGS
             sr.error_code = "TIMED_OUT"
@@ -808,7 +810,7 @@ async def _mark_timed_out(document_id: str) -> None:
     # Do NOT autoretry on Exception — a stuck task would retry and hang again.
     # Only retry on transient infrastructure errors by catching them explicitly below.
     soft_time_limit=300,  # 5 min soft limit — allows graceful cleanup
-    time_limit=420,       # Leave cleanup/retry room after the soft limit.
+    time_limit=420,  # Leave cleanup/retry room after the soft limit.
 )
 def extract_document_task(self: Any, document_id: str) -> dict[str, object]:
     """Run extraction and persist a failed run before any retry is scheduled."""

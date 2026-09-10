@@ -150,8 +150,13 @@ def _deduplicate_findings(findings: list[StandardFinding]) -> list[StandardFindi
 
 def analyze_standard_traceability(
     artifact: ExtractionArtifact,
+    include_missing_bibliography: bool = True,
 ) -> StandardTraceabilityAnalysis:
-    """Cross-reference body standards against normalized bibliography entries."""
+    """Cross-reference body standards against normalized bibliography entries.
+
+    Missing bibliography entries can be disabled while standards packs are postponed;
+    edition mismatches and ambiguous citations remain available for governed review.
+    """
 
     body, references, reference_found = extract_standard_citations(artifact)
     by_code: dict[str, list[StandardCitation]] = {}
@@ -172,6 +177,8 @@ def analyze_standard_traceability(
             continue
         matches = by_code.get(citation.normalized_code, [])
         if not matches:
+            if not include_missing_bibliography:
+                continue
             findings.append(
                 StandardFinding(
                     kind="STANDARD_NOT_IN_BIBLIOGRAPHY",

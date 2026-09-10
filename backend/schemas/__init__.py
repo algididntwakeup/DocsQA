@@ -11,6 +11,8 @@ from schemas.budinski import (
 from schemas.common import ProblemDetail
 from schemas.documents import DocumentRead, DocumentStatusResponse, DocumentUploadResponse
 from schemas.issues import IssueRead
+from schemas.project import ProjectCreate, ProjectRead
+from schemas.user import UserCreate, UserRead
 
 __all__ = [
     "AssessmentData",
@@ -26,4 +28,8 @@ __all__ = [
     "LanguageFinding",
     "MajorFinding",
     "ProblemDetail",
+    "ProjectCreate",
+    "ProjectRead",
+    "UserCreate",
+    "UserRead",
 ]

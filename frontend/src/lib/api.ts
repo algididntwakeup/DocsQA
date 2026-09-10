@@ -1,6 +1,13 @@
 import type { components } from "./api-schema";
 
-export type DocumentItem = components["schemas"]["DocumentRead"];
+export type DocumentItem = components["schemas"]["DocumentRead"] & {
+  owner_id?: string | null;
+  verified_by_id?: string | null;
+  workflow_status?: "ANALYZING" | "REVIEWED_BY_ENGINEER" | "VERIFIED_BY_LEAD";
+  reviewed_at?: string | null;
+  verified_at?: string | null;
+  verification_notes?: string | null;
+};
 export type DocumentList = components["schemas"]["DocumentListResponse"];
 export type DocumentStatus = components["schemas"]["DocumentStatusResponse"];
 export type DocumentUpload = components["schemas"]["DocumentUploadResponse"];
@@ -9,6 +16,45 @@ export type IssueList = components["schemas"]["IssueListResponse"];
 export type IssueCuration = components["schemas"]["IssueCurationRequest"];
 export type ReviewReportPreview = components["schemas"]["ReviewReportPreview"];
 export type TraceabilitySummary = components["schemas"]["TraceabilitySummaryResponse"];
+
+export type UserRole = "ENGINEER" | "LEAD_ENGINEER";
+export interface UserSession {
+  id: string;
+  email: string;
+  full_name: string;
+  role: UserRole;
+  is_active: boolean;
+  created_at: string;
+}
+export interface LoginResponse {
+  access_token: string;
+  token_type: string;
+  user: UserSession;
+}
+export interface ProjectItem {
+  id: string;
+  name: string;
+  code?: string | null;
+  description?: string | null;
+  plant_area?: string | null;
+  created_by_id: string;
+  created_at: string;
+}
+
+const AUTH_TOKEN_KEY = "docsqa-access-token";
+
+export function getAuthToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem(AUTH_TOKEN_KEY);
+}
+
+export function setAuthToken(token: string): void {
+  window.localStorage.setItem(AUTH_TOKEN_KEY, token);
+}
+
+export function clearAuthToken(): void {
+  window.localStorage.removeItem(AUTH_TOKEN_KEY);
+}
 
 export function getApiBaseUrl(): string {
   if (typeof window !== "undefined") {
@@ -34,9 +80,13 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = getAuthToken();
+  const headers = new Headers(init?.headers);
+  headers.set("Accept", "application/json");
+  if (token) headers.set("Authorization", `Bearer ${token}`);
   const response = await fetch(`${getApiBaseUrl()}${path}`, {
     ...init,
-    headers: { Accept: "application/json", ...init?.headers },
+    headers,
   });
   if (!response.ok) {
     let message = `Request failed (${response.status}).`;
@@ -54,6 +104,47 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     return undefined as unknown as T;
   }
   return (await response.json()) as T;
+}
+
+export function login(email: string, password: string): Promise<LoginResponse> {
+  return request<LoginResponse>("/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+}
+
+export function getCurrentUser(): Promise<UserSession> {
+  return request<UserSession>("/auth/me", { cache: "no-store" });
+}
+
+export function listProjects(): Promise<ProjectItem[]> {
+  return request<ProjectItem[]>("/projects", { cache: "no-store" });
+}
+
+export function listProjectDocuments(
+  projectId: string,
+  options: { engineerId?: string; sortBy?: "date_desc" | "date_asc"; hasBlockers?: boolean } = {},
+): Promise<DocumentList> {
+  const params = new URLSearchParams({
+    sort_by: options.sortBy ?? "date_desc",
+    page: "1",
+    page_size: "100",
+  });
+  if (options.engineerId) params.set("engineer_id", options.engineerId);
+  if (options.hasBlockers !== undefined) params.set("has_blockers", String(options.hasBlockers));
+  return request<DocumentList>(`/projects/${encodeURIComponent(projectId)}/documents?${params}`, {
+    cache: "no-store",
+  });
+}
+
+export function uploadProjectDocument(projectId: string, file: File): Promise<DocumentUpload> {
+  const body = new FormData();
+  body.append("file", file);
+  return request<DocumentUpload>(`/projects/${encodeURIComponent(projectId)}/documents/upload`, {
+    method: "POST",
+    body,
+  });
 }
 
 export function listDocuments(): Promise<DocumentList> {

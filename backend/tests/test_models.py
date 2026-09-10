@@ -3,7 +3,7 @@
 from sqlalchemy import Table
 
 from db.base import Base
-from models import DictionaryTerm, Document, Issue, StageRun
+from models import DictionaryTerm, Document, Issue, Project, StageRun, User
 
 
 def test_foundation_tables_are_registered() -> None:
@@ -14,11 +14,15 @@ def test_foundation_tables_are_registered() -> None:
         "stage_runs",
         "issues",
         "dictionary_terms",
+        "projects",
+        "users",
     }
     assert Document.__tablename__ == "documents"
     assert StageRun.__tablename__ == "stage_runs"
     assert Issue.__tablename__ == "issues"
     assert DictionaryTerm.__tablename__ == "dictionary_terms"
+    assert Project.__tablename__ == "projects"
+    assert User.__tablename__ == "users"
 
 
 def test_issue_has_curation_columns_and_no_legacy_columns() -> None:

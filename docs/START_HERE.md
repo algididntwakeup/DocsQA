@@ -13,8 +13,10 @@ This is the central index every new agent must read in full. Repository state al
   consistency checks remain in scope until a licensed, governed rulebook is supplied.
 - **Latest validation**: Docker worker is running LibreOffice 25.2.3.2. Canonical executive
   DOCX converted to a 16-page Letter PDF and all 16 pages rendered to PNG successfully.
-- **Current next ticket**: Manual visual review of rendered PNG pagination/margins, followed by
-  the full backend quality gate if further layout changes are made.
+- **Current next ticket**: Finish the release hardening queue below: regenerate the frontend
+  OpenAPI contract, add project/workflow UI coverage, replace browser token storage with a
+  production session cookie, then complete manual visual review of rendered PNG
+  pagination/margins and rerun the full quality gates.
 - **Latest implementation checkpoint**: Budinski now has a flat deterministic 41-item rule
   contract (`items`, `baseline_score`, `group_averages`) with Group III/IV rules. DOCX
   scorecard rendering prefers that flat contract and retains legacy grouped-field
@@ -24,6 +26,10 @@ This is the central index every new agent must read in full. Repository state al
   report through `assessment_from_document_findings()` and `generate_ale_review_docx()`.
   `ReportSynthesizer` and `docx_styler` provide deterministic narrative and XML styling;
   the older `services/report.py` builder remains compatibility-only.
+- **Latest multi-user checkpoint**: Added JWT login, engineer/lead user roles, project-scoped
+  document listing/upload, owner and lead workflow transitions, project dashboard cards,
+  project document tables, and review-workspace workflow status/actions. Existing review viewer
+  and issue-panel internals remain protected.
 - **Curation Workflow**:
   - Finding curation is strictly binary inclusion (`included_in_report: bool`, default `True`) and an optional engineering clarification (`reviewer_note: str | None`).
   - Completely removed: issue decisions (`ACCEPTED`/`REJECTED`), lead dispositions, audit trail events, and bulk decision workflows.
@@ -40,6 +46,17 @@ This is the central index every new agent must read in full. Repository state al
   - Focused backend checkpoint: Budinski evaluator, rule engine, schema, pipeline, and export tests pass.
   - Latest export/reference regression: **55 passed**, Ruff passed, and `git diff --check` passed.
   - Docker visual smoke: DOCX conversion passed, 16 PDF pages produced, 16 PNG pages rendered, and all pages contain text.
+- **Remaining Work**:
+  - Regenerate `frontend/src/lib/api-schema.d.ts` from the current backend OpenAPI contract and
+    remove any temporary local type extensions that become redundant.
+  - Add frontend tests for login, project cards, project document filtering/upload, and review
+    workflow action visibility and state transitions.
+  - Add backend/API integration coverage for project visibility, lead filters, project-scoped
+    upload, and JWT-protected workflow transitions.
+  - Replace `localStorage` JWT persistence with a secure, HttpOnly, SameSite session cookie before
+    production deployment; define logout, expiry, and unauthorized-request behavior.
+  - Complete manual visual inspection of the 16 rendered report PNGs for pagination and margins,
+    then rerun the backend and frontend quality gates after any changes.
 - **Never push to GitHub**; the owner pushes. Local commits are allowed only after quality gates pass.
 
 ## Source precedence

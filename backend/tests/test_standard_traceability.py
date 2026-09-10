@@ -61,6 +61,14 @@ def test_edition_year_mismatch_retains_both_locations() -> None:
     assert finding.bibliography_location is not None
 
 
+def test_missing_bibliography_entry_can_be_disabled_for_postponed_standards() -> None:
+    result = analyze_standard_traceability(
+        _artifact(["API 650-2020 is applied."], []),
+        include_missing_bibliography=False,
+    )
+    assert result.findings == []
+
+
 def test_unknown_bare_api_number_is_ambiguous_not_missing() -> None:
     result = analyze_standard_traceability(_artifact(["The API 200 response is recorded."], []))
     assert [finding.kind for finding in result.findings] == ["AMBIGUOUS_STANDARD"]

@@ -84,6 +84,7 @@ def assessment_from_document_findings(
         issue
         for issue in issues
         if getattr(issue, "included_in_report", True)
+        and str(getattr(issue, "type", "")).upper() != "STANDARD_NOT_IN_BIBLIOGRAPHY"
         and (include_minors or _issue_severity(issue) not in {"MINOR", "INFO", "LOW"})
     ]
     scorecard = _load_scorecard(scorecard_data)
@@ -101,38 +102,47 @@ def assessment_from_document_findings(
             "recommendations_actionable": "No persisted baseline assessment was available.",
         },
     )
+    synthesizer = ReportSynthesizer()
     blockers = []
     majors = []
     language = []
-    blocker_levels = {"BLOCKER", "CRITICAL", "MAJOR", "HIGH"}
+    blocker_levels = {"BLOCKER", "CRITICAL", "HIGH"}
+    control_blocker_types = {
+        "UNCONTROLLED_PAGE",
+        "RUNNING_FOOTER",
+        "MISSING_DOCUMENT_NUMBER",
+        "DOCUMENT_NUMBER_MISSING",
+    }
+    blocker_candidates = [
+        issue
+        for issue in included
+        if _issue_severity(issue) in blocker_levels
+        or str(getattr(issue, "type", "")).upper() in control_blocker_types
+    ]
+    blocker_groups = synthesizer.synthesize_blocker_groups(blocker_candidates)
+    for group in blocker_groups:
+        blockers.append(
+            BlockerFinding(
+                number=len(blockers) + 1,
+                title=f"{group['type']} ({group['count']} instances)",
+                where_location="Consolidated across the affected printed pages",
+                what_it_says=group["message"],
+                what_body_has=group["message"],
+                why_it_matters=(
+                    "The repeated findings indicate one unresolved control weakness across "
+                    "the document."
+                ),
+                what_would_fix_it=group["suggestion"],
+            )
+        )
+    major_candidates: list[Any] = []
     for issue in included:
         evidence = getattr(issue, "evidence", None) or {}
         message = str(getattr(issue, "message", ""))
-        suggestion = str(
-            evidence.get("suggestion")
-            or evidence.get("what_would_fix_it")
-            or "Correct and verify the affected evidence."
-        )
         page = str(getattr(issue, "page_number", None) or evidence.get("page", "not located"))
-        if _issue_severity(issue) in blocker_levels:
-            blockers.append(
-                BlockerFinding(
-                    number=len(blockers) + 1,
-                    title=str(getattr(issue, "type", "Blocking finding")),
-                    where_location=f"Printed page {page}",
-                    what_it_says=message,
-                    what_body_has=str(
-                        evidence.get("detected_fact")
-                        or evidence.get("what_body_has")
-                        or "Not supplied."
-                    ),
-                    why_it_matters=(
-                        "The document cannot be relied upon as issued until this inconsistency "
-                        "is resolved."
-                    ),
-                    what_would_fix_it=suggestion,
-                )
-            )
+        issue_type = str(getattr(issue, "type", "")).upper()
+        if _issue_severity(issue) in blocker_levels or issue_type in control_blocker_types:
+            continue
         elif _issue_category(issue) in {"LINGUISTIC", "SPELLING", "GRAMMAR", "DICTIONARY"}:
             language.append(
                 LanguageFinding(
@@ -142,9 +152,16 @@ def assessment_from_document_findings(
                 )
             )
         else:
-            majors.append(
-                MajorFinding(number=len(majors) + 1, finding=message, what_would_fix_it=suggestion)
+            major_candidates.append(issue)
+
+    for group in synthesizer.synthesize_blocker_groups(major_candidates):
+        majors.append(
+            MajorFinding(
+                number=len(majors) + 1,
+                finding=group["message"],
+                what_would_fix_it=group["suggestion"],
             )
+        )
 
     metadata = AssessmentMetadata(
         document_reviewed=(
@@ -559,7 +576,7 @@ def _setup_page_header_footer(doc: DocxDocument, assessment: AssessmentData) -> 
     r_of._r.append(parse_xml(f'<w:fldSimple {nsdecls("w")} w:instr="NUMPAGES"/>'))
 
 
-def generate_ale_review_docx(assessment_result: AssessmentData) -> bytes:
+def generate_ale_review_docx(assessment_result: AssessmentData, document: Any = None) -> bytes:
     """
     Generate a complete, professionally formatted DOCX review report from the supplied
     assessment and Budinski scorecard data.
@@ -623,6 +640,11 @@ def generate_ale_review_docx(assessment_result: AssessmentData) -> bytes:
     # Bagian 1: Document Reviewed Metadata Block
     # -----------------------------------------------------------------------
     meta = assessment_result.metadata
+    workflow_status = getattr(getattr(document, "workflow_status", None), "value", "Not supplied")
+    owner = getattr(document, "owner", None)
+    verified = getattr(document, "verified_by", None)
+    prepared_by = getattr(owner, "full_name", "Not supplied")
+    checked_by = getattr(verified, "full_name", "Pending Verification")
     meta_entries = [
         ("Doc No", meta.document_reviewed),
         (
@@ -638,6 +660,12 @@ def generate_ale_review_docx(assessment_result: AssessmentData) -> bytes:
         ("Scoring", meta.scoring),
         ("Note", meta.note),
         ("Not covered", meta.not_covered),
+        ("Prepared by", prepared_by),
+        (
+            "Checked / Verified by",
+            checked_by if workflow_status == "VERIFIED_BY_LEAD" else "Pending Verification",
+        ),
+        ("Status", workflow_status),
     ]
 
     meta_table = doc.add_table(rows=0, cols=2)
@@ -793,7 +821,35 @@ def generate_ale_review_docx(assessment_result: AssessmentData) -> bytes:
     r_sc_val.font.color.rgb = COLOR_PASS if baseline_score >= 3 else COLOR_FAIL
 
     # -----------------------------------------------------------------------
-    # Bagian 4: Sub-section "Blockers"
+    # Bagian 4: Scorecard summary before blockers
+    # -----------------------------------------------------------------------
+    _add_heading_1(doc, "Scorecard")
+    _add_body_p(
+        doc,
+        "The Budinski scorecard is presented first so the overall writing assessment is not "
+        "buried beneath repeated document-control findings.",
+        space_after=6,
+    )
+    scorecard = assessment_result.scorecard
+    score_summary = (
+        f"Overall average: {scorecard.overall_average:.2f} / 5.00. "
+        f"Group averages: I {scorecard.group_averages['Group I']:.2f}, "
+        f"II {scorecard.group_averages['Group II']:.2f}, "
+        f"III {scorecard.group_averages['Group III']:.2f}, "
+        f"IV {scorecard.group_averages['Group IV']:.2f}. "
+        f"Items requiring rework: {len(scorecard.get_rework_items())}."
+    )
+    _add_callout_box(
+        doc,
+        bg_hex="EFF6FF",
+        border_color_hex=HEX_NAVY,
+        border_sz="24",
+    ).paragraphs[0].add_run(score_summary)
+    p_sc_space = doc.add_paragraph()
+    p_sc_space.paragraph_format.space_after = Pt(8)
+
+    # -----------------------------------------------------------------------
+    # Bagian 5: Sub-section "Blockers"
     # -----------------------------------------------------------------------
     _add_heading_1(doc, "Blockers")
     _add_body_p(
@@ -849,7 +905,7 @@ def generate_ale_review_docx(assessment_result: AssessmentData) -> bytes:
             p_b_space.paragraph_format.space_after = Pt(6)
 
     # -----------------------------------------------------------------------
-    # Bagian 5: Tabel "Should fix in the next revision"
+    # Bagian 6: Tabel "Should fix in the next revision"
     # -----------------------------------------------------------------------
     _add_heading_1(doc, "Should fix in the next revision")
     _add_body_p(
@@ -903,7 +959,7 @@ def generate_ale_review_docx(assessment_result: AssessmentData) -> bytes:
         p_m_space.paragraph_format.space_after = Pt(8)
 
     # -----------------------------------------------------------------------
-    # Bagian 6: Tabel "Language and mechanics, by page"
+    # Bagian 7: Tabel "Language and mechanics, by page"
     # -----------------------------------------------------------------------
     _add_heading_1(doc, "Language and mechanics, by page")
     _add_body_p(
@@ -957,7 +1013,7 @@ def generate_ale_review_docx(assessment_result: AssessmentData) -> bytes:
         p_l_space.paragraph_format.space_after = Pt(8)
 
     # -----------------------------------------------------------------------
-    # Bagian 7: Demonstration rewrite
+    # Bagian 8: Demonstration rewrite
     # -----------------------------------------------------------------------
     if assessment_result.demonstration_rewrite:
         demo = assessment_result.demonstration_rewrite
@@ -1038,9 +1094,9 @@ def generate_ale_review_docx(assessment_result: AssessmentData) -> bytes:
         r_concl.font.color.rgb = COLOR_TEXT
 
     # -----------------------------------------------------------------------
-    # Bagian 8: Scorecard
+    # Bagian 9: Scorecard detail
     # -----------------------------------------------------------------------
-    _add_heading_1(doc, "Scorecard")
+    _add_heading_1(doc, "Scorecard detail")
     _add_body_p(
         doc,
         "Scored against the 41 items of the Appendix 12 review checklist from Budinski, "
@@ -1371,7 +1427,7 @@ def generate_ale_review_docx(assessment_result: AssessmentData) -> bytes:
     p_det_space.paragraph_format.space_after = Pt(8)
 
     # -----------------------------------------------------------------------
-    # Bagian 9: What this document does well
+    # Bagian 10: What this document does well
     # -----------------------------------------------------------------------
     _add_heading_1(doc, "What this document does well")
     _add_body_p(
@@ -1400,7 +1456,7 @@ def generate_ale_review_docx(assessment_result: AssessmentData) -> bytes:
     p_good_space.paragraph_format.space_after = Pt(8)
 
     # -----------------------------------------------------------------------
-    # Bagian 10: Limits of this review & REVIEWSCORE summary string
+    # Bagian 11: Limits of this review & REVIEWSCORE summary string
     # -----------------------------------------------------------------------
     _add_heading_1(doc, "Limits of this review")
 

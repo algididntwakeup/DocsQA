@@ -488,6 +488,51 @@ def _dedup_key(issue: IssueRead) -> tuple[Any, ...]:
     return (issue.category, issue.type, issue.message)
 
 
+def _compact_ref_drift_findings(
+    findings: list[RefDriftFinding],
+) -> list[RefDriftFinding]:
+    """Collapse repeated navigation defects into one narrative finding per kind."""
+    grouped: dict[str, list[RefDriftFinding]] = {}
+    for finding in findings:
+        grouped.setdefault(finding.kind, []).append(finding)
+
+    compacted: list[RefDriftFinding] = []
+    for kind, items in grouped.items():
+        first = items[0]
+        labels = "; ".join(item.label for item in items[:8])
+        suffix = f"; and {len(items) - 8} more" if len(items) > 8 else ""
+        if kind == "REF_DRIFT":
+            page_pairs = "; ".join(
+                f"{item.referenced_page_label}->{item.actual_page_label or 'NOT_FOUND'}"
+                for item in items[:8]
+            )
+            message = (
+                f"{len(items)} front-matter reference(s) use printed page labels that do not "
+                f"match their body targets ({page_pairs}): {labels}{suffix}. Review the "
+                "affected lists as a "
+                "single navigation correction set."
+            )
+        elif kind == "MISSING_TARGET":
+            message = (
+                f"{len(items)} front-matter reference(s) have no matching body target: "
+                f"{labels}{suffix}. Restore the targets or remove the stale entries."
+            )
+        else:
+            message = (
+                f"{len(items)} duplicate caption/reference issue(s) require one consolidated "
+                f"navigation review: {labels}{suffix}."
+            )
+        compacted.append(
+            first.model_copy(
+                update={
+                    "label": f"{kind} summary ({len(items)} entries)",
+                    "message": message,
+                }
+            )
+        )
+    return compacted
+
+
 def aggregate_document_findings(
     document_id: UUID,
     revision: RevisionAnalysis | None = None,
@@ -500,6 +545,7 @@ def aggregate_document_findings(
     ambiguity: AmbiguityAnalysis | None = None,
     failed_stages: list[tuple[str, str, bool]] | None = None,
     reference_findings: list[ReferenceFinding] | None = None,
+    compact_ref_drift: bool = False,
 ) -> AggregationResult:
     """Aggregate, normalize, and deduplicate findings across all pipeline stages."""
     now = datetime.now(UTC)
@@ -518,7 +564,10 @@ def aggregate_document_findings(
 
     # 3. Reference drift
     if ref_drift is not None:
-        for rd_finding in ref_drift.findings:
+        drift_findings = ref_drift.findings
+        if compact_ref_drift:
+            drift_findings = _compact_ref_drift_findings(drift_findings)
+        for rd_finding in drift_findings:
             raw_candidates.append(
                 _normalize_ref_drift_finding(document_id, rd_finding, ref_drift.rule_version, now)
             )

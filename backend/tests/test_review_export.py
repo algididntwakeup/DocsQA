@@ -51,6 +51,10 @@ def _extract_all_doc_text(doc: DocxDocument) -> str:
     return "\n".join(parts)
 
 
+def _section_position(text: str, heading: str) -> int:
+    return text.index(heading)
+
+
 class TestReviewExportDocx:
     """Verification suite for generate_ale_review_docx."""
 
@@ -176,6 +180,62 @@ class TestReviewExportDocx:
         assert "What the body has:" in full_text
         assert "Why it matters:" in full_text
         assert "What would fix it:" in full_text
+
+    def test_scorecard_summary_precedes_blockers(
+        self,
+        canonical_assessment: AssessmentData,
+    ) -> None:
+        docx_bytes = generate_ale_review_docx(canonical_assessment)
+        full_text = _extract_all_doc_text(docx.Document(io.BytesIO(docx_bytes)))
+        assert _section_position(full_text, "Scorecard") < _section_position(full_text, "Blockers")
+
+    def test_repeated_control_findings_are_summarized(self) -> None:
+        class Issue:
+            included_in_report = True
+            category = "LAYOUT"
+            type = "UNCONTROLLED_PAGE"
+            severity = "HIGH"
+            message = "Footer control is missing."
+            page_number = 1
+            evidence = {"suggested_fix": "Apply one controlled footer template."}
+
+        result = assessment_from_document_findings(object(), [Issue(), Issue()])
+        assert len(result.blockers) == 1
+        assert "2 uncontrolled page" in result.blockers[0].what_it_says
+
+    def test_mixed_layout_control_findings_share_one_summary(self) -> None:
+        class Issue:
+            included_in_report = True
+            category = "LAYOUT"
+            severity = "MAJOR"
+            page_number = 1
+            message = "Document-control field is absent."
+            evidence = {}
+
+            def __init__(self, issue_type: str) -> None:
+                self.type = issue_type
+
+        issues = [Issue("UNCONTROLLED_PAGE") for _ in range(20)]
+        issues.extend(Issue("MISSING_DOCUMENT_NUMBER") for _ in range(49))
+        result = assessment_from_document_findings(object(), issues)
+        assert len(result.blockers) == 1
+        assert "69 related finding(s)" in result.blockers[0].what_it_says
+        assert "20 uncontrolled page" in result.blockers[0].what_it_says
+        assert "49 missing document number" in result.blockers[0].what_it_says
+
+    def test_stale_standard_missing_bibliography_is_excluded(self) -> None:
+        class Issue:
+            included_in_report = True
+            category = "STANDARD_TRACEABILITY"
+            type = "STANDARD_NOT_IN_BIBLIOGRAPHY"
+            severity = "HIGH"
+            message = "ISO 9001 is missing."
+            page_number = 1
+            evidence = {}
+
+        result = assessment_from_document_findings(object(), [Issue()])
+        assert not result.blockers
+        assert not result.major_findings
 
     def test_should_fix_in_next_revision_table(
         self,

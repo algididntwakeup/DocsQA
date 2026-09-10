@@ -53,6 +53,30 @@ This file records implementation decisions that must not be reverted or duplicat
 - The `/documents` dashboard subscribes to SSE for active documents, updates rows without reload, and retains five-second polling as a fallback. Active rows use a pulse indicator and the `Live monitoring active` banner.
 - `DocumentRead` currently exposes metadata only. It does not expose the persisted `BudinskiScorecard`; do not add baseline or Group I-IV values to the workspace until a backend endpoint/response contract exposes them.
 - Export controls are buttons using `frontend/src/lib/download.ts`, not direct anchor links, so asynchronous download errors can be surfaced consistently.
+- The project dashboard lives under `/projects` and `/projects/{id}`. Project cards and the
+  project document table are separate from the review workspace.
+- `review-workspace-view.tsx` owns the isolated workflow status strip and workflow action bar;
+  `split-screen-viewer.tsx`, the PDF viewer, highlight overlay, issue panel, issue card, and
+  export modal remain protected internals.
+- Workflow actions call `/documents/{id}/mark-reviewed`, `/verify`, and `/request-revision` and
+  update the document state from the response without a full-page reload.
+- The current frontend login stores the bearer token in `localStorage` for development. This is
+  not an acceptable production session boundary; replace it with a secure HttpOnly SameSite
+  cookie before release and add logout/expiry handling.
+
+## Multi-User API Contract
+
+- `POST /api/v1/auth/login` returns a bearer token and user role; `GET /api/v1/auth/me` returns
+  the current user.
+- `GET /api/v1/projects` lists visible projects. `GET /api/v1/projects/{project_id}/documents`
+  applies engineer isolation and lead-only engineer/date/blocker filters.
+- `POST /api/v1/projects/{project_id}/documents/upload` assigns the uploaded document to the
+  project and current user.
+- Engineer owners can mark their own document reviewed. Lead engineers can verify or request
+  revision. Do not broaden these permissions in the UI without changing backend authorization.
+- Regenerate `frontend/src/lib/api-schema.d.ts` once the backend OpenAPI contract is finalized;
+  temporary local type extensions in `frontend/src/lib/api.ts` should then be removed where
+  generated types cover the same fields.
 
 ## Safe Change Rules
 
@@ -61,6 +85,15 @@ This file records implementation decisions that must not be reverted or duplicat
 - Regenerate `frontend/src/lib/api-schema.d.ts` only after the backend OpenAPI contract has intentionally changed.
 - Do not commit client or sample documents. Local commits are allowed; do not push.
 - Run the focused tests for touched areas plus frontend typecheck/lint before committing.
+
+## Remaining Release Queue
+
+- Add frontend tests for login, project cards, document filtering/upload, and workflow action
+  transitions.
+- Add backend integration tests for project visibility, lead filters, upload ownership, and JWT
+  workflow authorization.
+- Replace browser JWT storage with secure cookie sessions and document logout/expiry behavior.
+- Complete manual visual inspection of the rendered report PNGs for pagination and margins.
 
 ## Verification Snapshot
 

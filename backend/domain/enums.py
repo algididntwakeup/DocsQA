@@ -3,6 +3,21 @@
 from enum import StrEnum
 
 
+class UserRole(StrEnum):
+    """Authorization roles for project and document review workflows."""
+
+    ENGINEER = "ENGINEER"
+    LEAD_ENGINEER = "LEAD_ENGINEER"
+
+
+class DocumentWorkflowStatus(StrEnum):
+    """Human review lifecycle for a document."""
+
+    ANALYZING = "ANALYZING"
+    REVIEWED_BY_ENGINEER = "REVIEWED_BY_ENGINEER"
+    VERIFIED_BY_LEAD = "VERIFIED_BY_LEAD"
+
+
 class DocumentStatus(StrEnum):
     """Processing lifecycle for an uploaded document."""
 

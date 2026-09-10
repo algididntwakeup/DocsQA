@@ -5,7 +5,12 @@ from uuid import UUID
 
 from pydantic import Field
 
-from domain.enums import DocumentStatus, PipelineStage, StageStatus
+from domain.enums import (
+    DocumentStatus,
+    DocumentWorkflowStatus,
+    PipelineStage,
+    StageStatus,
+)
 from schemas.base import ApiModel
 from schemas.common import PageInfo
 
@@ -40,8 +45,25 @@ class DocumentRead(ApiModel):
     status: DocumentStatus
     progress_pct: int = Field(ge=0, le=100)
     page_count: int | None = Field(default=None, ge=1)
+    project_id: UUID | None = None
+    owner_id: UUID | None = None
+    verified_by_id: UUID | None = None
+    workflow_status: DocumentWorkflowStatus
+    reviewed_at: datetime | None = None
+    verified_at: datetime | None = None
+    verification_notes: str | None = None
     created_at: datetime
     updated_at: datetime
+
+
+class DocumentWorkflowUpdate(ApiModel):
+    """Payload for assigning a document and changing its review workflow."""
+
+    project_id: UUID | None = None
+    owner_id: UUID | None = None
+    verified_by_id: UUID | None = None
+    workflow_status: DocumentWorkflowStatus | None = None
+    verification_notes: str | None = None
 
 
 class DocumentUploadResponse(ApiModel):

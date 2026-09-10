@@ -315,10 +315,10 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
         )}
 
         {/* Main Workspace Split Layout */}
-        <div className="flex-1 flex overflow-hidden relative min-h-0 min-w-0">
+        <div className="review-workspace-split flex-1 flex overflow-hidden relative min-h-0 min-w-0">
           {/* Left / Center: PDF Document Viewer */}
           <main
-            className={`flex-1 h-full min-h-0 overflow-hidden min-w-0 ${
+            className={`review-document-pane flex-1 h-full min-h-0 overflow-hidden min-w-0 ${
               mobilePane === "document" ? "block" : "hidden lg:block"
             }`}
           >
@@ -337,7 +337,7 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
 
           {/* Right Pane: Findings Curation Panel */}
           <section
-            className={`w-full lg:w-[380px] xl:w-[420px] h-full min-h-0 min-w-0 shrink-0 overflow-hidden ${
+            className={`review-findings-pane w-full lg:w-1/2 h-full min-h-0 min-w-0 shrink-0 overflow-hidden ${
               mobilePane === "findings" ? "block" : "hidden lg:block"
             }`}
           >

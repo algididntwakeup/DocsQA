@@ -21,10 +21,12 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db.base import Base
-from domain.enums import DocumentStatus, StageStatus
+from domain.enums import DocumentStatus, DocumentWorkflowStatus, StageStatus
 
 if TYPE_CHECKING:
     from models.issue import Issue
+    from models.project import Project
+    from models.user import User
 
 
 class TimestampMixin:
@@ -77,6 +79,19 @@ class Document(TimestampMixin, Base):
     progress_pct: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     page_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    project_id: Mapped[UUID | None] = mapped_column(ForeignKey("projects.id"), nullable=True)
+    owner_id: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    verified_by_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True
+    )
+    workflow_status: Mapped[DocumentWorkflowStatus] = mapped_column(
+        Enum(DocumentWorkflowStatus, name="document_workflow_status", native_enum=False),
+        default=DocumentWorkflowStatus.ANALYZING,
+        nullable=False,
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    verification_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     stage_runs: Mapped[list["StageRun"]] = relationship(
         back_populates="document",
@@ -87,6 +102,13 @@ class Document(TimestampMixin, Base):
         back_populates="document",
         cascade="all, delete-orphan",
         order_by="Issue.created_at",
+    )
+    project: Mapped["Project | None"] = relationship(back_populates="documents")
+    owner: Mapped["User | None"] = relationship(
+        back_populates="owned_documents", foreign_keys=[owner_id]
+    )
+    verified_by: Mapped["User | None"] = relationship(
+        back_populates="verified_documents", foreign_keys=[verified_by_id]
     )
 
 
