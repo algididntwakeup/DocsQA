@@ -66,11 +66,10 @@ This is the central index every new agent must read in full. Repository state al
   - Latest export/reference regression: **55 passed**, Ruff passed, and `git diff --check` passed.
   - Docker visual smoke: DOCX conversion passed, 16 PDF pages produced, 16 PNG pages rendered, and all pages contain text.
 - **Remaining Work**:
-  - Apply `20260910_0009_project_assignment` to the local/disposable PostgreSQL database and verify
-    the assignment schema.
   - Add HTTP coverage for profile update, email uniqueness, project assignment, assigned visibility,
-    engineer project creation, and owner-name responses.
-  - Add browser/e2e coverage for `/settings/profile`, the admin project modal, and assignment UI.
+    engineer project creation, document claim, and owner-name responses.
+  - Add browser/e2e coverage for `/settings/profile`, the admin project/task modal, assignment UI,
+    and the isolated review workspace.
   - Regenerate `frontend/src/lib/api-schema.d.ts` from the finalized OpenAPI contract.
   - Decide and enforce self-disable, lead demotion, and last-active-admin protection policies.
   - Complete manual visual inspection of the 16 rendered report PNGs, then rerun all quality gates.
@@ -119,15 +118,14 @@ npm run build
 
 ## Immediate Next Work
 
-1. Apply `20260910_0009_project_assignment` to PostgreSQL; PostgreSQL and Redis are already healthy
-   in the local Docker stack.
-2. Run the opt-in Redis vertical-slice test with `RUN_REDIS_INTEGRATION=1` using Docker service
+1. Run the opt-in Redis vertical-slice test with `RUN_REDIS_INTEGRATION=1` using Docker service
    networking or a configured local API/worker environment.
-3. Add backend HTTP tests for profile update, duplicate email handling, project assignment,
+2. Add backend HTTP tests for profile update, duplicate email handling, project assignment,
    `user_id` filtering, and engineer/lead authorization boundaries.
-4. Add frontend tests for profile save/error states and the `/admin/users` project modal.
-5. Regenerate OpenAPI/TypeScript contracts and remove temporary handwritten API types where safe.
-6. Run the full backend suite, frontend suite, production build, and Docker smoke deployment.
+3. Add frontend tests for profile save/error states, the `/admin/users` project/task modal, and
+   review workspace layout behavior.
+4. Regenerate OpenAPI/TypeScript contracts and remove temporary handwritten API types where safe.
+5. Run the full backend suite, frontend suite, production build, and Docker smoke deployment.
 7. Perform manual UI review at desktop and mobile widths, especially long admin tables and modal scrolling.
 
 ## Commitments & Rules

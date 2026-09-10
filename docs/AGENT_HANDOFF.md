@@ -126,9 +126,8 @@ This file records implementation decisions that must not be reverted or duplicat
 - PostgreSQL and Redis are healthy in the local Docker stack. The default backend suite skips the
   Redis vertical-slice test unless `RUN_REDIS_INTEGRATION=1` is set; a skipped test does not mean
   Redis is unavailable.
-- Run the full Alembic chain against PostgreSQL before release. The current local database is at
-  `20260910_0008`; migration `20260910_0009_project_assignment` must be applied before the latest
-  assignment code is deployed.
+ - Run the full Alembic chain against PostgreSQL before release. The current local database is at
+   `20260910_0010 (head)`, including project and per-document assignment migrations.
 - Decide whether self-disable, lead demotion, and last-active-admin protection are allowed, then
   enforce those rules in the backend rather than relying on the UI.
 - Complete manual visual inspection of the rendered report PNGs for pagination and margins.
