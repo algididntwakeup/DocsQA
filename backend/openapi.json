@@ -275,6 +275,30 @@
         "title": "CategoryBandEvidence",
         "type": "object"
       },
+      "ChangePasswordRequest": {
+        "additionalProperties": false,
+        "description": "Password replacement requested by the authenticated account owner.",
+        "properties": {
+          "current_password": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Current Password",
+            "type": "string"
+          },
+          "new_password": {
+            "maxLength": 255,
+            "minLength": 8,
+            "title": "New Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "current_password",
+          "new_password"
+        ],
+        "title": "ChangePasswordRequest",
+        "type": "object"
+      },
       "DictionaryTermApprovalRequest": {
         "additionalProperties": false,
         "description": "Admin approval or rejection of a proposed term.",
@@ -459,6 +483,17 @@
               }
             ],
             "title": "Owner Id"
+          },
+          "owner_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Name"
           },
           "page_count": {
             "anyOf": [
@@ -1282,6 +1317,26 @@
         "title": "ProblemDetail",
         "type": "object"
       },
+      "ProjectAssignment": {
+        "additionalProperties": false,
+        "description": "Payload used by leads to assign a project to an engineer.",
+        "properties": {
+          "assigned_to_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assigned To Id"
+          }
+        },
+        "title": "ProjectAssignment",
+        "type": "object"
+      },
       "ProjectCreate": {
         "additionalProperties": false,
         "description": "Payload for creating a project.",
@@ -1338,6 +1393,29 @@
         "additionalProperties": false,
         "description": "Project representation returned by the API.",
         "properties": {
+          "assigned_to_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assigned To Id"
+          },
+          "assigned_to_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assigned To Name"
+          },
           "code": {
             "anyOf": [
               {
@@ -1358,6 +1436,17 @@
             "format": "uuid",
             "title": "Created By Id",
             "type": "string"
+          },
+          "created_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By Name"
           },
           "description": {
             "anyOf": [
@@ -1389,6 +1478,16 @@
               }
             ],
             "title": "Plant Area"
+          },
+          "status": {
+            "default": "NO_DOCUMENTS",
+            "title": "Status",
+            "type": "string"
+          },
+          "total_documents": {
+            "default": 0,
+            "title": "Total Documents",
+            "type": "integer"
           }
         },
         "required": [
@@ -2258,6 +2357,30 @@
         "title": "UserPasswordReset",
         "type": "object"
       },
+      "UserProfileUpdate": {
+        "additionalProperties": false,
+        "description": "Editable profile fields for the authenticated account owner.",
+        "properties": {
+          "email": {
+            "maxLength": 255,
+            "minLength": 3,
+            "title": "Email",
+            "type": "string"
+          },
+          "full_name": {
+            "maxLength": 150,
+            "minLength": 1,
+            "title": "Full Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "full_name",
+          "email"
+        ],
+        "title": "UserProfileUpdate",
+        "type": "object"
+      },
       "UserRead": {
         "additionalProperties": false,
         "description": "Public user representation.",
@@ -2379,6 +2502,53 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/auth/change-password": {
+      "post": {
+        "description": "Change the password for the authenticated account owner.",
+        "operationId": "change_password_api_v1_auth_change_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Change Password",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/v1/auth/login": {
       "post": {
         "description": "Authenticate an active user and issue a JWT.",
@@ -2457,6 +2627,51 @@
           }
         ],
         "summary": "Me",
+        "tags": [
+          "auth"
+        ]
+      },
+      "patch": {
+        "description": "Update the authenticated user's profile fields.",
+        "operationId": "update_profile_api_v1_auth_me_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserProfileUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Profile",
         "tags": [
           "auth"
         ]
@@ -3861,6 +4076,25 @@
       "get": {
         "description": "List projects visible to the authenticated user.",
         "operationId": "list_projects_api_v1_projects_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "user_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "User Id"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -3875,6 +4109,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "security": [
@@ -3928,6 +4172,65 @@
           }
         ],
         "summary": "Create Project",
+        "tags": [
+          "projects"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/assign": {
+      "patch": {
+        "description": "Assign or unassign a project to an active user.",
+        "operationId": "assign_project_api_v1_projects__project_id__assign_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectAssignment"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Assign Project",
         "tags": [
           "projects"
         ]

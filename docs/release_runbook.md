@@ -37,14 +37,18 @@ graph TD
 
 - [x] Python 3.13+ virtual environment pinned with all requirements in `backend/requirements.txt` (including `openpyxl>=3.1.0`, `pypdf>=5.0.0`, `types-openpyxl`).
 - [x] Node.js 20+ installed for `frontend/`.
-- [x] PostgreSQL 16+ instance available with valid connection string.
-- [x] Redis 7+ instance running for Celery broker.
+- [x] PostgreSQL 16+ instance available with valid connection string; local Docker PostgreSQL is healthy.
+- [x] Redis 7+ instance running for Celery broker; local Docker Redis is healthy.
 - [x] Storage mount available with read/write permissions for upload staging and artifact retention.
 - [x] Backend quality suite 100% passing (`backend/scripts/quality.ps1`).
 - [x] Frontend checks 100% passing (`npm run check`: lint, typecheck, tests, production build).
 - [x] Zero uncommitted local modifications.
 - [ ] Apply and verify Alembic migration `20260910_0009_project_assignment` against the release database.
 - [ ] Verify profile update, project assignment visibility, and admin project modal with HTTP/browser tests.
+
+The default backend suite reports the Redis vertical-slice test as skipped because it is opt-in.
+Redis is available in the local Docker stack; run the integration test explicitly with
+`RUN_REDIS_INTEGRATION=1` after configuring the test process to reach the Docker API/worker.
 
 ---
 
@@ -58,6 +62,9 @@ cd backend
 python -m alembic current
 python -m alembic heads
 ```
+
+The local Docker database was last verified at revision `20260910_0008`. Do not deploy the latest
+assignment code until `20260910_0009_project_assignment` has been applied.
 
 ### 3.2 Offline SQL Review (Recommended for Production DBA Review)
 To generate the raw SQL script without executing it:

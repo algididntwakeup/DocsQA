@@ -15,6 +15,7 @@ import {
   type UserRole,
 } from "@/lib/api";
 import { SplitScreenViewer } from "./split-screen-viewer";
+import { ExportModal } from "./export-modal";
 
 export function ReviewWorkspaceView({ id }: { id: string }) {
   const [document, setDocument] = useState<DocumentItem | null>(null);
@@ -26,6 +27,8 @@ export function ReviewWorkspaceView({ id }: { id: string }) {
   const [workflowBusy, setWorkflowBusy] = useState(false);
   const [workflowError, setWorkflowError] = useState<string | null>(null);
   const [revisionNote, setRevisionNote] = useState("");
+  const [isExportOpen, setIsExportOpen] = useState(false);
+  const [isScorecardOpen, setIsScorecardOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -159,18 +162,21 @@ export function ReviewWorkspaceView({ id }: { id: string }) {
   const canLeadDecide = (userRole === "LEAD_ENGINEER" || userRole === "SUPERUSER") && workflowStatus === "REVIEWED_BY_ENGINEER";
 
   return (
-    <div className="rq-review-page">
+    <div className="rq-review-page h-screen overflow-hidden flex flex-col bg-slate-950 text-slate-100">
       <header className="rq-review-header">
         <div className="rq-review-heading">
           <Link href={document.project_id ? `/projects/${document.project_id}` : "/projects"} className="rq-review-back"><ArrowLeft size={15} /> Project / Inspection</Link>
-          <div className="rq-review-title-row"><div className="rq-review-file-icon"><ShieldCheck size={19} /></div><div><h1>{document.filename}</h1><div className="rq-review-meta"><span className={`rq-review-status rq-review-status-${workflowStatus.toLowerCase()}`}><i />{workflowStatus.replaceAll("_", " ")}</span><span><UserRound size={13} /> Prepared by: {document.owner_id ? `${document.owner_id.slice(0, 8)}...` : "Engineering team"}</span><span>Revision {document.filename.match(/rev[-_ ]?([a-z0-9]+)/i)?.[1]?.toUpperCase() ?? "—"}</span></div></div></div>
+           <div className="rq-review-title-row"><div className="rq-review-file-icon"><ShieldCheck size={19} /></div><div><h1>{document.filename}</h1><div className="rq-review-meta"><span className={`rq-review-status rq-review-status-${workflowStatus.toLowerCase()}`}><i />{workflowStatus.replaceAll("_", " ")}</span><span><UserRound size={13} /> Prepared by: {document.owner_name ?? "Engineering team"}</span><span>Revision {document.filename.match(/rev[-_ ]?([a-z0-9]+)/i)?.[1]?.toUpperCase() ?? "—"}</span></div></div></div>
         </div>
-        <div className="rq-review-actions"><Link href={document.project_id ? `/projects/${document.project_id}` : "/projects"} className="rq-review-action-secondary"><ArrowLeft size={15} /> Kembali</Link><span className="rq-review-divider" /><span className="rq-review-status-count">{issues.length} findings</span></div>
+         <div className="rq-review-actions"><button type="button" className="rq-review-action-secondary" onClick={() => setIsScorecardOpen(true)}>Budinski Scorecard</button><button type="button" className="rq-review-action-secondary" onClick={() => setIsExportOpen(true)}>Export DOCX</button><Link href={document.project_id ? `/projects/${document.project_id}` : "/projects"} className="rq-review-action-secondary"><ArrowLeft size={15} /> Kembali</Link><span className="rq-review-divider" /><span className="rq-review-status-count">{issues.length} findings</span></div>
       </header>
 
       <div className="rq-review-live-status" role="status" aria-live="polite"><ShieldCheck size={15} /><span>Workflow status</span><span className={`rq-review-status rq-review-status-${workflowStatus.toLowerCase()}`}><i />{workflowStatus.replaceAll("_", " ")}</span></div>
 
-      <SplitScreenViewer document={document} initialIssues={issues} />
+       <main className="flex-1 flex overflow-hidden min-h-0"><SplitScreenViewer document={document} initialIssues={issues} /></main>
+
+       <ExportModal documentId={document.id} documentFilename={document.filename} isOpen={isExportOpen} onClose={() => setIsExportOpen(false)} />
+       {isScorecardOpen && <div className="rq-scorecard-backdrop" role="dialog" aria-modal="true" aria-labelledby="workspace-scorecard-title" onClick={() => setIsScorecardOpen(false)}><div className="rq-scorecard-modal" onClick={(event) => event.stopPropagation()}><header><div><p className="rq-kicker">Technical writing audit</p><h2 id="workspace-scorecard-title">Budinski Scorecard</h2><p>Inspection summary for this review workspace.</p></div><button type="button" aria-label="Close scorecard" onClick={() => setIsScorecardOpen(false)}>×</button></header><div className="rq-scorecard-kpis"><div><strong>{issues.filter((issue) => issue.category === "BUDINSKI").length}</strong><span>Items flagged</span></div><div><strong>{issues.length}</strong><span>Total findings</span></div><div><strong>{Math.max(0, 41 - issues.filter((issue) => issue.category === "BUDINSKI").length)}</strong><span>Items clear</span></div></div></div></div>}
 
       {(canSubmitReview || canLeadDecide || workflowError) && (
         <div className="rq-signoff-bar" role="region" aria-label="Workflow actions">

@@ -1,6 +1,6 @@
 """Authentication and document ownership policy tests."""
 
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
@@ -17,6 +17,8 @@ from fastapi import Response
 from fastapi.security import HTTPAuthorizationCredentials
 from starlette.requests import Request
 from api.auth import logout
+from api.auth import update_profile, update_user_status
+from schemas.user import UserProfileUpdate, UserStatusUpdate
 
 
 def test_passwords_and_tokens_round_trip() -> None:
@@ -118,3 +120,58 @@ def test_logout_expires_access_cookie() -> None:
 
     assert 'access_token="";' in response.headers["set-cookie"]
     assert "Max-Age=0" in response.headers["set-cookie"]
+
+
+def _result(value):
+    return type("Result", (), {"scalar_one_or_none": lambda self: value})()
+
+
+@pytest.mark.anyio
+async def test_profile_update_changes_name_and_normalizes_email() -> None:
+    user = User(
+        id=uuid4(), email="old@example.test", hashed_password="unused",
+        full_name="Old Name", role=UserRole.ENGINEER, is_active=True,
+        created_at=datetime.now(UTC),
+    )
+    session = AsyncMock()
+    session.execute.return_value = _result(None)
+
+    result = await update_profile(
+        UserProfileUpdate(full_name=" Updated Name ", email=" NEW@Example.Test "),
+        session,
+        user,
+    )
+
+    assert result.full_name == "Updated Name"
+    assert result.email == "new@example.test"
+    session.commit.assert_awaited_once()
+
+
+@pytest.mark.anyio
+async def test_user_cannot_deactivate_themselves() -> None:
+    user = User(
+        id=uuid4(), email="lead@example.test", hashed_password="unused",
+        full_name="Lead", role=UserRole.LEAD_ENGINEER, is_active=True,
+    )
+    with pytest.raises(HTTPException, match="Cannot deactivate your own account") as error:
+        await update_user_status(user.id, UserStatusUpdate(is_active=False), AsyncMock(), user)
+    assert error.value.status_code == 400
+
+
+@pytest.mark.anyio
+async def test_last_active_lead_cannot_be_deactivated() -> None:
+    lead = User(
+        id=uuid4(), email="lead@example.test", hashed_password="unused",
+        full_name="Lead", role=UserRole.LEAD_ENGINEER, is_active=True,
+    )
+    target = User(
+        id=uuid4(), email="other-lead@example.test", hashed_password="unused",
+        full_name="Other Lead", role=UserRole.LEAD_ENGINEER, is_active=True,
+    )
+    session = AsyncMock()
+    session.execute.return_value = _result(target)
+    session.scalar.return_value = 1
+
+    with pytest.raises(HTTPException, match="Cannot deactivate the last active lead engineer") as error:
+        await update_user_status(target.id, UserStatusUpdate(is_active=False), session, lead)
+    assert error.value.status_code == 400

@@ -4,6 +4,26 @@
  */
 
 export interface paths {
+    "/api/v1/auth/change-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change Password
+         * @description Change the password for the authenticated account owner.
+         */
+        post: operations["change_password_api_v1_auth_change_password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/login": {
         parameters: {
             query?: never;
@@ -58,7 +78,11 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update Profile
+         * @description Update the authenticated user's profile fields.
+         */
+        patch: operations["update_profile_api_v1_auth_me_patch"];
         trace?: never;
     };
     "/api/v1/auth/register-engineer": {
@@ -486,11 +510,35 @@ export interface paths {
          */
         get: operations["list_projects_api_v1_projects_get"];
         put?: never;
-        post?: never;
+        /**
+         * Create Project
+         * @description Create a project for lead users.
+         */
+        post: operations["create_project_api_v1_projects_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Assign Project
+         * @description Assign or unassign a project to an active user.
+         */
+        patch: operations["assign_project_api_v1_projects__project_id__assign_patch"];
         trace?: never;
     };
     "/api/v1/projects/{project_id}/documents": {
@@ -674,6 +722,16 @@ export interface components {
             why_it_matters: string;
         };
         /**
+         * ChangePasswordRequest
+         * @description Password replacement requested by the authenticated account owner.
+         */
+        ChangePasswordRequest: {
+            /** Current Password */
+            current_password: string;
+            /** New Password */
+            new_password: string;
+        };
+        /**
          * DictionaryTermApprovalRequest
          * @description Admin approval or rejection of a proposed term.
          */
@@ -760,6 +818,8 @@ export interface components {
             media_type: string;
             /** Owner Id */
             owner_id?: string | null;
+            /** Owner Name */
+            owner_name?: string | null;
             /** Page Count */
             page_count?: number | null;
             /** Progress Pct */
@@ -1075,10 +1135,36 @@ export interface components {
             type: string;
         };
         /**
+         * ProjectAssignment
+         * @description Payload used by leads to assign a project to an engineer.
+         */
+        ProjectAssignment: {
+            /** Assigned To Id */
+            assigned_to_id?: string | null;
+        };
+        /**
+         * ProjectCreate
+         * @description Payload for creating a project.
+         */
+        ProjectCreate: {
+            /** Code */
+            code?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Name */
+            name: string;
+            /** Plant Area */
+            plant_area?: string | null;
+        };
+        /**
          * ProjectRead
          * @description Project representation returned by the API.
          */
         ProjectRead: {
+            /** Assigned To Id */
+            assigned_to_id?: string | null;
+            /** Assigned To Name */
+            assigned_to_name?: string | null;
             /** Code */
             code?: string | null;
             /**
@@ -1091,6 +1177,8 @@ export interface components {
              * Format: uuid
              */
             created_by_id: string;
+            /** Created By Name */
+            created_by_name?: string | null;
             /** Description */
             description?: string | null;
             /**
@@ -1102,6 +1190,16 @@ export interface components {
             name: string;
             /** Plant Area */
             plant_area?: string | null;
+            /**
+             * Status
+             * @default NO_DOCUMENTS
+             */
+            status: string;
+            /**
+             * Total Documents
+             * @default 0
+             */
+            total_documents: number;
         };
         /**
          * ReferenceDriftEvidence
@@ -1461,6 +1559,16 @@ export interface components {
             temporary_password: string;
         };
         /**
+         * UserProfileUpdate
+         * @description Editable profile fields for the authenticated account owner.
+         */
+        UserProfileUpdate: {
+            /** Email */
+            email: string;
+            /** Full Name */
+            full_name: string;
+        };
+        /**
          * UserRead
          * @description Public user representation.
          */
@@ -1519,6 +1627,39 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    change_password_api_v1_auth_change_password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     login_api_v1_auth_login_post: {
         parameters: {
             query?: never;
@@ -1586,6 +1727,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UserRead"];
+                };
+            };
+        };
+    };
+    update_profile_api_v1_auth_me_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserProfileUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -2465,7 +2639,9 @@ export interface operations {
     };
     list_projects_api_v1_projects_get: {
         parameters: {
-            query?: never;
+            query?: {
+                user_id?: string | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -2479,6 +2655,83 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProjectRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_project_api_v1_projects_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    assign_project_api_v1_projects__project_id__assign_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectAssignment"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

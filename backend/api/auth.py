@@ -198,12 +198,29 @@ async def update_user_status(
     user_id: UUID,
     payload: UserStatusUpdate,
     session: Annotated[AsyncSession, Depends(get_session)],
-    _: Annotated[User, Depends(require_user_manager)],
+    current_user: Annotated[User, Depends(require_user_manager)],
 ) -> UserManagementRead:
     """Activate or deactivate an account."""
     user = (await session.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+    if user_id == current_user.id and not payload.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot deactivate your own account",
+        )
+    if user.role == UserRole.LEAD_ENGINEER and user.is_active and not payload.is_active:
+        active_leads = await session.scalar(
+            select(func.count(User.id)).where(
+                User.role == UserRole.LEAD_ENGINEER,
+                User.is_active.is_(True),
+            )
+        )
+        if int(active_leads or 0) <= 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot deactivate the last active lead engineer",
+            )
     user.is_active = payload.is_active
     await session.commit()
     await session.refresh(user)

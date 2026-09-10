@@ -9,9 +9,11 @@ import {
   deleteDocument,
   getDocument,
   getDocumentStatus,
+  listAllDocumentIssues,
   subscribeDocumentEvents,
   type DocumentItem,
   type DocumentStatus,
+  type IssueItem,
 } from "@/lib/api";
 import { formatBytes, formatDate } from "@/lib/format";
 import { ScanProgress } from "./scan-progress";
@@ -23,6 +25,7 @@ export function DocumentStatusView({ id }: { id: string }) {
   const router = useRouter();
   const [document, setDocument] = useState<DocumentItem | null>(null);
   const [scan, setScan] = useState<DocumentStatus | null>(null);
+  const [issues, setIssues] = useState<IssueItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const retryRef = useRef(1000);
@@ -48,10 +51,11 @@ export function DocumentStatusView({ id }: { id: string }) {
 
   const load = useCallback(async () => {
     try {
-      const [nextDocument, nextScan] = await Promise.all([getDocument(id), getDocumentStatus(id)]);
+      const [nextDocument, nextScan, nextIssues] = await Promise.all([getDocument(id), getDocumentStatus(id), listAllDocumentIssues(id)]);
       setError(null);
       setDocument(nextDocument);
       setScan(nextScan);
+      setIssues(nextIssues);
       retryRef.current = 1000;
       return nextScan;
     } catch (caught) {
@@ -147,10 +151,10 @@ export function DocumentStatusView({ id }: { id: string }) {
 
   return (
     <>
-      <Link className="back-link" href="/"><ArrowLeft size={15} />Inspection register</Link>
+      <Link className="back-link" href={document?.project_id ? `/projects/${document.project_id}` : "/projects"}><ArrowLeft size={15} />Project / Inspection register</Link>
       {error && <div className="alert alert-error" role="alert"><AlertTriangle /><span><strong>Status unavailable</strong>{error}</span><button type="button" onClick={() => void load()}>Retry</button></div>}
       {!document || !scan ? <div className="panel loading-state" role="status">Reading pipeline telemetry…</div> : <>
-        <div className="document-hero">
+        <div className="document-hero rq-inspection-hero">
           <div className="document-icon"><FileText /></div>
           <div>
             <p className="eyebrow">Document inspection</p>
@@ -188,13 +192,14 @@ export function DocumentStatusView({ id }: { id: string }) {
             </div>
             {scan.status !== "FAILED" && (
               <div className="next-step-actions">
-                <Link className="primary-action-button" href={`/documents/${id}/review`}>
-                  Open Review Workspace
+                 <Link className="primary-action-button" href={`/documents/${id}/review`}>
+                   Buka Review Workspace
                 </Link>
               </div>
             )}
           </section>
         )}
+        {TERMINAL.has(scan.status) && scan.status !== "FAILED" && <section className="rq-inspection-metrics" aria-label="Finding metrics"><div><strong>{issues.filter((issue) => issue.severity === "BLOCKER" || issue.severity === "CRITICAL").length}</strong><span>Blocker</span></div><div><strong>{issues.filter((issue) => issue.severity === "MAJOR" || issue.severity === "HIGH").length}</strong><span>Major</span></div><div><strong>{issues.filter((issue) => issue.severity === "MINOR" || issue.severity === "MEDIUM" || issue.severity === "LOW").length}</strong><span>Minor</span></div></section>}
       </>}
     </>
   );

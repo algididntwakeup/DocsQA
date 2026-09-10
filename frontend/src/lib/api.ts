@@ -186,6 +186,14 @@ export function listProjectsForUser(userId: string): Promise<ProjectItem[]> {
   return request<ProjectItem[]>(`/projects?user_id=${encodeURIComponent(userId)}`, { cache: "no-store" });
 }
 
+export function assignProject(projectId: string, assignedToId: string | null): Promise<ProjectItem> {
+  return request<ProjectItem>(`/projects/${encodeURIComponent(projectId)}/assign`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ assigned_to_id: assignedToId }),
+  });
+}
+
 export function createProject(payload: CreateProjectPayload): Promise<ProjectItem> {
   return request<ProjectItem>("/projects", {
     method: "POST",

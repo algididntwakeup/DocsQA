@@ -24,13 +24,14 @@ router = APIRouter(prefix="/projects", tags=["projects"])
 
 
 def _project_read(project: Project) -> ProjectRead:
-    return ProjectRead(
-        **ProjectRead.model_validate(project).model_dump(),
+    data = ProjectRead.model_validate(project).model_dump()
+    data.update(
         created_by_name=project.created_by.full_name if project.created_by else None,
         assigned_to_name=project.assigned_to.full_name if project.assigned_to else None,
         total_documents=len(project.documents),
         status="NO_DOCUMENTS" if not project.documents else "ACTIVE",
     )
+    return ProjectRead(**data)
 
 
 @router.post("", response_model=ProjectRead, status_code=201)

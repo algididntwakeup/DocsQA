@@ -43,7 +43,8 @@ export function ScanProgress({ scan }: { scan: DocumentStatus }) {
       : {
           title: "Processing complete",
           description: "The document review pipeline has finished.",
-        };
+      };
+  const stages = ["EXTRACTING", "LAYOUT_INSPECTION", "BUDINSKI_AUDIT", "STANDARDS_CHECK"];
   return (
     <section className="panel scan-panel" aria-labelledby="scan-heading">
       <div className="panel-heading">
@@ -57,6 +58,14 @@ export function ScanProgress({ scan }: { scan: DocumentStatus }) {
           <p>{activity.description}</p>
           {isProcessing && <small>This may take a while for large or complex documents. Please keep this page open.</small>}
         </div>
+      </div>
+      <div className="rq-pipeline-stages" aria-label="Inspection pipeline stages">
+        {stages.map((name) => {
+          const stage = scan.stages.find((item) => item.name === name);
+          const active = stage?.status === "RUNNING";
+          const complete = stage?.status === "SUCCEEDED" || stage?.status === "SUCCEEDED_WITH_WARNINGS";
+          return <div className={`rq-pipeline-stage ${active ? "is-active" : ""} ${complete ? "is-complete" : ""}`} key={name}><span className="rq-pipeline-dot" /><span>{name === "EXTRACTING" ? "Extracting" : name === "LAYOUT_INSPECTION" ? "Layout" : name === "BUDINSKI_AUDIT" ? "Budinski" : "Standards"}</span><small>{complete ? "Complete" : active ? "Running" : "Queued"}</small></div>;
+        })}
       </div>
       {activeStage?.error_message && <p className="telemetry-error" role="alert">{activeStage.error_message}</p>}
     </section>

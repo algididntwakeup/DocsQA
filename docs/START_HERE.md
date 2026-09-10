@@ -53,12 +53,17 @@ This is the central index every new agent must read in full. Repository state al
   - **Item 6 / Real-World E2E Test (Complete)**: Verified full scan and report generation for `docs/testcase/05.MEPG-Asset Life Extension 2026_Static Equipment_RevB.pdf` in `backend/tests/test_e2e_mepg_review.py`.
   - **Item 7 / Schema & Pipeline Synchronization (Complete)**: Synchronized `IssueCategory` (`LAYOUT`, `BUDINSKI`), `Severity` (`BLOCKER`), 6 canonical pipeline stages, SSE progress streaming, linguistic finding de-prioritization, OpenAPI 3.1 specification, and frontend TypeScript contracts.
 - **Quality Status**:
-  - Frontend checkpoint: **48 passed, typecheck passed, lint passed, production build passed**.
-  - Backend focused checkpoint: `test_auth_isolation.py` **7 passed**; full suite remains a release-gate run after the assignment migration.
+  - Frontend checkpoint: **50 passed, typecheck passed, lint passed, production build passed**.
+  - Backend checkpoint: **396 passed, 1 skipped**; the skipped Redis vertical-slice test is opt-in
+    via `RUN_REDIS_INTEGRATION=1`, not evidence that the Redis service is unavailable.
+  - Local Docker checkpoint: PostgreSQL and Redis are both healthy. The database is currently at
+    Alembic revision `20260910_0008`; apply `20260910_0009_project_assignment` before using the
+    latest assignment code.
   - Latest export/reference regression: **55 passed**, Ruff passed, and `git diff --check` passed.
   - Docker visual smoke: DOCX conversion passed, 16 PDF pages produced, 16 PNG pages rendered, and all pages contain text.
 - **Remaining Work**:
-  - Run the full backend suite and migration against a disposable migrated PostgreSQL database.
+  - Apply `20260910_0009_project_assignment` to the local/disposable PostgreSQL database and verify
+    the assignment schema.
   - Add HTTP coverage for profile update, email uniqueness, project assignment, assigned visibility,
     engineer project creation, and owner-name responses.
   - Add browser/e2e coverage for `/settings/profile`, the admin project modal, and assignment UI.
@@ -110,13 +115,16 @@ npm run build
 
 ## Immediate Next Work
 
-1. Apply migrations to a disposable database and verify `20260910_0009_project_assignment`.
-2. Add backend HTTP tests for profile update, duplicate email handling, project assignment,
+1. Apply `20260910_0009_project_assignment` to PostgreSQL; PostgreSQL and Redis are already healthy
+   in the local Docker stack.
+2. Run the opt-in Redis vertical-slice test with `RUN_REDIS_INTEGRATION=1` using Docker service
+   networking or a configured local API/worker environment.
+3. Add backend HTTP tests for profile update, duplicate email handling, project assignment,
    `user_id` filtering, and engineer/lead authorization boundaries.
-3. Add frontend tests for profile save/error states and the `/admin/users` project modal.
-4. Regenerate OpenAPI/TypeScript contracts and remove temporary handwritten API types where safe.
-5. Run the full backend suite, frontend suite, production build, and Docker smoke deployment.
-6. Perform manual UI review at desktop and mobile widths, especially long admin tables and modal scrolling.
+4. Add frontend tests for profile save/error states and the `/admin/users` project modal.
+5. Regenerate OpenAPI/TypeScript contracts and remove temporary handwritten API types where safe.
+6. Run the full backend suite, frontend suite, production build, and Docker smoke deployment.
+7. Perform manual UI review at desktop and mobile widths, especially long admin tables and modal scrolling.
 
 ## Commitments & Rules
 

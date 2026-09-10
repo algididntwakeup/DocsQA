@@ -65,6 +65,12 @@ Unlike generative AI tools that hallucinate, DocsQA runs on **100% deterministic
 
 Docker Compose starts the complete stack: PostgreSQL 17, Redis 7, Alembic migrations, FastAPI, Celery, and Next.js. Authentication is enabled by default. The canonical Compose file is `compose.yaml`; Docker Compose automatically prefers it when both Compose files exist.
 
+Current local Docker status: PostgreSQL and Redis are both running and healthy. The full backend
+suite passes with the Redis integration test skipped by default; that test is opt-in through
+`RUN_REDIS_INTEGRATION=1`. The running database is currently at Alembic revision `20260910_0008`,
+so apply the pending `20260910_0009_project_assignment` migration before using the latest project
+assignment code.
+
 ### Prerequisites
 
 - [Docker](https://docs.docker.com/get-docker/) with Docker Compose v2.20+
@@ -188,7 +194,9 @@ docker compose down --volumes
 ### System Requirements
 - Python `3.13` or `3.14`
 - Node.js `20.x` or `24.x` (LTS)
-- Running PostgreSQL (`localhost:5432`) and Redis (`localhost:6379`)
+- Running PostgreSQL (`localhost:5432`) and Redis (`localhost:6379`). PostgreSQL and Redis are
+  currently healthy in the local Docker stack; Redis is not the reason the default test suite skips
+  the integration test. Enable that test explicitly with `RUN_REDIS_INTEGRATION=1`.
 
 ### 1. Backend Setup
 ```bash
