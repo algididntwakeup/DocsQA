@@ -141,9 +141,9 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
   const baselinePasses = budinskiIssues.filter((issue) => issue.severity !== "BLOCKER" && issue.severity !== "CRITICAL").length;
 
   return (
-    <div className="rq-split-workspace flex flex-col w-full min-h-full min-w-0 text-ink">
+    <div className="rq-split-workspace flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-slate-950 text-slate-100">
       {/* Above Card Header: Breadcrumbs & Document Info & Status */}
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-3 shrink-0">
+      <div className="hidden">
         {/* Left: Return Link & Document Title */}
         <div className="flex items-center gap-2.5 min-w-0">
           <Link
@@ -186,7 +186,7 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
 
       {statusMessage && (
         <div
-          className={`mb-3 flex items-start gap-2 rounded-md border px-3 py-2 text-xs ${
+          className={`hidden mb-3 items-start gap-2 rounded-md border px-3 py-2 text-xs ${
             document.status === "FAILED"
               ? "border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300"
               : document.status === "COMPLETED_WITH_WARNINGS"
@@ -208,9 +208,9 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
       )}
 
       {/* Main Review Workspace Card */}
-      <div className="rq-workspace-card panel flex flex-col flex-1 min-h-[480px] w-full overflow-hidden shadow-xs border-line">
+      <div className="rq-workspace-card flex min-h-0 flex-1 w-full flex-col overflow-hidden">
         {/* Card Header / Action Toolbar */}
-        <header className="h-12 border-b border-line bg-panel flex items-center justify-between px-3 sm:px-4 shrink-0 gap-3">
+        <header className="hidden h-12 border-b border-line bg-panel items-center justify-between px-3 sm:px-4 shrink-0 gap-3">
           {/* Left: Eyebrow label & Mobile Pane Switcher */}
           <div className="flex items-center gap-3">
             <span className="eyebrow text-muted hidden sm:inline text-[10px] tracking-wider m-0">
@@ -303,7 +303,7 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
         {alertMessage && (
           <div
             role="alert"
-            className={`px-4 py-2 text-xs flex items-center justify-between z-20 shrink-0 ${
+            className={`hidden px-4 py-2 text-xs items-center justify-between z-20 shrink-0 ${
               alertMessage.type === "error"
                 ? "bg-red-500/15 text-red-700 dark:text-red-300 border-b border-red-500/30"
                 : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-b border-emerald-500/30"
@@ -350,7 +350,7 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
 
           {/* Right Pane: Findings Curation Panel */}
           <section
-            className={`review-findings-pane w-full lg:w-1/2 h-full min-h-0 min-w-0 shrink-0 overflow-hidden ${
+            className={`review-findings-pane w-full lg:w-[460px] xl:w-[540px] h-full min-h-0 min-w-0 shrink-0 overflow-hidden ${
               mobilePane === "findings" ? "block" : "hidden lg:block"
             }`}
           >
@@ -366,7 +366,7 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
         </div>
 
         {/* Bottom Bar: Report Deliverables Actions */}
-        <footer className="min-h-11 border-t border-line bg-panel flex flex-wrap items-center justify-between px-3 sm:px-4 py-2 shrink-0 text-xs gap-2">
+        <footer className="hidden min-h-11 border-t border-line bg-panel flex-wrap items-center justify-between px-3 sm:px-4 py-2 shrink-0 text-xs gap-2">
           <div className="flex items-center gap-2 text-muted">
             <span className="font-semibold text-ink">{includedCount}</span> findings marked for export
             {blockersCount > 0 && (

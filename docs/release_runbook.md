@@ -43,7 +43,7 @@ graph TD
 - [x] Backend quality suite 100% passing (`backend/scripts/quality.ps1`).
 - [x] Frontend checks 100% passing (`npm run check`: lint, typecheck, tests, production build).
 - [x] Zero uncommitted local modifications.
-- [ ] Apply and verify Alembic migration `20260910_0009_project_assignment` against the release database.
+- [x] Apply and verify Alembic migrations through `20260910_0010_document_assignment` locally.
 - [ ] Verify profile update, project assignment visibility, and admin project modal with HTTP/browser tests.
 
 The default backend suite reports the Redis vertical-slice test as skipped because it is opt-in.
@@ -63,8 +63,8 @@ python -m alembic current
 python -m alembic heads
 ```
 
-The local Docker database was last verified at revision `20260910_0008`. Do not deploy the latest
-assignment code until `20260910_0009_project_assignment` has been applied.
+The local Docker database is verified at revision `20260910_0010 (head)`. Do not deploy assignment
+UI until both project and per-document assignment migrations have been applied.
 
 ### 3.2 Offline SQL Review (Recommended for Production DBA Review)
 To generate the raw SQL script without executing it:

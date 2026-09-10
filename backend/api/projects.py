@@ -63,18 +63,30 @@ async def list_projects(
 ) -> list[ProjectRead]:
     """List projects visible to the authenticated user."""
     query = select(Project).options(
-        joinedload(Project.created_by), joinedload(Project.assigned_to), joinedload(Project.documents)
+        joinedload(Project.created_by),
+        joinedload(Project.assigned_to),
+        joinedload(Project.documents),
     )
     if user_id is not None:
         query = query.where(Project.assigned_to_id == user_id)
-        if current_user.role not in {UserRole.LEAD_ENGINEER, UserRole.SUPERUSER} and user_id != current_user.id:
+        if (
+            current_user.role not in {UserRole.LEAD_ENGINEER, UserRole.SUPERUSER}
+            and user_id != current_user.id
+        ):
             query = query.where(Project.id == UUID(int=0))
     elif current_user.role not in {UserRole.LEAD_ENGINEER, UserRole.SUPERUSER}:
         query = query.where(
             (Project.assigned_to_id == current_user.id)
-            | exists().where(Document.project_id == Project.id, Document.owner_id == current_user.id)
+            | exists().where(
+                Document.project_id == Project.id, Document.owner_id == current_user.id
+            )
         )
-    projects = (await session.execute(query.order_by(Project.created_at.desc()))).unique().scalars().all()
+    projects = (
+        (await session.execute(query.order_by(Project.created_at.desc())))
+        .unique()
+        .scalars()
+        .all()
+    )
     return [_project_read(project) for project in projects]
 
 
@@ -124,11 +136,13 @@ async def list_project_documents(
     has_blockers: bool | None = None,
 ) -> DocumentListResponse:
     """List project documents with lead-only cross-engineer filters."""
-    query = select(Document).where(Document.project_id == project_id).options(joinedload(Document.owner))
+    query = select(Document).where(Document.project_id == project_id).options(
+        joinedload(Document.owner), joinedload(Document.assigned_to)
+    )
     if current_user.role not in {UserRole.LEAD_ENGINEER, UserRole.SUPERUSER}:
         query = query.where(Document.owner_id == current_user.id)
     elif engineer_id is not None:
-        query = query.where(Document.owner_id == engineer_id)
+        query = query.where(Document.assigned_to_id == engineer_id)
     if workflow_status is not None:
         query = query.where(Document.status == workflow_status)
     if has_blockers is not None:
@@ -142,8 +156,16 @@ async def list_project_documents(
     documents = (await session.execute(query.order_by(order))).scalars().all()
     return DocumentListResponse(
         documents=[
-            DocumentRead.model_validate(document, from_attributes=True).model_copy(
-                update={"owner_name": document.owner.full_name if document.owner else None}
+            DocumentRead.model_validate(document).model_copy(
+                update={
+                    "owner_name": document.owner.full_name if document.owner else None,
+                    "assigned_to_name": (
+                        document.assigned_to.full_name if document.assigned_to else None
+                    ),
+                    "assigned_to_email": (
+                        document.assigned_to.email if document.assigned_to else None
+                    ),
+                }
             )
             for document in documents
         ],

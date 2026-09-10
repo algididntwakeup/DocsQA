@@ -48,6 +48,9 @@ class DocumentRead(ApiModel):
     project_id: UUID | None = None
     owner_id: UUID | None = None
     owner_name: str | None = None
+    assigned_to_id: UUID | None = None
+    assigned_to_name: str | None = None
+    assigned_to_email: str | None = None
     verified_by_id: UUID | None = None
     workflow_status: DocumentWorkflowStatus
     reviewed_at: datetime | None = None
@@ -55,6 +58,11 @@ class DocumentRead(ApiModel):
     verification_notes: str | None = None
     created_at: datetime
     updated_at: datetime
+
+
+# The API uses one canonical document representation for list and detail views.
+DocumentListItem = DocumentRead
+DocumentDetail = DocumentRead
 
 class DocumentWorkflowUpdate(ApiModel):
     """Payload for assigning a document and changing its review workflow."""
@@ -64,6 +72,13 @@ class DocumentWorkflowUpdate(ApiModel):
     verified_by_id: UUID | None = None
     workflow_status: DocumentWorkflowStatus | None = None
     verification_notes: str | None = None
+
+
+class DocumentAssignment(ApiModel):
+    """Lead-controlled document assignment payload."""
+
+    engineer_id: UUID
+    override_wip: bool = False
 
 
 class DocumentUploadResponse(ApiModel):

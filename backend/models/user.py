@@ -43,6 +43,9 @@ class User(Base):
     owned_documents: Mapped[list["Document"]] = relationship(
         back_populates="owner", foreign_keys="Document.owner_id"
     )
+    assigned_documents: Mapped[list["Document"]] = relationship(
+        back_populates="assigned_to", foreign_keys="Document.assigned_to_id"
+    )
     verified_documents: Mapped[list["Document"]] = relationship(
         back_populates="verified_by", foreign_keys="Document.verified_by_id"
     )

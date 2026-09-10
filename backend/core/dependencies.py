@@ -9,6 +9,7 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
 from core.config import settings
 from db.session import get_session
@@ -90,7 +91,9 @@ async def require_user_manager(
 
 def accessible_document_query(document_id: UUID, current_user: User):
     """Build the common document ownership predicate."""
-    query = select(Document).where(Document.id == document_id)
+    query = select(Document).where(Document.id == document_id).options(
+        joinedload(Document.owner), joinedload(Document.assigned_to)
+    )
     if current_user.role not in {UserRole.LEAD_ENGINEER, UserRole.SUPERUSER}:
         query = query.where(Document.owner_id == current_user.id)
     return query

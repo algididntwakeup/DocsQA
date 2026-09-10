@@ -35,6 +35,7 @@ from models.issue import Issue
 from models.user import User
 from schemas.common import PageInfo, ProblemDetail
 from schemas.documents import (
+    DocumentAssignment,
     DocumentListResponse,
     DocumentRead,
     DocumentStatusResponse,
@@ -55,6 +56,130 @@ from services.storage.local import LocalStorage
 from services.uploads import UploadService
 
 router = APIRouter(prefix="/documents", tags=["documents"])
+
+WIP_ERROR = (
+    "Kamu masih memiliki dokumen aktif yang sedang direview. "
+    "Selesaikan review (Mark Reviewed) terlebih dahulu."
+)
+
+
+async def check_engineer_wip_available(
+    session: AsyncSession, engineer_id: UUID
+) -> tuple[bool, Document | None]:
+    """Return whether an engineer has a free single-document WIP slot."""
+    active_document = (
+        await session.execute(
+            select(Document)
+            .where(
+                Document.assigned_to_id == engineer_id,
+                Document.workflow_status == DocumentWorkflowStatus.ANALYZING,
+            )
+            .order_by(Document.created_at.asc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    return active_document is None, active_document
+
+
+def _document_read(document: Document) -> DocumentRead:
+    """Serialize a document with assignment and owner display metadata."""
+    return DocumentRead.model_validate(document).model_copy(
+        update={
+            "owner_name": document.owner.full_name if document.owner else None,
+            "assigned_to_name": document.assigned_to.full_name if document.assigned_to else None,
+            "assigned_to_email": document.assigned_to.email if document.assigned_to else None,
+        }
+    )
+
+
+async def _load_document_for_assignment(session: AsyncSession, document_id: UUID) -> Document:
+    document = (
+        await session.execute(
+            select(Document)
+            .where(Document.id == document_id)
+            .options(joinedload(Document.owner), joinedload(Document.assigned_to))
+            .with_for_update()
+        )
+    ).scalar_one_or_none()
+    if document is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
+    return document
+
+
+@router.post("/{document_id}/claim", response_model=DocumentRead)
+async def claim_document(
+    document_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> DocumentRead:
+    """Claim an unassigned document when the engineer has no active WIP."""
+    if current_user.role != UserRole.ENGINEER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Engineer access required."
+        )
+    await session.execute(select(User).where(User.id == current_user.id).with_for_update())
+    document = await _load_document_for_assignment(session, document_id)
+    if document.assigned_to_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Document is already assigned."
+        )
+    available, _ = await check_engineer_wip_available(session, current_user.id)
+    if not available:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=WIP_ERROR)
+    document.assigned_to_id = current_user.id
+    document.owner_id = current_user.id
+    document.assigned_to = current_user
+    document.owner = current_user
+    await session.commit()
+    await session.refresh(document)
+    return _document_read(document)
+
+
+@router.post("/{document_id}/assign", response_model=DocumentRead)
+async def assign_document(
+    document_id: UUID,
+    payload: DocumentAssignment,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    current_user: Annotated[User, Depends(require_lead)],
+) -> DocumentRead:
+    """Assign a document to an engineer, optionally overriding the WIP limit."""
+    document = await _load_document_for_assignment(session, document_id)
+    engineer = (
+        await session.execute(
+            select(User)
+            .where(
+                User.id == payload.engineer_id,
+                User.is_active.is_(True),
+                User.role == UserRole.ENGINEER,
+            )
+            .with_for_update()
+        )
+    ).scalar_one_or_none()
+    if engineer is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Engineer not found or inactive."
+        )
+    if not payload.override_wip:
+        available, active_document = await check_engineer_wip_available(session, engineer.id)
+        if not available:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "message": "Engineer already has an active document.",
+                    "active_document": {
+                        "id": str(active_document.id),
+                        "filename": active_document.original_filename,
+                        "workflow_status": active_document.workflow_status.value,
+                    },
+                },
+            )
+    document.assigned_to_id = engineer.id
+    document.owner_id = engineer.id
+    document.assigned_to = engineer
+    document.owner = engineer
+    await session.commit()
+    await session.refresh(document)
+    return _document_read(document)
 
 
 NOT_READY: dict[int | str, dict[str, Any]] = {
@@ -78,7 +203,7 @@ async def mark_document_reviewed(
     document.reviewed_at = datetime.now(UTC)
     await session.commit()
     await session.refresh(document)
-    return DocumentRead.model_validate(document)
+    return _document_read(document)
 
 
 @router.post("/{document_id}/verify", response_model=DocumentRead)
@@ -97,7 +222,7 @@ async def verify_document(
         document.verification_notes = payload.verification_notes
     await session.commit()
     await session.refresh(document)
-    return DocumentRead.model_validate(document)
+    return _document_read(document)
 
 
 @router.post("/{document_id}/request-revision", response_model=DocumentRead)
@@ -130,7 +255,7 @@ async def request_document_revision(
         document.reviewed_at = None
     await session.commit()
     await session.refresh(document)
-    return DocumentRead.model_validate(document)
+    return _document_read(document)
 
 
 @router.get("", response_model=DocumentListResponse, responses=NOT_READY)
@@ -142,7 +267,7 @@ async def list_documents(
 ) -> DocumentListResponse:
     """List documents visible to the current user."""
 
-    query = select(Document).options(joinedload(Document.owner))
+    query = select(Document).options(joinedload(Document.owner), joinedload(Document.assigned_to))
     if current_user.role not in {UserRole.LEAD_ENGINEER, UserRole.SUPERUSER}:
         query = query.where(Document.owner_id == current_user.id)
     total = (await session.execute(select(func.count()).select_from(query.subquery()))).scalar_one()
@@ -160,9 +285,7 @@ async def list_documents(
     )
     return DocumentListResponse(
         documents=[
-            DocumentRead.model_validate(
-                {**DocumentRead.model_validate(d).model_dump(), "owner_name": d.owner.full_name if d.owner else None}
-            )
+            _document_read(d)
             for d in rows
         ],
         pagination=PageInfo(page=page, page_size=page_size, total=total),
@@ -209,7 +332,7 @@ async def get_document(
 ) -> DocumentRead:
     """Return safe metadata for one document."""
 
-    return DocumentRead.model_validate(document)
+    return _document_read(document)
 
 
 @router.delete(

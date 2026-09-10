@@ -39,8 +39,13 @@ This is the central index every new agent must read in full. Repository state al
 - **Latest project-assignment checkpoint**: Added nullable `projects.assigned_to_id`, migration
   `20260910_0009_project_assignment`, lead-only project assignment, user project filtering,
   engineer project creation, creator/assignee names, document counts, and assigned visibility.
+- **Latest document-assignment checkpoint**: Added `documents.assigned_to_id`, migration
+  `20260910_0010_document_assignment`, engineer claim with WIP=1 enforcement, lead assignment with
+  override, assignment metadata in document responses, and assigned-task project inspection.
 - **Latest admin UI checkpoint**: Added `Lihat Projects` to `/admin/users` with a project modal and
-  direct links to assigned project registers. Document list responses now include `owner_name`.
+  direct links to assigned project registers and assigned document workflow/status details.
+- **Latest review UI checkpoint**: Rebuilt `/documents/{id}/review` as an isolated three-zone
+  workspace with fixed top navigation/footer and independent PDF/issue scrolling.
 - **Curation Workflow**:
   - Finding curation is strictly binary inclusion (`included_in_report: bool`, default `True`) and an optional engineering clarification (`reviewer_note: str | None`).
   - Completely removed: issue decisions (`ACCEPTED`/`REJECTED`), lead dispositions, audit trail events, and bulk decision workflows.
@@ -54,11 +59,10 @@ This is the central index every new agent must read in full. Repository state al
   - **Item 7 / Schema & Pipeline Synchronization (Complete)**: Synchronized `IssueCategory` (`LAYOUT`, `BUDINSKI`), `Severity` (`BLOCKER`), 6 canonical pipeline stages, SSE progress streaming, linguistic finding de-prioritization, OpenAPI 3.1 specification, and frontend TypeScript contracts.
 - **Quality Status**:
   - Frontend checkpoint: **50 passed, typecheck passed, lint passed, production build passed**.
-  - Backend checkpoint: **396 passed, 1 skipped**; the skipped Redis vertical-slice test is opt-in
+  - Backend checkpoint: **400 passed, 1 skipped**; the skipped Redis vertical-slice test is opt-in
     via `RUN_REDIS_INTEGRATION=1`, not evidence that the Redis service is unavailable.
   - Local Docker checkpoint: PostgreSQL and Redis are both healthy. The database is currently at
-    Alembic revision `20260910_0008`; apply `20260910_0009_project_assignment` before using the
-    latest assignment code.
+    Alembic revision `20260910_0010 (head)`.
   - Latest export/reference regression: **55 passed**, Ruff passed, and `git diff --check` passed.
   - Docker visual smoke: DOCX conversion passed, 16 PDF pages produced, 16 PNG pages rendered, and all pages contain text.
 - **Remaining Work**:

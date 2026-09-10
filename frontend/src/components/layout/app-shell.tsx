@@ -16,7 +16,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     if (pathname !== "/login") void getCurrentUser().then(setUser).catch(() => setUser(null));
   }, [pathname]);
 
-  if (pathname === "/login") return <>{children}</>;
+  if (pathname === "/login" || isReviewPage) return <>{children}</>;
   const canManageUsers = user?.role === "LEAD_ENGINEER" || user?.role === "SUPERUSER";
   const initials = user?.full_name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase() || "RQ";
 

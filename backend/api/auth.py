@@ -1,28 +1,34 @@
 """Authentication endpoints."""
 
 from typing import Annotated
-
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
 from core.dependencies import get_current_user, require_lead, require_user_manager
-from core.security import access_token_cookie_kwargs, create_access_token, hash_password, verify_password
+from core.security import (
+    access_token_cookie_kwargs,
+    create_access_token,
+    hash_password,
+    verify_password,
+)
 from db.session import get_session
 from domain.enums import UserRole
-from models.user import User
 from models.document import Document
+from models.project import Project
+from models.user import User
 from schemas.user import (
     ChangePasswordRequest,
     ManagedUserCreate,
     UserManagementRead,
     UserPasswordReset,
+    UserProfileUpdate,
     UserRead,
     UserStatusUpdate,
-    UserProfileUpdate,
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -43,6 +49,19 @@ class RegisterEngineerRequest(BaseModel):
     email: str = Field(max_length=255)
     password: str = Field(min_length=8, max_length=255)
     full_name: str = Field(min_length=1, max_length=150)
+
+
+class AssignedProjectDocument(BaseModel):
+    id: UUID
+    title: str
+    workflow_status: str
+
+
+class AssignedProject(BaseModel):
+    id: UUID
+    name: str
+    code: str | None = None
+    documents: list[AssignedProjectDocument]
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -114,7 +133,9 @@ async def update_profile(
         )
     ).scalar_one_or_none()
     if existing is not None:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered.")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Email already registered."
+        )
     current_user.full_name = payload.full_name.strip()
     current_user.email = email
     await session.commit()
@@ -169,6 +190,41 @@ async def list_users(
     return [await _managed_user_read(session, user) for user in users]
 
 
+@router.get("/users/{user_id}/projects", response_model=list[AssignedProject])
+async def list_user_assigned_projects(
+    user_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    _: Annotated[User, Depends(require_user_manager)],
+) -> list[AssignedProject]:
+    """List projects containing documents assigned to the selected user."""
+    projects = (
+        await session.execute(
+            select(Project)
+            .join(Document, Document.project_id == Project.id)
+            .where(Document.assigned_to_id == user_id)
+            .options(joinedload(Project.documents))
+            .order_by(Project.created_at.desc())
+        )
+    ).unique().scalars().all()
+    return [
+        AssignedProject(
+            id=project.id,
+            name=project.name,
+            code=project.code,
+            documents=[
+                AssignedProjectDocument(
+                    id=document.id,
+                    title=document.original_filename,
+                    workflow_status=document.workflow_status.value,
+                )
+                for document in project.documents
+                if document.assigned_to_id == user_id
+            ],
+        )
+        for project in projects
+    ]
+
+
 @router.post("/users", response_model=UserManagementRead, status_code=status.HTTP_201_CREATED)
 async def create_user(
     payload: ManagedUserCreate,
@@ -177,10 +233,17 @@ async def create_user(
 ) -> UserManagementRead:
     """Create an engineer or lead account with a temporary password."""
     if payload.role == UserRole.SUPERUSER:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="SUPERUSER cannot be created here.")
-    existing = (await session.execute(select(User).where(User.email == payload.email))).scalar_one_or_none()
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="SUPERUSER cannot be created here.",
+        )
+    existing = (
+        await session.execute(select(User).where(User.email == payload.email))
+    ).scalar_one_or_none()
     if existing is not None:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered.")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Email already registered."
+        )
     user = User(
         email=payload.email,
         full_name=payload.full_name,

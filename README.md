@@ -67,9 +67,9 @@ Docker Compose starts the complete stack: PostgreSQL 17, Redis 7, Alembic migrat
 
 Current local Docker status: PostgreSQL and Redis are both running and healthy. The full backend
 suite passes with the Redis integration test skipped by default; that test is opt-in through
-`RUN_REDIS_INTEGRATION=1`. The running database is currently at Alembic revision `20260910_0008`,
-so apply the pending `20260910_0009_project_assignment` migration before using the latest project
-assignment code.
+`RUN_REDIS_INTEGRATION=1`. The running database is currently at Alembic revision `20260910_0010`,
+including project and per-document assignment/WIP migrations. The project register supports engineer
+claim, lead assignment, and emergency WIP override actions.
 
 ### Prerequisites
 

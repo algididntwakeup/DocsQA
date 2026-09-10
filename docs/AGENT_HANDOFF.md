@@ -60,6 +60,9 @@ This file records implementation decisions that must not be reverted or duplicat
   export modal remain protected internals.
 - Workflow actions call `/documents/{id}/mark-reviewed`, `/verify`, and `/request-revision` and
   update the document state from the response without a full-page reload.
+- `/documents/{id}/review` bypasses the global `AppShell` and uses an isolated three-zone layout.
+  Keep the PDF canvas and highlight overlay in the same positioned page wrapper so bounding-box
+  coordinates remain precise.
 - Frontend authentication uses the HttpOnly `access_token` cookie with `credentials: "include"`.
   The API client redirects 401 responses to `/login`; do not reintroduce JWT storage in
   `localStorage`.
@@ -76,6 +79,11 @@ This file records implementation decisions that must not be reverted or duplicat
   UUID or `null`. `GET /api/v1/projects?user_id=...` returns projects assigned to that user.
 - `POST /api/v1/projects/{project_id}/documents/upload` assigns the uploaded document to the
   project and current user.
+- `POST /api/v1/documents/{document_id}/claim` enforces one active `ANALYZING` document per
+  engineer. `POST /api/v1/documents/{document_id}/assign` supports lead assignment and optional
+  `override_wip: true`.
+- `GET /api/v1/auth/users/{user_id}/projects` returns assigned projects with document titles and
+  workflow statuses for the admin task inspector.
 - Engineer owners can mark their own document reviewed. Lead engineers can verify or request
   revision. Do not broaden these permissions in the UI without changing backend authorization.
 - `SUPERUSER` is an authorization role accepted by `require_lead` and `require_user_manager`.

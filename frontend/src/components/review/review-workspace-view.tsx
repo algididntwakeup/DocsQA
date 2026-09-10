@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, ArrowLeft, CheckCircle2, RotateCw, ShieldCheck, UserRound } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CheckCircle2, RotateCw } from "lucide-react";
 import {
   getDocument,
   getApiBaseUrl,
@@ -161,26 +161,24 @@ export function ReviewWorkspaceView({ id }: { id: string }) {
   const canSubmitReview = userRole === "ENGINEER" && workflowStatus === "ANALYZING";
   const canLeadDecide = (userRole === "LEAD_ENGINEER" || userRole === "SUPERUSER") && workflowStatus === "REVIEWED_BY_ENGINEER";
 
+  const initials = (document.assigned_to_name ?? document.owner_name ?? "RQ").split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
   return (
-    <div className="rq-review-page h-screen overflow-hidden flex flex-col bg-slate-950 text-slate-100">
-      <header className="rq-review-header">
+    <div className="h-screen w-screen overflow-hidden flex flex-col bg-slate-950 text-slate-100">
+      <header className="h-14 shrink-0 flex items-center justify-between gap-4 px-4 border-b border-slate-800 bg-slate-900">
         <div className="rq-review-heading">
-          <Link href={document.project_id ? `/projects/${document.project_id}` : "/projects"} className="rq-review-back"><ArrowLeft size={15} /> Project / Inspection</Link>
-           <div className="rq-review-title-row"><div className="rq-review-file-icon"><ShieldCheck size={19} /></div><div><h1>{document.filename}</h1><div className="rq-review-meta"><span className={`rq-review-status rq-review-status-${workflowStatus.toLowerCase()}`}><i />{workflowStatus.replaceAll("_", " ")}</span><span><UserRound size={13} /> Prepared by: {document.owner_name ?? "Engineering team"}</span><span>Revision {document.filename.match(/rev[-_ ]?([a-z0-9]+)/i)?.[1]?.toUpperCase() ?? "—"}</span></div></div></div>
+          <div className="flex min-w-0 items-center gap-3"><Link href={document.project_id ? `/projects/${document.project_id}` : "/projects"} className="flex shrink-0 items-center gap-1.5 text-xs text-slate-300 hover:text-white"><ArrowLeft size={15} /> Kembali ke Project</Link><span className="h-5 w-px bg-slate-700" /><div className="min-w-0"><h1 className="truncate text-sm font-semibold">{document.filename}</h1><div className="flex items-center gap-2 text-[10px] text-slate-400"><span className="rounded bg-slate-800 px-1.5 py-0.5">{document.project_id?.slice(0, 8) ?? "EQUIPMENT"}</span><span className={`rq-review-status rq-review-status-${workflowStatus.toLowerCase()}`}><i />{workflowStatus.replace("_BY_ENGINEER", "").replace("_BY_LEAD", "")}</span></div></div></div>
         </div>
-         <div className="rq-review-actions"><button type="button" className="rq-review-action-secondary" onClick={() => setIsScorecardOpen(true)}>Budinski Scorecard</button><button type="button" className="rq-review-action-secondary" onClick={() => setIsExportOpen(true)}>Export DOCX</button><Link href={document.project_id ? `/projects/${document.project_id}` : "/projects"} className="rq-review-action-secondary"><ArrowLeft size={15} /> Kembali</Link><span className="rq-review-divider" /><span className="rq-review-status-count">{issues.length} findings</span></div>
+          <div className="flex shrink-0 items-center gap-2"><button type="button" className="rq-review-action-secondary" onClick={() => setIsScorecardOpen(true)}>Scorecard Budinski</button><button type="button" className="rq-review-action-secondary" onClick={() => setIsExportOpen(true)}>Export DOCX</button><span className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-500 text-xs font-bold text-white" title={document.assigned_to_name ?? document.owner_name ?? "Uploader"}>{initials}</span></div>
       </header>
 
-      <div className="rq-review-live-status" role="status" aria-live="polite"><ShieldCheck size={15} /><span>Workflow status</span><span className={`rq-review-status rq-review-status-${workflowStatus.toLowerCase()}`}><i />{workflowStatus.replaceAll("_", " ")}</span></div>
-
-       <main className="flex-1 flex overflow-hidden min-h-0"><SplitScreenViewer document={document} initialIssues={issues} /></main>
+        <main className="flex-1 min-h-0 flex overflow-hidden"><SplitScreenViewer document={document} initialIssues={issues} /></main>
 
        <ExportModal documentId={document.id} documentFilename={document.filename} isOpen={isExportOpen} onClose={() => setIsExportOpen(false)} />
        {isScorecardOpen && <div className="rq-scorecard-backdrop" role="dialog" aria-modal="true" aria-labelledby="workspace-scorecard-title" onClick={() => setIsScorecardOpen(false)}><div className="rq-scorecard-modal" onClick={(event) => event.stopPropagation()}><header><div><p className="rq-kicker">Technical writing audit</p><h2 id="workspace-scorecard-title">Budinski Scorecard</h2><p>Inspection summary for this review workspace.</p></div><button type="button" aria-label="Close scorecard" onClick={() => setIsScorecardOpen(false)}>×</button></header><div className="rq-scorecard-kpis"><div><strong>{issues.filter((issue) => issue.category === "BUDINSKI").length}</strong><span>Items flagged</span></div><div><strong>{issues.length}</strong><span>Total findings</span></div><div><strong>{Math.max(0, 41 - issues.filter((issue) => issue.category === "BUDINSKI").length)}</strong><span>Items clear</span></div></div></div></div>}
 
       {(canSubmitReview || canLeadDecide || workflowError) && (
-        <div className="rq-signoff-bar" role="region" aria-label="Workflow actions">
-          <div className="rq-signoff-copy"><CheckCircle2 size={17} className={workflowError ? "rq-danger" : "rq-success"} /><span>{workflowError ?? "Review sign-off"}<small>{workflowError ? "Resolve the issue before submitting." : "Your decision will update the controlled workflow record."}</small></span></div>
+         <div className="h-14 shrink-0 flex items-center justify-between gap-4 px-6 border-t border-slate-800 bg-slate-900/90" role="region" aria-label="Workflow actions">
+           <div className="flex min-w-0 items-center gap-2 text-xs text-slate-400"><CheckCircle2 size={17} className={workflowError ? "text-red-400" : "text-emerald-400"} /><span>{workflowError ?? `PIC Reviewer: ${document.assigned_to_name ?? document.owner_name ?? "Unassigned"}`}<small className="ml-2 text-slate-500">{workflowError ? "Resolve the issue before submitting." : `Review updated ${document.reviewed_at ? new Date(document.reviewed_at).toLocaleString() : "not yet"}`}</small></span></div>
           <div className="rq-signoff-actions">
             {canSubmitReview && (
               <button aria-label="Tandai selesai di-review" className="rq-signoff-primary" type="button" disabled={workflowBusy} onClick={() => void updateWorkflow("mark-reviewed")}>

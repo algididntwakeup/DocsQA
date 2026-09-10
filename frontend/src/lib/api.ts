@@ -2,7 +2,30 @@ import type { components } from "./api-schema";
 
 export type DocumentItem = Omit<components["schemas"]["DocumentRead"], "workflow_status"> & {
   workflow_status?: components["schemas"]["DocumentWorkflowStatus"];
+  assigned_to_id?: string | null;
+  assigned_to_name?: string | null;
+  assigned_to_email?: string | null;
 };
+export interface AssignedProjectDocument {
+  id: string;
+  title: string;
+  workflow_status: string;
+}
+export interface AssignedProject {
+  id: string;
+  name: string;
+  code?: string | null;
+  description?: string | null;
+  plant_area?: string | null;
+  created_by_id?: string;
+  created_by_name?: string | null;
+  assigned_to_id?: string | null;
+  assigned_to_name?: string | null;
+  created_at?: string;
+  total_documents?: number;
+  status?: string;
+  documents?: AssignedProjectDocument[];
+}
 export type DocumentList = components["schemas"]["DocumentListResponse"];
 export type DocumentStatus = components["schemas"]["DocumentStatusResponse"];
 export type DocumentUpload = components["schemas"]["DocumentUploadResponse"];
@@ -182,8 +205,28 @@ export function listProjects(): Promise<ProjectItem[]> {
   return request<ProjectItem[]>("/projects", { cache: "no-store" });
 }
 
-export function listProjectsForUser(userId: string): Promise<ProjectItem[]> {
-  return request<ProjectItem[]>(`/projects?user_id=${encodeURIComponent(userId)}`, { cache: "no-store" });
+export function listProjectsForUser(userId: string): Promise<AssignedProject[]> {
+  return request<AssignedProject[]>(`/auth/users/${encodeURIComponent(userId)}/projects`, { cache: "no-store" });
+}
+
+export function listEngineers(): Promise<ManagedUser[]> {
+  return listManagedUsers().then((users) => users.filter((user) => user.role === "ENGINEER" && user.is_active));
+}
+
+export function claimDocument(documentId: string): Promise<DocumentItem> {
+  return request<DocumentItem>(`/documents/${encodeURIComponent(documentId)}/claim`, { method: "POST" });
+}
+
+export function assignDocument(
+  documentId: string,
+  engineerId: string,
+  overrideWip = false,
+): Promise<DocumentItem> {
+  return request<DocumentItem>(`/documents/${encodeURIComponent(documentId)}/assign`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ engineer_id: engineerId, override_wip: overrideWip }),
+  });
 }
 
 export function assignProject(projectId: string, assignedToId: string | null): Promise<ProjectItem> {
