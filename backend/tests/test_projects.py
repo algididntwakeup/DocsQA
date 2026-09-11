@@ -56,3 +56,37 @@ async def test_lead_can_assign_active_engineer() -> None:
 
     assert updated.assigned_to_id == engineer.id
     session.commit.assert_awaited_once()
+
+
+@pytest.mark.anyio
+async def test_assign_project_refreshes_relationships() -> None:
+    lead = _user(UserRole.LEAD_ENGINEER)
+    engineer = _user(UserRole.ENGINEER)
+    project = Project(
+        id=uuid4(), name="Plant Alpha", created_by_id=lead.id, created_by=lead,
+        documents=[], assigned_to=None, created_at=datetime.now(UTC),
+    )
+    session = AsyncMock()
+    result = type("Result", (), {"unique": lambda self: self, "scalar_one_or_none": lambda self: project})()
+    assigned_result = type("AssignedResult", (), {"scalar_one_or_none": lambda self: engineer})()
+    session.execute.side_effect = [result, assigned_result]
+
+    refresh_calls = []
+    async def refresh(value, *args, **kwargs):
+        refresh_calls.append((value, args, kwargs))
+        value.assigned_to = engineer
+
+    session.refresh.side_effect = refresh
+
+    updated = await assign_project(
+        project.id,
+        ProjectAssignment(assigned_to_id=engineer.id),
+        session,
+        lead,
+    )
+
+    assert updated.assigned_to_id == engineer.id
+    assert updated.assigned_to_name == engineer.full_name
+    session.refresh.assert_awaited_once()
+    assert refresh_calls[0][2].get("attribute_names") == ["created_by", "assigned_to", "documents"]
+

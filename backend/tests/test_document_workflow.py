@@ -38,6 +38,9 @@ def _document(owner: User) -> Document:
         sha256="a" * 64,
         storage_uri="local://review.pdf",
         owner_id=owner.id,
+        owner=owner,
+        assigned_to_id=owner.id,
+        assigned_to=owner,
         status=DocumentStatus.COMPLETED,
         progress_pct=100,
         created_at=datetime.now(UTC),
@@ -52,6 +55,22 @@ async def test_owner_can_mark_document_reviewed() -> None:
     session = AsyncMock()
 
     result = await mark_document_reviewed(document.id, session, engineer, document)
+
+    assert result.workflow_status == DocumentWorkflowStatus.REVIEWED_BY_ENGINEER
+    assert document.reviewed_at is not None
+    session.commit.assert_awaited_once()
+
+
+@pytest.mark.anyio
+async def test_assigned_engineer_can_mark_reviewed() -> None:
+    owner = _user(UserRole.LEAD_ENGINEER)
+    assignee = _user(UserRole.ENGINEER)
+    document = _document(owner)
+    document.assigned_to_id = assignee.id
+    document.assigned_to = assignee
+    session = AsyncMock()
+
+    result = await mark_document_reviewed(document.id, session, assignee, document)
 
     assert result.workflow_status == DocumentWorkflowStatus.REVIEWED_BY_ENGINEER
     assert document.reviewed_at is not None

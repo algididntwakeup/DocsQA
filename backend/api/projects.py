@@ -125,7 +125,7 @@ async def assign_project(
             raise HTTPException(status_code=404, detail="Assigned user not found or inactive.")
     project.assigned_to_id = payload.assigned_to_id
     await session.commit()
-    await session.refresh(project)
+    await session.refresh(project, attribute_names=["created_by", "assigned_to", "documents"])
     return _project_read(project)
 
 

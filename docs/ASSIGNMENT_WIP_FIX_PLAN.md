@@ -1,0 +1,108 @@
+# Assignment & WIP Fix Plan
+
+> **Status**: Approved for Execution  
+> **Author**: Senior Full-Stack Debugger & Architect  
+> **Scope**: Backend assignment/claim endpoints, Kanban WIP=1 state machine, and test suite verification.
+
+---
+
+## 1. Root Cause Analysis
+
+### 1.1 Backend Bug — `mark_document_reviewed` 403 (wrong ownership field)
+
+**File:** [`backend/api/documents.py`](file:///c:/Werk/DocsQA/backend/api/documents.py#L201)  
+**Line:** 201  
+
+```python
+# CURRENT (buggy in conjunction with test fixture) — guards on assigned_to_id
+if document.assigned_to_id != current_user.id:
+```
+
+The `_document()` factory fixture in `backend/tests/test_document_workflow.py` sets `owner_id = owner.id` but does **not** set `assigned_to_id`. The guard on line 201 therefore sees `None != engineer.id` and raises 403 even for the legitimate owner when running unit tests.
+
+**Exception / Test Failure:**
+```
+FAILED tests/test_document_workflow.py::test_owner_can_mark_document_reviewed
+fastapi.exceptions.HTTPException: 403: Document owner access required.
+```
+
+**Fix:** The business logic guard correctly restricts review marking to the assigned engineer (`assigned_to_id`). The test fixture helper was incomplete. Fix `_document()` in `test_document_workflow.py` to also set `assigned_to_id = owner.id` (and `assigned_to = owner`) so the guard stays semantically correct (assignee-only).
+
+---
+
+### 1.2 Backend Bug — `assign_project` 500 on `_project_read` after `session.refresh`
+
+**File:** [`backend/api/projects.py`](file:///c:/Werk/DocsQA/backend/api/projects.py#L126-L129)  
+**Lines:** 126–129
+
+```python
+project.assigned_to_id = payload.assigned_to_id
+await session.commit()
+await session.refresh(project)           # ← only refreshes scalar columns
+return _project_read(project)            # ← _project_read() accesses project.assigned_to.full_name
+```
+
+`session.refresh(project)` **without** `attribute_names=["created_by", "assigned_to", "documents"]` leaves the lazy-loaded relationships detached / expired after the commit. When `_project_read()` accesses `project.assigned_to.full_name`, SQLAlchemy attempts a lazy load on a closed / detached async session connection, raising `MissingGreenlet` / `AttributeError`, which surfaces to the client as HTTP 500.
+
+**Fix:**
+```python
+await session.refresh(project, attribute_names=["created_by", "assigned_to", "documents"])
+```
+
+---
+
+### 1.3 HTTP Method Verification
+
+The frontend calls `assignDocument` using `POST` to `/documents/{id}/assign`. The backend route is `@router.post("/{document_id}/assign")`.
+Likewise, `assignProject` uses `PATCH` to `/projects/{id}/assign`, matching backend `@router.patch("/{project_id}/assign")`.
+The 500 errors were caused by SQLAlchemy relationship detachment during serialization, not HTTP verb mismatches.
+
+---
+
+### 1.4 DB Schema — `assigned_to_id` Column Verification
+
+Migration `20260910_0010_document_assignment.py` includes an idempotent column check (`if "assigned_to_id" not in columns`). The column physically exists in the `documents` table and is mapped in `backend/models/document.py` (`assigned_to_id: Mapped[uuid.UUID | None]`).
+
+---
+
+## 2. State Machine — Kanban WIP=1 Button Logic
+
+For every document row in `ProjectDocumentTable`, the "Assigned PIC" cell must render one of five distinct states:
+
+| Case | Condition | UI Render |
+|---|---|---|
+| **A** | `assigned_to_id == null` AND current user has 0 active docs (`workflow_status == "ANALYZING"`) | Button **enabled** — `"Ambil Tugas"` |
+| **B** | `assigned_to_id == null` AND current user has ≥ 1 doc with `workflow_status == "ANALYZING"` | Button **disabled** — tooltip: `title="Selesaikan tugas aktif Anda terlebih dahulu"` |
+| **C** | `assigned_to_id != null` AND `assigned_to_id != currentUserId` | Static badge with avatar & name — `"Dikerjakan oleh [assigned_to_name]"` |
+| **D** | `assigned_to_id == currentUserId` | Badge `"Tugas Anda"` + link to `/documents/{id}/review` |
+| **E** | Role is `LEAD_ENGINEER` or `SUPERUSER` | Assignment `<select>` dropdown always visible; if selected engineer has active WIP → show override modal |
+
+### Required UI Adjustments:
+1. **Case D**: Replace plain name badge with `"Tugas Anda"` badge + `<Link href={/documents/${document.id}/review}>` button/link.
+2. **Case B**: Ensure formal register Indonesian text: `"Selesaikan tugas aktif Anda terlebih dahulu"` instead of informal `"aktifmu"`.
+
+---
+
+## 3. Implementation Checklist
+
+### 3.1 Backend Fixes
+- [x] **`backend/tests/test_document_workflow.py`**: Fix `_document()` helper to set `assigned_to_id = owner.id` and `assigned_to = owner`.
+- [x] **`backend/api/projects.py`**: Add `attribute_names=["created_by", "assigned_to", "documents"]` to `session.refresh(project)`.
+
+### 3.2 Frontend Button-State Fixes
+- [x] **`frontend/src/components/project/project-document-table.tsx`**: Case D: Render `"Tugas Anda"` badge + review workspace link.
+- [x] **`frontend/src/components/project/project-document-table.tsx`**: Case B tooltip: Update to formal Indonesian `"Selesaikan tugas aktif Anda terlebih dahulu"`.
+
+### 3.3 New Automated Tests
+- [x] `backend/tests/test_document_workflow.py`: Add `test_assigned_engineer_can_mark_reviewed` explicitly verifying assigned engineer permissions.
+- [x] `backend/tests/test_projects.py`: Add `test_assign_project_refreshes_relationships` verifying relationship population upon assignment.
+
+---
+
+## 4. Verification
+
+Execute:
+```bash
+venv/Scripts/python.exe -m pytest tests/test_kanban_assignment.py tests/test_document_workflow.py tests/test_projects.py -v
+```
+All tests must pass with 0 failures.

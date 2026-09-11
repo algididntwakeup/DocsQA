@@ -42,6 +42,9 @@ This is the central index every new agent must read in full. Repository state al
 - **Latest document-assignment checkpoint**: Added `documents.assigned_to_id`, migration
   `20260910_0010_document_assignment`, engineer claim with WIP=1 enforcement, lead assignment with
   override, assignment metadata in document responses, and assigned-task project inspection.
+  Fixed HTTP 500 in project assignment relationship refresh (`session.refresh(project, attribute_names=...)`),
+  resolved `mark_document_reviewed` test fixture permissions, and updated Kanban WIP=1 state machine (Cases A–E)
+  with formal Indonesian tooltips and direct review links in `ProjectDocumentTable` (see `docs/ASSIGNMENT_WIP_FIX_PLAN.md`).
 - **Latest admin UI checkpoint**: Added `Lihat Projects` to `/admin/users` with a project modal and
   direct links to assigned project registers and assigned document workflow/status details.
 - **Latest review UI checkpoint**: Rebuilt `/documents/{id}/review` as an isolated three-zone

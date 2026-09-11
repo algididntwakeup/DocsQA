@@ -181,7 +181,10 @@ export function ProjectDocumentTable({
             <tbody className="divide-y divide-slate-100">
               {visible.map((document) => {
                 const workflow = document.workflow_status ?? "ANALYZING";
-                const hasActiveTask = documents.some((item) => item.assigned_to_id === currentUserId && item.workflow_status === "ANALYZING");
+                const hasActiveTask = Boolean(currentUserId) && documents.some(
+                  (item) => item.assigned_to_id === currentUserId && (item.workflow_status ?? "ANALYZING") === "ANALYZING"
+                );
+                const isAssignedToCurrentUser = Boolean(currentUserId) && document.assigned_to_id === currentUserId;
                 return (
                   <tr key={document.id} className="transition hover:bg-slate-50/80">
                     <td className="px-6 py-3.5">
@@ -224,24 +227,39 @@ export function ProjectDocumentTable({
                           ))}
                         </select>
                       ) : document.assigned_to_id ? (
-                        <span className="inline-flex items-center gap-1.5 text-xs text-slate-700 font-medium">
-                          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-50 text-[10px] font-bold text-blue-700">
-                            {(document.assigned_to_name ?? "?").slice(0, 2).toUpperCase()}
+                        isAssignedToCurrentUser ? (
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-bold text-blue-700 ring-1 ring-blue-700/10">
+                              <UserRound size={12} />
+                              Tugas Anda
+                            </span>
+                            <Link
+                              href={`/documents/${document.id}/review`}
+                              className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline"
+                            >
+                              Review <ExternalLink size={11} />
+                            </Link>
+                          </div>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 text-xs text-slate-700 font-medium">
+                            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-[10px] font-bold text-slate-700">
+                              {(document.assigned_to_name ?? "?").slice(0, 2).toUpperCase()}
+                            </span>
+                            Dikerjakan oleh {document.assigned_to_name ?? "Assigned"}
                           </span>
-                          {document.assigned_to_name ?? "Assigned"}
-                        </span>
+                        )
                       ) : (
                         <div className="flex items-center gap-2">
                           <span className="text-slate-400 text-[11px]">Unassigned</span>
                           <button
                             type="button"
                             disabled={hasActiveTask || busyId === document.id}
-                            title={hasActiveTask ? "Selesaikan tugas aktifmu terlebih dahulu" : "Claim document"}
+                            title={hasActiveTask ? "Selesaikan tugas aktif Anda terlebih dahulu" : "Ambil Tugas"}
                             onClick={() => void claim(document.id)}
                             className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-[11px] font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-50"
                           >
                             <UserRound size={12} />
-                            {busyId === document.id ? "Claiming..." : "Claim"}
+                            {busyId === document.id ? "Claiming..." : "Ambil Tugas"}
                           </button>
                         </div>
                       )}
