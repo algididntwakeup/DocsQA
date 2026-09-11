@@ -194,6 +194,7 @@ production endpoint: HTTP 200
 
 - Document claim enforces strict WIP = 1 for engineers: an engineer cannot claim a new document if they have $\ge 1$ document in `ANALYZING` workflow status.
 - In `backend/api/projects.py` (`assign_project`), `await session.refresh(project, attribute_names=["created_by", "assigned_to", "documents"])` must always be called with explicit attribute names so relationships are loaded before `_project_read()` serializes them, preventing `MissingGreenlet` HTTP 500 errors.
+- In PostgreSQL, queries using `with_for_update()` must NOT use `joinedload` on nullable relationships (such as `assigned_to`), because PostgreSQL raises `FeatureNotSupportedError: FOR UPDATE cannot be applied to the nullable side of an outer join`. Single-row locking in `_load_document_for_assignment` locks `Document` directly without joins; relationships are loaded post-commit via `session.refresh(document, attribute_names=["owner", "assigned_to"])`.
 - In `backend/api/documents.py` (`mark_document_reviewed`), the permission check restricts action to `document.assigned_to_id == current_user.id` (assignee only). Test fixtures must assign the document to the acting user.
 - Frontend document table cell rendering adheres to 5 strict cases (Cases A–E) detailed in `docs/ASSIGNMENT_WIP_FIX_PLAN.md`, with formal Indonesian tooltips ("Selesaikan tugas aktif Anda terlebih dahulu") and "Tugas Anda" badge with direct review link.
 

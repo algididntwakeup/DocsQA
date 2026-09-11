@@ -98,7 +98,6 @@ async def _load_document_for_assignment(session: AsyncSession, document_id: UUID
         await session.execute(
             select(Document)
             .where(Document.id == document_id)
-            .options(joinedload(Document.owner), joinedload(Document.assigned_to))
             .with_for_update()
         )
     ).scalar_one_or_none()
