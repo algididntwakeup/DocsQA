@@ -31,7 +31,9 @@ from schemas.budinski import (
     MajorFinding,
     ScoreItem,
 )
+from domain.enums import ReportLanguage
 from services.docx_styler import apply_document_defaults
+from services.report_locale import get_report_strings
 from services.report_synthesizer import ReportSynthesizer
 
 if TYPE_CHECKING:
@@ -71,13 +73,12 @@ def _load_scorecard(scorecard_data: dict[str, Any] | None) -> BudinskiScorecard:
         if key not in computed_fields
     }
     return BudinskiScorecard.model_validate(cleaned)
-
-
 def assessment_from_document_findings(
     document: Any,
     issues: list[Any],
     scorecard_data: dict[str, Any] | None = None,
     include_minors: bool = False,
+    language: ReportLanguage = ReportLanguage.ENGLISH,
 ) -> AssessmentData:
     """Adapt persisted pipeline artifacts into the executive report contract."""
     included = [
@@ -102,7 +103,7 @@ def assessment_from_document_findings(
             "recommendations_actionable": "No persisted baseline assessment was available.",
         },
     )
-    synthesizer = ReportSynthesizer()
+    synthesizer = ReportSynthesizer(language)
     blockers = []
     majors = []
     language = []
@@ -576,7 +577,11 @@ def _setup_page_header_footer(doc: DocxDocument, assessment: AssessmentData) -> 
     r_of._r.append(parse_xml(f'<w:fldSimple {nsdecls("w")} w:instr="NUMPAGES"/>'))
 
 
-def generate_ale_review_docx(assessment_result: AssessmentData, document: Any = None) -> bytes:
+def generate_ale_review_docx(
+    assessment_result: AssessmentData,
+    document: Any = None,
+    language: ReportLanguage = ReportLanguage.ENGLISH,
+) -> bytes:
     """
     Generate a complete, professionally formatted DOCX review report from the supplied
     assessment and Budinski scorecard data.
@@ -595,20 +600,10 @@ def generate_ale_review_docx(assessment_result: AssessmentData, document: Any = 
     """
     doc = docx.Document()
     apply_document_defaults(doc)
-    synthesizer = ReportSynthesizer()
+    strings = get_report_strings(language)
+    synthesizer = ReportSynthesizer(language)
     if not assessment_result.summary_judgement:
-        summary = synthesizer.generate_summary_judgement(
-            assessment_result.major_findings,
-            assessment_result.scorecard,
-            assessment_result.metadata,
-        )
-        blocker_codes = [
-            blocker.title.split(" (", 1)[0]
-            for blocker in assessment_result.blockers
-            if blocker.title
-        ]
-        if blocker_codes:
-            summary += f"\n\nBlocking finding codes: {', '.join(blocker_codes)}."
+        summary = synthesizer.generate_summary_judgement(assessment_result.major_findings, assessment_result.scorecard, assessment_result.metadata)
         assessment_result.summary_judgement = summary.split("\n\n")
     if not assessment_result.bottom_line:
         assessment_result.bottom_line = synthesizer.generate_bottom_line(assessment_result.blockers)
@@ -627,10 +622,8 @@ def generate_ale_review_docx(assessment_result: AssessmentData, document: Any = 
     p_title = doc.add_paragraph()
     p_title.paragraph_format.space_before = Pt(0)
     p_title.paragraph_format.space_after = Pt(4)
-    p_title.paragraph_format.keep_with_next = True
-    r_title = p_title.add_run(f"DOCUMENT REVIEW ENGINEERING - {assessment_result.title}")
+    r_title = p_title.add_run(f"{strings.title_prefix}{assessment_result.title}")
     r_title.bold = True
-    r_title.font.name = "Arial"
     r_title.font.size = Pt(18)
     r_title.font.color.rgb = COLOR_NAVY
 
@@ -647,32 +640,27 @@ def generate_ale_review_docx(assessment_result: AssessmentData, document: Any = 
     # Bagian 1: Document Reviewed Metadata Block
     # -----------------------------------------------------------------------
     meta = assessment_result.metadata
-    workflow_status = getattr(getattr(document, "workflow_status", None), "value", "Not supplied")
+    workflow_status = getattr(getattr(document, "workflow_status", None), "value", strings.not_supplied)
     owner = getattr(document, "owner", None)
     verified = getattr(document, "verified_by", None)
-    prepared_by = getattr(owner, "full_name", "Not supplied")
-    checked_by = getattr(verified, "full_name", "Pending Verification")
+    prepared_by = getattr(owner, "full_name", strings.not_supplied)
+    checked_by = getattr(verified, "full_name", strings.pending_verification)
+    is_english = language == ReportLanguage.ENGLISH
     meta_entries = [
-        ("Doc No", meta.document_reviewed),
-        (
-            "Rev",
-            meta.document_reviewed.rsplit(" ", 1)[-1] if meta.document_reviewed else "Not supplied",
-        ),
-        ("Pages", "Not supplied by assessment metadata"),
-        ("File Date", "Not supplied by assessment metadata"),
-        ("Originator", "Not supplied by assessment metadata"),
-        ("Document reviewed", meta.document_reviewed),
-        ("Type of review", meta.type_of_review),
-        ("Basis", meta.basis),
-        ("Scoring", meta.scoring),
-        ("Note", meta.note),
-        ("Not covered", meta.not_covered),
-        ("Prepared by", prepared_by),
-        (
-            "Checked / Verified by",
-            checked_by if workflow_status == "VERIFIED_BY_LEAD" else "Pending Verification",
-        ),
-        ("Status", workflow_status),
+        ("Doc No" if is_english else "Nomor Dokumen", meta.document_reviewed),
+        ("Rev" if is_english else "Revisi", meta.document_reviewed.rsplit(" ", 1)[-1] if meta.document_reviewed else strings.not_supplied),
+        ("Pages" if is_english else "Halaman", strings.not_supplied),
+        ("File Date" if is_english else "Tanggal File", strings.not_supplied),
+        ("Originator" if is_english else "Asal", strings.not_supplied),
+        ("Document reviewed" if is_english else "Dokumen yang ditinjau", meta.document_reviewed),
+        ("Type of review" if is_english else "Jenis tinjauan", meta.type_of_review),
+        ("Basis" if is_english else "Dasar", meta.basis),
+        ("Scoring" if is_english else "Penilaian", meta.scoring),
+        ("Note" if is_english else "Catatan", meta.note),
+        ("Not covered" if is_english else "Tidak tercakup", meta.not_covered),
+        ("Prepared by" if is_english else "Disiapkan oleh", prepared_by),
+        ("Checked / Verified by" if is_english else "Diperiksa / Diverifikasi oleh", checked_by if workflow_status == "VERIFIED_BY_LEAD" else strings.pending_verification),
+        ("Status" if is_english else "Status", workflow_status),
     ]
 
     meta_table = doc.add_table(rows=0, cols=2)
@@ -704,10 +692,8 @@ def generate_ale_review_docx(assessment_result: AssessmentData, document: Any = 
     p_space.paragraph_format.space_before = Pt(0)
     p_space.paragraph_format.space_after = Pt(6)
 
-    # -----------------------------------------------------------------------
     # Bagian 2: Summary Judgement & Callout Box "BOTTOM LINE"
-    # -----------------------------------------------------------------------
-    _add_heading_1(doc, "Summary judgement")
+    _add_heading_1(doc, strings.summary_judgement)
 
     for paragraph_text in assessment_result.summary_judgement:
         _add_body_p(doc, paragraph_text, space_after=6)
@@ -723,7 +709,7 @@ def generate_ale_review_docx(assessment_result: AssessmentData, document: Any = 
     bl_p.paragraph_format.space_before = Pt(0)
     bl_p.paragraph_format.space_after = Pt(0)
     bl_p.paragraph_format.line_spacing = 1.15
-    bl_tag = bl_p.add_run("BOTTOM LINE  ")
+    bl_tag = bl_p.add_run(f"{strings.bottom_line}  ")
     bl_tag.bold = True
     bl_tag.font.name = "Arial"
     bl_tag.font.size = Pt(10)
@@ -741,13 +727,8 @@ def generate_ale_review_docx(assessment_result: AssessmentData, document: Any = 
     # -----------------------------------------------------------------------
     # Bagian 3: Tabel "The four baseline measures"
     # -----------------------------------------------------------------------
-    _add_heading_1(doc, "The four baseline measures")
-    _add_body_p(
-        doc,
-        "Standing baseline measures evaluated on every engineering document review per "
-        "Budinski Chapters 9–11:",
-        space_after=6,
-    )
+    _add_heading_1(doc, strings.baseline_measures)
+    _add_body_p(doc, strings.baseline_intro, space_after=6)
 
     baseline = assessment_result.baseline_measures
     baseline_items = [
@@ -781,9 +762,9 @@ def generate_ale_review_docx(assessment_result: AssessmentData, document: Any = 
 
     # Header row
     hdr_row = base_table.add_row()
-    hdr_row.cells[0].paragraphs[0].add_run("Measure")
-    hdr_row.cells[1].paragraphs[0].add_run("Result")
-    hdr_row.cells[2].paragraphs[0].add_run("Reason")
+    hdr_row.cells[0].paragraphs[0].add_run("Measure" if strings.baseline_measures.startswith("The") else "Ukuran")
+    hdr_row.cells[1].paragraphs[0].add_run("Result" if strings.baseline_measures.startswith("The") else "Hasil")
+    hdr_row.cells[2].paragraphs[0].add_run("Reason" if strings.baseline_measures.startswith("The") else "Alasan")
     _format_table_row(hdr_row, base_widths, bg_hex=HEX_NAVY, is_header=True)
 
     for idx, (measure_text, is_pass, reason_text) in enumerate(baseline_items):
@@ -814,15 +795,13 @@ def generate_ale_review_docx(assessment_result: AssessmentData, document: Any = 
 
     p_score = doc.add_paragraph()
     p_score.paragraph_format.space_before = Pt(6)
-    p_score.paragraph_format.space_after = Pt(10)
-    r_sc_lbl = p_score.add_run("Baseline score: ")
+    r_sc_lbl = p_score.add_run(f"{strings.baseline_score}: ")
     r_sc_lbl.bold = True
     r_sc_lbl.font.name = "Arial"
     r_sc_lbl.font.size = Pt(9.5)
     r_sc_lbl.font.color.rgb = COLOR_NAVY
     baseline_score = assessment_result.scorecard.baseline_score
-    r_sc_val = p_score.add_run(f"{baseline_score:.0f}/4 ({baseline_score:.0f} of 4 passing)")
-    r_sc_val.font.name = "Arial"
+    r_sc_val = p_score.add_run(f"{baseline_score:.0f}/4 ({baseline_score:.0f} {strings.passing})")
     r_sc_val.font.size = Pt(9.5)
     r_sc_val.bold = True
     r_sc_val.font.color.rgb = COLOR_PASS if baseline_score >= 3 else COLOR_FAIL
@@ -830,13 +809,8 @@ def generate_ale_review_docx(assessment_result: AssessmentData, document: Any = 
     # -----------------------------------------------------------------------
     # Bagian 4: Scorecard summary before blockers
     # -----------------------------------------------------------------------
-    _add_heading_1(doc, "Scorecard")
-    _add_body_p(
-        doc,
-        "The Budinski scorecard is presented first so the overall writing assessment is not "
-        "buried beneath repeated document-control findings.",
-        space_after=6,
-    )
+    _add_heading_1(doc, strings.scorecard)
+    _add_body_p(doc, strings.scorecard_intro, space_after=6)
     scorecard = assessment_result.scorecard
     score_summary = (
         f"Overall average: {scorecard.overall_average:.2f} / 5.00. "
@@ -858,55 +832,30 @@ def generate_ale_review_docx(assessment_result: AssessmentData, document: Any = 
     # -----------------------------------------------------------------------
     # Bagian 5: Sub-section "Blockers"
     # -----------------------------------------------------------------------
-    _add_heading_1(doc, "Blockers")
-    _add_body_p(
-        doc,
-        "Blocking findings that prevent the document from being relied upon as issued:",
-        space_after=6,
-    )
+    _add_heading_1(doc, strings.blockers)
+    _add_body_p(doc, strings.blockers_intro, space_after=6)
 
     if not assessment_result.blockers:
-        _add_body_p(doc, "No blocking findings identified.", space_after=8)
+        _add_body_p(doc, strings.no_blockers, space_after=8)
     else:
         for blocker in assessment_result.blockers:
-            _add_heading_2(
-                doc,
-                f"Blocker {blocker.number}: {blocker.title}",
-                color=COLOR_FAIL,
-            )
-
-            cell = _add_callout_box(
-                doc,
-                bg_hex=HEX_BLOCKER_BG,
-                border_color_hex=HEX_BLOCKER_BORDER,
-                border_sz="36",
-            )
-
-            fields = [
-                ("Where", blocker.where_location),
-                ("What it says", blocker.what_it_says),
-                ("What the body has", blocker.what_body_has),
-                ("Why it matters", blocker.why_it_matters),
-                ("What would fix it", blocker.what_would_fix_it),
-            ]
-
+            _add_heading_2(doc, f"{strings.blocker} {blocker.number}: {blocker.title}", color=COLOR_FAIL)
+            cell = _add_callout_box(doc, bg_hex=HEX_BLOCKER_BG, border_color_hex=HEX_BLOCKER_BORDER, border_sz="36")
+            fields = [(strings.where, blocker.where_location), (strings.what_it_says, blocker.what_it_says), (strings.what_body_has, blocker.what_body_has), (strings.why_it_matters, blocker.why_it_matters), (strings.what_would_fix_it, blocker.what_would_fix_it)]
             for f_idx, (fname, fval) in enumerate(fields):
                 p = cell.paragraphs[0] if f_idx == 0 else cell.add_paragraph()
                 p.paragraph_format.space_before = Pt(0)
                 p.paragraph_format.space_after = Pt(3 if f_idx < len(fields) - 1 else 0)
                 p.paragraph_format.line_spacing = 1.15
-
                 r_fn = p.add_run(f"{fname}: ")
                 r_fn.bold = True
                 r_fn.font.name = "Arial"
                 r_fn.font.size = Pt(9.5)
-                r_fn.font.color.rgb = COLOR_FAIL if fname == "What would fix it" else COLOR_TEXT
-
+                r_fn.font.color.rgb = COLOR_FAIL if fname == strings.what_would_fix_it else COLOR_TEXT
                 r_fv = p.add_run(fval)
                 r_fv.font.name = "Arial"
                 r_fv.font.size = Pt(9.5)
                 r_fv.font.color.rgb = COLOR_TEXT
-
             p_b_space = doc.add_paragraph()
             p_b_space.paragraph_format.space_before = Pt(0)
             p_b_space.paragraph_format.space_after = Pt(6)
@@ -914,53 +863,42 @@ def generate_ale_review_docx(assessment_result: AssessmentData, document: Any = 
     # -----------------------------------------------------------------------
     # Bagian 6: Tabel "Should fix in the next revision"
     # -----------------------------------------------------------------------
-    _add_heading_1(doc, "Should fix in the next revision")
-    _add_body_p(
-        doc,
-        "Findings that should be resolved in the next scheduled revision:",
-        space_after=6,
-    )
+    _add_heading_1(doc, strings.next_revision)
+    _add_body_p(doc, strings.next_revision_intro, space_after=6)
 
     if not assessment_result.major_findings:
-        _add_body_p(doc, "No major findings identified.", space_after=8)
+        _add_body_p(doc, strings.no_major_findings, space_after=8)
     else:
         maj_table = doc.add_table(rows=0, cols=3)
         maj_table.autofit = False
         maj_table.alignment = WD_TABLE_ALIGNMENT.CENTER
         _set_table_borders(maj_table, color=HEX_BORDER, sz="4")
         maj_widths = [0.5, 3.5, 2.9]
-
         m_hdr = maj_table.add_row()
-        m_hdr.cells[0].paragraphs[0].add_run("No.")
-        m_hdr.cells[1].paragraphs[0].add_run("Finding")
-        m_hdr.cells[2].paragraphs[0].add_run("What would fix it")
+        m_hdr.cells[0].paragraphs[0].add_run(strings.no)
+        m_hdr.cells[1].paragraphs[0].add_run(strings.finding)
+        m_hdr.cells[2].paragraphs[0].add_run(strings.what_would_fix_it)
         _format_table_row(m_hdr, maj_widths, bg_hex=HEX_NAVY, is_header=True)
-
         for idx, finding in enumerate(assessment_result.major_findings):
             row = maj_table.add_row()
             bg = HEX_ZEBRA if idx % 2 == 1 else HEX_WHITE
-
             p0 = row.cells[0].paragraphs[0]
             r0 = p0.add_run(str(finding.number))
             r0.bold = True
             r0.font.name = "Arial"
             r0.font.size = Pt(9)
             r0.font.color.rgb = COLOR_NAVY
-
             p1 = row.cells[1].paragraphs[0]
             r1 = p1.add_run(finding.finding)
             r1.font.name = "Arial"
             r1.font.size = Pt(9)
             r1.font.color.rgb = COLOR_TEXT
-
             p2 = row.cells[2].paragraphs[0]
             r2 = p2.add_run(finding.what_would_fix_it)
             r2.font.name = "Arial"
             r2.font.size = Pt(9)
             r2.font.color.rgb = COLOR_TEXT
-
             _format_table_row(row, maj_widths, bg_hex=bg)
-
         p_m_space = doc.add_paragraph()
         p_m_space.paragraph_format.space_before = Pt(0)
         p_m_space.paragraph_format.space_after = Pt(8)
@@ -968,56 +906,32 @@ def generate_ale_review_docx(assessment_result: AssessmentData, document: Any = 
     # -----------------------------------------------------------------------
     # Bagian 7: Tabel "Language and mechanics, by page"
     # -----------------------------------------------------------------------
-    _add_heading_1(doc, "Language and mechanics, by page")
-    _add_body_p(
-        doc,
-        "Language, phrasing, typographical, and grammatical findings by page:",
-        space_after=6,
-    )
-
+    _add_heading_1(doc, strings.language_mechanics)
+    _add_body_p(doc, strings.language_intro, space_after=6)
     if not assessment_result.language_findings:
-        _add_body_p(doc, "No language or mechanics findings identified.", space_after=8)
+        _add_body_p(doc, strings.no_language_findings, space_after=8)
     else:
         lang_table = doc.add_table(rows=0, cols=3)
         lang_table.autofit = False
         lang_table.alignment = WD_TABLE_ALIGNMENT.CENTER
         _set_table_borders(lang_table, color=HEX_BORDER, sz="4")
         lang_widths = [0.8, 3.1, 3.0]
-
         l_hdr = lang_table.add_row()
-        l_hdr.cells[0].paragraphs[0].add_run("Page")
-        l_hdr.cells[1].paragraphs[0].add_run("As Written")
-        l_hdr.cells[2].paragraphs[0].add_run("Suggested")
+        l_hdr.cells[0].paragraphs[0].add_run(strings.page)
+        l_hdr.cells[1].paragraphs[0].add_run(strings.as_written)
+        l_hdr.cells[2].paragraphs[0].add_run(strings.suggested)
         _format_table_row(l_hdr, lang_widths, bg_hex=HEX_NAVY, is_header=True)
-
         for idx, item in enumerate(assessment_result.language_findings):
             row = lang_table.add_row()
             bg = HEX_ZEBRA if idx % 2 == 1 else HEX_WHITE
-
-            p0 = row.cells[0].paragraphs[0]
-            r0 = p0.add_run(item.page)
-            r0.bold = True
-            r0.font.name = "Arial"
-            r0.font.size = Pt(9)
-            r0.font.color.rgb = COLOR_NAVY
-
-            p1 = row.cells[1].paragraphs[0]
-            r1 = p1.add_run(item.as_written)
-            r1.font.name = "Arial"
-            r1.font.size = Pt(9)
-            r1.font.color.rgb = COLOR_TEXT
-
-            p2 = row.cells[2].paragraphs[0]
-            r2 = p2.add_run(item.suggested)
-            r2.font.name = "Arial"
-            r2.font.size = Pt(9)
-            r2.font.color.rgb = COLOR_TEXT
-
+            row.cells[0].paragraphs[0].add_run(item.page)
+            row.cells[1].paragraphs[0].add_run(item.as_written)
+            row.cells[2].paragraphs[0].add_run(item.suggested)
             _format_table_row(row, lang_widths, bg_hex=bg)
-
         p_l_space = doc.add_paragraph()
         p_l_space.paragraph_format.space_before = Pt(0)
         p_l_space.paragraph_format.space_after = Pt(8)
+
 
     # -----------------------------------------------------------------------
     # Bagian 8: Demonstration rewrite
@@ -1112,7 +1026,7 @@ def generate_ale_review_docx(assessment_result: AssessmentData, document: Any = 
         space_after=6,
     )
 
-    scorecard = assessment_result.scorecard
+    _add_heading_1(doc, strings.scorecard_detail)
 
     # Summary table across 4 groups
     sc_summary_table = doc.add_table(rows=0, cols=4)
@@ -1465,7 +1379,7 @@ def generate_ale_review_docx(assessment_result: AssessmentData, document: Any = 
     # -----------------------------------------------------------------------
     # Bagian 11: Limits of this review & REVIEWSCORE summary string
     # -----------------------------------------------------------------------
-    _add_heading_1(doc, "Limits of this review")
+    _add_heading_1(doc, strings.limits_of_review)
 
     for item_text in assessment_result.limits_of_review:
         _add_body_p(doc, item_text, space_after=6)

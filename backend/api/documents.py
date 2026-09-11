@@ -26,6 +26,7 @@ from domain.enums import (
     DocumentWorkflowStatus,
     IssueCategory,
     PipelineStage,
+    ReportLanguage,
     Severity,
     StageStatus,
     UserRole,
@@ -608,6 +609,7 @@ async def get_report_preview(
     document_id: UUID,
     session: Annotated[AsyncSession, Depends(get_session)],
     document: Annotated[Document, Depends(get_accessible_document)],
+    language: Annotated[ReportLanguage, Query()] = ReportLanguage.ENGLISH,
 ) -> ReviewReportPreview:
     """Return the current draft-report composition without generating a file."""
     issues = (
@@ -636,11 +638,7 @@ async def get_report_preview(
             "HIGH",
         }:
             blockers += 1
-    summary = (
-        "Blockers require correction before reissue."
-        if blockers
-        else "No blocker findings are included in the draft report."
-    )
+    summary = ("Blockers require correction before reissue." if language == ReportLanguage.ENGLISH else "Penghalang harus diperbaiki sebelum penerbitan ulang.") if blockers else ("No blocker findings are included in the draft report." if language == ReportLanguage.ENGLISH else "Tidak ada temuan penghalang dalam laporan draf.")
     return ReviewReportPreview(
         document_id=document_id,
         included_findings=len(issues),
@@ -666,9 +664,8 @@ async def export_document(
     session: Annotated[AsyncSession, Depends(get_session)],
     storage: Annotated[LocalStorage, Depends(get_storage)],
     document: Annotated[Document, Depends(get_accessible_document)],
-    include_minors: Annotated[
-        bool, Query(description="Include minor and informational findings.")
-    ] = False,
+    include_minors: Annotated[bool, Query(description="Include minor and informational findings.")] = False,
+    language: Annotated[ReportLanguage, Query()] = ReportLanguage.ENGLISH,
 ) -> Response:
     """Export the annotated original PDF or formal DOCX review report."""
 
@@ -718,10 +715,8 @@ async def export_document(
                 scorecard = json.loads(scorecard_path.read_text(encoding="utf-8"))
             except (OSError, ValueError):
                 scorecard = None
-        assessment = assessment_from_document_findings(
-            document, list(issues), scorecard_data=scorecard, include_minors=include_minors
-        )
-        docx_bytes = generate_ale_review_docx(assessment, document)
+        assessment = assessment_from_document_findings(document, list(issues), scorecard_data=scorecard, include_minors=include_minors, language=language)
+        docx_bytes = generate_ale_review_docx(assessment, document, language=language)
         return Response(
             content=docx_bytes,
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",

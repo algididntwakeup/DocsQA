@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { LocaleProvider } from "@/components/layout/locale-provider";
 import { AppShell } from "@/components/layout/app-shell";
 import { Toaster } from "sonner";
 import "./globals.css";
@@ -30,7 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
-      <body><AppShell>{children}</AppShell><Toaster position="bottom-right" richColors closeButton /></body>
+      <body><LocaleProvider><AppShell>{children}</AppShell></LocaleProvider><Toaster position="bottom-right" richColors closeButton /></body>
     </html>
   );
 }

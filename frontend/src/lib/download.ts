@@ -5,11 +5,12 @@ export async function downloadExport(
   documentId: string,
   format: ExportFormat,
   includeMinors = false,
+  language: "en" | "id" = "en",
 ): Promise<void> {
   const label = format === "docx" ? "DOCX report" : "annotated PDF";
   const toastId = toast.loading(`Generating ${label}...`);
   try {
-    const response = await fetch(getExportUrl(documentId, format, includeMinors), {
+    const response = await fetch(getExportUrl(documentId, format, includeMinors, language), {
       credentials: "include",
     });
     if (!response.ok) {

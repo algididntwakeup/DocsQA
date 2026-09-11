@@ -100,3 +100,8 @@ class PipelineStage(StrEnum):
 
 
 StageName = PipelineStage
+class ReportLanguage(StrEnum):
+    """Supported render-time report languages."""
+
+    ENGLISH = "en"
+    INDONESIAN = "id"

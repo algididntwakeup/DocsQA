@@ -10,8 +10,10 @@ export function formatBytes(bytes: number): string {
   return `${value.toFixed(value >= 10 ? 0 : 1)} ${unit}`;
 }
 
-export function formatDate(value: string): string {
-  return new Intl.DateTimeFormat(undefined, {
+import type { Locale } from "./i18n";
+
+export function formatDate(value: string, locale: Locale = "en"): string {
+  return new Intl.DateTimeFormat(locale, {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));

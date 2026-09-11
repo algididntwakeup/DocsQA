@@ -14,10 +14,13 @@ import {
   type IssueItem,
   type UserRole,
 } from "@/lib/api";
+import { useLocale } from "@/components/layout/locale-provider";
+import { LanguageToggle } from "@/components/layout/language-toggle";
 import { SplitScreenViewer } from "./split-screen-viewer";
 import { ExportModal } from "./export-modal";
 
 export function ReviewWorkspaceView({ id }: { id: string }) {
+  const { t } = useLocale();
   const [document, setDocument] = useState<DocumentItem | null>(null);
   const [issues, setIssues] = useState<IssueItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -166,9 +169,9 @@ export function ReviewWorkspaceView({ id }: { id: string }) {
     <div className="h-screen w-screen overflow-hidden flex flex-col bg-slate-950 text-slate-100">
       <header className="h-14 shrink-0 flex items-center justify-between gap-4 px-4 border-b border-slate-800 bg-slate-900">
         <div className="rq-review-heading">
-          <div className="flex min-w-0 items-center gap-3"><Link href={document.project_id ? `/projects/${document.project_id}` : "/projects"} className="flex shrink-0 items-center gap-1.5 text-xs text-slate-300 hover:text-white"><ArrowLeft size={15} /> Kembali ke Project</Link><span className="h-5 w-px bg-slate-700" /><div className="min-w-0"><h1 className="truncate text-sm font-semibold">{document.filename}</h1><div className="flex items-center gap-2 text-[10px] text-slate-400"><span className="rounded bg-slate-800 px-1.5 py-0.5">{document.project_id?.slice(0, 8) ?? "EQUIPMENT"}</span><span className={`rq-review-status rq-review-status-${workflowStatus.toLowerCase()}`}><i />{workflowStatus.replace("_BY_ENGINEER", "").replace("_BY_LEAD", "")}</span></div></div></div>
+          <div className="flex min-w-0 items-center gap-3"><Link href={document.project_id ? `/projects/${document.project_id}` : "/projects"} className="flex shrink-0 items-center gap-1.5 text-xs text-slate-300 hover:text-white"><ArrowLeft size={15} /> {t("projects")}</Link><span className="h-5 w-px bg-slate-700" /><div className="min-w-0"><h1 className="truncate text-sm font-semibold">{document.filename}</h1><div className="flex items-center gap-2 text-[10px] text-slate-400"><span className="rounded bg-slate-800 px-1.5 py-0.5">{document.project_id?.slice(0, 8) ?? "EQUIPMENT"}</span><span className={`rq-review-status rq-review-status-${workflowStatus.toLowerCase()}`}><i />{workflowStatus.replace("_BY_ENGINEER", "").replace("_BY_LEAD", "")}</span></div></div></div>
         </div>
-          <div className="flex shrink-0 items-center gap-2"><button type="button" className="rq-review-action-secondary" onClick={() => setIsScorecardOpen(true)}>Scorecard Budinski</button><button type="button" className="rq-review-action-secondary" onClick={() => setIsExportOpen(true)}>Export DOCX</button><span className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-500 text-xs font-bold text-white" title={document.assigned_to_name ?? document.owner_name ?? "Uploader"}>{initials}</span></div>
+          <div className="flex shrink-0 items-center gap-2"><LanguageToggle /><button type="button" className="rq-review-action-secondary" onClick={() => setIsScorecardOpen(true)}>Scorecard Budinski</button><button type="button" className="rq-review-action-secondary" onClick={() => setIsExportOpen(true)}>{t("downloadDocx")}</button><span className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-500 text-xs font-bold text-white" title={document.assigned_to_name ?? document.owner_name ?? "Uploader"}>{initials}</span></div>
       </header>
 
         <main className="flex-1 min-h-0 flex overflow-hidden"><SplitScreenViewer document={document} initialIssues={issues} /></main>

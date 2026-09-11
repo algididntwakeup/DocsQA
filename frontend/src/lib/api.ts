@@ -36,6 +36,7 @@ export type ReviewReportPreview = components["schemas"]["ReviewReportPreview"];
 export type TraceabilitySummary = components["schemas"]["TraceabilitySummaryResponse"];
 
 export type UserRole = "ENGINEER" | "LEAD_ENGINEER" | "SUPERUSER";
+export type ReportLanguage = "en" | "id";
 export interface UserSession {
   id: string;
   email: string;
@@ -331,10 +332,8 @@ export function curateIssue(issueId: string, payload: IssueCuration): Promise<Is
   });
 }
 
-export function getReportPreview(documentId: string): Promise<ReviewReportPreview> {
-  return request<ReviewReportPreview>(`/documents/${encodeURIComponent(documentId)}/report`, {
-    cache: "no-store",
-  });
+export function getReportPreview(documentId: string, language: ReportLanguage = "en"): Promise<ReviewReportPreview> {
+  return request<ReviewReportPreview>(`/documents/${encodeURIComponent(documentId)}/report?language=${language}`, { cache: "no-store" });
 }
 
 export function getTraceabilitySummary(documentId: string): Promise<TraceabilitySummary> {
@@ -444,10 +443,13 @@ export type ExportFormat = "pdf" | "docx";
 export function getExportUrl(
   documentId: string,
   format: ExportFormat,
-  includeMinors = false
+  includeMinors = false,
+  language: ReportLanguage = "en",
 ): string {
-  const minorParam = includeMinors ? "&include_minors=true" : "";
-  return `${getApiBaseUrl()}/documents/${encodeURIComponent(documentId)}/export?format=${format}${minorParam}`;
+  const params = new URLSearchParams({ format });
+  if (includeMinors) params.set("include_minors", "true");
+  if (format === "docx") params.set("language", language);
+  return `${getApiBaseUrl()}/documents/${encodeURIComponent(documentId)}/export?${params.toString()}`;
 }
 
 export interface DocumentProgressStage {

@@ -22,11 +22,12 @@ import {
   getIssueLocation,
 } from "@/lib/api";
 import { downloadExport } from "@/lib/download";
-import { DocumentViewer } from "./document-viewer";
+import { useLocale } from "@/components/layout/locale-provider";
 import { IssuePanel } from "./issue-panel";
 import { ReportPreviewModal } from "./report-preview-modal";
 import { DictionaryModal } from "./dictionary-modal";
 import { ExportModal } from "./export-modal";
+import { DocumentViewer } from "./document-viewer";
 
 interface SplitScreenViewerProps {
   document: DocumentItem;
@@ -34,6 +35,7 @@ interface SplitScreenViewerProps {
 }
 
 export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewerProps) {
+  const { locale } = useLocale();
   const [issues, setIssues] = useState<IssueItem[]>(initialIssues);
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(
     initialIssues.length > 0 ? initialIssues[0].id : null
@@ -377,7 +379,7 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => void downloadExport(document.id, "docx")}
+              onClick={() => void downloadExport(document.id, "docx", false, locale)}
               className="button button-primary btn-sm flex items-center gap-1.5"
             >
               <Download size={13} />

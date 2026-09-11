@@ -110,8 +110,23 @@ Configure the following environment variables in `.env` or container orchestrato
 | `DOCSQA_CORS_ORIGINS` | Permitted browser origins | `http://localhost:3000` | Set to exact production domain |
 | `NEXT_PUBLIC_API_BASE_URL`| Frontend API endpoint | `http://localhost:8000/api/v1`| Use HTTPS in production |
 | `AUTH_MODE` | Authentication mode | `required` in Docker | Keep required outside local development |
+
 | `SECRET_KEY` | JWT signing secret | none for production | Use a long random secret from a secret manager |
 | `COOKIE_SECURE` | Require secure auth cookies | `false` locally | Set `true` behind HTTPS |
+
+### 4.1 Bilingual frontend and report export
+
+The browser UI supports English and Bahasa Indonesia. The preference is stored locally under `matqc-locale`; it is not a backend or database setting. The DOCX export language is selected independently in the export modal and is sent as `language=en` or `language=id`.
+
+For this feature, rebuild the frontend and backend application images:
+
+```bash
+docker compose build migrate api worker frontend
+docker compose up migrate
+docker compose up -d --force-recreate api worker frontend
+```
+
+`postgres` and `redis` do not need rebuilding. There is no schema migration for locale/report language. `NEXT_PUBLIC_API_BASE_URL` is compiled into the frontend image, so set it before `docker compose build frontend`. PDF export remains source-faithful and does not use the language query parameter.
 
 ### HTTP Security Headers
 Every HTTP response automatically includes enterprise security headers enforced via `backend/main.py`:

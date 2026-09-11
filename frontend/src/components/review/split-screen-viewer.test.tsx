@@ -98,7 +98,7 @@ describe("SplitScreenViewer", () => {
 
     await waitFor(() => {
       expect(screen.getByText("Review Report Preview")).toBeDefined();
-      expect(screen.getByText("Summary Judgement")).toBeDefined();
+      expect(screen.getByText("Summary judgement")).toBeDefined();
       expect(screen.getByText("Blockers require correction before reissue.")).toBeDefined();
     });
   });

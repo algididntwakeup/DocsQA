@@ -23,7 +23,7 @@ describe("ProfileSettingsPage", () => {
 
   it("edits and submits profile fields with a success toast", async () => {
     render(<ProfileSettingsPage />);
-    const name = await screen.findByLabelText("Nama Lengkap");
+    const name = await screen.findByLabelText("Full name");
     fireEvent.change(name, { target: { value: "New Name" } });
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "new@example.test" } });
     fireEvent.click(screen.getByRole("button", { name: /save profile/i }));
