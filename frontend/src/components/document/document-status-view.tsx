@@ -154,7 +154,7 @@ export function DocumentStatusView({ id }: { id: string }) {
       <Link className="back-link" href={document?.project_id ? `/projects/${document.project_id}` : "/projects"}><ArrowLeft size={15} />Project / Inspection register</Link>
       {error && <div className="alert alert-error" role="alert"><AlertTriangle /><span><strong>Status unavailable</strong>{error}</span><button type="button" onClick={() => void load()}>Retry</button></div>}
       {!document || !scan ? <div className="panel loading-state" role="status">Reading pipeline telemetry…</div> : <>
-        <div className="document-hero rq-inspection-hero">
+        <div className="document-hero">
           <div className="document-icon"><FileText /></div>
           <div>
             <p className="eyebrow">Document inspection</p>
@@ -199,7 +199,28 @@ export function DocumentStatusView({ id }: { id: string }) {
             )}
           </section>
         )}
-        {TERMINAL.has(scan.status) && scan.status !== "FAILED" && <section className="rq-inspection-metrics" aria-label="Finding metrics"><div><strong>{issues.filter((issue) => issue.severity === "BLOCKER" || issue.severity === "CRITICAL").length}</strong><span>Blocker</span></div><div><strong>{issues.filter((issue) => issue.severity === "MAJOR" || issue.severity === "HIGH").length}</strong><span>Major</span></div><div><strong>{issues.filter((issue) => issue.severity === "MINOR" || issue.severity === "MEDIUM" || issue.severity === "LOW").length}</strong><span>Minor</span></div></section>}
+        {TERMINAL.has(scan.status) && scan.status !== "FAILED" && (
+          <section className="grid grid-cols-3 gap-3 my-4" aria-label="Finding metrics">
+            <div className="rounded-xl border border-rose-200 bg-rose-50/50 p-4 text-center">
+              <strong className="block text-2xl font-bold text-rose-700">
+                {issues.filter((issue) => issue.severity === "BLOCKER" || issue.severity === "CRITICAL").length}
+              </strong>
+              <span className="text-xs font-semibold text-rose-600">Blocker</span>
+            </div>
+            <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-4 text-center">
+              <strong className="block text-2xl font-bold text-amber-700">
+                {issues.filter((issue) => issue.severity === "MAJOR" || issue.severity === "HIGH").length}
+              </strong>
+              <span className="text-xs font-semibold text-amber-600">Major</span>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
+              <strong className="block text-2xl font-bold text-slate-700">
+                {issues.filter((issue) => issue.severity === "MINOR" || issue.severity === "MEDIUM" || issue.severity === "LOW").length}
+              </strong>
+              <span className="text-xs font-semibold text-slate-500">Minor</span>
+            </div>
+          </section>
+        )}
       </>}
     </>
   );

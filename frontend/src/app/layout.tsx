@@ -5,33 +5,29 @@ import { Toaster } from "sonner";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Document QC",
-  description: "Document quality control and traceability audit",
+  title: "Reksolindo Docs QA ",
+  description: "Engineering Document Inspection & QA Platform",
+  icons: {
+    icon: [
+      { url: "/icon.png", sizes: "180x180", type: "image/png" },
+      { url: "/favicon.ico" },
+    ],
+    apple: [
+      { url: "/apple-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+    shortcut: "/favicon.ico",
+  },
 };
-
-const themeInitScript = `
-(function () {
-  try {
-    var theme = localStorage.getItem("matqc-theme");
-    if (theme !== "dark") theme = "light";
-    document.documentElement.setAttribute("data-theme", theme);
-    if (theme === "light") {
-      document.documentElement.classList.add("light");
-      document.body && document.body.classList.add("light");
-    }
-  } catch (e) {
-    document.documentElement.setAttribute("data-theme", "light");
-  }
-})();
-`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="h-full antialiased" suppressHydrationWarning>
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
-      </head>
-      <body><LocaleProvider><AppShell>{children}</AppShell></LocaleProvider><Toaster position="bottom-right" richColors closeButton /></body>
+    <html lang="en" data-theme="light" className="h-full antialiased light" suppressHydrationWarning>
+      <body className="min-h-screen bg-slate-50 text-slate-900 antialiased font-sans">
+        <LocaleProvider>
+          <AppShell>{children}</AppShell>
+        </LocaleProvider>
+        <Toaster position="bottom-right" richColors closeButton />
+      </body>
     </html>
   );
 }

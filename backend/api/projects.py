@@ -4,7 +4,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
-from sqlalchemy import exists, select
+from sqlalchemy import exists, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -78,7 +78,11 @@ async def list_projects(
         query = query.where(
             (Project.assigned_to_id == current_user.id)
             | exists().where(
-                Document.project_id == Project.id, Document.owner_id == current_user.id
+                Document.project_id == Project.id,
+                or_(
+                    Document.assigned_to_id == current_user.id,
+                    Document.owner_id == current_user.id,
+                ),
             )
         )
     projects = (
@@ -139,8 +143,10 @@ async def list_project_documents(
     query = select(Document).where(Document.project_id == project_id).options(
         joinedload(Document.owner), joinedload(Document.assigned_to)
     )
-    if current_user.role not in {UserRole.LEAD_ENGINEER, UserRole.SUPERUSER}:
-        query = query.where(Document.owner_id == current_user.id)
+    if current_user.role == UserRole.ENGINEER:
+        query = query.where(
+            or_(Document.assigned_to_id == current_user.id, Document.owner_id == current_user.id)
+        )
     elif engineer_id is not None:
         query = query.where(Document.assigned_to_id == engineer_id)
     if workflow_status is not None:

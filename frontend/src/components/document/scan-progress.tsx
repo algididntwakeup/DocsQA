@@ -59,12 +59,29 @@ export function ScanProgress({ scan }: { scan: DocumentStatus }) {
           {isProcessing && <small>This may take a while for large or complex documents. Please keep this page open.</small>}
         </div>
       </div>
-      <div className="rq-pipeline-stages" aria-label="Inspection pipeline stages">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 my-4" aria-label="Inspection pipeline stages">
         {stages.map((name) => {
           const stage = scan.stages.find((item) => item.name === name);
           const active = stage?.status === "RUNNING";
           const complete = stage?.status === "SUCCEEDED" || stage?.status === "SUCCEEDED_WITH_WARNINGS";
-          return <div className={`rq-pipeline-stage ${active ? "is-active" : ""} ${complete ? "is-complete" : ""}`} key={name}><span className="rq-pipeline-dot" /><span>{name === "EXTRACTING" ? "Extracting" : name === "LAYOUT_INSPECTION" ? "Layout" : name === "BUDINSKI_AUDIT" ? "Budinski" : "Standards"}</span><small>{complete ? "Complete" : active ? "Running" : "Queued"}</small></div>;
+          return (
+            <div
+              className={`flex flex-col gap-1 p-3 rounded-xl border text-xs font-semibold transition ${
+                active
+                  ? "border-blue-300 bg-blue-50 text-blue-800 shadow-xs"
+                  : complete
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                  : "border-slate-200 bg-slate-50/50 text-slate-500"
+              }`}
+              key={name}
+            >
+              <div className="flex items-center gap-1.5">
+                <span className={`h-2 w-2 rounded-full ${active ? "bg-blue-600 animate-pulse" : complete ? "bg-emerald-600" : "bg-slate-300"}`} />
+                <span>{name === "EXTRACTING" ? "Extracting" : name === "LAYOUT_INSPECTION" ? "Layout" : name === "BUDINSKI_AUDIT" ? "Budinski" : "Standards"}</span>
+              </div>
+              <small className="text-[10px] font-medium text-slate-400">{complete ? "Complete" : active ? "Running" : "Queued"}</small>
+            </div>
+          );
         })}
       </div>
       {activeStage?.error_message && <p className="telemetry-error" role="alert">{activeStage.error_message}</p>}

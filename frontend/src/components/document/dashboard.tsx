@@ -74,22 +74,93 @@ export function Dashboard() {
     failed: documents.filter((d) => d.status === "FAILED").length,
   }), [documents]);
   return (
-    <>
-      <div className="page-heading">
-        <div><p className="eyebrow">Material document control</p><h1>Inspection workspace</h1><p>Monitor ingestion and extraction readiness across active QA documents.</p></div>
-        <Link className="button button-primary" href="/upload"><Plus size={16} />New inspection</Link>
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 space-y-8 font-sans">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 border-b border-slate-200 pb-6">
+        <div className="space-y-1.5">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-blue-600">Material document control</p>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">Inspection workspace</h1>
+          <p className="text-sm text-slate-600 max-w-2xl">Monitor ingestion and extraction readiness across active QA documents.</p>
+        </div>
+        <Link
+          className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs transition hover:bg-blue-700 active:scale-[0.98] self-start sm:self-auto shrink-0"
+          href="/upload"
+        >
+          <Plus size={16} />
+          New inspection
+        </Link>
       </div>
-      <div className="metric-grid" aria-label="Document summary">
-        <article><Activity /><span><small>Total documents</small><strong>{documents.length}</strong></span></article>
-        <article><Clock3 /><span><small>In processing</small><strong>{metrics.active}</strong></span></article>
-        <article><CheckCircle2 /><span><small>Extracted</small><strong>{metrics.completed}</strong></span></article>
-        <article><AlertTriangle /><span><small>Needs attention</small><strong>{metrics.failed}</strong></span></article>
+
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4" aria-label="Document summary">
+        <article className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 ring-1 ring-blue-500/10">
+            <Activity size={20} />
+          </div>
+          <div>
+            <small className="block text-xs font-medium text-slate-500">Total documents</small>
+            <strong className="text-xl font-bold text-slate-900">{documents.length}</strong>
+          </div>
+        </article>
+
+        <article className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600 ring-1 ring-amber-500/10">
+            <Clock3 size={20} />
+          </div>
+          <div>
+            <small className="block text-xs font-medium text-slate-500">In processing</small>
+            <strong className="text-xl font-bold text-slate-900">{metrics.active}</strong>
+          </div>
+        </article>
+
+        <article className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 ring-1 ring-emerald-500/10">
+            <CheckCircle2 size={20} />
+          </div>
+          <div>
+            <small className="block text-xs font-medium text-slate-500">Extracted</small>
+            <strong className="text-xl font-bold text-slate-900">{metrics.completed}</strong>
+          </div>
+        </article>
+
+        <article className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-600 ring-1 ring-rose-500/10">
+            <AlertTriangle size={20} />
+          </div>
+          <div>
+            <small className="block text-xs font-medium text-slate-500">Needs attention</small>
+            <strong className="text-xl font-bold text-slate-900">{metrics.failed}</strong>
+          </div>
+        </article>
       </div>
-      {error && <div className="alert alert-error" role="alert"><AlertTriangle /><span><strong>API unavailable</strong>{error}</span><button type="button" onClick={() => void load()}>Retry</button></div>}
-       {loading ? <div className="panel loading-state" role="status">Loading inspection register…</div> : <>
-         {metrics.active > 0 && <div className="live-monitor" role="status" aria-live="polite"><Radio size={15} /><span><strong>Live monitoring active</strong> Processing progress may take a while. You can keep this page open and leave to the other tab while waiting.</span><span className="live-pulse" aria-hidden="true" /></div>}
-         <DocumentList documents={documents} onRefresh={() => void load()} />
-       </>}
-    </>
+
+      {error && (
+        <div className="flex items-center gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs font-medium text-rose-800" role="alert">
+          <AlertTriangle size={18} className="text-rose-600 shrink-0" />
+          <span className="flex-1"><strong className="font-semibold">API unavailable: </strong>{error}</span>
+          <button type="button" onClick={() => void load()} className="font-bold underline hover:text-rose-950">Retry</button>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex items-center justify-center rounded-2xl border border-slate-200 bg-white p-12 text-sm text-slate-500 shadow-xs" role="status">
+          Loading inspection register…
+        </div>
+      ) : (
+        <>
+          {metrics.active > 0 && (
+            <div className="flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50/70 px-4 py-3 text-xs text-blue-900 shadow-2xs" role="status" aria-live="polite">
+              <Radio size={16} className="text-blue-600 animate-pulse shrink-0" />
+              <div className="flex-1">
+                <strong className="font-semibold">Live monitoring active: </strong> Processing progress may take a while. You can keep this page open and leave to the other tab while waiting.
+              </div>
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-600"></span>
+              </span>
+            </div>
+          )}
+          <DocumentList documents={documents} onRefresh={() => void load()} />
+        </>
+      )}
+    </div>
   );
 }

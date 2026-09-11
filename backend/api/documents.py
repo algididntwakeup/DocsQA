@@ -128,11 +128,9 @@ async def claim_document(
     if not available:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=WIP_ERROR)
     document.assigned_to_id = current_user.id
-    document.owner_id = current_user.id
     document.assigned_to = current_user
-    document.owner = current_user
     await session.commit()
-    await session.refresh(document)
+    await session.refresh(document, attribute_names=["owner", "assigned_to"])
     return _document_read(document)
 
 
@@ -145,6 +143,12 @@ async def assign_document(
 ) -> DocumentRead:
     """Assign a document to an engineer, optionally overriding the WIP limit."""
     document = await _load_document_for_assignment(session, document_id)
+    if payload.engineer_id is None:
+        document.assigned_to_id = None
+        document.assigned_to = None
+        await session.commit()
+        await session.refresh(document, attribute_names=["owner", "assigned_to"])
+        return _document_read(document)
     engineer = (
         await session.execute(
             select(User)
@@ -175,11 +179,9 @@ async def assign_document(
                 },
             )
     document.assigned_to_id = engineer.id
-    document.owner_id = engineer.id
     document.assigned_to = engineer
-    document.owner = engineer
     await session.commit()
-    await session.refresh(document)
+    await session.refresh(document, attribute_names=["owner", "assigned_to"])
     return _document_read(document)
 
 
@@ -196,7 +198,7 @@ async def mark_document_reviewed(
     document: Annotated[Document, Depends(get_accessible_document)],
 ) -> DocumentRead:
     """Mark an owned document as reviewed by its engineer owner."""
-    if document.owner_id != current_user.id:
+    if document.assigned_to_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Document owner access required."
         )
@@ -269,8 +271,8 @@ async def list_documents(
     """List documents visible to the current user."""
 
     query = select(Document).options(joinedload(Document.owner), joinedload(Document.assigned_to))
-    if current_user.role not in {UserRole.LEAD_ENGINEER, UserRole.SUPERUSER}:
-        query = query.where(Document.owner_id == current_user.id)
+    if current_user.role == UserRole.ENGINEER:
+        query = query.where(Document.assigned_to_id == current_user.id)
     total = (await session.execute(select(func.count()).select_from(query.subquery()))).scalar_one()
     rows = (
         (

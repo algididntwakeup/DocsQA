@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, ArrowLeft, CheckCircle2, RotateCw } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CheckCircle2, Download, FileText, RotateCw, ShieldCheck, X } from "lucide-react";
 import {
   getDocument,
   getApiBaseUrl,
+  getPdfUrl,
   getCurrentUser,
   listAllDocumentIssues,
   subscribeDocumentEvents,
@@ -14,13 +15,10 @@ import {
   type IssueItem,
   type UserRole,
 } from "@/lib/api";
-import { useLocale } from "@/components/layout/locale-provider";
-import { LanguageToggle } from "@/components/layout/language-toggle";
 import { SplitScreenViewer } from "./split-screen-viewer";
 import { ExportModal } from "./export-modal";
 
 export function ReviewWorkspaceView({ id }: { id: string }) {
-  const { t } = useLocale();
   const [document, setDocument] = useState<DocumentItem | null>(null);
   const [issues, setIssues] = useState<IssueItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -95,35 +93,40 @@ export function ReviewWorkspaceView({ id }: { id: string }) {
 
   if (isLoading) {
     return (
-      <div className="panel loading-state" role="status">
-        <div className="loading-spinner" />
-        <p>Loading document and QA inspection telemetry...</p>
+      <div className="fixed inset-0 flex h-screen w-screen flex-col items-center justify-center bg-slate-50 text-slate-600 gap-3" role="status">
+        <div className="h-8 w-8 animate-spin rounded-full border-3 border-blue-600 border-t-transparent" />
+        <p className="text-xs font-semibold text-slate-700">Loading document inspection & telemetry...</p>
       </div>
     );
   }
 
   if (error || !document) {
     return (
-      <div className="review-error-container">
-        <Link className="back-link" href={`/documents/${id}`}>
-          <ArrowLeft size={15} /> Back to inspection status
-        </Link>
-        <div className="alert alert-error" role="alert">
-          <AlertTriangle />
-          <div>
-            <strong>Unable to initialize review workspace</strong>
-            <p>{error ?? "Document not found."}</p>
+      <div className="fixed inset-0 flex h-screen w-screen flex-col items-center justify-center bg-slate-50 px-6 text-slate-800">
+        <div className="w-full max-w-lg rounded-2xl border border-rose-200 bg-white p-6 shadow-xl space-y-4">
+          <div className="flex items-center gap-3 text-rose-600">
+            <AlertTriangle size={24} />
+            <h2 className="text-base font-bold text-slate-900">Unable to initialize review workspace</h2>
           </div>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={() => {
-              setIsLoading(true);
-              setReloadKey((k) => k + 1);
-            }}
-          >
-            <RotateCw size={14} /> Retry
-          </button>
+          <p className="text-xs text-slate-600">{error ?? "Document not found."}</p>
+          <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+            <Link
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:underline"
+              href={`/documents/${id}`}
+            >
+              <ArrowLeft size={14} /> Kembali ke Dokumen
+            </Link>
+            <button
+              type="button"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              onClick={() => {
+                setIsLoading(true);
+                setReloadKey((k) => k + 1);
+              }}
+            >
+              <RotateCw size={13} /> Retry
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -144,8 +147,14 @@ export function ReviewWorkspaceView({ id }: { id: string }) {
             Accept: "application/json",
             ...(action === "request-revision" ? { "Content-Type": "application/json" } : {}),
           },
-             body: action === "request-revision" ? JSON.stringify({ workflow_status: "REVIEWED_BY_ENGINEER", verification_notes: revisionNote.trim() || undefined }) : undefined,
-        },
+          body:
+            action === "request-revision"
+              ? JSON.stringify({
+                  workflow_status: "REVIEWED_BY_ENGINEER",
+                  verification_notes: revisionNote.trim() || undefined,
+                })
+              : undefined,
+        }
       );
       if (!response.ok) {
         if (response.status === 401) window.location.pathname = "/login";
@@ -162,46 +171,181 @@ export function ReviewWorkspaceView({ id }: { id: string }) {
 
   const workflowStatus = document.workflow_status ?? "ANALYZING";
   const canSubmitReview = userRole === "ENGINEER" && workflowStatus === "ANALYZING";
-  const canLeadDecide = (userRole === "LEAD_ENGINEER" || userRole === "SUPERUSER") && workflowStatus === "REVIEWED_BY_ENGINEER";
+  const canLeadDecide =
+    (userRole === "LEAD_ENGINEER" || userRole === "SUPERUSER") &&
+    workflowStatus === "REVIEWED_BY_ENGINEER";
 
-  const initials = (document.assigned_to_name ?? document.owner_name ?? "RQ").split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
   return (
-    <div className="h-screen w-screen overflow-hidden flex flex-col bg-slate-950 text-slate-100">
-      <header className="h-14 shrink-0 flex items-center justify-between gap-4 px-4 border-b border-slate-800 bg-slate-900">
-        <div className="rq-review-heading">
-          <div className="flex min-w-0 items-center gap-3"><Link href={document.project_id ? `/projects/${document.project_id}` : "/projects"} className="flex shrink-0 items-center gap-1.5 text-xs text-slate-300 hover:text-white"><ArrowLeft size={15} /> {t("projects")}</Link><span className="h-5 w-px bg-slate-700" /><div className="min-w-0"><h1 className="truncate text-sm font-semibold">{document.filename}</h1><div className="flex items-center gap-2 text-[10px] text-slate-400"><span className="rounded bg-slate-800 px-1.5 py-0.5">{document.project_id?.slice(0, 8) ?? "EQUIPMENT"}</span><span className={`rq-review-status rq-review-status-${workflowStatus.toLowerCase()}`}><i />{workflowStatus.replace("_BY_ENGINEER", "").replace("_BY_LEAD", "")}</span></div></div></div>
+    <div className="fixed inset-0 h-screen w-screen overflow-hidden flex flex-col bg-slate-100 text-slate-900 font-sans">
+      {/* Zone 1 – Top Navigation Bar */}
+      <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 shadow-2xs z-30">
+        <div className="flex min-w-0 items-center gap-3">
+          <Link
+            href={document.project_id ? `/projects/${document.project_id}` : "/projects"}
+            className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-slate-600 hover:text-slate-900"
+          >
+            <ArrowLeft size={14} /> Kembali
+          </Link>
+          <span className="text-slate-300">|</span>
+          <h1 className="min-w-0 truncate text-xs sm:text-sm font-bold text-slate-900" title={document.filename}>
+            {document.filename}
+          </h1>
+          <span className="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-700 ring-1 ring-blue-700/10">
+            {workflowStatus.replace("_BY_ENGINEER", "").replace("_BY_LEAD", "")}
+          </span>
         </div>
-          <div className="flex shrink-0 items-center gap-2"><LanguageToggle /><button type="button" className="rq-review-action-secondary" onClick={() => setIsScorecardOpen(true)}>Scorecard Budinski</button><button type="button" className="rq-review-action-secondary" onClick={() => setIsExportOpen(true)}>{t("downloadDocx")}</button><span className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-500 text-xs font-bold text-white" title={document.assigned_to_name ?? document.owner_name ?? "Uploader"}>{initials}</span></div>
+
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-xs transition"
+            onClick={() => setIsScorecardOpen(true)}
+          >
+            <ShieldCheck size={14} className="text-indigo-600" /> Budinski Scorecard
+          </button>
+          <button
+            type="button"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-700 shadow-xs transition"
+            onClick={() => setIsExportOpen(true)}
+          >
+            <Download size={14} /> Export DOCX
+          </button>
+          <a
+            className="hidden lg:inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-xs transition"
+            href={getPdfUrl(document.id)}
+            download
+          >
+            <FileText size={14} /> PDF
+          </a>
+        </div>
       </header>
 
-        <main className="flex-1 min-h-0 flex overflow-hidden"><SplitScreenViewer document={document} initialIssues={issues} /></main>
+      {/* Zone 2 – Split Screen Viewer */}
+      <main className="flex-1 min-h-0 flex overflow-hidden">
+        <SplitScreenViewer document={document} initialIssues={issues} embedded />
+      </main>
 
-       <ExportModal documentId={document.id} documentFilename={document.filename} isOpen={isExportOpen} onClose={() => setIsExportOpen(false)} />
-       {isScorecardOpen && <div className="rq-scorecard-backdrop" role="dialog" aria-modal="true" aria-labelledby="workspace-scorecard-title" onClick={() => setIsScorecardOpen(false)}><div className="rq-scorecard-modal" onClick={(event) => event.stopPropagation()}><header><div><p className="rq-kicker">Technical writing audit</p><h2 id="workspace-scorecard-title">Budinski Scorecard</h2><p>Inspection summary for this review workspace.</p></div><button type="button" aria-label="Close scorecard" onClick={() => setIsScorecardOpen(false)}>×</button></header><div className="rq-scorecard-kpis"><div><strong>{issues.filter((issue) => issue.category === "BUDINSKI").length}</strong><span>Items flagged</span></div><div><strong>{issues.length}</strong><span>Total findings</span></div><div><strong>{Math.max(0, 41 - issues.filter((issue) => issue.category === "BUDINSKI").length)}</strong><span>Items clear</span></div></div></div></div>}
+      <ExportModal
+        documentId={document.id}
+        documentFilename={document.filename}
+        isOpen={isExportOpen}
+        onClose={() => setIsExportOpen(false)}
+      />
 
-      {(canSubmitReview || canLeadDecide || workflowError) && (
-         <div className="h-14 shrink-0 flex items-center justify-between gap-4 px-6 border-t border-slate-800 bg-slate-900/90" role="region" aria-label="Workflow actions">
-           <div className="flex min-w-0 items-center gap-2 text-xs text-slate-400"><CheckCircle2 size={17} className={workflowError ? "text-red-400" : "text-emerald-400"} /><span>{workflowError ?? `PIC Reviewer: ${document.assigned_to_name ?? document.owner_name ?? "Unassigned"}`}<small className="ml-2 text-slate-500">{workflowError ? "Resolve the issue before submitting." : `Review updated ${document.reviewed_at ? new Date(document.reviewed_at).toLocaleString() : "not yet"}`}</small></span></div>
-          <div className="rq-signoff-actions">
-            {canSubmitReview && (
-              <button aria-label="Tandai selesai di-review" className="rq-signoff-primary" type="button" disabled={workflowBusy} onClick={() => void updateWorkflow("mark-reviewed")}>
-                {workflowBusy ? "Submitting..." : "Selesaikan Review Saya"}
+      {/* Budinski Scorecard Modal */}
+      {isScorecardOpen && (
+        <div
+          className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40 p-4 backdrop-blur-xs"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="workspace-scorecard-title"
+          onClick={() => setIsScorecardOpen(false)}
+        >
+          <div
+            className="w-full max-w-xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="flex items-start justify-between border-b border-slate-100 p-5">
+              <div>
+                <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                  Technical writing audit
+                </p>
+                <h2 id="workspace-scorecard-title" className="text-lg font-bold text-slate-900">
+                  Budinski Scorecard
+                </h2>
+                <p className="mt-1 text-xs text-slate-500">Inspection summary for this review workspace.</p>
+              </div>
+              <button
+                type="button"
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                aria-label="Close scorecard"
+                onClick={() => setIsScorecardOpen(false)}
+              >
+                <X size={18} />
               </button>
-            )}
-            {canLeadDecide && (
-              <>
-                <button className="rq-signoff-primary" type="button" disabled={workflowBusy} onClick={() => void updateWorkflow("verify")}>
-                  {workflowBusy ? "Saving..." : "Verifikasi & Setujui Dokumen"}
-                </button>
-                <input className="rq-revision-input" value={revisionNote} onChange={(event) => setRevisionNote(event.target.value)} placeholder="Catatan revisi (opsional)" aria-label="Revision note" />
-                <button className="rq-signoff-secondary" type="button" disabled={workflowBusy} onClick={() => void updateWorkflow("request-revision")}>
-                  Minta Revisi
-                </button>
-              </>
-            )}
+            </header>
+            <div className="grid grid-cols-3 gap-3 p-5">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
+                <strong className="block text-2xl font-bold text-slate-900">
+                  {issues.filter((issue) => issue.category === "BUDINSKI").length}
+                </strong>
+                <span className="text-[11px] font-medium text-slate-500">Items flagged</span>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
+                <strong className="block text-2xl font-bold text-slate-900">{issues.length}</strong>
+                <span className="text-[11px] font-medium text-slate-500">Total findings</span>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
+                <strong className="block text-2xl font-bold text-emerald-600">
+                  {Math.max(0, 41 - issues.filter((issue) => issue.category === "BUDINSKI").length)}
+                </strong>
+                <span className="text-[11px] font-medium text-slate-500">Items clear</span>
+              </div>
+            </div>
           </div>
         </div>
       )}
+
+      {/* Zone 3 – Bottom Workflow Action Footer */}
+      <footer
+        className="flex h-12 shrink-0 items-center justify-between gap-4 border-t border-slate-200 bg-white px-4 shadow-2xs z-30"
+        role="region"
+        aria-label="Workflow actions"
+      >
+        <div className="flex min-w-0 items-center gap-2 text-xs text-slate-600">
+          <CheckCircle2 size={16} className={workflowError ? "text-rose-500" : "text-emerald-600"} />
+          <span className="truncate font-medium">
+            {workflowError ?? `PIC Reviewer: ${document.assigned_to_name ?? document.owner_name ?? "Unassigned"}`}
+            <small className="ml-2 text-slate-400">
+              {workflowError
+                ? "Resolve the issue before submitting."
+                : `Updated ${document.reviewed_at ? new Date(document.reviewed_at).toLocaleTimeString() : "not yet"}`}
+            </small>
+          </span>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-2">
+          {canSubmitReview && (
+            <button
+              aria-label="Tandai selesai di-review"
+              className="rounded-lg bg-emerald-600 px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-50 transition"
+              type="button"
+              disabled={workflowBusy}
+              onClick={() => void updateWorkflow("mark-reviewed")}
+            >
+              {workflowBusy ? "Submitting..." : "Selesaikan Review Saya"}
+            </button>
+          )}
+
+          {canLeadDecide && (
+            <>
+              <button
+                className="rounded-lg bg-emerald-600 px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-50 transition"
+                type="button"
+                disabled={workflowBusy}
+                onClick={() => void updateWorkflow("verify")}
+              >
+                {workflowBusy ? "Saving..." : "Verifikasi & Setujui Dokumen"}
+              </button>
+              <input
+                className="hidden sm:block w-44 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-900 placeholder:text-slate-400 focus:border-amber-500 focus:outline-none"
+                value={revisionNote}
+                onChange={(event) => setRevisionNote(event.target.value)}
+                placeholder="Catatan revisi..."
+                aria-label="Revision note"
+              />
+              <button
+                className="rounded-lg bg-amber-600 px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-amber-700 disabled:opacity-50 transition"
+                type="button"
+                disabled={workflowBusy}
+                onClick={() => void updateWorkflow("request-revision")}
+              >
+                Minta Revisi
+              </button>
+            </>
+          )}
+        </div>
+      </footer>
     </div>
   );
 }

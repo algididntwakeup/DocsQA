@@ -77,7 +77,7 @@ class DocumentWorkflowUpdate(ApiModel):
 class DocumentAssignment(ApiModel):
     """Lead-controlled document assignment payload."""
 
-    engineer_id: UUID
+    engineer_id: UUID | None = None
     override_wip: bool = False
 
 

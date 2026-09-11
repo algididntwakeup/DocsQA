@@ -31,16 +31,99 @@ export function CreateUserModal({
     setRole("ENGINEER");
   }
 
-  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-labelledby="create-user-title">
-    <div className="w-full max-w-lg border border-line bg-panel p-6 shadow-xl">
-      <div className="flex items-start justify-between gap-4"><div><p className="eyebrow">Account provisioning</p><h2 id="create-user-title" className="mt-2 text-xl font-semibold">Tambah User Baru</h2><p className="mt-1 text-sm text-muted">Berikan password sementara yang aman untuk user baru.</p></div><button type="button" className="button button-secondary btn-sm" aria-label="Close" onClick={onClose}><X size={16} /></button></div>
-      <form className="mt-6 space-y-4" onSubmit={(event) => void submit(event)}>
-        <label className="block text-xs font-medium text-ink-soft">Nama Lengkap<input className="mt-2 w-full border border-line-strong bg-input-bg px-3 py-3 text-sm text-ink" required value={name} onChange={(event) => setName(event.target.value)} /></label>
-        <label className="block text-xs font-medium text-ink-soft">Email<input className="mt-2 w-full border border-line-strong bg-input-bg px-3 py-3 text-sm text-ink" type="email" required value={email} onChange={(event) => setEmail(event.target.value)} /></label>
-        <label className="block text-xs font-medium text-ink-soft">Password Awal<input className="mt-2 w-full border border-line-strong bg-input-bg px-3 py-3 text-sm text-ink" type="password" minLength={8} required value={password} onChange={(event) => setPassword(event.target.value)} /></label>
-        <label className="block text-xs font-medium text-ink-soft">Role<select className="filter-select mt-2 w-full" value={role} onChange={(event) => setRole(event.target.value as typeof role)}><option value="ENGINEER">Engineer</option><option value="LEAD_ENGINEER">Lead Engineer</option></select></label>
-        <div className="flex justify-end gap-2 pt-2"><button type="button" className="button button-secondary" onClick={onClose}>Batal</button><button type="submit" className="button button-primary" disabled={busy}>{busy ? "Creating..." : "Create user"}</button></div>
-      </form>
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-xs font-sans"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="create-user-title"
+    >
+      <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
+        <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-blue-600">Account Provisioning</p>
+            <h2 id="create-user-title" className="mt-1 text-lg font-bold text-slate-900">
+              Tambah User Baru
+            </h2>
+            <p className="text-xs text-slate-500">Berikan password sementara yang aman untuk user baru.</p>
+          </div>
+          <button
+            type="button"
+            className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+            aria-label="Close"
+            onClick={onClose}
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <form className="mt-4 space-y-4" onSubmit={(event) => void submit(event)}>
+          <div>
+            <label className="block text-xs font-semibold text-slate-700">Nama Lengkap</label>
+            <input
+              className="mt-1 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-900 focus:border-blue-500 focus:outline-none"
+              required
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="e.g. John Doe"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700">Email</label>
+            <input
+              className="mt-1 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-900 focus:border-blue-500 focus:outline-none"
+              type="email"
+              required
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="e.g. engineer@reksolindo.com"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700">Password Awal</label>
+            <input
+              className="mt-1 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-900 focus:border-blue-500 focus:outline-none"
+              type="password"
+              minLength={8}
+              required
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="Minimum 8 karakter"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700">Role</label>
+            <select
+              className="mt-1 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-900 focus:border-blue-500 focus:outline-none"
+              value={role}
+              onChange={(event) => setRole(event.target.value as typeof role)}
+            >
+              <option value="ENGINEER">Engineer</option>
+              <option value="LEAD_ENGINEER">Lead Engineer</option>
+            </select>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
+            <button
+              type="button"
+              className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              onClick={onClose}
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-blue-700 disabled:opacity-50"
+              disabled={busy}
+            >
+              {busy ? "Creating..." : "Create user"}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
-  </div>;
+  );
 }

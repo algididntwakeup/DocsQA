@@ -67,7 +67,7 @@ async def test_claim_succeeds_when_slot_is_empty() -> None:
     result = await claim_document(document.id, session, engineer)
 
     assert result.assigned_to_id == engineer.id
-    assert result.owner_id == engineer.id
+    assert result.owner_id is None
     session.commit.assert_awaited_once()
 
 
@@ -105,9 +105,12 @@ async def test_reviewed_document_frees_wip_slot() -> None:
 async def test_lead_assign_normal_and_override() -> None:
     lead = _user(UserRole.LEAD_ENGINEER)
     engineer = _user(UserRole.ENGINEER)
+    uploader = _user(UserRole.ENGINEER)
     first = _document(assigned_to=engineer)
     normal_target = _document()
     override_target = _document()
+    override_target.owner_id = uploader.id
+    override_target.owner = uploader
 
     session = AsyncMock()
     session.execute.side_effect = [
@@ -136,5 +139,5 @@ async def test_lead_assign_normal_and_override() -> None:
     )
 
     assert result.assigned_to_id == engineer.id
-    assert result.owner_id == engineer.id
+    assert result.owner_id == uploader.id
     assert session.commit.await_count == 1

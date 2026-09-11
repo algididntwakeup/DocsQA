@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -10,7 +10,9 @@ import {
   Clock3,
   Download,
   FileCheck2,
+  FileSpreadsheet,
   FileText,
+  RefreshCw,
   RotateCw,
   ShieldCheck,
   X,
@@ -32,9 +34,14 @@ import { DocumentViewer } from "./document-viewer";
 interface SplitScreenViewerProps {
   document: DocumentItem;
   initialIssues: IssueItem[];
+  embedded?: boolean;
 }
 
-export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewerProps) {
+export function SplitScreenViewer({
+  document,
+  initialIssues,
+  embedded = false,
+}: SplitScreenViewerProps) {
   const { locale } = useLocale();
   const [issues, setIssues] = useState<IssueItem[]>(initialIssues);
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(
@@ -48,6 +55,11 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
     return 1;
   });
 
+  const selectedIssue = useMemo(
+    () => issues.find((i) => i.id === selectedIssueId) ?? null,
+    [issues, selectedIssueId]
+  );
+
   // Mobile pane switcher: "document" or "findings"
   const [mobilePane, setMobilePane] = useState<"document" | "findings">("document");
 
@@ -58,24 +70,26 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
   const [isScorecardOpen, setIsScorecardOpen] = useState(false);
   const [dictionaryInitialTerm, setDictionaryInitialTerm] = useState<string | undefined>(undefined);
 
-  // Global feedback alert
+  // User feedback notification
   const [alertMessage, setAlertMessage] = useState<{
     type: "success" | "error";
     message: string;
   } | null>(null);
-  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
-  const selectedIssue = useMemo(
-    () => issues.find((i) => i.id === selectedIssueId) ?? null,
-    [issues, selectedIssueId]
-  );
+  // Sync state if initialIssues change
+  useEffect(() => {
+    if (initialIssues.length > 0 && !selectedIssueId) {
+      setSelectedIssueId(initialIssues[0].id);
+    }
+  }, [initialIssues, selectedIssueId]);
 
-  const refreshIssues = useCallback(async () => {
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const handleReloadIssues = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      const res = await listAllDocumentIssues(document.id);
-      setIssues(res);
-      setAlertMessage({ type: "success", message: "Findings successfully refreshed." });
+      const fresh = await listAllDocumentIssues(document.id);
+      setIssues(fresh);
+      setAlertMessage({ type: "success", message: "Findings refreshed." });
       setTimeout(() => setAlertMessage(null), 3000);
     } catch {
       setAlertMessage({ type: "error", message: "Failed to reload findings list." });
@@ -143,28 +157,28 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
   const baselinePasses = budinskiIssues.filter((issue) => issue.severity !== "BLOCKER" && issue.severity !== "CRITICAL").length;
 
   return (
-    <div className="rq-split-workspace flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-slate-950 text-slate-100">
+    <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-slate-100 text-slate-900">
       {/* Above Card Header: Breadcrumbs & Document Info & Status */}
-      <div className="hidden">
+      <div className={embedded ? "hidden" : "flex items-center justify-between border-b border-slate-200 bg-white px-4 py-2.5 shrink-0"}>
         {/* Left: Return Link & Document Title */}
         <div className="flex items-center gap-2.5 min-w-0">
           <Link
             href={`/documents/${document.id}`}
-            className="button button-secondary btn-sm flex items-center gap-1.5 shrink-0"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 shrink-0"
             title="Back to inspection status"
           >
             <ArrowLeft size={14} />
             <span>Inspection</span>
           </Link>
-          <div className="h-4 w-[1px] bg-line shrink-0 hidden sm:block" />
-          <div className="p-1.5 rounded-md bg-panel border border-line shrink-0">
-            <FileText size={16} className="text-primary" />
+          <div className="h-4 w-[1px] bg-slate-200 shrink-0 hidden sm:block" />
+          <div className="p-1.5 rounded-lg bg-blue-50 text-blue-600 border border-blue-100 shrink-0">
+            <FileText size={16} />
           </div>
           <div className="min-w-0">
-            <h1 className="text-sm font-semibold truncate text-ink m-0 leading-snug">
+            <h1 className="text-sm font-semibold truncate text-slate-900 m-0 leading-snug">
               {document.filename}
             </h1>
-            <div className="flex items-center gap-2 text-[11px] text-muted leading-tight">
+            <div className="flex items-center gap-2 text-[11px] text-slate-500 leading-tight">
               <span>{document.page_count ?? "—"} pages</span>
               <span>·</span>
               <span>{issues.length} total findings</span>
@@ -176,10 +190,10 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
 
         {/* Right: Report Summary Pill */}
         <div className="flex items-center gap-2 shrink-0">
-          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-panel border border-line text-xs shadow-2xs">
-            <span className="font-semibold text-ink">{includedCount} Included</span>
-            <span className="text-muted">|</span>
-            <span className={blockersCount > 0 ? "font-semibold text-red-500" : "text-muted"}>
+          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-50 border border-slate-200 text-xs shadow-2xs">
+            <span className="font-semibold text-slate-900">{includedCount} Included</span>
+            <span className="text-slate-300">|</span>
+            <span className={blockersCount > 0 ? "font-semibold text-rose-600" : "text-slate-400"}>
               {blockersCount} Blockers
             </span>
           </div>
@@ -188,12 +202,12 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
 
       {statusMessage && (
         <div
-          className={`hidden mb-3 items-start gap-2 rounded-md border px-3 py-2 text-xs ${
+          className={`${embedded ? "hidden" : "flex"} mx-4 my-2 items-start gap-2 rounded-lg border px-3 py-2 text-xs ${
             document.status === "FAILED"
-              ? "border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300"
+              ? "border-rose-200 bg-rose-50 text-rose-700"
               : document.status === "COMPLETED_WITH_WARNINGS"
-                ? "border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-200"
-                : "border-sky-500/30 bg-sky-500/10 text-sky-800 dark:text-sky-200"
+                ? "border-amber-200 bg-amber-50 text-amber-800"
+                : "border-blue-200 bg-blue-50 text-blue-800"
           }`}
           role="status"
           aria-live="polite"
@@ -210,23 +224,23 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
       )}
 
       {/* Main Review Workspace Card */}
-      <div className="rq-workspace-card flex min-h-0 flex-1 w-full flex-col overflow-hidden">
+      <div className="flex min-h-0 flex-1 w-full flex-col overflow-hidden">
         {/* Card Header / Action Toolbar */}
-        <header className="hidden h-12 border-b border-line bg-panel items-center justify-between px-3 sm:px-4 shrink-0 gap-3">
+        <header className={`${embedded ? "hidden" : "flex"} h-12 border-b border-slate-200 bg-white items-center justify-between px-3 sm:px-4 shrink-0 gap-3`}>
           {/* Left: Eyebrow label & Mobile Pane Switcher */}
           <div className="flex items-center gap-3">
-            <span className="eyebrow text-muted hidden sm:inline text-[10px] tracking-wider m-0">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 hidden sm:inline m-0">
               Review & Curation
             </span>
 
             {/* Mobile Pane Switcher */}
-            <div className="flex lg:hidden rounded border border-line bg-sunken p-0.5 text-xs">
+            <div className="flex lg:hidden rounded-lg border border-slate-200 bg-slate-100 p-0.5 text-xs">
               <button
                 type="button"
-                className={`px-2 py-0.5 rounded font-medium transition-colors ${
+                className={`px-2 py-0.5 rounded-md font-medium transition-colors ${
                   mobilePane === "document"
-                    ? "bg-panel text-ink shadow-xs"
-                    : "text-muted hover:text-ink"
+                    ? "bg-white text-slate-900 shadow-xs"
+                    : "text-slate-500 hover:text-slate-900"
                 }`}
                 onClick={() => setMobilePane("document")}
               >
@@ -234,14 +248,14 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
               </button>
               <button
                 type="button"
-                className={`px-2 py-0.5 rounded font-medium transition-colors ${
+                className={`px-2 py-0.5 rounded-md font-medium transition-colors ${
                   mobilePane === "findings"
-                    ? "bg-panel text-ink shadow-xs"
-                    : "text-muted hover:text-ink"
+                    ? "bg-white text-slate-900 shadow-xs"
+                    : "text-slate-500 hover:text-slate-900"
                 }`}
                 onClick={() => setMobilePane("findings")}
               >
-                Findings ({includedCount})
+                Findings ({issues.length})
               </button>
             </div>
           </div>
@@ -250,53 +264,39 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <button
               type="button"
-              className="button button-ghost btn-sm p-1.5"
-              onClick={refreshIssues}
-              disabled={isRefreshing}
-              title="Refresh findings"
-              aria-label="Refresh findings"
-            >
-              <RotateCw size={14} className={isRefreshing ? "animate-spin" : ""} />
-            </button>
-
-            <button
-              type="button"
-              className="button button-ghost btn-sm flex items-center gap-1.5"
-              onClick={() => {
-                setDictionaryInitialTerm(undefined);
-                setIsDictionaryOpen(true);
-              }}
-              title="Custom Dictionary"
-            >
-              <BookOpen size={14} className="text-amber-500" />
-              <span className="hidden md:inline">Dictionary</span>
-            </button>
-
-            <button
-              type="button"
-              className="rq-scorecard-button button button-secondary btn-sm flex items-center gap-1.5"
               onClick={() => setIsScorecardOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-xs"
             >
-              <ShieldCheck size={14} className="text-violet-500" />
-              <span>Budinski Scorecard</span>
+              <ShieldCheck size={13} className="text-indigo-600" />
+              <span className="hidden sm:inline">Budinski</span> Scorecard
             </button>
 
             <button
               type="button"
-              className="button button-secondary btn-sm flex items-center gap-1.5"
               onClick={() => setIsReportModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-xs"
             >
-              <FileCheck2 size={14} className="text-sky-500" />
-              <span className="hidden sm:inline">Report Preview</span>
+              <FileSpreadsheet size={13} />
+              <span>Report Preview</span>
             </button>
 
             <button
               type="button"
-              className="button button-primary btn-sm flex items-center gap-1.5"
               onClick={() => setIsExportModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1 text-xs font-bold text-white hover:bg-blue-700 shadow-xs"
             >
               <Download size={13} />
               <span>Export</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => void handleReloadIssues()}
+              disabled={isRefreshing}
+              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1.5 text-xs text-slate-600 hover:bg-slate-50 shadow-xs disabled:opacity-50"
+              title="Refresh findings list"
+            >
+              <RefreshCw size={13} className={isRefreshing ? "animate-spin" : ""} />
             </button>
           </div>
         </header>
@@ -305,10 +305,10 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
         {alertMessage && (
           <div
             role="alert"
-            className={`hidden px-4 py-2 text-xs items-center justify-between z-20 shrink-0 ${
+            className={`px-4 py-2 text-xs flex items-center justify-between z-20 shrink-0 border-b ${
               alertMessage.type === "error"
-                ? "bg-red-500/15 text-red-700 dark:text-red-300 border-b border-red-500/30"
-                : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-b border-emerald-500/30"
+                ? "bg-rose-50 text-rose-700 border-rose-200"
+                : "bg-emerald-50 text-emerald-700 border-emerald-200"
             }`}
           >
             <div className="flex items-center gap-2">
@@ -352,7 +352,7 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
 
           {/* Right Pane: Findings Curation Panel */}
           <section
-            className={`review-findings-pane w-full lg:w-[460px] xl:w-[540px] h-full min-h-0 min-w-0 shrink-0 overflow-hidden ${
+            className={`review-findings-pane w-full lg:w-[420px] xl:w-[480px] h-full min-h-0 min-w-0 shrink-0 overflow-hidden ${
               mobilePane === "findings" ? "block" : "hidden lg:block"
             }`}
           >
@@ -368,11 +368,11 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
         </div>
 
         {/* Bottom Bar: Report Deliverables Actions */}
-        <footer className="hidden min-h-11 border-t border-line bg-panel flex-wrap items-center justify-between px-3 sm:px-4 py-2 shrink-0 text-xs gap-2">
-          <div className="flex items-center gap-2 text-muted">
-            <span className="font-semibold text-ink">{includedCount}</span> findings marked for export
+        <footer className={`${embedded ? "hidden" : "flex"} min-h-11 border-t border-slate-200 bg-white flex-wrap items-center justify-between px-3 sm:px-4 py-2 shrink-0 text-xs gap-2`}>
+          <div className="flex items-center gap-2 text-slate-500">
+            <span className="font-semibold text-slate-900">{includedCount}</span> findings marked for export
             {blockersCount > 0 && (
-              <span className="text-red-500 font-medium">({blockersCount} blockers require correction)</span>
+              <span className="text-rose-600 font-medium">({blockersCount} blockers require correction)</span>
             )}
           </div>
 
@@ -380,7 +380,7 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
             <button
               type="button"
               onClick={() => void downloadExport(document.id, "docx", false, locale)}
-              className="button button-primary btn-sm flex items-center gap-1.5"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-700 shadow-xs"
             >
               <Download size={13} />
               <span>Export DOCX</span>
@@ -388,7 +388,7 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
             <button
               type="button"
               onClick={() => void downloadExport(document.id, "pdf")}
-              className="button button-secondary btn-sm flex items-center gap-1.5"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
             >
               <FileText size={13} />
               <span>Export Annotated PDF</span>
@@ -419,12 +419,45 @@ export function SplitScreenViewer({ document, initialIssues }: SplitScreenViewer
       />
 
       {isScorecardOpen && (
-        <div className="rq-scorecard-backdrop" role="dialog" aria-modal="true" aria-labelledby="scorecard-title" onClick={() => setIsScorecardOpen(false)}>
-          <div className="rq-scorecard-modal" onClick={(event) => event.stopPropagation()}>
-            <header><div><p className="rq-kicker">Technical writing audit</p><h2 id="scorecard-title">Budinski Scorecard</h2><p>41 Appendix 12 items and 4 baseline measures.</p></div><button type="button" aria-label="Close scorecard" onClick={() => setIsScorecardOpen(false)}><X size={17} /></button></header>
-            <div className="rq-scorecard-kpis"><div><strong>{budinskiIssues.length}</strong><span>Items flagged</span></div><div><strong>{Math.max(0, 41 - budinskiIssues.length)}</strong><span>Items clear</span></div><div><strong>{baselinePasses}/4</strong><span>Baselines passing</span></div></div>
-            <div className="rq-scorecard-progress"><div><span>Appendix 12 coverage</span><b>{Math.round(((41 - budinskiIssues.length) / 41) * 100)}%</b></div><progress value={Math.max(0, 41 - budinskiIssues.length)} max="41" /></div>
-            <footer><span>Detailed scorecard values remain in the exported DOCX report.</span><button type="button" className="rq-signoff-secondary" onClick={() => setIsScorecardOpen(false)}>Close</button></footer>
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40 p-4 backdrop-blur-xs" role="dialog" aria-modal="true" aria-labelledby="scorecard-title" onClick={() => setIsScorecardOpen(false)}>
+          <div className="w-full max-w-xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
+            <header className="flex items-start justify-between border-b border-slate-100 p-5">
+              <div>
+                <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">Technical writing audit</p>
+                <h2 id="scorecard-title" className="text-lg font-bold text-slate-900">Budinski Scorecard</h2>
+                <p className="mt-1 text-xs text-slate-500">41 Appendix 12 items and 4 baseline measures.</p>
+              </div>
+              <button type="button" className="text-slate-400 hover:text-slate-600 rounded-lg p-1" aria-label="Close scorecard" onClick={() => setIsScorecardOpen(false)}>
+                <X size={18} />
+              </button>
+            </header>
+            <div className="grid grid-cols-3 gap-3 p-5">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
+                <strong className="block text-2xl font-bold text-slate-900">{budinskiIssues.length}</strong>
+                <span className="text-[11px] font-medium text-slate-500">Items flagged</span>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
+                <strong className="block text-2xl font-bold text-emerald-600">{Math.max(0, 41 - budinskiIssues.length)}</strong>
+                <span className="text-[11px] font-medium text-slate-500">Items clear</span>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
+                <strong className="block text-2xl font-bold text-blue-600">{baselinePasses}/4</strong>
+                <span className="text-[11px] font-medium text-slate-500">Baselines passing</span>
+              </div>
+            </div>
+            <div className="px-5 pb-5">
+              <div className="flex justify-between text-xs font-semibold text-slate-600">
+                <span>Appendix 12 coverage</span>
+                <b className="text-blue-600 font-bold">{Math.round(((41 - budinskiIssues.length) / 41) * 100)}%</b>
+              </div>
+              <progress className="mt-2 h-2 w-full accent-blue-600 rounded-full" value={Math.max(0, 41 - budinskiIssues.length)} max="41" />
+            </div>
+            <footer className="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-5 py-3 text-xs text-slate-500">
+              <span>Detailed values remain in the exported DOCX report.</span>
+              <button type="button" className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50" onClick={() => setIsScorecardOpen(false)}>
+                Close
+              </button>
+            </footer>
           </div>
         </div>
       )}

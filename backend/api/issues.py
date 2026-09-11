@@ -4,7 +4,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.dependencies import get_current_user
@@ -31,8 +31,10 @@ async def curate_issue(
         .join(Document, Issue.document_id == Document.id)
         .where(Issue.id == issue_id)
     )
-    if current_user.role != UserRole.LEAD_ENGINEER:
-        query = query.where(Document.owner_id == current_user.id)
+    if current_user.role == UserRole.ENGINEER:
+        query = query.where(
+            or_(Document.assigned_to_id == current_user.id, Document.owner_id == current_user.id)
+        )
     issue = (await session.execute(query)).scalar_one_or_none()
     if issue is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Issue not found.")

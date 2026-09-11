@@ -127,8 +127,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     let message = `Request failed (${response.status}).`;
     let code: string | undefined;
     try {
-      const problem = (await response.json()) as { detail?: string; code?: string };
-      message = problem.detail ?? message;
+      const problem = (await response.json()) as { detail?: string | { message?: string }; code?: string };
+      message = typeof problem.detail === "string" ? problem.detail : problem.detail?.message ?? message;
       code = problem.code;
     } catch {
       // Keep fallback
@@ -220,7 +220,7 @@ export function claimDocument(documentId: string): Promise<DocumentItem> {
 
 export function assignDocument(
   documentId: string,
-  engineerId: string,
+  engineerId: string | null,
   overrideWip = false,
 ): Promise<DocumentItem> {
   return request<DocumentItem>(`/documents/${encodeURIComponent(documentId)}/assign`, {

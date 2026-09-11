@@ -7,7 +7,7 @@ from uuid import UUID
 import jwt
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -33,13 +33,19 @@ async def get_current_user(
     if token is None and credentials is not None:
         token = credentials.credentials
     if settings.AUTH_MODE == "disabled" and token is None:
-        return User(
-            id=UUID("00000000-0000-0000-0000-000000000000"),
-            email="local@localhost",
-            hashed_password="",
-            full_name="Local Development User",
-            role=UserRole.LEAD_ENGINEER,
-            is_active=True,
+        local_user = (
+            await session.execute(
+                select(User)
+                .where(User.email.in_(["admin@localhost", "lead.engineer@localhost"]))
+                .order_by(User.email.asc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        if local_user is not None:
+            return local_user
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="No local development account is available.",
         )
     unauthorized = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -94,8 +100,10 @@ def accessible_document_query(document_id: UUID, current_user: User):
     query = select(Document).where(Document.id == document_id).options(
         joinedload(Document.owner), joinedload(Document.assigned_to)
     )
-    if current_user.role not in {UserRole.LEAD_ENGINEER, UserRole.SUPERUSER}:
-        query = query.where(Document.owner_id == current_user.id)
+    if current_user.role == UserRole.ENGINEER:
+        query = query.where(
+            or_(Document.assigned_to_id == current_user.id, Document.owner_id == current_user.id)
+        )
     return query
 
 
