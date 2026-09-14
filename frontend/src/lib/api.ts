@@ -464,7 +464,7 @@ export function createDictionaryTerm(
   });
 }
 
-export type ExportFormat = "pdf" | "docx";
+export type ExportFormat = "pdf" | "docx" | "annotated_pdf";
 
 export function getExportUrl(
   documentId: string,
@@ -472,10 +472,44 @@ export function getExportUrl(
   includeMinors = false,
   language: ReportLanguage = "en",
 ): string {
-  const params = new URLSearchParams({ format });
+  const params = new URLSearchParams({ format, lang: language });
   if (includeMinors) params.set("include_minors", "true");
-  if (format === "docx") params.set("language", language);
+  params.set("language", language);
   return `${getApiBaseUrl()}/documents/${encodeURIComponent(documentId)}/export?${params.toString()}`;
+}
+
+export async function downloadDocumentReport(
+  documentId: string,
+  format: ExportFormat,
+  language: ReportLanguage = "en",
+  includeMinors = false,
+): Promise<void> {
+  const label =
+    format === "pdf"
+      ? "PDF review report"
+      : format === "docx"
+      ? "DOCX review report"
+      : "annotated source PDF";
+  const url = getExportUrl(documentId, format, includeMinors, language);
+  const response = await fetch(url, {
+    credentials: "include",
+  });
+  if (!response.ok) {
+    throw new Error(`Export of ${label} failed (${response.status}).`);
+  }
+  const blob = await response.blob();
+  const disposition = response.headers.get("Content-Disposition") ?? "";
+  const filename =
+    disposition.match(/filename="?([^";]+)"?/i)?.[1] ??
+    `document-review.${format === "annotated_pdf" ? "pdf" : format}`;
+  const downloadUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = downloadUrl;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
 }
 
 export interface DocumentProgressStage {

@@ -4,6 +4,8 @@ import json
 import shutil
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
+from pathlib import Path
+import tempfile
 from typing import Annotated, Any
 from uuid import UUID
 
@@ -49,7 +51,9 @@ from schemas.documents import (
 )
 from schemas.issues import IssueListResponse, IssueRead
 from services.export import (
+    LibreOfficeConversionError,
     assessment_from_document_findings,
+    convert_docx_to_pdf,
     export_annotated_pdf,
     generate_ale_review_docx,
 )
@@ -122,11 +126,6 @@ async def _load_document_for_assignment(session: AsyncSession, document_id: UUID
         await session.execute(
             select(Document)
             .where(Document.id == document_id)
-            .options(
-                joinedload(Document.owner),
-                joinedload(Document.assigned_to),
-                joinedload(Document.project),
-            )
             .with_for_update()
         )
     ).scalar_one_or_none()
@@ -160,7 +159,9 @@ async def claim_document(
         document.assigned_to_id = current_user.id
         document.assigned_to = current_user
         await session.commit()
-        await session.refresh(document, attribute_names=["owner", "assigned_to", "project"])
+        await session.refresh(
+            document, attribute_names=["updated_at", "owner", "assigned_to", "project"]
+        )
         return _document_read(document)
     except HTTPException:
         await session.rollback()
@@ -185,7 +186,9 @@ async def assign_document(
             document.assigned_to_id = None
             document.assigned_to = None
             await session.commit()
-            await session.refresh(document, attribute_names=["owner", "assigned_to", "project"])
+            await session.refresh(
+                document, attribute_names=["updated_at", "owner", "assigned_to", "project"]
+            )
             return _document_read(document)
         engineer = (
             await session.execute(
@@ -219,7 +222,9 @@ async def assign_document(
         document.assigned_to_id = engineer.id
         document.assigned_to = engineer
         await session.commit()
-        await session.refresh(document, attribute_names=["owner", "assigned_to", "project"])
+        await session.refresh(
+            document, attribute_names=["updated_at", "owner", "assigned_to", "project"]
+        )
         return _document_read(document)
     except HTTPException:
         await session.rollback()
@@ -252,7 +257,9 @@ async def mark_document_reviewed(
     document.workflow_status = DocumentWorkflowStatus.REVIEWED_BY_ENGINEER
     document.reviewed_at = datetime.now(UTC)
     await session.commit()
-    await session.refresh(document, attribute_names=["owner", "assigned_to", "project"])
+    await session.refresh(
+        document, attribute_names=["updated_at", "owner", "assigned_to", "project"]
+    )
     return _document_read(document)
 
 
@@ -272,7 +279,9 @@ async def verify_document(
     if payload is not None and payload.verification_notes is not None:
         document.verification_notes = payload.verification_notes
     await session.commit()
-    await session.refresh(document, attribute_names=["owner", "assigned_to", "project"])
+    await session.refresh(
+        document, attribute_names=["updated_at", "owner", "assigned_to", "project"]
+    )
     return _document_read(document)
 
 
@@ -306,7 +315,9 @@ async def request_document_revision(
     if requested_status == DocumentWorkflowStatus.ANALYZING:
         document.reviewed_at = None
     await session.commit()
-    await session.refresh(document, attribute_names=["owner", "assigned_to", "project"])
+    await session.refresh(
+        document, attribute_names=["updated_at", "owner", "assigned_to", "project"]
+    )
     return _document_read(document)
 
 
@@ -406,6 +417,9 @@ async def upload_document(
         created_at=result.document.created_at,
         deduplicated=result.deduplicated,
     )
+
+
+@router.get("/{document_id}", response_model=DocumentRead, responses=NOT_READY)
 async def get_document(
     document_id: UUID,
     document: Annotated[Document, Depends(get_accessible_document)],
@@ -763,14 +777,15 @@ async def get_report_preview(
 )
 async def export_document(
     document_id: UUID,
-    format: Annotated[str, Query(pattern=r"^(pdf|docx)$")],
     session: Annotated[AsyncSession, Depends(get_session)],
     storage: Annotated[LocalStorage, Depends(get_storage)],
     document: Annotated[Document, Depends(get_accessible_document)],
+    format: Annotated[str, Query(pattern=r"^(pdf|docx|annotated_pdf)$")] = "docx",
     include_minors: Annotated[bool, Query(description="Include minor and informational findings.")] = False,
-    language: Annotated[ReportLanguage, Query()] = ReportLanguage.ENGLISH,
+    language: Annotated[ReportLanguage | None, Query()] = None,
+    lang: Annotated[str | None, Query(pattern=r"^(en|id)$")] = None,
 ) -> Response:
-    """Export the annotated original PDF or formal DOCX review report."""
+    """Export the formal review report (PDF via LibreOffice or DOCX) or annotated original PDF."""
 
     issues = (
         (
@@ -785,7 +800,13 @@ async def export_document(
     )
 
     safe_name = document.safe_filename
-    if format == "pdf":
+    report_lang = ReportLanguage.ENGLISH
+    if lang == "id" or language == ReportLanguage.INDONESIAN:
+        report_lang = ReportLanguage.INDONESIAN
+    elif lang == "en" or language == ReportLanguage.ENGLISH:
+        report_lang = ReportLanguage.ENGLISH
+
+    if format == "annotated_pdf":
         selected_issues = [
             issue
             for issue in issues
@@ -802,29 +823,63 @@ async def export_document(
             media_type="application/pdf",
             headers={"Content-Disposition": f'attachment; filename="{safe_name}_annotated.pdf"'},
         )
+
+    refresh = getattr(session, "refresh", None)
+    if refresh is not None:
+        try:
+            await refresh(document, ["owner", "verified_by"])
+        except TypeError:
+            # Lightweight test sessions and compatibility adapters may only
+            # implement SQLAlchemy's single-argument refresh form.
+            await refresh(document)
+    scorecard: dict[str, Any] | None = None
+    scorecard_path = storage._path_for_key(f"artifacts/{document.id}/budinski_scorecard.json")
+    if scorecard_path.exists():
+        try:
+            scorecard = json.loads(scorecard_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            scorecard = None
+    assessment = assessment_from_document_findings(
+        document,
+        list(issues),
+        scorecard_data=scorecard,
+        include_minors=include_minors,
+        language=report_lang,
+    )
+    docx_bytes = generate_ale_review_docx(assessment, document, language=report_lang)
+
     if format == "docx":
-        refresh = getattr(session, "refresh", None)
-        if refresh is not None:
-            try:
-                await refresh(document, ["owner", "verified_by"])
-            except TypeError:
-                # Lightweight test sessions and compatibility adapters may only
-                # implement SQLAlchemy's single-argument refresh form.
-                await refresh(document)
-        scorecard: dict[str, Any] | None = None
-        scorecard_path = storage._path_for_key(f"artifacts/{document.id}/budinski_scorecard.json")
-        if scorecard_path.exists():
-            try:
-                scorecard = json.loads(scorecard_path.read_text(encoding="utf-8"))
-            except (OSError, ValueError):
-                scorecard = None
-        assessment = assessment_from_document_findings(document, list(issues), scorecard_data=scorecard, include_minors=include_minors, language=language)
-        docx_bytes = generate_ale_review_docx(assessment, document, language=language)
         return Response(
             content=docx_bytes,
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             headers={"Content-Disposition": f'attachment; filename="{safe_name}_review.docx"'},
         )
+
+    if format == "pdf":
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            tmp_docx = tmp_path / f"{safe_name}.docx"
+            tmp_docx.write_bytes(docx_bytes)
+            try:
+                pdf_path = convert_docx_to_pdf(tmp_docx, tmp_path)
+                pdf_bytes = pdf_path.read_bytes()
+            except LibreOfficeConversionError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Failed to generate PDF review report via LibreOffice: {exc}",
+                ) from exc
+            except FileNotFoundError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail=f"LibreOffice is not available on this host: {exc}",
+                ) from exc
+
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{safe_name}_review.pdf"'},
+        )
+
     raise HTTPException(status_code=400, detail=f"Unsupported format: {format}")
 
 

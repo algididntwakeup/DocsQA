@@ -15,7 +15,8 @@ from docx import Document as WordDocument
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Inches, Pt
 
-from domain.enums import Severity
+from domain.enums import ReportLanguage, Severity
+from services.report_locale import get_report_strings
 
 if TYPE_CHECKING:
     from models.document import Document
@@ -165,8 +166,11 @@ def build_review_report(
     issues: list[Issue],
     scorecard: dict[str, Any] | None = None,
     include_minors: bool = False,
+    language: ReportLanguage = ReportLanguage.ENGLISH,
 ) -> bytes:
     """Build a concise evidence-led review report for included findings."""
+    strings = get_report_strings(language)
+    is_english = language == ReportLanguage.ENGLISH
     included = [
         item
         for item in issues
@@ -182,7 +186,7 @@ def build_review_report(
         "HIGH",
     }
     blockers = [item for item in included if item.severity in blocker_levels]
-    language = [
+    language_issues = [
         item
         for item in included
         if getattr(item.category, "value", str(item.category)) == "LINGUISTIC"
@@ -195,7 +199,7 @@ def build_review_report(
         for item in included
         if getattr(item.category, "value", str(item.category)) == "BUDINSKI"
     ]
-    other = [item for item in included if item not in blockers and item not in language]
+    other = [item for item in included if item not in blockers and item not in language_issues]
 
     report = WordDocument()
     section = report.sections[0]
@@ -207,75 +211,106 @@ def build_review_report(
 
     title = report.add_paragraph(style="Title")
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    title.add_run("DOCUMENT REVIEW ENGINEERING")
+    title.add_run("DOCUMENT REVIEW ENGINEERING" if is_english else "REKAYASA TINJAUAN KUALITAS DOKUMEN")
     subtitle = report.add_paragraph()
     subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    subtitle.add_run(f"Review of {document.original_filename}").bold = True
-    report.add_paragraph("Basis: deterministic internal-consistency review profile.")
+    doc_prefix = "Review of" if is_english else "Tinjauan atas"
+    subtitle.add_run(f"{doc_prefix} {document.original_filename}").bold = True
+    basis_text = "Basis: deterministic internal-consistency review profile." if is_english else "Dasar: profil tinjauan konsistensi internal deterministik."
+    report.add_paragraph(basis_text)
 
-    report.add_heading("Summary judgement", level=1)
-    report.add_paragraph(
-        f"The scan included {len(included)} findings: {counts['CRITICAL']} critical, "
-        f"{counts['HIGH']} high, {counts['MEDIUM']} medium and {counts['LOW']} low. "
-        "Findings are evidence of possible document inconsistency or writing defects; "
-        "they are not engineering approval or proof of design correctness."
-    )
+    report.add_heading(strings.summary_judgement, level=1)
+    if is_english:
+        report.add_paragraph(
+            f"The scan included {len(included)} findings: {counts['CRITICAL']} critical, "
+            f"{counts['HIGH']} high, {counts['MEDIUM']} medium and {counts['LOW']} low. "
+            "Findings are evidence of possible document inconsistency or writing defects; "
+            "they are not engineering approval or proof of design correctness."
+        )
+    else:
+        report.add_paragraph(
+            f"Pemindaian mencakup {len(included)} temuan: {counts['CRITICAL']} kritis, "
+            f"{counts['HIGH']} tinggi, {counts['MEDIUM']} sedang dan {counts['LOW']} rendah. "
+            "Temuan adalah bukti potensi ketidakkonsistenan dokumen atau cacat penulisan; "
+            "temuan ini bukan persetujuan rekayasa atau bukti kebenaran desain."
+        )
     if not include_minors:
         suppressed_minors = sum(
             1 for item in issues if item.included_in_report and _severity(item) in {"MINOR", "INFO"}
         )
         if suppressed_minors:
-            report.add_paragraph(
-                f"{suppressed_minors} minor language/mechanics findings are omitted from this "
-                "report by default. Use the include-minors export option for the full detail."
-            )
-    report.add_paragraph(
-        "BOTTOM LINE  Resolve the listed blocker findings before reissue, then regenerate "
-        "the document navigation and review all referenced values."
-    )
+            if is_english:
+                report.add_paragraph(
+                    f"{suppressed_minors} minor language/mechanics findings are omitted from this "
+                    "report by default. Use the include-minors export option for the full detail."
+                )
+            else:
+                report.add_paragraph(
+                    f"{suppressed_minors} temuan bahasa/mekanika minor diabaikan dari laporan "
+                    "ini secara default. Gunakan opsi sertakan temuan minor untuk rincian lengkap."
+                )
+    if is_english:
+        report.add_paragraph(
+            "BOTTOM LINE  Resolve the listed blocker findings before reissue, then regenerate "
+            "the document navigation and review all referenced values."
+        )
+    else:
+        report.add_paragraph(
+            "KESIMPULAN UTAMA  Selesaikan temuan penghalang yang tercantum sebelum penerbitan ulang, lalu perbarui "
+            "navigasi dokumen dan tinjau semua nilai rujukan."
+        )
 
-    report.add_heading("Scorecard", level=1)
+    report.add_heading(strings.scorecard, level=1)
     table = report.add_table(rows=1, cols=2)
     table.style = "Table Grid"
-    table.rows[0].cells[0].text = "Measure"
-    scorecard_metrics = (
-        ("Included findings", len(included)),
-        ("Blockers", len(blockers)),
-        ("Reference standard violations", len(reference_issues)),
-        ("Language and mechanics", len(language)),
-        ("Other consistency findings", len(other)),
-    )
+    table.rows[0].cells[0].text = strings.measure_header
+    if is_english:
+        scorecard_metrics = (
+            ("Included findings", len(included)),
+            ("Blockers", len(blockers)),
+            ("Reference standard violations", len(reference_issues)),
+            ("Language and mechanics", len(language_issues)),
+            ("Other consistency findings", len(other)),
+        )
+    else:
+        scorecard_metrics = (
+            ("Temuan yang disertakan", len(included)),
+            ("Penghalang", len(blockers)),
+            ("Pelanggaran standar acuan", len(reference_issues)),
+            ("Bahasa dan mekanika", len(language_issues)),
+            ("Temuan konsistensi lainnya", len(other)),
+        )
     for label, value in scorecard_metrics:
         cells = table.add_row().cells
         cells[0].text, cells[1].text = label, str(value)
 
-    report.add_heading("The four baseline measures", level=1)
+    report.add_heading(strings.baseline_measures, level=1)
     baseline_table = report.add_table(rows=1, cols=3)
     baseline_table.style = "Table Grid"
     for cell, label in zip(
-        baseline_table.rows[0].cells, ("Measure", "Result", "Evidence"), strict=False
+        baseline_table.rows[0].cells, (strings.measure_header, strings.result_header, strings.evidence_header), strict=False
     ):
         cell.text = label
     baseline_rows = (
         (
-            "Purpose distinct from objective",
-            "PASS" if any("purpose" in i.message.lower() for i in budinski) is False else "REVIEW",
-            "Extracted purpose/objective signals",
+            strings.measure_purpose_name,
+            strings.outcome_pass if any("purpose" in i.message.lower() for i in budinski) is False else ("REVIEW" if is_english else "TINJAU"),
+            "Extracted purpose/objective signals" if is_english else "Sinyal tujuan/sasaran yang diekstrak",
         ),
         (
-            "Procedure repeatable",
-            "REVIEW",
-            "Procedure and methodology text extracted from source",
+            strings.measure_procedure_name,
+            "REVIEW" if is_english else "TINJAU",
+            "Procedure and methodology text extracted from source" if is_english else "Teks prosedur dan metodologi diekstrak dari sumber",
         ),
         (
-            "Conclusions valid",
-            "REVIEW",
-            "Conclusion section and cross-page findings",
+            strings.measure_conclusions_name,
+            "REVIEW" if is_english else "TINJAU",
+            "Conclusion section and cross-page findings" if is_english else "Bagian kesimpulan dan temuan lintas halaman",
         ),
         (
-            "Recommendations actionable",
-            "REVIEW",
-            "Owner/date evidence is checked where available",
+            strings.measure_recommendations_name,
+            "REVIEW" if is_english else "TINJAU",
+            "Owner/date evidence is checked where available" if is_english else "Bukti pemilik/tenggat waktu diperiksa jika tersedia",
         ),
     )
     for label, result, evidence in baseline_rows:
@@ -410,53 +445,74 @@ def build_review_report(
         row for row in finding_rows if _severity(row[0]) in {"BLOCKER", "CRITICAL", "MAJOR", "HIGH"}
     ]
     next_revision_rows = [row for row in finding_rows if row not in blocker_rows]
-    add_findings_table("Blockers", blocker_rows)
+    add_findings_table(strings.blockers, blocker_rows)
     for issue, _count, _locations in blocker_rows:
         report.add_paragraph(f"{_severity(issue)}: {issue.type} - {issue.message}")
-    add_findings_table("Next revision findings", next_revision_rows)
+    add_findings_table(strings.next_revision_findings, next_revision_rows)
 
-    report.add_heading("Language and mechanics", level=1)
-    if not language:
-        report.add_paragraph("No language or mechanics findings are included.")
+    report.add_heading(strings.language_mechanics, level=1)
+    if not language_issues:
+        report.add_paragraph(strings.no_language_findings)
     else:
         grouped_language: dict[str, list[Issue]] = {}
-        for item in language:
+        for item in language_issues:
             grouped_language.setdefault(item.type, []).append(item)
         summary_parts = []
         for rule, findings in sorted(grouped_language.items()):
             pages = sorted({str(_page(item)) for item in findings})
-            summary_parts.append(
-                f"{len(findings)} {rule.lower()} finding(s) on page(s) {', '.join(pages)}"
+            if is_english:
+                summary_parts.append(
+                    f"{len(findings)} {rule.lower()} finding(s) on page(s) {', '.join(pages)}"
+                )
+            else:
+                summary_parts.append(
+                    f"{len(findings)} temuan {rule.lower()} pada halaman {', '.join(pages)}"
+                )
+        if is_english:
+            report.add_paragraph(
+                "Language and mechanics findings are consolidated by rule to keep the report "
+                "actionable without repeating every individual token: " + "; ".join(summary_parts) + "."
             )
-        report.add_paragraph(
-            "Language and mechanics findings are consolidated by rule to keep the report "
-            "actionable without repeating every individual token: " + "; ".join(summary_parts) + "."
-        )
+        else:
+            report.add_paragraph(
+                "Temuan bahasa dan mekanika dikonsolidasikan menurut aturan agar laporan tetap "
+                "dapat ditindaklanjuti tanpa mengulang setiap kata: " + "; ".join(summary_parts) + "."
+            )
 
-    report.add_heading("Scope and limitations", level=1)
-    report.add_paragraph(
-        "This is an internal-consistency and document-quality review. It does not approve "
-        "engineering work, certify safety, or validate design fitness or external compliance."
-    )
-    report.add_paragraph(
-        "DocsQA does not approve designs, verify engineering safety, or replace licensed "
-        "professional engineering judgement."
-    )
-    report.add_heading("Governed Reference Standards Verification", level=1)
+    report.add_heading(strings.limits_of_review, level=1)
+    if is_english:
+        report.add_paragraph(
+            "This is an internal-consistency and document-quality review. It does not approve "
+            "engineering work, certify safety, or validate design fitness or external compliance."
+        )
+        report.add_paragraph(
+            "DocsQA does not approve designs, verify engineering safety, or replace licensed "
+            "professional engineering judgement."
+        )
+    else:
+        report.add_paragraph(
+            "Ini adalah tinjauan konsistensi internal dan kualitas dokumen. Tinjauan ini tidak menyetujui "
+            "pekerjaan rekayasa, mensertifikasi keselamatan, atau memvalidasi kelayakan desain maupun kepatuhan eksternal."
+        )
+        report.add_paragraph(
+            "DocsQA tidak menyetujui desain, memverifikasi keselamatan rekayasa, atau menggantikan pertimbangan "
+            "insinyur profesional berlisensi."
+        )
+    report.add_heading("Governed Reference Standards Verification" if is_english else "Verifikasi Standar Acuan Terkelola", level=1)
     standards_table = report.add_table(rows=1, cols=2)
     standards_table.style = "Table Grid"
-    standards_table.rows[0].cells[0].text = "Reference standard"
+    standards_table.rows[0].cells[0].text = "Reference standard" if is_english else "Standar acuan"
     standards_table.rows[0].cells[1].text = "Status"
     for standard, status in (
-        ("ASME BPVC.VIII.1", "CONFIGURED"),
-        ("API RP 580", "CONFIGURED"),
-        ("API 510", "CONFIGURED"),
-        ("API 579-1/ASME FFS-1", "UNCONFIGURED"),
+        ("ASME BPVC.VIII.1", "CONFIGURED" if is_english else "TERKONFIGURASI"),
+        ("API RP 580", "CONFIGURED" if is_english else "TERKONFIGURASI"),
+        ("API 510", "CONFIGURED" if is_english else "TERKONFIGURASI"),
+        ("API 579-1/ASME FFS-1", "UNCONFIGURED" if is_english else "BELUM TERKONFIGURASI"),
     ):
         cells = standards_table.add_row().cells
         cells[0].text = standard
         cells[1].text = status
-    report.add_paragraph("REVIEWSCORE | generated deterministically from included findings")
+    report.add_paragraph("REVIEWSCORE | generated deterministically from included findings" if is_english else "REVIEWSCORE | dibuat secara deterministik dari temuan yang disertakan")
     output = io.BytesIO()
     report.save(output)
     return output.getvalue()

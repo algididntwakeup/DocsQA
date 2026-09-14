@@ -160,7 +160,7 @@ def test_build_review_report_docx(tmp_path: Path) -> None:
     assert "Blockers" in full_text
     assert "Next revision findings" in full_text
     assert "The four baseline measures" in full_text
-    assert "Scope and limitations" in full_text
+    assert "Limits of this review" in full_text
 
     # Verify blocker content and reviewer note
     assert "TABLE_MATH_MISMATCH" in all_table_text
@@ -183,11 +183,22 @@ def test_build_review_report_docx(tmp_path: Path) -> None:
 @pytest.mark.anyio
 async def test_export_endpoints(tmp_path: Path) -> None:
     """HTTP export endpoint handles PDF and DOCX formats and rejects legacy formats."""
-    from core.dependencies import get_storage
+    from core.dependencies import get_current_user, get_storage
     from db.session import get_session
+    from domain.enums import UserRole
+    from models.user import User
+    from unittest.mock import patch
 
     doc, issues = _make_sample_models(tmp_path)
     storage = LocalStorage(root=tmp_path)
+    mock_user = User(
+        id=doc.owner_id,
+        email="lead@example.com",
+        role=UserRole.SUPERUSER,
+        is_active=True,
+        hashed_password="pw",
+        full_name="Lead Engineer",
+    )
 
     class MockAsyncSession:
         async def execute(self, stmt: Any) -> Any:
@@ -209,16 +220,30 @@ async def test_export_endpoints(tmp_path: Path) -> None:
 
     app.dependency_overrides[get_session] = override_get_session
     app.dependency_overrides[get_storage] = lambda: storage
+    app.dependency_overrides[get_current_user] = lambda: mock_user
 
     try:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            # 1. PDF
-            res_pdf = await client.get(f"/api/v1/documents/{doc.id}/export?format=pdf")
-            assert res_pdf.status_code == 200
-            assert res_pdf.headers["content-type"] == "application/pdf"
-            assert "attachment" in res_pdf.headers["content-disposition"]
-            assert "weld_spec_001_annotated.pdf" in res_pdf.headers["content-disposition"]
-            assert res_pdf.content.startswith(b"%PDF-")
+            # 1. Annotated PDF (source overlay)
+            res_annotated = await client.get(f"/api/v1/documents/{doc.id}/export?format=annotated_pdf")
+            assert res_annotated.status_code == 200
+            assert res_annotated.headers["content-type"] == "application/pdf"
+            assert "attachment" in res_annotated.headers["content-disposition"]
+            assert "weld_spec_001_annotated.pdf" in res_annotated.headers["content-disposition"]
+            assert res_annotated.content.startswith(b"%PDF-")
+
+            # 1b. PDF review report (LibreOffice conversion)
+            with patch("api.documents.convert_docx_to_pdf") as mock_convert:
+                def fake_convert(src: Path, outdir: Path) -> Path:
+                    pdf_out = outdir / f"{src.stem}.pdf"
+                    pdf_out.write_bytes(b"%PDF-1.4 mock review pdf")
+                    return pdf_out
+                mock_convert.side_effect = fake_convert
+                res_pdf = await client.get(f"/api/v1/documents/{doc.id}/export?format=pdf")
+                assert res_pdf.status_code == 200
+                assert res_pdf.headers["content-type"] == "application/pdf"
+                assert "weld_spec_001_review.pdf" in res_pdf.headers["content-disposition"]
+                assert res_pdf.content.startswith(b"%PDF-")
 
             # 2. DOCX
             res_docx = await client.get(f"/api/v1/documents/{doc.id}/export?format=docx")

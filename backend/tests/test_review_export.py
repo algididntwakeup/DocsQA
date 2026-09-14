@@ -27,9 +27,12 @@ from schemas.budinski import (
     TechnicalContentGroup,
 )
 from tests.canonical_ale_fixture import create_canonical_ale_assessment_data
+from domain.enums import ReportLanguage
 from services.docx_styler import create_callout_box, format_table_header, set_cell_shading
 from services.export import (
+    LibreOfficeConversionError,
     assessment_from_document_findings,
+    convert_docx_to_pdf,
     create_review_report_template,
     generate_ale_review_docx,
 )
@@ -55,13 +58,14 @@ def _section_position(text: str, heading: str) -> int:
     return text.index(heading)
 
 
+@pytest.fixture
+def canonical_assessment() -> AssessmentData:
+    """Fixture providing complete canonical ALE assessment data."""
+    return create_canonical_ale_assessment_data()
+
+
 class TestReviewExportDocx:
     """Verification suite for generate_ale_review_docx."""
-
-    @pytest.fixture
-    def canonical_assessment(self) -> AssessmentData:
-        """Fixture providing complete canonical ALE assessment data."""
-        return create_canonical_ale_assessment_data()
 
     def test_generate_ale_review_docx_returns_valid_bytes(
         self,
@@ -612,3 +616,139 @@ class TestTemplateGenerator:
         template_bytes = create_review_report_template(target_path)
         assert target_path.exists()
         assert target_path.stat().st_size == len(template_bytes)
+
+
+class TestBilingualStrictIsolation:
+    """Verification suite for strict language purity (Anti-Bahasa Belang)."""
+
+    def test_strict_english_purity(self, canonical_assessment: AssessmentData) -> None:
+        """Language=en must have full English boilerplate and zero Indonesian words."""
+        docx_bytes = generate_ale_review_docx(canonical_assessment, language=ReportLanguage.ENGLISH)
+        doc = docx.Document(io.BytesIO(docx_bytes))
+        full_text = _extract_all_doc_text(doc)
+
+        # Expected English structural anchors
+        assert "DOCUMENT REVIEW ENGINEERING" in full_text
+        assert "Document reviewed" in full_text
+        assert "The four baseline measures" in full_text
+        assert "Scorecard" in full_text
+        assert "Blockers" in full_text
+        assert "Should fix in the next revision" in full_text
+        assert "Language and mechanics, by page" in full_text
+        assert "What this document does well" in full_text
+        assert "Limits of this review" in full_text
+        assert "Group I: Technical Content" in full_text
+        assert "Group II: Style" in full_text
+        assert "Group III: Report Mechanics" in full_text
+        assert "Group IV: Conclusions & Craft" in full_text
+        assert "Overall Average" in full_text
+        assert "PASS" in full_text
+
+        # Strict absence of Indonesian boilerplate keywords
+        indonesian_forbidden = [
+            "Dokumen yang ditinjau",
+            "Empat ukuran dasar",
+            "Kartu nilai",
+            "Penghalang",
+            "Perbaiki pada revisi berikutnya",
+            "Bahasa dan mekanika, menurut halaman",
+            "Keunggulan dokumen ini",
+            "Batasan tinjauan ini",
+            "Grup I: Konten Teknis",
+            "Rata-rata Keseluruhan",
+            "DITOLAK",
+            "LULUS",
+            "Catatan Peninjau",
+            "Parameter Daftar Periksa",
+        ]
+        for word in indonesian_forbidden:
+            assert word not in full_text, f"Found unexpected Indonesian string in English report: '{word}'"
+
+    def test_strict_indonesian_purity(self, canonical_assessment: AssessmentData) -> None:
+        """Language=id must have full Indonesian boilerplate and zero English boilerplate."""
+        canonical_assessment.metadata.not_covered = "Kecukupan rekayasa sendiri."
+        docx_bytes = generate_ale_review_docx(canonical_assessment, language=ReportLanguage.INDONESIAN)
+        doc = docx.Document(io.BytesIO(docx_bytes))
+        full_text = _extract_all_doc_text(doc)
+
+        # Expected Indonesian structural anchors
+        assert "REKAYASA TINJAUAN DOKUMEN" in full_text
+        assert "Dokumen yang ditinjau" in full_text
+        assert "Empat ukuran dasar" in full_text
+        assert "Kartu nilai" in full_text
+        assert "Penghalang" in full_text
+        assert "Perbaiki pada revisi berikutnya" in full_text
+        assert "Bahasa dan mekanika, menurut halaman" in full_text
+        assert "Keunggulan dokumen ini" in full_text
+        assert "Batasan tinjauan ini" in full_text
+        assert "Grup I: Konten Teknis" in full_text
+        assert "Grup II: Gaya" in full_text
+        assert "Grup III: Mekanika Laporan" in full_text
+        assert "Grup IV: Kesimpulan & Keterampilan" in full_text
+        assert "Rata-rata Keseluruhan" in full_text
+        assert "LULUS" in full_text
+
+        # Strict absence of English boilerplate phrases
+        english_forbidden = [
+            "Document reviewed",
+            "The four baseline measures",
+            "Should fix in the next revision",
+            "Language and mechanics, by page",
+            "What this document does well",
+            "Limits of this review",
+            "Group I: Technical Content",
+            "Group II: Style",
+            "Overall Average",
+            "Items requiring rework",
+            "Checklist Parameter",
+            "Reviewer Note",
+        ]
+        for phrase in english_forbidden:
+            assert phrase not in full_text, f"Found untranslated English phrase in Indonesian report: '{phrase}'"
+
+
+class TestLibreOfficePDFConversion:
+    """Verification suite for headless LibreOffice DOCX to PDF conversion."""
+
+    def test_convert_docx_to_pdf_missing_file(self, tmp_path: Path) -> None:
+        """Attempting to convert non-existent docx raises FileNotFoundError."""
+        with pytest.raises(FileNotFoundError):
+            convert_docx_to_pdf(tmp_path / "nonexistent.docx", tmp_path)
+
+    def test_convert_docx_to_pdf_mock_subprocess(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """convert_docx_to_pdf invokes headless command and verifies PDF output existence."""
+        import subprocess
+
+        dummy_docx = tmp_path / "test.docx"
+        dummy_docx.write_bytes(b"dummy docx content")
+        out_pdf = tmp_path / "test.pdf"
+
+        def mock_run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+            assert "--headless" in cmd
+            assert "--convert-to" in cmd
+            assert "pdf" in cmd
+            assert "--outdir" in cmd
+            assert str(tmp_path) in cmd
+            assert str(dummy_docx) in cmd
+            out_pdf.write_bytes(b"%PDF-1.4 mock pdf content")
+            return subprocess.CompletedProcess(cmd, returncode=0, stdout="converted", stderr="")
+
+        monkeypatch.setattr(subprocess, "run", mock_run)
+        result_path = convert_docx_to_pdf(dummy_docx, tmp_path)
+        assert result_path == out_pdf
+        assert result_path.exists()
+        assert result_path.read_bytes().startswith(b"%PDF-")
+
+    def test_convert_docx_to_pdf_error_handling(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """convert_docx_to_pdf raises LibreOfficeConversionError on non-zero exit code."""
+        import subprocess
+
+        dummy_docx = tmp_path / "test_err.docx"
+        dummy_docx.write_bytes(b"dummy")
+
+        def mock_run_err(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+            return subprocess.CompletedProcess(cmd, returncode=1, stdout="", stderr="crash")
+
+        monkeypatch.setattr(subprocess, "run", mock_run_err)
+        with pytest.raises(LibreOfficeConversionError):
+            convert_docx_to_pdf(dummy_docx, tmp_path)

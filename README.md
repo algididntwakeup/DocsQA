@@ -1,7 +1,7 @@
 # DocsQA — Automated Document Quality Assurance & Traceability Platform
 
-[![Backend Quality](https://img.shields.io/badge/backend-195%20passed-success?style=flat-square&logo=python)](backend/)
-[![Frontend Checks](https://img.shields.io/badge/frontend-28%20passed-success?style=flat-square&logo=react)](frontend/)
+[![Backend Quality](https://img.shields.io/badge/backend-195%2B%20passed-success?style=flat-square&logo=python)](backend/)
+[![Frontend Checks](https://img.shields.io/badge/frontend-60%20passed-success?style=flat-square&logo=react)](frontend/)
 [![Architecture](https://img.shields.io/badge/type-100%25%20deterministic%20(non--LLM)-blue?style=flat-square)]()
 [![Docker Compose](https://img.shields.io/badge/docker%20compose-ready-2496ED?style=flat-square&logo=docker)](docker-compose.yml)
 
@@ -24,8 +24,9 @@ Unlike generative AI tools that hallucinate, DocsQA runs on **100% deterministic
 │  • ToC/LoF/LoT Page Drift    │  • Lead Reviewer Sign-Off    │  • Duplicate & Ambiguity Flag │
 ├──────────────────────────────┴──────────────────────────────┴───────────────────────────────┤
 │                             EXPORT, TELEMETRY & HARDENING                                   │
-│  • Annotated PDF Highlights  │  • Multi-Sheet Excel (.xlsx) │  • CSV & JSON Audit Package   │
-│  • Real-Time SSE Telemetry   │  • 30-Day Ephemeral Cleanup  │  • HTTP Security Headers      │
+│  • Headless LibreOffice PDF  │  • Multi-Sheet Excel (.xlsx) │  • Strict Bilingual Isolation │
+│  • Executive Word (.docx)    │  • Annotated PDF Highlights  │  • Real-Time SSE Telemetry    │
+│  • CSV & JSON Audit Package  │  • 30-Day Ephemeral Cleanup  │  • HTTP Security Headers      │
 └─────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -49,16 +50,18 @@ Unlike generative AI tools that hallucinate, DocsQA runs on **100% deterministic
 - **Near-Duplicate & Ambiguity Detection**: Flags near-duplicate paragraphs (>= 85% token sort ratio) and inconsistent alloy specifications within the same document (e.g., 316 vs 316L).
 
 ### 4. Multi-Format Export & Enterprise Hardening
-- **Annotated PDF**: Injects visual highlight rectangles and callout notes directly onto original PDF pages using pure-Python `pypdf`.
+- **Headless LibreOffice PDF Deliverable**: Generates production-ready read-only PDF review reports with exact table layouts, banners, and scorecards converted directly from DOCX via Headless LibreOffice (`soffice`).
+- **Executive DOCX Review Report**: Formatted Word document for reviewers who need to add manual revisions or comments.
+- **Strict Bilingual Localization ("Anti-Bahasa Belang")**: 100% pure English (`en`) OR 100% pure Indonesian (`id`) reports with zero mixed-language boilerplate phrases and fully localized 41-item Budinski compliance checklist.
+- **Redesigned Deliverable Modal**: Format cards for PDF (Recommended), DOCX (Editable), and Annotated Source PDF (Visual Inspection), with language selector and minor findings toggle.
+- **Annotated PDF Highlights**: Injects visual highlight rectangles and callout notes directly onto original PDF pages using pure-Python `pypdf`.
 - **Multi-Sheet Excel Workbook (`.xlsx`)**: Formatted executive report with KPI Summary, Traceability Findings, Linguistic Findings, and full Audit Trail with auto-adjusted columns.
-- **Flat CSV**: RFC 4180 compliant tabular export for data science, BI, and spreadsheet analysis.
-- **Cryptographic JSON Audit Package**: Machine-readable artifact (`schema_version: 1.0`) with document SHA-256 hash, raw evidence trees, and tamper-evident event history.
+- **Flat CSV & Cryptographic JSON**: RFC 4180 compliant tabular export and machine-readable audit package (`schema_version: 1.0`) with document SHA-256 hash.
 - **Real-Time Scan Telemetry (SSE)**: Streams pipeline progress (`text/event-stream`) to the browser with automatic fallback to exponential backoff HTTP polling.
 - **Live Inspection Register**: The `/documents` dashboard subscribes to each queued or processing document, updates status/progress without a browser reload, and shows an animated live-monitoring indicator while work is active. The document status page uses the same SSE stream.
 - **Audit-First Review Workspace**: Review findings are organized into `Budinski & Layout Audit`, `Standards Audit`, and `Language`; layout evidence includes cross-page sentence snippets and page navigation, while Budinski evidence exposes rule context and suggested fixes.
 - **Budinski Technical-Writing Evaluation**: Applies the four baseline measures and the 41-item Appendix 12 checklist with integer scores from 1 to 5. Uninitialized legacy zeroes are treated as missing, never as a real score.
 - **Document-Type-Aware Scoring**: SoR, Specification, and Procedure documents mark laboratory-only checklist items as `NOT_APPLICABLE` with no numeric score; those items are excluded from group and overall averages.
-- **Executive DOCX Review Report**: The generated report leads with document identity, reviewer, review date, verdict, key actions, four-pillar averages, and consolidated critical findings. The detailed Appendix 12 checklist is placed in an appendix.
 - **Retention Policy Worker**: Enforces ephemeral upload boundaries (default 30 days), automatically pruning expired database records, local storage files, and extraction artifacts.
 - **Security Middleware**: Injects `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, and `Referrer-Policy` headers on all responses.
 
@@ -281,17 +284,21 @@ The `/documents` register is role-aware:
 
 Uploaded files and generated artifacts persist in the `app_uploads` Docker volume mounted at `/app/storage/uploads` by both the API and Celery worker. Do not use `docker compose down --volumes` unless a full data reset is intended.
 
-### Budinski Evaluation and DOCX Export
+### Budinski Evaluation, DOCX & PDF Export
 
 The deterministic evaluator in `backend/services/budinski_evaluator.py` supports both laboratory reports and non-laboratory engineering documents. For non-laboratory document types, experimental-step, repeatability, and discussion-only checklist items are emitted with `status=NOT_APPLICABLE` and `score=null`. Averages include only evaluated items and are always within the 1.00–5.00 range when evaluated items exist.
 
-The production DOCX path is implemented by `assessment_from_document_findings()` and `generate_ale_review_docx()` in `backend/services/export.py`. Its executive order is:
+The production export path in `backend/services/export.py` generates executive Word documents via `generate_ale_review_docx()` and converts them to production-grade PDFs via Headless LibreOffice (`soffice` via `convert_docx_to_pdf()`). Deliverables strictly isolate languages (`lang="en"` for English, `lang="id"` for Indonesian). Its executive order is:
 
-1. Document identity and verdict badge.
-2. Executive summary and up to five concrete recommendations.
+1. Document identity and localized verdict badge (`LAYAK TERBIT` / `PASSED`, etc.).
+2. Executive summary and concrete recommendations.
 3. Four-pillar Budinski summary.
 4. Consolidated blockers and actionable corrections, including source excerpts and page ranges.
-5. Appendix A with the detailed 41-item checklist.
+5. Next revision guidance and language/drafting mechanics findings.
+6. Optional demonstration rewrite.
+7. Category group summary.
+8. Appendix A with the fully localized 41-item Budinski compliance checklist.
+9. Positive observations and limits of review.
 
 Run the focused evaluator/export regression suite from the repository root:
 

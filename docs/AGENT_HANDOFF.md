@@ -128,8 +128,8 @@ This file records implementation decisions that must not be reverted or duplicat
 - PostgreSQL and Redis are healthy in the local Docker stack. The default backend suite skips the
   Redis vertical-slice test unless `RUN_REDIS_INTEGRATION=1` is set; a skipped test does not mean
   Redis is unavailable.
- - Run the full Alembic chain against PostgreSQL before release. The current local database is at
-   `20260910_0010 (head)`, including project and per-document assignment migrations.
+- Run the full Alembic chain against PostgreSQL before release. The current local database is at
+  `20260910_0010 (head)`, including project and per-document assignment migrations.
 - Decide whether self-disable, lead demotion, and last-active-admin protection are allowed, then
   enforce those rules in the backend rather than relying on the UI.
 - Complete manual visual inspection of the rendered report PNGs for pagination and margins.
@@ -139,9 +139,9 @@ This file records implementation decisions that must not be reverted or duplicat
 The latest completed frontend verification is:
 
 ```text
-npm run typecheck  passed
-npm run test       48 passed
-npm run lint       passed
+npm run typecheck  passed (0 errors)
+npm run test       60 passed (16 test files)
+npm run lint       passed (0 warnings, 0 errors)
 npm run build      passed
 ```
 
@@ -156,7 +156,10 @@ The focused backend Budinski/export verification must be rerun after changes to 
 Latest focused export verification:
 
 ```text
-55 passed
+backend/tests/test_review_export.py: 28 passed
+backend/tests/test_report.py: 7 passed
+backend/tests/test_export.py: 3 passed
+Total export suite: 38 passed
 ruff check passed
 git diff --check passed
 ```
@@ -199,4 +202,3 @@ production endpoint: HTTP 200
 - In PostgreSQL, queries using `with_for_update()` must NOT use `joinedload` on nullable relationships (such as `assigned_to`), because PostgreSQL raises `FeatureNotSupportedError: FOR UPDATE cannot be applied to the nullable side of an outer join`. Single-row locking in `_load_document_for_assignment` locks `Document` directly without joins; relationships are loaded post-commit via `session.refresh(document, attribute_names=["owner", "assigned_to"])`.
 - In `backend/api/documents.py` (`mark_document_reviewed`), the permission check restricts action to `document.assigned_to_id == current_user.id` (assignee only). Test fixtures must assign the document to the acting user.
 - Frontend document table cell rendering adheres to 5 strict cases (Cases A–E) detailed in `docs/ASSIGNMENT_WIP_FIX_PLAN.md`, with formal Indonesian tooltips ("Selesaikan tugas aktif Anda terlebih dahulu") and "Tugas Anda" badge with direct review link.
-

@@ -7,7 +7,10 @@ Annotated PDF with visual bounding boxes and callout notes for included findings
 from __future__ import annotations
 
 import io
+import os
 from pathlib import Path
+import shutil
+import subprocess
 from typing import TYPE_CHECKING, Any, cast
 
 import docx
@@ -33,13 +36,76 @@ from schemas.budinski import (
 )
 from domain.enums import ReportLanguage
 from services.docx_styler import apply_document_defaults
-from services.report_locale import get_report_strings
+from services.report_locale import (
+    get_budinski_guidance_note,
+    get_budinski_item_name,
+    get_report_strings,
+)
 from services.report_synthesizer import ReportSynthesizer
 
 if TYPE_CHECKING:
     from models.document import Document
     from models.issue import Issue
     from services.storage.local import LocalStorage
+
+
+class LibreOfficeConversionError(RuntimeError):
+    """Raised when headless LibreOffice conversion to PDF fails."""
+
+
+def convert_docx_to_pdf(docx_path: Path, output_dir: Path, timeout: int = 30) -> Path:
+    """
+    Execute headless LibreOffice conversion from DOCX to PDF.
+    Command: libreoffice --headless --convert-to pdf --outdir <output_dir> <docx_path>
+    """
+    docx_path = Path(docx_path).resolve()
+    if not docx_path.is_file():
+        raise FileNotFoundError(f"DOCX source file not found: {docx_path}")
+
+    output_dir = Path(output_dir).resolve()
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    binary = os.environ.get("LIBREOFFICE_BIN") or shutil.which("libreoffice") or shutil.which("soffice") or "soffice"
+    cmd = [
+        binary,
+        "--headless",
+        "--convert-to",
+        "pdf",
+        str(docx_path),
+        "--outdir",
+        str(output_dir),
+    ]
+    try:
+        result = subprocess.run(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+    except FileNotFoundError as exc:
+        raise LibreOfficeConversionError(
+            f"LibreOffice binary '{binary}' not found on system PATH. "
+            "Please ensure libreoffice-writer or soffice is installed."
+        ) from exc
+    except subprocess.TimeoutExpired as exc:
+        raise LibreOfficeConversionError(
+            f"LibreOffice PDF conversion timed out after {timeout}s for {docx_path.name}."
+        ) from exc
+
+    if result.returncode != 0:
+        raise LibreOfficeConversionError(
+            f"LibreOffice conversion failed (exit code {result.returncode}): {result.stderr.strip() or result.stdout.strip()}"
+        )
+
+    expected_pdf = output_dir / f"{docx_path.stem}.pdf"
+    if not expected_pdf.is_file() or expected_pdf.stat().st_size == 0:
+        raise LibreOfficeConversionError(
+            f"LibreOffice reported success but output PDF was not produced or is empty: {expected_pdf}"
+        )
+
+    return expected_pdf
 
 
 def _issue_category(issue: Any) -> str:
@@ -100,6 +166,8 @@ def assessment_from_document_findings(
     language: ReportLanguage = ReportLanguage.ENGLISH,
 ) -> AssessmentData:
     """Adapt persisted pipeline artifacts into the executive report contract."""
+    strings = get_report_strings(language)
+    is_english = language == ReportLanguage.ENGLISH
     included = [
         issue
         for issue in issues
@@ -114,16 +182,16 @@ def assessment_from_document_findings(
         conclusions_valid=False,
         recommendations_actionable=False,
         reasons={
-            "purpose_distinct_from_objective": "No persisted baseline assessment was available.",
-            "procedure_repeatable": "Procedure evidence was not reconstructed in the export adapter.",
-            "conclusions_valid": "No persisted baseline assessment was available.",
-            "recommendations_actionable": "No persisted baseline assessment was available.",
+            "purpose_distinct_from_objective": strings.baseline_reason_no_assessment,
+            "procedure_repeatable": strings.baseline_reason_no_procedure,
+            "conclusions_valid": strings.baseline_reason_no_assessment,
+            "recommendations_actionable": strings.baseline_reason_no_assessment,
         },
     )
     synthesizer = ReportSynthesizer(language)
     blockers = []
     majors = []
-    language = []
+    lang_findings = []
     blocker_levels = {"BLOCKER", "CRITICAL", "HIGH"}
     control_blocker_types = {
         "UNCONTROLLED_PAGE",
@@ -142,15 +210,11 @@ def assessment_from_document_findings(
         blockers.append(
             BlockerFinding(
                 number=len(blockers) + 1,
-                title=f"{group.get('finding_codes', group['type'])} ({group['count']} instances)",
-                where_location="Consolidated across the affected printed pages",
+                title=f"{group.get('finding_codes', group['type'])} ({strings.blocker_title_instances.format(count=group['count'])})",
+                where_location=strings.blocker_consolidated_where,
                 what_it_says=group["message"],
-                what_body_has=group.get("excerpt")
-                or "No source excerpt was persisted for this finding.",
-                why_it_matters=(
-                    "The repeated findings indicate one unresolved control weakness across "
-                    "the document."
-                ),
+                what_body_has=group.get("excerpt") or strings.blocker_no_source_excerpt,
+                why_it_matters=strings.blocker_why_it_matters_default,
                 what_would_fix_it=group["suggestion"],
             )
         )
@@ -158,16 +222,16 @@ def assessment_from_document_findings(
     for issue in included:
         evidence = getattr(issue, "evidence", None) or {}
         message = str(getattr(issue, "message", ""))
-        page = str(getattr(issue, "page_number", None) or evidence.get("page", "not located"))
+        page = str(getattr(issue, "page_number", None) or evidence.get("page", strings.not_located))
         issue_type = str(getattr(issue, "type", "")).upper()
         if _issue_severity(issue) in blocker_levels or issue_type in control_blocker_types:
             continue
         elif _issue_category(issue) in {"LINGUISTIC", "SPELLING", "GRAMMAR", "DICTIONARY"}:
-            language.append(
+            lang_findings.append(
                 LanguageFinding(
                     page=page,
                     as_written=str(evidence.get("original_text") or message),
-                    suggested=str(evidence.get("suggestion") or "Review wording."),
+                    suggested=str(evidence.get("suggestion") or strings.review_wording),
                 )
             )
         else:
@@ -182,40 +246,37 @@ def assessment_from_document_findings(
             )
         )
 
+    doc_name = getattr(document, "original_filename", "Document" if is_english else "Dokumen")
     metadata = AssessmentMetadata(
         document_reviewed=(
-            f"{getattr(document, 'original_filename', 'document')} | {getattr(document, 'id', '')}"
+            f"{doc_name} | {getattr(document, 'id', '')}"
         ),
         document_type=str(getattr(document, "document_type", "") or ""),
         reviewer=str(getattr(getattr(document, "verified_by", None), "full_name", "") or ""),
-        type_of_review="Deterministic engineering document review",
-        basis=(
-            "Budinski Appendix 12, internal consistency, layout, traceability, and language "
-            "findings."
-        ),
-        scoring="Budinski Appendix 12 scores 1-5; scores of 2 or below require rework.",
-        note="Generated from persisted document findings and scorecard artifacts.",
-        not_covered=(
-            "Engineering adequacy, operational safety, and external standards certification."
-        ),
+        type_of_review=strings.type_of_review,
+        basis=strings.basis,
+        scoring=strings.scoring,
+        note=strings.note,
+        not_covered=strings.not_covered,
     )
+    title_prefix_doc = "Review of" if is_english else "Tinjauan atas"
     return AssessmentData(
-        title=f"Review of {getattr(document, 'original_filename', 'Document')}",
-        subtitle="Executive engineering-document review report",
-        header_title="DOCUMENT REVIEW ENGINEERING",
-        running_header=str(getattr(document, "original_filename", "Document")),
+        title=f"{title_prefix_doc} {doc_name}",
+        subtitle=strings.report_subtitle,
+        header_title=strings.header_title,
+        running_header=str(doc_name),
         metadata=metadata,
         summary_judgement=[],
         bottom_line="",
         baseline_measures=baseline,
         blockers=blockers,
         major_findings=majors,
-        language_findings=language,
+        language_findings=lang_findings,
         scorecard=scorecard,
         what_it_does_well=[],
         limits_of_review=[metadata.not_covered],
         review_score_string=scorecard.review_score_string
-        or "REVIEWSCORE | generated deterministically from persisted findings",
+        or strings.review_score_fallback,
     )
 
 
@@ -637,9 +698,7 @@ def generate_ale_review_docx(
         [*assessment_result.blockers, *assessment_result.major_findings], limit=5
     )
     if not recommendations:
-        recommendations = [
-            "Pertahankan basis evidence dan lakukan verifikasi akhir sebelum penerbitan terkendali."
-        ]
+        recommendations = [strings.rec_fallback_closing]
     _setup_page_header_footer(doc, assessment_result)
 
     normal_style = doc.styles["Normal"]
@@ -680,28 +739,28 @@ def generate_ale_review_docx(
     checked_by = getattr(verified, "full_name", strings.pending_verification)
     is_english = language == ReportLanguage.ENGLISH
     meta_entries = [
-        ("Doc No" if is_english else "Nomor Dokumen", meta.document_reviewed),
+        (strings.doc_no, meta.document_reviewed),
         (
-            "Rev" if is_english else "Revisi",
+            strings.revision,
             meta.document_reviewed.rsplit(" ", 1)[-1]
             if meta.document_reviewed
             else strings.not_supplied,
         ),
-        ("Pages" if is_english else "Halaman", strings.not_supplied),
-        ("File Date" if is_english else "Tanggal File", strings.not_supplied),
-        ("Originator" if is_english else "Asal", strings.not_supplied),
-        ("Document reviewed" if is_english else "Dokumen yang ditinjau", meta.document_reviewed),
-        ("Type of review" if is_english else "Jenis tinjauan", meta.type_of_review),
-        ("Basis" if is_english else "Dasar", meta.basis),
-        ("Scoring" if is_english else "Penilaian", meta.scoring),
-        ("Note" if is_english else "Catatan", meta.note),
-        ("Not covered" if is_english else "Tidak tercakup", meta.not_covered),
-        ("Prepared by" if is_english else "Disiapkan oleh", prepared_by),
+        (strings.pages, strings.not_supplied),
+        (strings.file_date, strings.not_supplied),
+        (strings.originator, strings.not_supplied),
+        (strings.document_reviewed, meta.document_reviewed),
+        (strings.type_of_review, meta.type_of_review),
+        (strings.basis, meta.basis),
+        (strings.scoring, meta.scoring),
+        (strings.note, meta.note),
+        (strings.not_covered, meta.not_covered),
+        (strings.prepared_by, prepared_by),
         (
-            "Checked / Verified by" if is_english else "Diperiksa / Diverifikasi oleh",
+            strings.checked_by,
             checked_by if workflow_status == "VERIFIED_BY_LEAD" else strings.pending_verification,
         ),
-        ("Status" if is_english else "Status", workflow_status),
+        (strings.status, workflow_status),
     ]
 
     meta_table = doc.add_table(rows=0, cols=2)
@@ -735,16 +794,16 @@ def generate_ale_review_docx(
 
     # Executive identity and verdict block.
     verdict = (
-        "DITOLAK"
+        strings.verdict_rejected
         if assessment_result.blockers
-        else "PERLU PERBAIKAN (REWORK)"
+        else strings.verdict_rework
         if assessment_result.major_findings
-        else "LAYAK TERBIT"
+        else strings.verdict_approved
     )
     verdict_color = (
         COLOR_FAIL if assessment_result.blockers or assessment_result.major_findings else COLOR_PASS
     )
-    _add_heading_1(doc, "Executive summary" if is_english else "Ringkasan Eksekutif")
+    _add_heading_1(doc, strings.executive_summary)
     verdict_cell = _add_callout_box(
         doc,
         bg_hex="FEF2F2" if verdict_color == COLOR_FAIL else "ECFDF5",
@@ -752,7 +811,7 @@ def generate_ale_review_docx(
         border_sz="36",
     )
     verdict_p = verdict_cell.paragraphs[0]
-    verdict_run = verdict_p.add_run(f"VERDICT / STATUS: {verdict}")
+    verdict_run = verdict_p.add_run(f"{strings.verdict_label}: {verdict}")
     verdict_run.bold = True
     verdict_run.font.name = "Arial"
     verdict_run.font.size = Pt(13)
@@ -761,15 +820,15 @@ def generate_ale_review_docx(
     identity_table.autofit = False
     _set_table_borders(identity_table, color=HEX_BORDER, sz="4")
     for label, value in (
-        ("Judul Dokumen", meta.document_reviewed.split(" | ", 1)[0]),
+        (strings.doc_title_label, meta.document_reviewed.split(" | ", 1)[0]),
         (
-            "Dokumen ID",
+            strings.doc_id_label,
             meta.document_reviewed.split(" | ", 1)[1]
             if " | " in meta.document_reviewed
             else strings.not_supplied,
         ),
-        ("Tanggal Tinjauan", meta.review_date or strings.not_supplied),
-        ("PIC Reviewer", meta.reviewer or checked_by),
+        (strings.review_date_label, meta.review_date or strings.not_supplied),
+        (strings.reviewer_pic_label, meta.reviewer or checked_by),
     ):
         row = identity_table.add_row()
         _format_table_row(row, [1.8, 5.1])
@@ -779,7 +838,7 @@ def generate_ale_review_docx(
         for run in row.cells[0].paragraphs[0].runs:
             run.bold = True
             run.font.color.rgb = COLOR_NAVY
-    _add_heading_2(doc, "Rekomendasi Utama" if not is_english else "Key Recommendations")
+    _add_heading_2(doc, strings.key_recommendations)
     for recommendation in recommendations:
         _add_body_p(doc, f"- {recommendation}", space_after=3)
 
@@ -824,22 +883,22 @@ def generate_ale_review_docx(
     baseline = assessment_result.baseline_measures
     baseline_items = [
         (
-            "States the purpose of the report explicitly, distinct from the objective of the work",
+            strings.measure_purpose_detail,
             baseline.purpose_distinct_from_objective,
             baseline.reasons.get("purpose_distinct_from_objective", ""),
         ),
         (
-            "Procedure detailed enough for another competent party to repeat the work",
+            strings.measure_procedure_detail,
             baseline.procedure_repeatable,
             baseline.reasons.get("procedure_repeatable", ""),
         ),
         (
-            "Conclusions are conclusions, not results and not discussion",
+            strings.measure_conclusions_detail,
             baseline.conclusions_valid,
             baseline.reasons.get("conclusions_valid", ""),
         ),
         (
-            "Recommendations name an owner and a date",
+            strings.measure_recommendations_detail,
             baseline.recommendations_actionable,
             baseline.reasons.get("recommendations_actionable", ""),
         ),
@@ -853,15 +912,9 @@ def generate_ale_review_docx(
 
     # Header row
     hdr_row = base_table.add_row()
-    hdr_row.cells[0].paragraphs[0].add_run(
-        "Measure" if strings.baseline_measures.startswith("The") else "Ukuran"
-    )
-    hdr_row.cells[1].paragraphs[0].add_run(
-        "Result" if strings.baseline_measures.startswith("The") else "Hasil"
-    )
-    hdr_row.cells[2].paragraphs[0].add_run(
-        "Reason" if strings.baseline_measures.startswith("The") else "Alasan"
-    )
+    hdr_row.cells[0].paragraphs[0].add_run(strings.measure_header)
+    hdr_row.cells[1].paragraphs[0].add_run(strings.result_header)
+    hdr_row.cells[2].paragraphs[0].add_run(strings.reason_header)
     _format_table_row(hdr_row, base_widths, bg_hex=HEX_NAVY, is_header=True)
 
     for idx, (measure_text, is_pass, reason_text) in enumerate(baseline_items):
@@ -876,7 +929,7 @@ def generate_ale_review_docx(
         r_m.font.color.rgb = COLOR_TEXT
 
         p_r = row.cells[1].paragraphs[0]
-        r_res = p_r.add_run("PASS" if is_pass else "FAIL")
+        r_res = p_r.add_run(strings.outcome_pass if is_pass else strings.outcome_fail)
         r_res.font.name = "Arial"
         r_res.font.size = Pt(9)
         r_res.bold = True
@@ -909,13 +962,13 @@ def generate_ale_review_docx(
     _add_heading_1(doc, strings.scorecard)
     _add_body_p(doc, strings.scorecard_intro, space_after=6)
     scorecard = assessment_result.scorecard
-    score_summary = (
-        f"Overall average: {_score_text(scorecard.overall_average)} / 5.00. "
-        f"Group averages: I {_score_text(scorecard.group_averages['Group I'])}, "
-        f"II {_score_text(scorecard.group_averages['Group II'])}, "
-        f"III {_score_text(scorecard.group_averages['Group III'])}, "
-        f"IV {_score_text(scorecard.group_averages['Group IV'])}. "
-        f"Items requiring rework: {len(scorecard.get_rework_items())}."
+    score_summary = strings.score_summary_callout.format(
+        overall=_score_text(scorecard.overall_average),
+        g1=_score_text(scorecard.group_averages.get("Group I")),
+        g2=_score_text(scorecard.group_averages.get("Group II")),
+        g3=_score_text(scorecard.group_averages.get("Group III")),
+        g4=_score_text(scorecard.group_averages.get("Group IV")),
+        rework=len(scorecard.get_rework_items()),
     )
     _add_callout_box(
         doc,
@@ -1046,7 +1099,7 @@ def generate_ale_review_docx(
     # -----------------------------------------------------------------------
     if assessment_result.demonstration_rewrite:
         demo = assessment_result.demonstration_rewrite
-        _add_heading_1(doc, "Demonstration rewrite")
+        _add_heading_1(doc, strings.demonstration_rewrite)
         _add_heading_2(doc, demo.section_title)
         _add_body_p(doc, demo.intro_note, space_after=6)
 
@@ -1075,7 +1128,7 @@ def generate_ale_review_docx(
 
         p_as_faults = c_as.add_paragraph()
         p_as_faults.paragraph_format.space_after = Pt(0)
-        r_flt_lbl = p_as_faults.add_run("Faults against Budinski rules: ")
+        r_flt_lbl = p_as_faults.add_run(strings.faults_against_rules)
         r_flt_lbl.bold = True
         r_flt_lbl.font.name = "Arial"
         r_flt_lbl.font.size = Pt(9)
@@ -1125,16 +1178,14 @@ def generate_ale_review_docx(
     # -----------------------------------------------------------------------
     # Bagian 9: Scorecard detail
     # -----------------------------------------------------------------------
-    _add_heading_1(doc, "Scorecard detail")
+    # Bagian 9: Scorecard detail
+    # -----------------------------------------------------------------------
+    _add_heading_1(doc, strings.scorecard_detail)
     _add_body_p(
         doc,
-        "Scored against the 41 items of the Appendix 12 review checklist from Budinski, "
-        "Engineers' Guide to Technical Writing (2001). Scores: 1 = disagree, 5 = agree. "
-        "Any item scoring 2 or below is treated as requiring rework.",
+        strings.scorecard_detail_intro,
         space_after=6,
     )
-
-    _add_heading_1(doc, strings.scorecard_detail)
 
     # Summary table across 4 groups
     sc_summary_table = doc.add_table(rows=0, cols=4)
@@ -1144,35 +1195,31 @@ def generate_ale_review_docx(
     sc_sum_widths = [1.8, 3.1, 0.7, 1.3]
 
     s_hdr = sc_summary_table.add_row()
-    s_hdr.cells[0].paragraphs[0].add_run("Group")
-    s_hdr.cells[1].paragraphs[0].add_run("Focus Area")
-    s_hdr.cells[2].paragraphs[0].add_run("Items")
-    s_hdr.cells[3].paragraphs[0].add_run("Group Average")
+    s_hdr.cells[0].paragraphs[0].add_run(strings.group)
+    s_hdr.cells[1].paragraphs[0].add_run(strings.focus_area)
+    s_hdr.cells[2].paragraphs[0].add_run(strings.items)
+    s_hdr.cells[3].paragraphs[0].add_run(strings.group_average)
     _format_table_row(s_hdr, sc_sum_widths, bg_hex=HEX_NAVY, is_header=True)
 
     group_averages = scorecard.group_averages
-    g1_avg = group_averages["Group I"]
-    g2_avg = group_averages["Group II"]
-    g3_avg = group_averages["Group III"]
-    g4_avg = group_averages["Group IV"]
+    g1_avg = group_averages.get("Group I")
+    g2_avg = group_averages.get("Group II")
+    g3_avg = group_averages.get("Group III")
+    g4_avg = group_averages.get("Group IV")
     all_scores = [item.score for item in scorecard.items]
     overall_avg = (
         round(sum(all_scores) / len(all_scores), 2) if all_scores else scorecard.overall_average
     )
 
-    group_rows = [
-        ("Group I: Technical Content", "Does the document have substance?", g1_avg),
-        ("Group II: Style", "Is it written appropriately for the application?", g2_avg),
-        ("Group III: Report Mechanics", "Introduction and Procedure", g3_avg),
-        ("Group IV: Conclusions & Craft", "Results, Discussion, Conclusions, Craft", g4_avg),
+    group_specs = [
+        ("Group I", strings.group_i, strings.group_i_desc, g1_avg, 9),
+        ("Group II", strings.group_ii, strings.group_ii_desc, g2_avg, 11),
+        ("Group III", strings.group_iii, strings.group_iii_desc, g3_avg, 11),
+        ("Group IV", strings.group_iv, strings.group_iv_desc, g4_avg, 10),
     ]
 
-    for idx, (grp_name, desc, avg) in enumerate(group_rows):
-        cnt = sum(1 for item in scorecard.items if item.group in {grp_name.split(":", 1)[0]})
-        if not cnt:
-            cnt = {"Group I": 9, "Group II": 11, "Group III": 11, "Group IV": 10}.get(
-                grp_name.split(":", 1)[0], 0
-            )
+    for idx, (grp_key, grp_name, desc, avg, fallback_cnt) in enumerate(group_specs):
+        cnt = sum(1 for item in scorecard.items if item.group == grp_key) or fallback_cnt
         row = sc_summary_table.add_row()
         bg = HEX_ZEBRA if idx % 2 == 1 else HEX_WHITE
 
@@ -1202,7 +1249,7 @@ def generate_ale_review_docx(
 
     # Overall Summary Row
     ov_row = sc_summary_table.add_row()
-    r_ov_lbl = ov_row.cells[0].paragraphs[0].add_run("Overall Average")
+    r_ov_lbl = ov_row.cells[0].paragraphs[0].add_run(strings.overall_average)
     r_ov_lbl.bold = True
     r_ov_lbl.font.name = "Arial"
     r_ov_lbl.font.size = Pt(9.5)
@@ -1210,7 +1257,7 @@ def generate_ale_review_docx(
 
     item_count = len(scorecard.items) or 41
     r_ov_desc = (
-        ov_row.cells[1].paragraphs[0].add_run(f"All {item_count} Checklist Items (Appendix 12)")
+        ov_row.cells[1].paragraphs[0].add_run(strings.all_checklist_items.format(count=item_count))
     )
     r_ov_desc.bold = True
     r_ov_desc.font.name = "Arial"
@@ -1236,11 +1283,11 @@ def generate_ale_review_docx(
 
     # Detailed 41-item checklist is deliberately placed after the executive sections.
     doc.add_page_break()
-    _add_heading_1(doc, "Appendix A - Budinski Appendix 12 checklist")
+    _add_heading_1(doc, strings.appendix_a_title)
     # Detailed 41-Item Table
     _add_body_p(
         doc,
-        "Detailed 41-item evaluation across all four Appendix 12 checklist groups:",
+        strings.appendix_a_intro,
         space_after=4,
     )
 
@@ -1251,24 +1298,28 @@ def generate_ale_review_docx(
     det_widths = [0.6, 2.7, 0.7, 2.9]
 
     d_hdr = detail_table.add_row()
-    d_hdr.cells[0].paragraphs[0].add_run("Item")
-    d_hdr.cells[1].paragraphs[0].add_run("Checklist Parameter")
-    d_hdr.cells[2].paragraphs[0].add_run("Score")
-    d_hdr.cells[3].paragraphs[0].add_run("Reviewer Note")
+    d_hdr.cells[0].paragraphs[0].add_run(strings.item)
+    d_hdr.cells[1].paragraphs[0].add_run(strings.checklist_parameter)
+    d_hdr.cells[2].paragraphs[0].add_run(strings.score)
+    d_hdr.cells[3].paragraphs[0].add_run(strings.reviewer_note)
     _format_table_row(d_hdr, det_widths, bg_hex=HEX_NAVY, is_header=True)
 
     def _get_item_tuple(
         prefix: str, idx: int, item: ScoreItem, default_name: str
     ) -> tuple[str, str, int | None, str, str]:
         code = f"{prefix}.{idx}"
-        name = item.name or default_name
-        return (code, name, item.score, item.note, item.status)
+        name = get_budinski_item_name(code, language) or item.name or default_name
+        note = item.note or get_budinski_guidance_note(code, item.score, language)
+        return (code, name, item.score, note, item.status)
 
     if scorecard.items:
         dynamic_groups: dict[str, list[tuple[str, str, int | None, str, str]]] = {}
         for item in scorecard.items:
+            code = item.item_id
+            name = get_budinski_item_name(code, language) or item.item_id
+            note = item.note or get_budinski_guidance_note(code, item.score, language)
             dynamic_groups.setdefault(item.group, []).append(
-                (item.item_id, item.item_id, item.score, item.note, item.status)
+                (code, name, item.score, note, item.status)
             )
         group_i_items = dynamic_groups.get("Group I", [])
         group_ii_items = dynamic_groups.get("Group II", [])
@@ -1377,26 +1428,26 @@ def generate_ale_review_docx(
 
     all_groups_data = [
         (
-            "GROUP I: TECHNICAL CONTENT",
-            "Does the document have substance?",
+            strings.group_i,
+            strings.group_i_desc,
             g1_avg,
             group_i_items,
         ),
         (
-            "GROUP II: STYLE",
-            "Is it written appropriately for the application?",
+            strings.group_ii,
+            strings.group_ii_desc,
             g2_avg,
             group_ii_items,
         ),
         (
-            "GROUP III: REPORT MECHANICS",
-            "Introduction and Procedure",
+            strings.group_iii,
+            strings.group_iii_desc,
             g3_avg,
             group_iii_items,
         ),
         (
-            "GROUP IV: CONCLUSIONS & CRAFT",
-            "Results, Discussion, Conclusions, Craft",
+            strings.group_iv,
+            strings.group_iv_desc,
             g4_avg,
             group_iv_items,
         ),
@@ -1414,7 +1465,7 @@ def generate_ale_review_docx(
         p_b = banner_cell.paragraphs[0]
         p_b.paragraph_format.space_before = Pt(0)
         p_b.paragraph_format.space_after = Pt(0)
-        r_b = p_b.add_run(f"{g_title} — {g_desc}  (Average: {_score_text(g_avg)} / 5.00)")
+        r_b = p_b.add_run(f"{g_title} — {g_desc}  ({strings.group_average}: {_score_text(g_avg)} / 5.00)")
         r_b.bold = True
         r_b.font.name = "Arial"
         r_b.font.size = Pt(9.5)
@@ -1442,7 +1493,7 @@ def generate_ale_review_docx(
             score_str = (
                 "N/A"
                 if status == "NOT_APPLICABLE" or score is None
-                else (f"{score} (Rework)" if is_rework else str(score))
+                else (f"{score} ({strings.rework})" if is_rework else str(score))
             )
             r2 = p2.add_run(score_str)
             r2.bold = True
@@ -1465,10 +1516,10 @@ def generate_ale_review_docx(
     # -----------------------------------------------------------------------
     # Bagian 10: What this document does well
     # -----------------------------------------------------------------------
-    _add_heading_1(doc, "What this document does well")
+    _add_heading_1(doc, strings.what_document_does_well)
     _add_body_p(
         doc,
-        "Positive engineering writing practices and structural strengths observed:",
+        strings.strengths_intro,
         space_after=6,
     )
 

@@ -651,6 +651,28 @@
             ],
             "title": "Project Id"
           },
+          "project_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Name"
+          },
+          "project_plant": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Plant"
+          },
           "reviewed_at": {
             "anyOf": [
               {
@@ -680,6 +702,17 @@
             "format": "date-time",
             "title": "Updated At",
             "type": "string"
+          },
+          "uploaded_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uploaded By Name"
           },
           "verification_notes": {
             "anyOf": [
@@ -3368,6 +3401,67 @@
               "title": "Page Size",
               "type": "integer"
             }
+          },
+          {
+            "description": "Lead-only project filter for the master inspection register.",
+            "in": "query",
+            "name": "project_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Lead-only project filter for the master inspection register.",
+              "title": "Project Id"
+            }
+          },
+          {
+            "description": "Lead-only engineer assignment filter.",
+            "in": "query",
+            "name": "assigned_to_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Lead-only engineer assignment filter.",
+              "title": "Assigned To Id"
+            }
+          },
+          {
+            "description": "Lead-only workflow filter.",
+            "in": "query",
+            "name": "workflow_status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Lead-only workflow filter.",
+              "enum": [
+                "ANALYZING",
+                "REVIEWED_BY_ENGINEER",
+                "VERIFIED_BY_LEAD"
+              ],
+              "title": "Workflow Status"
+            }
           }
         ],
         "responses": {
@@ -3526,6 +3620,63 @@
           }
         ],
         "summary": "Delete Document",
+        "tags": [
+          "documents"
+        ]
+      },
+      "get": {
+        "description": "Return safe metadata for one document.",
+        "operationId": "get_document_api_v1_documents__document_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Document Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Feature not implemented"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Document",
         "tags": [
           "documents"
         ]

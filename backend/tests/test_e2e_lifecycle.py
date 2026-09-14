@@ -165,7 +165,7 @@ async def test_full_document_lifecycle_e2e(tmp_path: Path) -> None:
 
             # Step 6: Export Delivery
             # 6a: Annotated PDF
-            export_pdf = await client.get(f"/api/v1/documents/{doc_id}/export?format=pdf")
+            export_pdf = await client.get(f"/api/v1/documents/{doc_id}/export?format=annotated_pdf")
             assert export_pdf.status_code == 200
             assert export_pdf.headers["content-type"] == "application/pdf"
             assert "eng_spec_2026_annotated.pdf" in export_pdf.headers["content-disposition"]
