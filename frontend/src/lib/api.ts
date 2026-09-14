@@ -110,6 +110,51 @@ export function getApiBaseUrl(): string {
   return (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api/v1").replace(/\/+$/, "");
 }
 
+let memoryAuthToken: string | null = null;
+
+function getTokenFromCookie(): string | null {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie.match(/(?:^|;\s*)access_token=([^;]+)/);
+  if (!match) return null;
+  try {
+    const val = decodeURIComponent(match[1]);
+    return val.startsWith("Bearer ") ? val.slice(7) : val;
+  } catch {
+    return null;
+  }
+}
+
+export function getAuthToken(): string | null {
+  if (typeof window !== "undefined") {
+    try {
+      const stored = sessionStorage.getItem("docsqa_auth_token") || localStorage.getItem("docsqa_auth_token");
+      if (stored) return stored;
+    } catch {
+      // Ignore storage errors in restricted environments
+    }
+    const fromCookie = getTokenFromCookie();
+    if (fromCookie) return fromCookie;
+  }
+  return memoryAuthToken;
+}
+
+export function setAuthToken(token: string | null): void {
+  memoryAuthToken = token;
+  if (typeof window !== "undefined") {
+    try {
+      if (token) {
+        sessionStorage.setItem("docsqa_auth_token", token);
+        localStorage.setItem("docsqa_auth_token", token);
+      } else {
+        sessionStorage.removeItem("docsqa_auth_token");
+        localStorage.removeItem("docsqa_auth_token");
+      }
+    } catch {
+      // Ignore storage errors in restricted environments
+    }
+  }
+}
+
 export class ApiError extends Error {
   constructor(message: string, readonly status: number, readonly code?: string) {
     super(message);
@@ -120,6 +165,10 @@ export class ApiError extends Error {
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers);
   headers.set("Accept", "application/json");
+  const token = getAuthToken();
+  if (token && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
   const response = await fetch(`${getApiBaseUrl()}${path}`, {
     ...init,
     headers,
@@ -146,16 +195,24 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
-export function login(email: string, password: string): Promise<LoginResponse> {
-  return request<LoginResponse>("/auth/login", {
+export async function login(email: string, password: string): Promise<LoginResponse> {
+  const res = await request<LoginResponse>("/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
   });
+  if (res?.access_token) {
+    setAuthToken(res.access_token);
+  }
+  return res;
 }
 
 export async function logout(): Promise<void> {
-  await request<void>("/auth/logout", { method: "POST" });
+  try {
+    await request<void>("/auth/logout", { method: "POST" });
+  } finally {
+    setAuthToken(null);
+  }
   if (typeof window !== "undefined") window.location.pathname = "/login";
 }
 
@@ -323,6 +380,10 @@ export function uploadDocument(file: File): Promise<DocumentUpload> {
 
 export function getPdfUrl(id: string): string {
   return `${getApiBaseUrl()}/documents/${encodeURIComponent(id)}/pdf`;
+}
+
+export function getFileUrl(id: string): string {
+  return `${getApiBaseUrl()}/documents/${encodeURIComponent(id)}/file`;
 }
 
 export function listDocumentIssues(

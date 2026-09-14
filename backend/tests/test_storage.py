@@ -70,3 +70,28 @@ def test_existing_object_cannot_be_overwritten(tmp_path: Path) -> None:
         storage.put_stream("documents/immutable/source.pdf", BytesIO(b"replacement"))
 
     assert storage.resolve(uri).read_bytes() == b"original"
+
+
+def test_get_full_path_resolves_uris_keys_and_rejects_traversals(tmp_path: Path) -> None:
+    storage = LocalStorage(tmp_path)
+    stored = storage.put_stream("documents/test/doc.pdf", BytesIO(b"content"))
+
+    # Resolves local:// scheme
+    resolved_uri = storage.get_full_path(stored.uri)
+    assert resolved_uri == tmp_path / "documents" / "test" / "doc.pdf"
+
+    # Resolves raw relative key
+    resolved_key = storage.get_full_path("documents/test/doc.pdf")
+    assert resolved_key == tmp_path / "documents" / "test" / "doc.pdf"
+
+    # Resolves Windows-style backslashes
+    resolved_backslashes = storage.get_full_path("documents\\test\\doc.pdf")
+    assert resolved_backslashes == tmp_path / "documents" / "test" / "doc.pdf"
+
+    # Resolves valid absolute path inside root
+    resolved_abs = storage.get_full_path(str(tmp_path / "documents" / "test" / "doc.pdf"))
+    assert resolved_abs == tmp_path / "documents" / "test" / "doc.pdf"
+
+    # Rejects path escaping root
+    with pytest.raises(ValueError):
+        storage.get_full_path("../outside.pdf")

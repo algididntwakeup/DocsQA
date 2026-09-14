@@ -12,7 +12,7 @@ import {
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
-import { getIssueLocation, getPdfUrl, type IssueItem } from "@/lib/api";
+import { getAuthToken, getIssueLocation, getPdfUrl, type IssueItem } from "@/lib/api";
 import { HighlightOverlay, type HighlightBoxItem } from "./highlight-overlay";
 
 if (typeof window !== "undefined" && pdfjsLib.GlobalWorkerOptions) {
@@ -125,10 +125,37 @@ export function PdfCanvasViewer({
       setIsLoading(true);
       setLoadError(null);
       try {
-        const response = await fetch(getPdfUrl(documentId), { cache: "force-cache" });
-        if (!response.ok) throw new Error(`PDF request failed (${response.status}).`);
+        const token = getAuthToken();
+        const headers: Record<string, string> = {};
+        if (token) {
+          headers["Authorization"] = `Bearer ${token}`;
+        }
+        const pdfUrl = getPdfUrl(documentId);
+        const response = await fetch(pdfUrl, {
+          cache: "no-store",
+          credentials: "include",
+          headers,
+        });
+        if (!response.ok) {
+          if (response.status === 409) {
+            throw new Error("Document preview is still being generated. Please wait and refresh.");
+          }
+          let errorDetail = `PDF request failed (${response.status}).`;
+          try {
+            const errJson = await response.json();
+            if (errJson?.detail && typeof errJson.detail === "string") {
+              errorDetail = errJson.detail;
+            }
+          } catch {
+            // Ignore non-json response
+          }
+          throw new Error(errorDetail);
+        }
         const data = await response.arrayBuffer();
-        const task = pdfjsLib.getDocument({ data });
+        const task = pdfjsLib.getDocument({
+          data,
+          withCredentials: true,
+        });
         loadingTaskRef.current = task;
         const doc = await task.promise;
         if (disposed) {

@@ -89,6 +89,21 @@ class LocalStorage:
             raise ValueError("Unsupported storage URI.")
         return self._path_for_key(uri.removeprefix(self.scheme))
 
+    def get_full_path(self, path_or_key: str | Path) -> Path:
+        """Resolve a storage URI, key, or relative/absolute path to an absolute Path below root."""
+
+        val = str(path_or_key).replace("\\", "/")
+        if val.startswith(self.scheme):
+            val = val[len(self.scheme) :]
+        p = Path(val)
+        if p.is_absolute():
+            resolved = p.resolve()
+            if resolved == self.root or self.root in resolved.parents:
+                return resolved
+            raise ValueError(f"Path resolves outside the configured root: {val}")
+        clean_key = val.lstrip("/")
+        return self._path_for_key(clean_key)
+
     def delete(self, uri: str) -> None:
         """Delete one exact object; missing objects are already deleted."""
 

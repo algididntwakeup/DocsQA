@@ -99,7 +99,25 @@ def check_document_read_access(document: Document, current_user: User) -> bool:
     """Return whether a user may read and review a document."""
     if current_user.role in {UserRole.LEAD_ENGINEER, UserRole.SUPERUSER}:
         return True
-    return document.owner_id == current_user.id or document.assigned_to_id == current_user.id
+    # 1. Direct PIC
+    if document.assigned_to_id == current_user.id:
+        return True
+    # 2. Document uploader / owner
+    if document.owner_id == current_user.id:
+        return True
+    # 3. Assigned to parent project, project creator, or project member
+    project = getattr(document, "project", None)
+    if project is not None:
+        if project.assigned_to_id == current_user.id:
+            return True
+        if getattr(project, "created_by_id", None) == current_user.id:
+            return True
+        members = getattr(project, "members", None)
+        if members:
+            member_ids = {m.id if hasattr(m, "id") else m for m in members}
+            if current_user.id in member_ids:
+                return True
+    return False
 
 
 def accessible_document_query(document_id: UUID, current_user: User):

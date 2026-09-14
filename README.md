@@ -2,7 +2,7 @@
 
 [![Backend Quality](https://img.shields.io/badge/backend-195%2B%20passed-success?style=flat-square&logo=python)](backend/)
 [![Frontend Checks](https://img.shields.io/badge/frontend-60%20passed-success?style=flat-square&logo=react)](frontend/)
-[![Architecture](https://img.shields.io/badge/type-100%25%20deterministic%20(non--LLM)-blue?style=flat-square)]()
+[![Architecture](<https://img.shields.io/badge/type-100%25%20deterministic%20(non--LLM)-blue?style=flat-square>)]()
 [![Docker Compose](https://img.shields.io/badge/docker%20compose-ready-2496ED?style=flat-square&logo=docker)](docker-compose.yml)
 
 **DocsQA** is an automated, audit-grade Quality Assurance (QA) and Traceability platform designed for heavy-engineering design deliverables, specifications, calculation sheets, and vendor manuals.
@@ -31,12 +31,14 @@ Unlike generative AI tools that hallucinate, DocsQA runs on **100% deterministic
 ```
 
 ### 1. Deterministic Traceability Core
+
 - **Table Math & Arithmetic Cross-Footing**: Parses locale-aware numbers (decimal commas/dots), currency & engineering units (`kN`, `MPa`, `bar`, `kg/m³`). Computes row and column totals/subtotals without double counting, evaluating dual-threshold tolerances (percentage & absolute).
 - **3-Way Revision Synchronization**: Compares explicit revision identifiers across the filename, title/cover page, and internal revision history block.
-- **Standards & Edition Year Drift**: Extracts citations (e.g., *ASME Section VIII Div 2*, *API 650*, *ISO 9001*), validates edition years against the document bibliography, and surfaces missing citations or ambiguous bare standards.
+- **Standards & Edition Year Drift**: Extracts citations (e.g., _ASME Section VIII Div 2_, _API 650_, _ISO 9001_), validates edition years against the document bibliography, and surfaces missing citations or ambiguous bare standards.
 - **Reference Drift (ToC / LoF / LoT)**: Automatically cross-references Table of Contents, List of Figures, and List of Tables page numbers against actual target headings and captions in the document body, calculating signed `page_delta` and detecting missing targets.
 
 ### 2. Interactive Split-Screen Review Workspace
+
 - **Coordinate-Accurate Visual Overlays**: Interactive PDF canvas featuring bounding boxes color-coded by severity (`CRITICAL`, `HIGH`, `MEDIUM`, `LOW`).
 - **Optimistic Concurrency Control (OCC)**: Prevents accidental reviewer collision through strict versioning on issue decisions (`ACCEPTED`, `REJECTED`, `EDITED`, `FLAGGED`) with immediate HTTP 409 conflict detection.
 - **Lead Reviewer Disposition**: Requires mandatory technical justification for audit-sensitive findings and document-level approval sign-offs.
@@ -44,12 +46,14 @@ Unlike generative AI tools that hallucinate, DocsQA runs on **100% deterministic
 - **Immutable Audit Trail**: Append-only ledger recording every actor ID, role, timestamp, previous state, new state, and rationale.
 
 ### 3. Linguistic Governance & Custom Engineering Dictionary
+
 - **Governed Custom Engineering Dictionary**: Role-based workflow (`PENDING`, `APPROVED`, `REJECTED`) for company-specific abbreviations, proprietary alloy designations, and technical jargon.
 - **Deterministic Spellchecker**: Whitelist of 100+ engineering acronyms (HAZ, NDT, PWHT), metallurgical grades (Inconel, Monel, Duplex, UNS), and chemical formulas, keeping false positives under 5%.
 - **Grammar & Technical Writing Circuit-Breaker**: Identifies double words, homophone errors, and passive voice, while safely suppressing procedural imperative instructions and table fragments.
 - **Near-Duplicate & Ambiguity Detection**: Flags near-duplicate paragraphs (>= 85% token sort ratio) and inconsistent alloy specifications within the same document (e.g., 316 vs 316L).
 
 ### 4. Multi-Format Export & Enterprise Hardening
+
 - **Headless LibreOffice PDF Deliverable**: Generates production-ready read-only PDF review reports with exact table layouts, banners, and scorecards converted directly from DOCX via Headless LibreOffice (`soffice`).
 - **Executive DOCX Review Report**: Formatted Word document for reviewers who need to add manual revisions or comments.
 - **Strict Bilingual Localization ("Anti-Bahasa Belang")**: 100% pure English (`en`) OR 100% pure Indonesian (`id`) reports with zero mixed-language boilerplate phrases and fully localized 41-item Budinski compliance checklist.
@@ -88,7 +92,7 @@ claim, lead assignment, and emergency WIP override actions.
 1. Clone the repository and enter the project directory:
 
 ```bash
-git clone https://github.com/<your-org>/DocsQA.git
+git clone https://github.com/algididntwakeup/DocsQA.git
 cd DocsQA
 ```
 
@@ -121,11 +125,11 @@ docker compose up migrate
 
 The `migrate` command creates the schema and seeds these initial accounts:
 
-| Email | Initial password | Role |
-|---|---|---|
-| `admin@localhost` | `super123` | `SUPERUSER` |
-| `lead.engineer@localhost` | `super123` | `LEAD_ENGINEER` |
-| `engineer@localhost` | `user123` | `ENGINEER` |
+| Email                     | Initial password | Role            |
+| ------------------------- | ---------------- | --------------- |
+| `admin@localhost`         | `super123`       | `SUPERUSER`     |
+| `lead.engineer@localhost` | `super123`       | `LEAD_ENGINEER` |
+| `engineer@localhost`      | `user123`        | `ENGINEER`      |
 
 5. Start the API, worker, and frontend after migration succeeds:
 
@@ -198,6 +202,7 @@ docker compose down --volumes
 ## Local Development (Without Docker)
 
 ### System Requirements
+
 - Python `3.13` or `3.14`
 - Node.js `20.x` or `24.x` (LTS)
 - Running PostgreSQL (`localhost:5432`) and Redis (`localhost:6379`). PostgreSQL and Redis are
@@ -205,6 +210,7 @@ docker compose down --volumes
   the integration test. Enable that test explicitly with `RUN_REDIS_INTEGRATION=1`.
 
 ### 1. Backend Setup
+
 ```bash
 cd backend
 
@@ -226,6 +232,7 @@ python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 In a separate terminal, start the Celery pipeline worker:
+
 ```bash
 cd backend
 # Activate virtual environment
@@ -233,6 +240,7 @@ celery -A core.celery_app worker --loglevel=INFO --concurrency=2
 ```
 
 ### 2. Frontend Setup
+
 ```bash
 cd frontend
 
@@ -242,6 +250,7 @@ npm install
 # Start Next.js development server
 npm run dev
 ```
+
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
@@ -251,6 +260,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 Both backend and frontend feature reproducible quality verification suites that enforce zero-lint warnings, strict type safety, and comprehensive test coverage.
 
 ### Backend Verification Suite
+
 Runs Ruff linter, strict Mypy typing, the Pytest unit and integration suite, OpenAPI export, and offline Alembic migration checks:
 
 ```powershell
@@ -265,6 +275,7 @@ python -m pytest backend/tests/test_auth_isolation.py backend/tests/test_documen
 ```
 
 ### Frontend Verification Suite
+
 Runs ESLint, strict TypeScript compiler check (`tsc --noEmit`), Vitest unit tests, and production Next.js build:
 
 ```bash

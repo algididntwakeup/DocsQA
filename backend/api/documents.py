@@ -1,6 +1,7 @@
 import asyncio
 import contextlib
 import json
+import logging
 import shutil
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
@@ -8,6 +9,8 @@ from pathlib import Path
 import tempfile
 from typing import Annotated, Any
 from uuid import UUID
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
 from fastapi.responses import FileResponse, StreamingResponse
@@ -349,8 +352,11 @@ async def list_documents(
         joinedload(Document.owner), joinedload(Document.assigned_to), joinedload(Document.project)
     )
     if current_user.role == UserRole.ENGINEER:
-        query = query.where(
-            (Document.assigned_to_id == current_user.id) | (Document.owner_id == current_user.id)
+        query = query.outerjoin(Document.project).where(
+            (Document.assigned_to_id == current_user.id)
+            | (Document.owner_id == current_user.id)
+            | (Project.assigned_to_id == current_user.id)
+            | (Project.created_by_id == current_user.id)
         )
     else:
         if project_id is not None:
@@ -622,39 +628,148 @@ async def list_document_issues(
 
 
 @router.get(
+    "/{document_id}/file",
+    response_class=FileResponse,
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "model": ProblemDetail,
+            "description": "Document or file not found",
+        },
+        status.HTTP_409_CONFLICT: {
+            "model": ProblemDetail,
+            "description": "Document preview is pending",
+        },
+    },
+)
+@router.get(
     "/{document_id}/pdf",
     response_class=FileResponse,
     responses={
         status.HTTP_404_NOT_FOUND: {
             "model": ProblemDetail,
             "description": "Document or canonical PDF not found",
-        }
+        },
+        status.HTTP_409_CONFLICT: {
+            "model": ProblemDetail,
+            "description": "Document preview is pending",
+        },
     },
 )
-async def get_document_pdf(
+async def get_document_file(
     document_id: UUID,
     session: Annotated[AsyncSession, Depends(get_session)],
     storage: Annotated[LocalStorage, Depends(get_storage)],
     document: Annotated[Document, Depends(get_accessible_document)],
 ) -> FileResponse:
-    """Stream the canonical PDF rendition of an uploaded document."""
+    """Stream the canonical PDF rendition or file preview of an uploaded document."""
 
+    is_docx = (
+        document.media_type
+        == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        or document.original_filename.lower().endswith(".docx")
+        or document.storage_uri.lower().endswith(".docx")
+    )
+
+    # 1. If original document is .docx, resolve or convert to PDF preview
+    if is_docx:
+        pdf_path: Path | None = None
+        if document.canonical_pdf_uri:
+            try:
+                candidate = storage.get_full_path(document.canonical_pdf_uri)
+                if candidate.exists():
+                    pdf_path = candidate
+            except Exception:
+                pdf_path = None
+
+        if pdf_path is None:
+            try:
+                source_full_path = storage.get_full_path(document.storage_path)
+                candidate = source_full_path.parent / "preview.pdf"
+                if candidate.exists():
+                    pdf_path = candidate
+            except Exception:
+                pass
+
+        if pdf_path is None:
+            if document.status in (DocumentStatus.QUEUED, DocumentStatus.PROCESSING):
+                logger.info(
+                    "DOCX preview conversion pending for document %s (status=%s)",
+                    document.id,
+                    document.status,
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Document preview is still being generated. Please wait.",
+                )
+
+            # Document is completed, attempt on-the-fly conversion using LibreOffice
+            try:
+                source_path = storage.get_full_path(document.storage_path)
+                if source_path.exists():
+                    logger.info("Attempting on-the-fly DOCX to PDF conversion for document %s", document.id)
+                    pdf_path = convert_docx_to_pdf(source_path, source_path.parent)
+                    document.canonical_pdf_uri = f"local://documents/{document.id}/preview.pdf"
+                    await session.commit()
+            except Exception as exc:
+                logger.warning(
+                    "On-the-fly DOCX conversion failed for document %s: %s",
+                    document.id,
+                    exc,
+                )
+
+        if pdf_path is not None and pdf_path.exists():
+            return FileResponse(
+                path=pdf_path,
+                media_type="application/pdf",
+                filename=f"{document.safe_filename}.pdf",
+                content_disposition_type="inline",
+            )
+
+        checked_path = str(storage.get_full_path(document.storage_path).parent / "preview.pdf")
+        logger.error(
+            "PDF preview file not found on disk: checked path %s for document %s (storage_uri=%s)",
+            checked_path,
+            document.id,
+            document.storage_uri,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"PDF preview file not found on storage: {checked_path}",
+        )
+
+    # 2. For native PDF documents
     uri = document.canonical_pdf_uri or document.storage_uri
     if not uri:
+        logger.error("Document %s has no storage_uri or canonical_pdf_uri", document.id)
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Canonical PDF rendition not available.",
         )
 
-    key = uri
-    if key.startswith(storage.scheme):
-        key = key[len(storage.scheme) :]
-
-    path = storage._path_for_key(key)
-    if not path.exists():
+    try:
+        path = storage.get_full_path(document.storage_path)
+    except Exception as exc:
+        logger.error(
+            "Failed to resolve path for document %s (storage_path=%s): %s",
+            document.id,
+            document.storage_path,
+            exc,
+        )
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="PDF file not found on storage.",
+            detail=f"File path could not be resolved: {exc}",
+        ) from exc
+
+    if not path.exists():
+        logger.error(
+            "File not found on disk: checked path %s for document %s (storage_uri=%s)",
+            path,
+            document.id,
+            document.storage_uri,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"PDF file not found on storage: {path}",
         )
 
     return FileResponse(

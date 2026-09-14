@@ -202,3 +202,15 @@ production endpoint: HTTP 200
 - In PostgreSQL, queries using `with_for_update()` must NOT use `joinedload` on nullable relationships (such as `assigned_to`), because PostgreSQL raises `FeatureNotSupportedError: FOR UPDATE cannot be applied to the nullable side of an outer join`. Single-row locking in `_load_document_for_assignment` locks `Document` directly without joins; relationships are loaded post-commit via `session.refresh(document, attribute_names=["owner", "assigned_to"])`.
 - In `backend/api/documents.py` (`mark_document_reviewed`), the permission check restricts action to `document.assigned_to_id == current_user.id` (assignee only). Test fixtures must assign the document to the acting user.
 - Frontend document table cell rendering adheres to 5 strict cases (Cases A–E) detailed in `docs/ASSIGNMENT_WIP_FIX_PLAN.md`, with formal Indonesian tooltips ("Selesaikan tugas aktif Anda terlebih dahulu") and "Tugas Anda" badge with direct review link.
+
+## Document Read Permission & PDF/File Preview Contract
+
+- Documents and their canonical preview streams (`GET /documents/{id}/file` and `GET /documents/{id}/pdf`) grant read access if:
+  1. `doc.assigned_to_id == current_user.id` (Direct PIC)
+  2. `doc.owner_id == current_user.id` (Uploader)
+  3. `doc.project.assigned_to_id == current_user.id` (Assigned to the parent Project)
+  4. `doc.project.created_by_id == current_user.id` or user is in `project.members`
+  5. `current_user.role in {LEAD_ENGINEER, SUPERUSER}`
+- For DOCX uploads, the review endpoints serve the converted `preview.pdf`. If the document is still in `QUEUED` or `PROCESSING` pipeline state, an HTTP 409 is returned with a descriptive message. If completed, an on-the-fly conversion fallback via headless LibreOffice is invoked if `preview.pdf` was not yet generated.
+- `pdf-canvas-viewer.tsx` and API helpers fetch with `credentials: "include"`, pass the Bearer token via `Authorization: Bearer <token>`, and use `cache: "no-store"` to avoid browser caching of transient preview generation states.
+

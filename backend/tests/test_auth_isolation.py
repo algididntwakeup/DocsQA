@@ -86,6 +86,56 @@ def test_document_read_access_isolated_for_engineer_and_global_for_lead_roles() 
     assert check_document_read_access(document, superuser)
 
 
+def test_document_read_access_project_aware_for_engineers() -> None:
+    from models.project import Project
+
+    owner = User(
+        id=uuid4(), email="owner@example.test", hashed_password="unused",
+        full_name="Owner", role=UserRole.ENGINEER,
+    )
+    doc_pic = User(
+        id=uuid4(), email="doc_pic@example.test", hashed_password="unused",
+        full_name="Doc PIC", role=UserRole.ENGINEER,
+    )
+    project_lead_assigned = User(
+        id=uuid4(), email="proj_assigned@example.test", hashed_password="unused",
+        full_name="Project Assignee", role=UserRole.ENGINEER,
+    )
+    project_creator = User(
+        id=uuid4(), email="proj_creator@example.test", hashed_password="unused",
+        full_name="Project Creator", role=UserRole.ENGINEER,
+    )
+    unrelated_engineer = User(
+        id=uuid4(), email="unrelated@example.test", hashed_password="unused",
+        full_name="Unrelated", role=UserRole.ENGINEER,
+    )
+
+    project = Project(
+        id=uuid4(),
+        name="Test Project",
+        created_by_id=project_creator.id,
+        assigned_to_id=project_lead_assigned.id,
+    )
+    doc = Document(
+        id=uuid4(),
+        owner_id=owner.id,
+        assigned_to_id=doc_pic.id,
+        project_id=project.id,
+    )
+    doc.project = project
+
+    # 1. Direct PIC has access
+    assert check_document_read_access(doc, doc_pic)
+    # 2. Uploader/owner has access
+    assert check_document_read_access(doc, owner)
+    # 3. Engineer assigned to parent project has access
+    assert check_document_read_access(doc, project_lead_assigned)
+    # 4. Engineer who created the project has access
+    assert check_document_read_access(doc, project_creator)
+    # 5. Unrelated engineer is denied
+    assert not check_document_read_access(doc, unrelated_engineer)
+
+
 def _request_with_cookie(value: str | None) -> Request:
     headers = [(b"cookie", f"access_token={value}".encode())] if value else []
     return Request({"type": "http", "headers": headers})

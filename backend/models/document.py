@@ -117,6 +117,11 @@ class Document(TimestampMixin, Base):
         back_populates="verified_documents", foreign_keys=[verified_by_id]
     )
 
+    @property
+    def storage_path(self) -> str:
+        """Relative path or key of the stored file without scheme."""
+        return self.storage_uri.removeprefix("local://")
+
 
 class StageRun(TimestampMixin, Base):
     """Appendable attempt record for one pipeline stage execution."""
