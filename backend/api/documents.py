@@ -66,15 +66,16 @@ WIP_ERROR = (
 
 
 async def check_engineer_wip_available(
-    session: AsyncSession, engineer_id: UUID
+    session: AsyncSession, engineer_id: UUID, project_id: UUID | None
 ) -> tuple[bool, Document | None]:
-    """Return whether an engineer has a free single-document WIP slot."""
+    """Return whether an engineer has a free single-document WIP slot in a project."""
     active_document = (
         await session.execute(
             select(Document)
             .where(
                 Document.assigned_to_id == engineer_id,
                 Document.workflow_status == DocumentWorkflowStatus.ANALYZING,
+                Document.project_id == project_id,
             )
             .order_by(Document.created_at.asc())
             .limit(1)
@@ -145,7 +146,7 @@ async def claim_document(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Document is already assigned."
             )
-        available, _ = await check_engineer_wip_available(session, current_user.id)
+        available, _ = await check_engineer_wip_available(session, current_user.id, document.project_id)
         if not available:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=WIP_ERROR)
         document.assigned_to_id = current_user.id
@@ -194,7 +195,7 @@ async def assign_document(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Engineer not found or inactive."
             )
         if not payload.override_wip:
-            available, active_document = await check_engineer_wip_available(session, engineer.id)
+            available, active_document = await check_engineer_wip_available(session, engineer.id, document.project_id)
             if not available:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,

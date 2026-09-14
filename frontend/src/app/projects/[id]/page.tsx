@@ -129,6 +129,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       )}
 
       <ProjectDocumentTable
+        projectId={projectId ?? undefined}
         projectFinished={project?.status === "FINISHED"}
         documents={documents}
         role={role}

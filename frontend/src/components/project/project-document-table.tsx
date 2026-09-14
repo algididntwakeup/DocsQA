@@ -21,6 +21,7 @@ function isProcessingStatus(status: DocumentItem["status"]): boolean {
 
 export function ProjectDocumentTable({
   documents,
+  projectId,
   role,
   loading,
   onUpload,
@@ -31,6 +32,7 @@ export function ProjectDocumentTable({
   projectFinished = false,
 }: {
   documents: DocumentItem[];
+  projectId?: string;
   role: UserRole;
   loading: boolean;
   onUpload: (file: File) => Promise<void>;
@@ -189,11 +191,13 @@ export function ProjectDocumentTable({
             </thead>
             <tbody className="divide-y divide-slate-100">
               {visible.map((document) => {
+                const hasActiveTask = Boolean(currentUserId) && documents.some(
+                  (item) => item.project_id === projectId
+                    && item.assigned_to_id === currentUserId
+                    && (item.workflow_status ?? "ANALYZING") === "ANALYZING",
+                );
                 const workflow = document.workflow_status ?? "ANALYZING";
                 const processing = isProcessingStatus(document.status);
-                const hasActiveTask = Boolean(currentUserId) && documents.some(
-                  (item) => item.assigned_to_id === currentUserId && (item.workflow_status ?? "ANALYZING") === "ANALYZING"
-                );
                 const isAssignedToCurrentUser = Boolean(currentUserId) && document.assigned_to_id === currentUserId;
                 const progressLabel = `${document.progress_pct}%`;
                 return (

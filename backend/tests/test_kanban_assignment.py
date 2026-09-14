@@ -26,7 +26,10 @@ def _user(role: UserRole) -> User:
 
 
 def _document(
-    *, assigned_to: User | None = None, status=DocumentWorkflowStatus.ANALYZING
+    *,
+    assigned_to: User | None = None,
+    status=DocumentWorkflowStatus.ANALYZING,
+    project_id=None,
 ) -> Document:
     now = datetime.now(UTC)
     return Document(
@@ -37,6 +40,7 @@ def _document(
         size_bytes=10,
         sha256=uuid4().hex + uuid4().hex,
         storage_uri=f"local://{uuid4()}.pdf",
+        project_id=project_id,
         owner_id=assigned_to.id if assigned_to else None,
         owner=assigned_to,
         assigned_to_id=assigned_to.id if assigned_to else None,
@@ -74,9 +78,11 @@ async def test_claim_succeeds_when_slot_is_empty() -> None:
 @pytest.mark.anyio
 async def test_claim_is_rejected_when_wip_is_full() -> None:
     engineer = _user(UserRole.ENGINEER)
-    document = _document()
-    active = _document(assigned_to=engineer)
+    project_id = uuid4()
+    document = _document(project_id=project_id)
+    active = _document(assigned_to=engineer, project_id=project_id)
     session = AsyncMock()
+    session.get.return_value = None
     session.execute.side_effect = [Result(engineer), Result(document), Result(active)]
 
     with pytest.raises(HTTPException) as error:
@@ -88,13 +94,30 @@ async def test_claim_is_rejected_when_wip_is_full() -> None:
 
 
 @pytest.mark.anyio
+async def test_claim_allows_active_document_in_another_project() -> None:
+    engineer = _user(UserRole.ENGINEER)
+    target_project = uuid4()
+    other_project = uuid4()
+    document = _document(project_id=target_project)
+    active_elsewhere = _document(assigned_to=engineer, project_id=other_project)
+    session = AsyncMock()
+    session.execute.side_effect = [Result(engineer), Result(document), Result(None)]
+
+    session.get.return_value = None
+    result = await claim_document(document.id, session, engineer)
+
+    assert result.assigned_to_id == engineer.id
+    assert active_elsewhere.project_id != document.project_id
+    session.commit.assert_awaited_once()
+
+
+@pytest.mark.anyio
 async def test_reviewed_document_frees_wip_slot() -> None:
     engineer = _user(UserRole.ENGINEER)
     reviewed = _document(assigned_to=engineer, status=DocumentWorkflowStatus.REVIEWED_BY_ENGINEER)
     session = AsyncMock()
     session.execute.return_value = Result(None)
-
-    available, active = await check_engineer_wip_available(session, engineer.id)
+    available, active = await check_engineer_wip_available(session, engineer.id, uuid4())
 
     assert available is True
     assert active is None
@@ -141,6 +164,30 @@ async def test_lead_assign_normal_and_override() -> None:
     assert result.assigned_to_id == engineer.id
     assert result.owner_id == uploader.id
     assert session.commit.await_count == 1
+
+
+@pytest.mark.anyio
+async def test_lead_assign_allows_active_document_in_another_project() -> None:
+    lead = _user(UserRole.LEAD_ENGINEER)
+    engineer = _user(UserRole.ENGINEER)
+    target_project = uuid4()
+    other_project = uuid4()
+    target = _document(project_id=target_project)
+    active_elsewhere = _document(assigned_to=engineer, project_id=other_project)
+    session = AsyncMock()
+    session.get.return_value = None
+    session.execute.side_effect = [Result(target), Result(engineer), Result(None)]
+
+    result = await assign_document(
+        target.id,
+        DocumentAssignment(engineer_id=engineer.id),
+        session,
+        lead,
+    )
+
+    assert result.assigned_to_id == engineer.id
+    assert active_elsewhere.project_id != target.project_id
+    session.commit.assert_awaited_once()
 
 @pytest.mark.anyio
 async def test_lead_unassigns_nullable_owner_document() -> None:

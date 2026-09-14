@@ -71,6 +71,31 @@ describe("ProjectDocumentTable", () => {
     expect(screen.getByText(/Sedang Dianalisis/)).toBeDefined();
   });
 
+  it("does not block a claim because of an active task in another project", () => {
+    const target = { ...documents[0], project_id: "project-a", assigned_to_id: null };
+    const activeElsewhere = {
+      ...documents[0],
+      id: "doc-b",
+      filename: "engineer-b.pdf",
+      project_id: "project-b",
+      assigned_to_id: "current-user",
+      workflow_status: "ANALYZING" as DocumentItem["workflow_status"],
+    };
+    render(
+      <ProjectDocumentTable
+        documents={[target, activeElsewhere]}
+        projectId="project-a"
+        role="ENGINEER"
+        currentUserId="current-user"
+        loading={false}
+        onUpload={vi.fn()}
+        onFiltersChange={vi.fn()}
+      />,
+    );
+
+    expect((screen.getByRole("button", { name: /ambil tugas/i }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
   it("keeps terminal workspace links but hides upload and disables assignment when finished", () => {
     render(
       <ProjectDocumentTable
