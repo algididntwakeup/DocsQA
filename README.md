@@ -172,7 +172,7 @@ For a production deployment:
 - Set `COOKIE_SECURE=true` behind HTTPS.
 - Change all bootstrap passwords immediately after the first login.
 - Restrict PostgreSQL and Redis ports to the private network or bind them only to localhost.
-- Back up the `postgres-data` and `backend-data` Docker volumes.
+- Back up the `postgres-data`, `redis-data`, and `app_uploads` Docker volumes.
 
 ### Container Management
 
@@ -245,11 +245,17 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 Both backend and frontend feature reproducible quality verification suites that enforce zero-lint warnings, strict type safety, and comprehensive test coverage.
 
 ### Backend Verification Suite
-Runs Ruff linter, strict Mypy typing, 195+ Pytest unit and integration tests, OpenAPI export, and offline Alembic migration checks:
+Runs Ruff linter, strict Mypy typing, the Pytest unit and integration suite, OpenAPI export, and offline Alembic migration checks:
 
 ```powershell
 # From repository root or backend folder
 powershell -ExecutionPolicy Bypass -File backend\scripts\quality.ps1
+```
+
+The focused access-control and document-delete tests can be run independently:
+
+```powershell
+python -m pytest backend/tests/test_auth_isolation.py backend/tests/test_document_delete.py
 ```
 
 ### Frontend Verification Suite
@@ -258,6 +264,29 @@ Runs ESLint, strict TypeScript compiler check (`tsc --noEmit`), Vitest unit test
 ```bash
 cd frontend
 npm run check
+```
+
+### Document Access and Review Workspace
+
+The `/documents` register is role-aware:
+
+- `ENGINEER` sees documents uploaded by or assigned to that engineer.
+- `LEAD_ENGINEER` and `SUPERUSER` see the global document register and can open any review workspace across projects.
+- Lead users can filter the register by project, assigned engineer, and workflow status.
+- Review initialization uses read-only `GET` requests for document metadata, issues, and PDF content. Workflow mutations are only sent when a user presses an action button.
+- Lead and superuser review workspaces show an audit-mode banner and expose verification or revision actions after engineer review.
+
+Uploaded files and generated artifacts persist in the `app_uploads` Docker volume mounted at `/app/storage/uploads` by both the API and Celery worker. Do not use `docker compose down --volumes` unless a full data reset is intended.
+
+Targeted validation commands:
+
+```powershell
+python -m pytest backend/tests/test_auth_isolation.py
+cd frontend
+npm run lint
+npm run typecheck
+npm run test
+npm run build
 ```
 
 ---

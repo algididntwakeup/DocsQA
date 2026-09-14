@@ -12,11 +12,15 @@ export function UserProjectsModal({ user, onClose }: { user: ManagedUser | null;
 
   useEffect(() => {
     if (!user) return;
-    setLoading(true);
-    void listProjectsForUser(user.id)
-      .then(setProjects)
-      .catch((caught) => setError(caught instanceof ApiError ? caught.message : "Could not load projects."))
-      .finally(() => setLoading(false));
+    const timer = window.setTimeout(() => {
+      setLoading(true);
+      setError(null);
+      void listProjectsForUser(user.id)
+        .then(setProjects)
+        .catch((caught) => setError(caught instanceof ApiError ? caught.message : "Could not load projects."))
+        .finally(() => setLoading(false));
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [user]);
 
   if (!user) return null;

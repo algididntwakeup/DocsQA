@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect, useRef } from "react";
-import { ChevronLeft, ChevronRight, Filter, Layers, ListFilter, Search, ShieldCheck, Sparkles } from "lucide-react";
+import { ChevronLeft, ChevronRight, Filter, Layers, Search, ShieldCheck, Sparkles } from "lucide-react";
 import { getIssueLocation, type IssueItem } from "@/lib/api";
 import { IssueCard } from "./issue-card";
 
@@ -206,7 +206,6 @@ export function IssuePanel({
     }
   };
 
-  const allIncludedCount = issues.filter((i) => i.included_in_report).length;
   const auditIncludedCount = auditIssues.filter((i) => i.included_in_report).length;
   const budinskiIncludedCount = budinskiIssues.filter((i) => i.included_in_report).length;
   const standardsIncludedCount = standardsIssues.filter((i) => i.included_in_report).length;

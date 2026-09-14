@@ -6,18 +6,17 @@ from uuid import uuid4
 
 import jwt
 import pytest
-
-from core.config import settings
-from core.dependencies import get_current_user, require_lead
-from core.security import create_access_token, hash_password, verify_password
-from domain.enums import UserRole
-from models.user import User
-from fastapi import HTTPException
-from fastapi import Response
+from fastapi import HTTPException, Response
 from fastapi.security import HTTPAuthorizationCredentials
 from starlette.requests import Request
-from api.auth import logout
-from api.auth import update_profile, update_user_status
+
+from api.auth import logout, update_profile, update_user_status
+from core.config import settings
+from core.dependencies import check_document_read_access, get_current_user, require_lead
+from core.security import create_access_token, hash_password, verify_password
+from domain.enums import UserRole
+from models.document import Document
+from models.user import User
 from schemas.user import UserProfileUpdate, UserStatusUpdate
 
 
@@ -32,8 +31,8 @@ def test_passwords_and_tokens_round_trip() -> None:
     assert claims["exp"]
 
 
-def test_engineer_scope_query_excludes_other_engineers() -> None:
-    """The ownership predicate is present in engineer document queries."""
+def test_document_query_is_eager_loaded_for_access_checks() -> None:
+    """Document reads load ownership fields before the permission decision."""
     from core.dependencies import accessible_document_query
 
     engineer = User(
@@ -45,7 +44,7 @@ def test_engineer_scope_query_excludes_other_engineers() -> None:
     )
     query = accessible_document_query(uuid4(), engineer)
     compiled = str(query.compile(compile_kwargs={"literal_binds": False}))
-    assert "documents.owner_id" in compiled
+    assert "documents.id" in compiled
 
 
 def test_lead_scope_query_does_not_add_owner_filter() -> None:
@@ -61,6 +60,30 @@ def test_lead_scope_query_does_not_add_owner_filter() -> None:
     query = accessible_document_query(uuid4(), lead)
     compiled = str(query.compile(compile_kwargs={"literal_binds": False}))
     assert "owner_id =" not in compiled
+
+
+def test_document_read_access_isolated_for_engineer_and_global_for_lead_roles() -> None:
+    owner = User(
+        id=uuid4(), email="owner@example.test", hashed_password="unused",
+        full_name="Owner", role=UserRole.ENGINEER,
+    )
+    other_engineer = User(
+        id=uuid4(), email="other@example.test", hashed_password="unused",
+        full_name="Other", role=UserRole.ENGINEER,
+    )
+    lead = User(
+        id=uuid4(), email="lead@example.test", hashed_password="unused",
+        full_name="Lead", role=UserRole.LEAD_ENGINEER,
+    )
+    superuser = User(
+        id=uuid4(), email="admin@example.test", hashed_password="unused",
+        full_name="Admin", role=UserRole.SUPERUSER,
+    )
+    document = Document(owner_id=owner.id, assigned_to_id=None)
+
+    assert not check_document_read_access(document, other_engineer)
+    assert check_document_read_access(document, lead)
+    assert check_document_read_access(document, superuser)
 
 
 def _request_with_cookie(value: str | None) -> Request:
@@ -172,6 +195,8 @@ async def test_last_active_lead_cannot_be_deactivated() -> None:
     session.execute.return_value = _result(target)
     session.scalar.return_value = 1
 
-    with pytest.raises(HTTPException, match="Cannot deactivate the last active lead engineer") as error:
+    with pytest.raises(
+        HTTPException, match="Cannot deactivate the last active lead engineer"
+    ) as error:
         await update_user_status(target.id, UserStatusUpdate(is_active=False), session, lead)
     assert error.value.status_code == 400

@@ -7,7 +7,7 @@ from uuid import UUID
 import jwt
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy import or_, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -15,7 +15,6 @@ from core.config import settings
 from db.session import get_session
 from domain.enums import UserRole
 from models.document import Document
-from models.project import Project
 from models.user import User
 from services.storage import LocalStorage
 from services.uploads import UploadService
@@ -96,16 +95,20 @@ async def require_user_manager(
     return current_user
 
 
+def check_document_read_access(document: Document, current_user: User) -> bool:
+    """Return whether a user may read and review a document."""
+    if current_user.role in {UserRole.LEAD_ENGINEER, UserRole.SUPERUSER}:
+        return True
+    return document.owner_id == current_user.id or document.assigned_to_id == current_user.id
+
+
 def accessible_document_query(document_id: UUID, current_user: User):
+    """Build the eager-loaded document query used by document read endpoints."""
     query = select(Document).where(Document.id == document_id).options(
         joinedload(Document.owner),
         joinedload(Document.assigned_to),
         joinedload(Document.project),
     )
-    if current_user.role == UserRole.ENGINEER:
-        query = query.where(
-            or_(Document.assigned_to_id == current_user.id, Document.owner_id == current_user.id)
-        )
     return query
 
 
@@ -120,6 +123,11 @@ async def get_accessible_document(
     ).scalar_one_or_none()
     if document is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
+    if not check_document_read_access(document, current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this document.",
+        )
     return document
 
 

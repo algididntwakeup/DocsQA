@@ -24,7 +24,7 @@ COPY . .
 
 RUN addgroup --system docqc \
     && adduser --system --ingroup docqc docqc \
-    && mkdir -p /app/data \
+    && mkdir -p /app/storage/uploads \
     && mkdir -p /tmp/.config /tmp/.cache \
     && chown -R docqc:docqc /app /tmp/.config /tmp/.cache
 

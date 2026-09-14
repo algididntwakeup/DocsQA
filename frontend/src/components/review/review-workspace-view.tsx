@@ -176,6 +176,7 @@ export function ReviewWorkspaceView({ id }: { id: string }) {
     !projectFinished &&
     (userRole === "LEAD_ENGINEER" || userRole === "SUPERUSER") &&
     workflowStatus === "REVIEWED_BY_ENGINEER";
+  const isLeadReviewer = userRole === "LEAD_ENGINEER" || userRole === "SUPERUSER";
 
   return (
     <div className="fixed inset-0 h-screen w-screen overflow-hidden flex flex-col bg-slate-100 text-slate-900 font-sans">
@@ -221,6 +222,11 @@ export function ReviewWorkspaceView({ id }: { id: string }) {
           </a>
         </div>
       </header>
+      {isLeadReviewer && (
+        <div className="shrink-0 border-b border-indigo-200 bg-indigo-50 px-4 py-2 text-xs font-semibold text-indigo-900" role="status">
+          Anda sedang meninjau dokumen ini sebagai Lead Engineer / Superuser
+        </div>
+      )}
       <main className="flex-1 min-h-0 flex overflow-hidden">
       {projectFinished && (
         <div className="border-b border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-800" role="status">
@@ -348,6 +354,12 @@ export function ReviewWorkspaceView({ id }: { id: string }) {
                 Minta Revisi
               </button>
             </>
+          )}
+
+          {isLeadReviewer && workflowStatus === "ANALYZING" && (
+            <span className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700">
+              Analisis masih berjalan. Pemantauan aktif.
+            </span>
           )}
         </div>
       </footer>
