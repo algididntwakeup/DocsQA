@@ -6,6 +6,9 @@ export type DocumentItem = Omit<components["schemas"]["DocumentRead"], "workflow
   assigned_to_name?: string | null;
   assigned_to_email?: string | null;
   project_finished?: boolean;
+  project_name?: string | null;
+  project_plant?: string | null;
+  uploaded_by_name?: string | null;
 };
 export interface AssignedProjectDocument {
   id: string;
@@ -284,8 +287,18 @@ export function uploadProjectDocument(projectId: string, file: File): Promise<Do
   });
 }
 
-export function listDocuments(): Promise<DocumentList> {
-  return request<DocumentList>("/documents?page=1&page_size=100", { cache: "no-store" });
+export interface DocumentListFilters {
+  projectId?: string;
+  assignedToId?: string;
+  workflowStatus?: string;
+}
+
+export function listDocuments(filters: DocumentListFilters = {}): Promise<DocumentList> {
+  const params = new URLSearchParams({ page: "1", page_size: "100" });
+  if (filters.projectId) params.set("project_id", filters.projectId);
+  if (filters.assignedToId) params.set("assigned_to_id", filters.assignedToId);
+  if (filters.workflowStatus) params.set("workflow_status", filters.workflowStatus);
+  return request<DocumentList>(`/documents?${params.toString()}`, { cache: "no-store" });
 }
 
 export function getDocument(id: string): Promise<DocumentItem> {

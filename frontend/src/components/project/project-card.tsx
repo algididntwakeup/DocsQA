@@ -1,14 +1,11 @@
-import { CalendarDays, CheckCircle2, ChevronRight, FileText, MapPin, Trash2, UserRound } from "lucide-react";
+import { CalendarDays, CheckCircle2, ChevronRight, CircleCheck, FileText, MapPin, Trash2, UserRound } from "lucide-react";
 import Link from "next/link";
-import type { ManagedUser, ProjectItem } from "@/lib/api";
+import type { ProjectItem } from "@/lib/api";
 
 export function ProjectCard({
   project,
   documentCount,
   verifiedCount = 0,
-  canAssign = false,
-  engineers = [],
-  onAssign,
   canManage = false,
   onFinish,
   onDelete,
@@ -16,9 +13,6 @@ export function ProjectCard({
   project: ProjectItem;
   documentCount: number;
   verifiedCount?: number;
-  canAssign?: boolean;
-  engineers?: ManagedUser[];
-  onAssign?: (projectId: string, userId: string | null) => void;
   canManage?: boolean;
   onFinish?: (projectId: string) => void;
   onDelete?: (projectId: string) => void;
@@ -79,50 +73,22 @@ export function ProjectCard({
             {project.created_by_name ?? "System"}
           </b>
         </div>
-        <div className="flex items-center justify-between text-[11px]">
-          <span className="flex items-center gap-1 text-slate-400">
-            <UserRound size={12} /> Assigned:
-          </span>
-          <b className="font-semibold text-slate-800 truncate max-w-[130px]">
-            {project.assigned_to_name ?? "Belum di-assign"}
-          </b>
-        </div>
       </div>
 
-      {canAssign && onAssign && project.status !== "FINISHED" && (
-        <div className="mt-3 pt-2.5 border-t border-slate-100">
-          <label className="flex flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">
-            <span>Quick Assign</span>
-            <select
-              aria-label={`Assign ${project.name}`}
-              value={project.assigned_to_id ?? ""}
-              onChange={(event) => onAssign(project.id, event.target.value || null)}
-              className="h-8 rounded-lg border border-slate-200 bg-slate-50/50 px-2 text-xs font-medium text-slate-800 transition focus:border-blue-500 focus:bg-white focus:outline-none"
-            >
-              <option value="">Belum di-assign</option>
-              {engineers
-                .filter((user) => user.role === "ENGINEER" && user.is_active)
-                .map((user) => (
-                  <option key={user.id} value={user.id}>
-                    {user.full_name}
-                  </option>
-                ))}
-            </select>
-          </label>
-        </div>
-      )}
-      {project.status === "FINISHED" && (
-        <span className="mt-3 inline-flex w-fit rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-700 ring-1 ring-emerald-700/10">
-          Finished
-        </span>
-      )}
-      {canManage && project.status !== "FINISHED" && onFinish && onDelete && (
-        <div className="mt-3 flex items-center justify-end gap-2 border-t border-slate-100 pt-3">
+      <div className="mt-5 -mx-5 -mb-5 flex min-h-[52px] items-center justify-between gap-3 rounded-b-2xl border-t border-slate-100 bg-slate-50/70 px-5 py-2.5">
+        {project.status === "FINISHED" ? (
+          <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700 ring-1 ring-emerald-700/10">
+            <CircleCheck size={12} /> Finished
+          </span>
+        ) : <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500"><span className="h-1.5 w-1.5 rounded-full bg-blue-500" />Active project</span>}
+        {canManage && project.status !== "FINISHED" && onFinish && onDelete && (
+          <div className="flex items-center gap-1.5">
           <button
             type="button"
             onClick={() => onFinish(project.id)}
-            className="rounded-md border border-emerald-200 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-50"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-[11px] font-bold text-white shadow-xs transition hover:bg-blue-700 active:scale-[0.98]"
           >
+            <CheckCircle2 size={12} />
             Finish Project
           </button>
           <button
@@ -131,12 +97,13 @@ export function ProjectCard({
             disabled={documentCount > 0}
             title={documentCount > 0 ? "Hanya project kosong yang dapat dihapus" : "Delete project"}
             onClick={() => onDelete(project.id)}
-            className="inline-flex items-center gap-1 rounded-md border border-rose-200 px-2.5 py-1 text-[11px] font-semibold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 shadow-2xs transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            <Trash2 size={12} /> Delete
+            <Trash2 size={14} />
           </button>
-        </div>
-      )}
+          </div>
+        )}
+      </div>
     </article>
   );
 }

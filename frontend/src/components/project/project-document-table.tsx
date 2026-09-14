@@ -1,10 +1,10 @@
 "use client";
 
-import { AlertTriangle, ArrowUpDown, ExternalLink, FileText, LoaderCircle, Search, UploadCloud, UserRound } from "lucide-react";
+import { AlertTriangle, ArrowUpDown, ExternalLink, FileText, LoaderCircle, Search, Trash2, UploadCloud, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { ApiError, assignDocument, claimDocument, type DocumentItem, type ManagedUser, type UserRole } from "@/lib/api";
+import { ApiError, assignDocument, claimDocument, deleteDocument, type DocumentItem, type ManagedUser, type UserRole } from "@/lib/api";
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
@@ -50,6 +50,7 @@ export function ProjectDocumentTable({
   const [search, setSearch] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [overrideRequest, setOverrideRequest] = useState<{ documentId: string; engineerId: string; message: string } | null>(null);
+  const [deleteRequest, setDeleteRequest] = useState<DocumentItem | null>(null);
   const visible = useMemo(() => documents.filter((item) => item.filename.toLowerCase().includes(search.toLowerCase())), [documents, search]);
 
   async function chooseFile(file: File | undefined) {
@@ -72,6 +73,20 @@ export function ProjectDocumentTable({
       if (!override && engineerId && caught instanceof ApiError && caught.status === 400) setOverrideRequest({ documentId, engineerId, message: caught.message });
       else toast.error(caught instanceof ApiError ? caught.message : "Could not assign document.");
     } finally { setBusyId(null); }
+  }
+
+  async function removeDocument(document: DocumentItem) {
+    setBusyId(document.id);
+    try {
+      await deleteDocument(document.id);
+      setDeleteRequest(null);
+      toast.success("Dokumen berhasil dihapus.");
+      await onChanged?.();
+    } catch (caught) {
+      toast.error(caught instanceof ApiError ? caught.message : "Dokumen gagal dihapus.");
+    } finally {
+      setBusyId(null);
+    }
   }
 
   function changeFilters(nextEngineer: string, nextSort: "date_desc" | "date_asc", nextBlockers: string) {
@@ -298,6 +313,17 @@ export function ProjectDocumentTable({
                       </div>
                     </td>
                     <td className="px-6 py-3.5 text-right">
+                      <div className="flex items-center justify-end gap-3">
+                      <button
+                        type="button"
+                        aria-label={`Hapus ${document.filename}`}
+                        title={document.assigned_to_id || workflow === "REVIEWED_BY_ENGINEER" || workflow === "VERIFIED_BY_LEAD" ? "Dokumen yang sedang dikerjakan atau sudah diverifikasi tidak dapat dihapus" : "Hapus dokumen"}
+                        disabled={Boolean(document.assigned_to_id) || workflow === "REVIEWED_BY_ENGINEER" || workflow === "VERIFIED_BY_LEAD" || busyId === document.id || projectFinished}
+                        onClick={() => setDeleteRequest(document)}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 shadow-2xs transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <Trash2 size={14} />
+                      </button>
                       {processing ? (
                         <button
                           type="button"
@@ -316,6 +342,7 @@ export function ProjectDocumentTable({
                           Buka Workspace <ExternalLink size={13} />
                         </Link>
                       )}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -365,6 +392,24 @@ export function ProjectDocumentTable({
               >
                 Confirm Emergency Assignment
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteRequest && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-xs" role="dialog" aria-modal="true" aria-labelledby="delete-document-title">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
+            <div className="flex items-start gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-rose-50 text-rose-600"><Trash2 size={17} /></div>
+              <div>
+                <h2 id="delete-document-title" className="text-base font-bold text-slate-900">Hapus Dokumen</h2>
+                <p className="mt-1 text-xs leading-relaxed text-slate-600">Apakah Anda yakin ingin menghapus dokumen &apos;{deleteRequest.filename}&apos;? Berkas PDF dan seluruh data analisis akan dihapus permanen.</p>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-2 border-t border-slate-100 pt-4">
+              <button type="button" className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50" onClick={() => setDeleteRequest(null)}>Batal</button>
+              <button type="button" className="rounded-lg bg-rose-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-rose-700 disabled:opacity-50" disabled={busyId === deleteRequest.id} onClick={() => void removeDocument(deleteRequest)}>{busyId === deleteRequest.id ? "Menghapus..." : "Ya, Hapus Dokumen"}</button>
             </div>
           </div>
         </div>

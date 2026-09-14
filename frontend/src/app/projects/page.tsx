@@ -2,7 +2,7 @@
 
 import { AlertTriangle, FolderKanban, LoaderCircle, Plus, X } from "lucide-react";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { ApiError, assignProject, createProject, deleteProject, finishProject, getCurrentUser, listManagedUsers, listProjectDocuments, listProjects, type ManagedUser, type ProjectItem } from "@/lib/api";
+import { ApiError, createProject, deleteProject, finishProject, getCurrentUser, listProjectDocuments, listProjects, type ProjectItem } from "@/lib/api";
 import { ProjectCard } from "@/components/project/project-card";
 
 export default function ProjectsPage() {
@@ -17,7 +17,6 @@ export default function ProjectsPage() {
   const [creating, setCreating] = useState(false);
   const [verifiedCounts, setVerifiedCounts] = useState<Record<string, number>>({});
   const [currentRole, setCurrentRole] = useState<string | null>(null);
-  const [engineers, setEngineers] = useState<ManagedUser[]>([]);
 
   const load = useCallback(async () => {
     try {
@@ -27,9 +26,6 @@ export default function ProjectsPage() {
       const current = await getCurrentUser();
       setCanCreateProject(true);
       setCurrentRole(current.role);
-      if (current.role === "LEAD_ENGINEER" || current.role === "SUPERUSER") {
-        setEngineers(await listManagedUsers());
-      }
       const entries = await Promise.all(
         next.map(async (project) => [project.id, (await listProjectDocuments(project.id)).pagination.total] as const)
       );
@@ -73,15 +69,6 @@ export default function ProjectsPage() {
       setError(caught instanceof ApiError ? caught.message : "Could not create project.");
     } finally {
       setCreating(false);
-    }
-  }
-
-  async function handleAssign(projectId: string, userId: string | null) {
-    try {
-      await assignProject(projectId, userId);
-      await load();
-    } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : "Could not assign project.");
     }
   }
 
@@ -163,9 +150,6 @@ export default function ProjectsPage() {
               project={project}
               documentCount={counts[project.id] ?? 0}
               verifiedCount={verifiedCounts[project.id] ?? 0}
-              canAssign={currentRole === "LEAD_ENGINEER" || currentRole === "SUPERUSER"}
-              engineers={engineers}
-              onAssign={handleAssign}
               canManage={currentRole === "LEAD_ENGINEER" || currentRole === "SUPERUSER"}
               onFinish={handleFinish}
               onDelete={handleDelete}

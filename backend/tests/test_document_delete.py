@@ -6,11 +6,12 @@ from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
-from core.dependencies import get_storage
+from core.dependencies import get_current_user, get_storage
 from db.session import get_session
-from domain.enums import DocumentStatus
+from domain.enums import DocumentStatus, UserRole
 from main import app
 from models.document import Document
+from models.user import User
 from services.storage.local import LocalStorage
 
 client = TestClient(app)
@@ -22,17 +23,23 @@ def test_delete_document_404_when_missing() -> None:
     mock_result = MagicMock()
     mock_result.scalar_one_or_none.return_value = None
     mock_session.execute.return_value = mock_result
+    current_user = User(
+        id=uuid4(), email="lead@test.local", hashed_password="unused",
+        full_name="Lead", role=UserRole.LEAD_ENGINEER, is_active=True,
+    )
 
     async def _override_get_session() -> AsyncMock:
         return mock_session
 
     app.dependency_overrides[get_session] = _override_get_session
+    app.dependency_overrides[get_current_user] = lambda: current_user
     try:
         response = client.delete(f"/api/v1/documents/{uuid4()}")
         assert response.status_code == 404
         assert response.json()["detail"] == "Document not found."
     finally:
         app.dependency_overrides.pop(get_session, None)
+        app.dependency_overrides.pop(get_current_user, None)
 
 
 def test_delete_document_success(tmp_path: Path) -> None:
@@ -66,6 +73,10 @@ def test_delete_document_success(tmp_path: Path) -> None:
     mock_result = MagicMock()
     mock_result.scalar_one_or_none.return_value = mock_doc
     mock_session.execute.return_value = mock_result
+    current_user = User(
+        id=uuid4(), email="lead@test.local", hashed_password="unused",
+        full_name="Lead", role=UserRole.LEAD_ENGINEER, is_active=True,
+    )
 
     async def _override_get_session() -> AsyncMock:
         return mock_session
@@ -75,6 +86,7 @@ def test_delete_document_success(tmp_path: Path) -> None:
 
     app.dependency_overrides[get_session] = _override_get_session
     app.dependency_overrides[get_storage] = _override_get_storage
+    app.dependency_overrides[get_current_user] = lambda: current_user
 
     try:
         response = client.delete(f"/api/v1/documents/{doc_id}")
@@ -88,3 +100,4 @@ def test_delete_document_success(tmp_path: Path) -> None:
     finally:
         app.dependency_overrides.pop(get_session, None)
         app.dependency_overrides.pop(get_storage, None)
+        app.dependency_overrides.pop(get_current_user, None)

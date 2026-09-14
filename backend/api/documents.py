@@ -88,8 +88,11 @@ def _document_read(document: Document) -> DocumentRead:
     return DocumentRead.model_validate(document).model_copy(
         update={
             "owner_name": document.owner.full_name if document.owner else None,
+            "uploaded_by_name": document.owner.full_name if document.owner else "Unknown",
             "assigned_to_name": document.assigned_to.full_name if document.assigned_to else None,
             "assigned_to_email": document.assigned_to.email if document.assigned_to else None,
+            "project_name": document.project.name if document.project else "Unassigned project",
+            "project_plant": document.project.plant_area if document.project else None,
             "project_finished": bool(document.project and document.project.finished_at),
         }
     )
@@ -119,6 +122,11 @@ async def _load_document_for_assignment(session: AsyncSession, document_id: UUID
         await session.execute(
             select(Document)
             .where(Document.id == document_id)
+            .options(
+                joinedload(Document.owner),
+                joinedload(Document.assigned_to),
+                joinedload(Document.project),
+            )
             .with_for_update()
         )
     ).scalar_one_or_none()
@@ -308,6 +316,21 @@ async def list_documents(
     current_user: Annotated[User, Depends(get_current_user)],
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 20,
+    project_id: Annotated[
+        UUID | None,
+        Query(description="Lead-only project filter for the master inspection register."),
+    ] = None,
+    assigned_to_id: Annotated[
+        UUID | None,
+        Query(description="Lead-only engineer assignment filter."),
+    ] = None,
+    workflow_status: Annotated[
+        str | None,
+        Query(
+            description="Lead-only workflow filter.",
+            enum=[status.value for status in DocumentWorkflowStatus],
+        ),
+    ] = None,
 ) -> DocumentListResponse:
     """List documents visible to the current user."""
 
@@ -315,7 +338,21 @@ async def list_documents(
         joinedload(Document.owner), joinedload(Document.assigned_to), joinedload(Document.project)
     )
     if current_user.role == UserRole.ENGINEER:
-        query = query.where(Document.assigned_to_id == current_user.id)
+        query = query.where(
+            (Document.assigned_to_id == current_user.id) | (Document.owner_id == current_user.id)
+        )
+    else:
+        if project_id is not None:
+            query = query.where(Document.project_id == project_id)
+        if assigned_to_id is not None:
+            query = query.where(Document.assigned_to_id == assigned_to_id)
+        if workflow_status is not None:
+            try:
+                query = query.where(
+                    Document.workflow_status == DocumentWorkflowStatus(workflow_status)
+                )
+            except ValueError as exc:
+                raise HTTPException(status_code=422, detail="Invalid workflow status.") from exc
     total = (await session.execute(select(func.count()).select_from(query.subquery()))).scalar_one()
     rows = (
         (
@@ -391,15 +428,39 @@ async def get_document(
 async def delete_document(
     document_id: UUID,
     session: Annotated[AsyncSession, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
     document: Annotated[Document, Depends(get_accessible_document)],
     storage: Annotated[LocalStorage, Depends(get_storage)],
 ) -> Response:
     _ensure_document_project_open(document)
+    if document.workflow_status == DocumentWorkflowStatus.VERIFIED_BY_LEAD:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Dokumen yang sudah diverifikasi resmi tidak dapat dihapus demi integritas audit.",
+        )
+    if document.workflow_status == DocumentWorkflowStatus.REVIEWED_BY_ENGINEER:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Dokumen yang sudah diserahkan ke Lead tidak dapat dihapus.",
+        )
+    if document.assigned_to_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Dokumen sedang ditugaskan ke engineer. Lepaskan tugas (unassign) terlebih dahulu sebelum menghapus.",
+        )
+    if (
+        document.owner_id != current_user.id
+        and current_user.role not in {UserRole.LEAD_ENGINEER, UserRole.SUPERUSER}
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Hanya uploader atau Lead Engineer yang dapat menghapus dokumen.",
+        )
 
     # 1. Clean up physical files from storage
     for uri in (document.storage_uri, document.canonical_pdf_uri):
         if uri:
-            with contextlib.suppress(Exception):
+            with contextlib.suppress(FileNotFoundError):
                 if uri.startswith(storage.scheme):
                     storage.delete(uri)
                 else:

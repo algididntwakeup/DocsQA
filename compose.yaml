@@ -42,7 +42,7 @@ services:
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/1
-      STORAGE_ROOT: /app/data
+      STORAGE_ROOT: /app/storage/uploads
       CORS_ORIGINS: '["http://localhost:3000","http://127.0.0.1:3000"]'
       AUTH_MODE: required
       SECRET_KEY: ${SECRET_KEY:-change-this-development-secret-key}
@@ -59,7 +59,7 @@ services:
     ports:
       - "${API_PORT:-8000}:8000"
     volumes:
-      - backend-data:/app/data
+      - app_uploads:/app/storage/uploads
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -78,7 +78,7 @@ services:
     command: ["celery", "-A", "core.celery_app", "worker", "--loglevel=INFO", "--concurrency=2"]
     environment: *backend-environment
     volumes:
-      - backend-data:/app/data
+      - app_uploads:/app/storage/uploads
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -109,4 +109,4 @@ services:
 volumes:
   postgres-data:
   redis-data:
-  backend-data:
+  app_uploads:

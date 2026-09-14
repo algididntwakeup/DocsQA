@@ -46,8 +46,11 @@ class DocumentRead(ApiModel):
     progress_pct: int = Field(ge=0, le=100)
     page_count: int | None = Field(default=None, ge=1)
     project_id: UUID | None = None
+    project_name: str | None = None
+    project_plant: str | None = None
     owner_id: UUID | None = None
     owner_name: str | None = None
+    uploaded_by_name: str | None = None
     assigned_to_id: UUID | None = None
     assigned_to_name: str | None = None
     assigned_to_email: str | None = None
@@ -121,7 +124,7 @@ class DocumentStatusResponse(ApiModel):
 class DocumentListResponse(ApiModel):
     """Paginated document collection."""
 
-    documents: list[DocumentRead]
+    documents: list[DocumentListItem]
     pagination: PageInfo
 
 

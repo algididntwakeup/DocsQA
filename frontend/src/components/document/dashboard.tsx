@@ -1,166 +1,149 @@
 "use client";
 
-import { Activity, AlertTriangle, CheckCircle2, Clock3, Plus, Radio } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock3, FileSearch, Plus } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { ApiError, listDocuments, subscribeDocumentEvents, type DocumentItem } from "@/lib/api";
+import { useEffect, useState } from "react";
+import {
+  ApiError,
+  getCurrentUser,
+  listDocuments,
+  listEngineers,
+  listProjects,
+  subscribeDocumentEvents,
+  type DocumentItem,
+  type ManagedUser,
+  type ProjectItem,
+  type UserRole,
+} from "@/lib/api";
 import { DocumentList } from "./document-list";
+
+const leadRoles: UserRole[] = ["LEAD_ENGINEER", "SUPERUSER"];
 
 export function Dashboard() {
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
+  const [role, setRole] = useState<UserRole | null>(null);
+  const [projects, setProjects] = useState<ProjectItem[]>([]);
+  const [engineers, setEngineers] = useState<ManagedUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const load = useCallback(async () => {
+  const [filters, setFilters] = useState({ search: "", projectId: "", engineerId: "", status: "" });
+
+  const isLead = role !== null && leadRoles.includes(role);
+
+  async function load(nextFilters = filters) {
     try {
       setError(null);
-      setDocuments((await listDocuments()).documents);
+      const result = await listDocuments({
+        projectId: isLead ? nextFilters.projectId || undefined : undefined,
+        assignedToId: isLead ? nextFilters.engineerId || undefined : undefined,
+        workflowStatus: isLead ? nextFilters.status || undefined : undefined,
+      });
+      setDocuments(result.documents);
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : "Could not reach the Document QC API.");
     } finally {
       setLoading(false);
     }
-  }, []);
-  const activeDocumentIds = useMemo(
-    () => documents
-      .filter((item) => item.status === "QUEUED" || item.status === "PROCESSING")
-      .map((item) => item.id)
-      .join(","),
-    [documents]
-  );
+  }
+
   useEffect(() => {
+    let active = true;
+    void getCurrentUser()
+      .then(async (user) => {
+        if (!leadRoles.includes(user.role)) return [user, [] as ProjectItem[], [] as ManagedUser[]] as const;
+        const [projectItems, engineerItems] = await Promise.all([listProjects(), listEngineers()]);
+        return [user, projectItems, engineerItems] as const;
+      })
+      .then(([user, projectItems, engineerItems]) => {
+        if (!active) return;
+        setRole(user.role);
+        setProjects(projectItems);
+        setEngineers(engineerItems);
+      })
+      .catch((caught) => {
+        if (active) setError(caught instanceof ApiError ? caught.message : "Could not load workspace access.");
+      });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (role === null) return;
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
-  }, [load]);
-  useEffect(() => {
-    if (!documents.some((item) => item.status === "QUEUED" || item.status === "PROCESSING")) return;
-    const timer = window.setInterval(() => void load(), 5000);
-    return () => window.clearInterval(timer);
-  }, [documents, load]);
-  useEffect(() => {
-    if (!activeDocumentIds || typeof EventSource === "undefined") return;
+  // The role transition is the fetch boundary; filter changes are handled by the filter form.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [role]);
 
-    const unsubscribers = activeDocumentIds.split(",").map((documentId) =>
-      subscribeDocumentEvents(
-        documentId,
-        (event) => {
-          setDocuments((current) =>
-            current.map((item) =>
-              item.id === documentId
-                ? {
-                    ...item,
-                    status: event.status as DocumentItem["status"],
-                    progress_pct: event.progress_pct,
-                    updated_at: new Date().toISOString(),
-                  }
-                : item
-            )
-          );
-          if (event.status === "COMPLETED" || event.status === "COMPLETED_WITH_WARNINGS" || event.status === "FAILED") {
-            void load();
-          }
-        },
-        undefined,
-        () => {
-          // The existing polling loop remains the fallback when SSE is unavailable.
-        }
-      )
-    );
-
+  useEffect(() => {
+    const activeIds = documents
+      .filter((item) => item.status === "QUEUED" || item.status === "PROCESSING")
+      .map((item) => item.id);
+    if (!activeIds.length) return;
+    const unsubscribers = activeIds.map((id) => subscribeDocumentEvents(id, (event) => {
+      setDocuments((current) => current.map((item) => item.id === id ? {
+        ...item,
+        status: event.status as DocumentItem["status"],
+        progress_pct: event.progress_pct,
+        updated_at: new Date().toISOString(),
+      } : item));
+    }));
     return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
-  }, [activeDocumentIds, load]);
-  const metrics = useMemo(() => ({
-    active: documents.filter((d) => d.status === "QUEUED" || d.status === "PROCESSING").length,
-    completed: documents.filter((d) => d.status.startsWith("COMPLETED")).length,
-    failed: documents.filter((d) => d.status === "FAILED").length,
-  }), [documents]);
+  }, [documents]);
+
+  const visibleDocuments = documents.filter((document) =>
+    document.filename.toLowerCase().includes(filters.search.toLowerCase().trim())
+  );
+  const active = documents.filter((item) => item.status === "QUEUED" || item.status === "PROCESSING").length;
+  const reviewed = documents.filter((item) => item.workflow_status === "REVIEWED_BY_ENGINEER").length;
+  const verified = documents.filter((item) => item.workflow_status === "VERIFIED_BY_LEAD").length;
+
+  const applyFilters = () => void load(filters);
+
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 space-y-8 font-sans">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 border-b border-slate-200 pb-6">
-        <div className="space-y-1.5">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-blue-600">Material document control</p>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">Inspection workspace</h1>
-          <p className="text-sm text-slate-600 max-w-2xl">Monitor ingestion and extraction readiness across active QA documents.</p>
-        </div>
-        <Link
-          className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs transition hover:bg-blue-700 active:scale-[0.98] self-start sm:self-auto shrink-0"
-          href="/upload"
-        >
-          <Plus size={16} />
-          New inspection
-        </Link>
+    <main className="min-h-[calc(100vh-4rem)] bg-slate-50 text-slate-900">
+      <div className="mx-auto max-w-7xl space-y-7 px-4 py-8 sm:px-6 lg:px-8">
+        <header className="flex flex-col justify-between gap-5 border-b border-slate-200 pb-6 sm:flex-row sm:items-end">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-blue-600">Reksolindo inspection control</p>
+            <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+              {isLead ? "Inspection Register (Master Log)" : "Workspace Tugas & Dokumen Saya"}
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+              {isLead
+                ? "Monitoring terpusat seluruh dokumen teknis, progres analisis, dan status verifikasi lintas proyek."
+                : "Daftar seluruh dokumen teknis yang ditugaskan kepada Anda atau yang Anda unggah lintas proyek."}
+            </p>
+          </div>
+          <Link href="/upload" className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-blue-700">
+            <Plus size={16} /> Dokumen Baru
+          </Link>
+        </header>
+
+        <section className="grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="Document summary">
+          {([
+            [FileSearch, "Total dokumen", documents.length, "bg-blue-50 text-blue-600"],
+            [Clock3, "Sedang dianalisis", active, "bg-amber-50 text-amber-600"],
+            [AlertTriangle, "Menunggu verifikasi", reviewed, "bg-orange-50 text-orange-600"],
+            [CheckCircle2, "Terverifikasi", verified, "bg-emerald-50 text-emerald-600"],
+          ] as [typeof FileSearch, string, number, string][]).map(([SummaryIcon, label, value, color]) => {
+            return <article key={String(label)} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+              <div className={`mb-3 flex h-9 w-9 items-center justify-center rounded-xl ${color}`}><SummaryIcon size={18} /></div>
+              <p className="text-xs font-medium text-slate-500">{label}</p><strong className="mt-1 block text-xl font-bold text-slate-900">{value}</strong>
+            </article>;
+          })}
+        </section>
+
+        {isLead && <form onSubmit={(event) => { event.preventDefault(); applyFilters(); }} className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-[1.5fr_1fr_1fr_1fr_auto]">
+          <input value={filters.search} onChange={(event) => setFilters({ ...filters, search: event.target.value })} placeholder="Cari nama dokumen..." className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-900 outline-none ring-blue-500 focus:ring-2" />
+          <select value={filters.projectId} onChange={(event) => setFilters({ ...filters, projectId: event.target.value })} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"><option value="">Semua proyek</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select>
+          <select value={filters.engineerId} onChange={(event) => setFilters({ ...filters, engineerId: event.target.value })} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"><option value="">Semua engineer</option>{engineers.map((engineer) => <option key={engineer.id} value={engineer.id}>{engineer.full_name}</option>)}</select>
+          <select value={filters.status} onChange={(event) => setFilters({ ...filters, status: event.target.value })} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"><option value="">Semua status</option><option value="ANALYZING">Analyzing</option><option value="REVIEWED_BY_ENGINEER">Reviewed</option><option value="VERIFIED_BY_LEAD">Verified</option></select>
+          <button type="submit" className="h-10 rounded-lg bg-slate-900 px-4 text-xs font-bold text-white hover:bg-slate-800">Terapkan</button>
+        </form>}
+
+        {error && <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800" role="alert">{error}</div>}
+        {loading ? <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-sm text-slate-500">Memuat inspection register...</div> : <DocumentList documents={visibleDocuments} onRefresh={() => void load()} />}
       </div>
-
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4" aria-label="Document summary">
-        <article className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 ring-1 ring-blue-500/10">
-            <Activity size={20} />
-          </div>
-          <div>
-            <small className="block text-xs font-medium text-slate-500">Total documents</small>
-            <strong className="text-xl font-bold text-slate-900">{documents.length}</strong>
-          </div>
-        </article>
-
-        <article className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600 ring-1 ring-amber-500/10">
-            <Clock3 size={20} />
-          </div>
-          <div>
-            <small className="block text-xs font-medium text-slate-500">In processing</small>
-            <strong className="text-xl font-bold text-slate-900">{metrics.active}</strong>
-          </div>
-        </article>
-
-        <article className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 ring-1 ring-emerald-500/10">
-            <CheckCircle2 size={20} />
-          </div>
-          <div>
-            <small className="block text-xs font-medium text-slate-500">Extracted</small>
-            <strong className="text-xl font-bold text-slate-900">{metrics.completed}</strong>
-          </div>
-        </article>
-
-        <article className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-600 ring-1 ring-rose-500/10">
-            <AlertTriangle size={20} />
-          </div>
-          <div>
-            <small className="block text-xs font-medium text-slate-500">Needs attention</small>
-            <strong className="text-xl font-bold text-slate-900">{metrics.failed}</strong>
-          </div>
-        </article>
-      </div>
-
-      {error && (
-        <div className="flex items-center gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs font-medium text-rose-800" role="alert">
-          <AlertTriangle size={18} className="text-rose-600 shrink-0" />
-          <span className="flex-1"><strong className="font-semibold">API unavailable: </strong>{error}</span>
-          <button type="button" onClick={() => void load()} className="font-bold underline hover:text-rose-950">Retry</button>
-        </div>
-      )}
-
-      {loading ? (
-        <div className="flex items-center justify-center rounded-2xl border border-slate-200 bg-white p-12 text-sm text-slate-500 shadow-xs" role="status">
-          Loading inspection register…
-        </div>
-      ) : (
-        <>
-          {metrics.active > 0 && (
-            <div className="flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50/70 px-4 py-3 text-xs text-blue-900 shadow-2xs" role="status" aria-live="polite">
-              <Radio size={16} className="text-blue-600 animate-pulse shrink-0" />
-              <div className="flex-1">
-                <strong className="font-semibold">Live monitoring active: </strong> Processing progress may take a while. You can keep this page open and leave to the other tab while waiting.
-              </div>
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-600"></span>
-              </span>
-            </div>
-          )}
-          <DocumentList documents={documents} onRefresh={() => void load()} />
-        </>
-      )}
-    </div>
+    </main>
   );
 }
