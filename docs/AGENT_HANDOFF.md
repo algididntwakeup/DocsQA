@@ -52,6 +52,7 @@ This file records implementation decisions that must not be reverted or duplicat
 - Current workspace status banners cover `QUEUED`, `PROCESSING`, `COMPLETED_WITH_WARNINGS`, and `FAILED` without inventing scorecard data.
 - The `/documents` dashboard subscribes to SSE for active documents, updates rows without reload, and retains five-second polling as a fallback. Active rows use a pulse indicator and the `Live monitoring active` banner.
 - The project document register polls every 3 seconds while processing rows are present and disables workspace navigation until `Document.status` is terminal; `workflow_status=ANALYZING` remains the human review state.
+- Project lifecycle uses nullable `projects.finished_at` (`20260914_0012_project_lifecycle`). Lead engineers and superusers may finish only projects whose documents have terminal processing statuses. Finished projects remain viewable/exportable but reject upload, project/document assignment, claim, document workflow transitions, and issue curation. Project deletion is restricted to empty projects.
 - `DocumentRead` currently exposes metadata only. It does not expose the persisted `BudinskiScorecard`; do not add baseline or Group I-IV values to the workspace until a backend endpoint/response contract exposes them.
 - Export controls are buttons using `frontend/src/lib/download.ts`, not direct anchor links, so asynchronous download errors can be surfaced consistently.
 - The project dashboard lives under `/projects` and `/projects/{id}`. Project cards and the

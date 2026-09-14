@@ -169,9 +169,11 @@ export function ReviewWorkspaceView({ id }: { id: string }) {
     }
   }
 
+  const projectFinished = Boolean(document.project_finished);
   const workflowStatus = document.workflow_status ?? "ANALYZING";
-  const canSubmitReview = userRole === "ENGINEER" && workflowStatus === "ANALYZING";
+  const canSubmitReview = !projectFinished && userRole === "ENGINEER" && workflowStatus === "ANALYZING";
   const canLeadDecide =
+    !projectFinished &&
     (userRole === "LEAD_ENGINEER" || userRole === "SUPERUSER") &&
     workflowStatus === "REVIEWED_BY_ENGINEER";
 
@@ -219,10 +221,13 @@ export function ReviewWorkspaceView({ id }: { id: string }) {
           </a>
         </div>
       </header>
-
-      {/* Zone 2 – Split Screen Viewer */}
       <main className="flex-1 min-h-0 flex overflow-hidden">
-        <SplitScreenViewer document={document} initialIssues={issues} embedded />
+      {projectFinished && (
+        <div className="border-b border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-800" role="status">
+          Project finished. Review actions are disabled; exports remain available.
+        </div>
+      )}
+        <SplitScreenViewer document={document} initialIssues={issues} embedded readOnly={projectFinished} />
       </main>
 
       <ExportModal

@@ -190,4 +190,17 @@ describe("IssueCard", () => {
     fireEvent.click(dictBtn);
     expect(onAddToDictionary).toHaveBeenCalledWith("inconel");
   });
+  it("hides mutation controls in read-only mode", () => {
+    render(
+      <IssueCard
+        issue={tableMathIssue}
+        onCurate={vi.fn()}
+        onJumpToPage={vi.fn()}
+        readOnly
+      />
+    );
+
+    expect(screen.queryByRole("button", { name: /exclude from report/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /add note/i })).toBeNull();
+  });
 });

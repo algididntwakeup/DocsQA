@@ -129,6 +129,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/users/{user_id}/projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List User Assigned Projects
+         * @description List projects containing documents assigned to the selected user.
+         */
+        get: operations["list_user_assigned_projects_api_v1_auth_users__user_id__projects_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/users/{user_id}/reset-password": {
         parameters: {
             query?: never;
@@ -260,18 +280,51 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Get Document
-         * @description Return safe metadata for one document.
-         */
-        get: operations["get_document_api_v1_documents__document_id__get"];
+        get?: never;
         put?: never;
         post?: never;
-        /**
-         * Delete Document
-         * @description Permanently delete a document, its database records, storage files, and artifacts.
-         */
+        /** Delete Document */
         delete: operations["delete_document_api_v1_documents__document_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/{document_id}/assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Assign Document
+         * @description Assign a document to an engineer, optionally overriding the WIP limit.
+         */
+        post: operations["assign_document_api_v1_documents__document_id__assign_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/{document_id}/claim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Claim Document
+         * @description Claim an unassigned document when the engineer has no active WIP.
+         */
+        post: operations["claim_document_api_v1_documents__document_id__claim_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -348,7 +401,7 @@ export interface paths {
         put?: never;
         /**
          * Mark Document Reviewed
-         * @description Mark an owned document as reviewed by its engineer owner.
+         * @description Mark an assigned document as reviewed by its engineer owner.
          */
         post: operations["mark_document_reviewed_api_v1_documents__document_id__mark_reviewed_post"];
         delete?: never;
@@ -490,10 +543,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /**
-         * Curate Issue
-         * @description Include/exclude a finding from the generated report and attach a note.
-         */
+        /** Curate Issue */
         patch: operations["curate_issue_api_v1_issues__issue_id__curation_patch"];
         trace?: never;
     };
@@ -516,6 +566,26 @@ export interface paths {
          */
         post: operations["create_project_api_v1_projects_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Project
+         * @description Delete an empty project; documents are never deleted implicitly.
+         */
+        delete: operations["delete_project_api_v1_projects__project_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -581,6 +651,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/finish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finish Project
+         * @description Finish a project and make its review workspace read-only.
+         */
+        post: operations["finish_project_api_v1_projects__project_id__finish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/standards-registry": {
         parameters: {
             query?: never;
@@ -626,6 +716,32 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AssignedProject */
+        AssignedProject: {
+            /** Code */
+            code?: string | null;
+            /** Documents */
+            documents: components["schemas"]["AssignedProjectDocument"][];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+        };
+        /** AssignedProjectDocument */
+        AssignedProjectDocument: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Workflow Status */
+            workflow_status: string;
+        };
         /** Body_upload_document_api_v1_documents_upload_post */
         Body_upload_document_api_v1_documents_upload_post: {
             /**
@@ -789,6 +905,19 @@ export interface components {
          */
         DictionaryTermStatus: "PROPOSED" | "APPROVED" | "REJECTED";
         /**
+         * DocumentAssignment
+         * @description Lead-controlled document assignment payload.
+         */
+        DocumentAssignment: {
+            /** Engineer Id */
+            engineer_id?: string | null;
+            /**
+             * Override Wip
+             * @default false
+             */
+            override_wip: boolean;
+        };
+        /**
          * DocumentListResponse
          * @description Paginated document collection.
          */
@@ -802,6 +931,12 @@ export interface components {
          * @description Safe document metadata returned to clients.
          */
         DocumentRead: {
+            /** Assigned To Email */
+            assigned_to_email?: string | null;
+            /** Assigned To Id */
+            assigned_to_id?: string | null;
+            /** Assigned To Name */
+            assigned_to_name?: string | null;
             /**
              * Created At
              * Format: date-time
@@ -824,6 +959,11 @@ export interface components {
             page_count?: number | null;
             /** Progress Pct */
             progress_pct: number;
+            /**
+             * Project Finished
+             * @default false
+             */
+            project_finished: boolean;
             /** Project Id */
             project_id?: string | null;
             /** Reviewed At */
@@ -1181,6 +1321,8 @@ export interface components {
             created_by_name?: string | null;
             /** Description */
             description?: string | null;
+            /** Finished At */
+            finished_at?: string | null;
             /**
              * Id
              * Format: uuid
@@ -1270,6 +1412,12 @@ export interface components {
             /** Password */
             password: string;
         };
+        /**
+         * ReportLanguage
+         * @description Supported render-time report languages.
+         * @enum {string}
+         */
+        ReportLanguage: "en" | "id";
         /**
          * ReviewReportPreview
          * @description Summary used by the report-first review screen.
@@ -1850,6 +1998,37 @@ export interface operations {
             };
         };
     };
+    list_user_assigned_projects_api_v1_auth_users__user_id__projects_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssignedProject"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     reset_user_password_api_v1_auth_users__user_id__reset_password_post: {
         parameters: {
             query?: never;
@@ -2150,46 +2329,6 @@ export interface operations {
             };
         };
     };
-    get_document_api_v1_documents__document_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                document_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DocumentRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-            /** @description Feature not implemented */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
     delete_document_api_v1_documents__document_id__delete: {
         parameters: {
             query?: never;
@@ -2215,6 +2354,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    assign_document_api_v1_documents__document_id__assign_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentAssignment"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    claim_document_api_v1_documents__document_id__claim_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentRead"];
                 };
             };
             /** @description Validation Error */
@@ -2272,6 +2477,7 @@ export interface operations {
                 format: string;
                 /** @description Include minor and informational findings. */
                 include_minors?: boolean;
+                language?: components["schemas"]["ReportLanguage"];
             };
             header?: never;
             path: {
@@ -2423,7 +2629,9 @@ export interface operations {
     };
     get_report_preview_api_v1_documents__document_id__report_get: {
         parameters: {
-            query?: never;
+            query?: {
+                language?: components["schemas"]["ReportLanguage"];
+            };
             header?: never;
             path: {
                 document_id: string;
@@ -2701,6 +2909,35 @@ export interface operations {
             };
         };
     };
+    delete_project_api_v1_projects__project_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     assign_project_api_v1_projects__project_id__assign_patch: {
         parameters: {
             query?: never;
@@ -2794,6 +3031,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DocumentUploadResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    finish_project_api_v1_projects__project_id__finish_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectRead"];
                 };
             };
             /** @description Validation Error */

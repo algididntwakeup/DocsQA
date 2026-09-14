@@ -51,4 +51,19 @@ describe("ReviewWorkspaceView workflow actions", () => {
     expect(await screen.findByRole("button", { name: /verifikasi/i })).not.toBeNull();
     expect(screen.queryByRole("button", { name: /tandai selesai/i })).toBeNull();
   });
-});
+
+  it("keeps exports available but disables workflow actions for finished projects", async () => {
+    vi.mocked(api.getDocument).mockResolvedValue({
+      ...document,
+      project_finished: true,
+      workflow_status: "REVIEWED_BY_ENGINEER",
+    });
+    vi.mocked(api.getCurrentUser).mockResolvedValue({ role: "LEAD_ENGINEER" } as never);
+    render(<ReviewWorkspaceView id="doc-1" />);
+
+    expect(await screen.findByText(/project finished/i)).not.toBeNull();
+    expect(screen.queryByRole("button", { name: /verifikasi/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /minta revisi/i })).toBeNull();
+    expect(screen.getByRole("button", { name: /export docx/i })).not.toBeNull();
+  });
+ });

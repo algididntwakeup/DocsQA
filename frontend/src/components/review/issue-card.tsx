@@ -24,8 +24,8 @@ interface IssueCardProps {
   ) => Promise<void>;
   onJumpToPage?: (page: number) => void;
   onAddToDictionary?: (term: string) => void;
+  readOnly?: boolean;
 }
-
 export function IssueCard({
   issue,
   isSelected = false,
@@ -33,6 +33,7 @@ export function IssueCard({
   onCurate,
   onJumpToPage,
   onAddToDictionary,
+  readOnly = false,
 }: IssueCardProps) {
   const [isExpanded, setIsExpanded] = useState<boolean>(true);
   const [isEditingNote, setIsEditingNote] = useState<boolean>(false);
@@ -244,7 +245,7 @@ export function IssueCard({
                   <span className="text-slate-500 text-[10px] uppercase tracking-wider font-bold">
                     Linguistic Suggestion
                   </span>
-                  {Boolean(evidence.original_text) && onAddToDictionary && (
+                  {Boolean(evidence.original_text) && onAddToDictionary && !readOnly && (
                     <button
                       type="button"
                       className="text-[11px] text-blue-600 hover:underline flex items-center gap-1 font-semibold"
@@ -320,17 +321,19 @@ export function IssueCard({
                       <span className="text-xs text-slate-400 italic">None attached.</span>
                     )}
                   </div>
-                  <button
-                    type="button"
-                    className="text-[11px] font-semibold text-blue-600 hover:underline shrink-0 mt-0.5"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setNoteText(issue.reviewer_note ?? "");
-                      setIsEditingNote(true);
-                    }}
-                  >
-                    {issue.reviewer_note ? "Edit Note" : "Add Note"}
-                  </button>
+                  {!readOnly && (
+                    <button
+                      type="button"
+                      className="text-[11px] font-semibold text-blue-600 hover:underline shrink-0 mt-0.5"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setNoteText(issue.reviewer_note ?? "");
+                        setIsEditingNote(true);
+                      }}
+                    >
+                      {issue.reviewer_note ? "Edit Note" : "Add Note"}
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -343,40 +346,33 @@ export function IssueCard({
               </div>
             )}
 
-            {/* Curation Action Button */}
-            <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
-              <span className="text-[11px] text-slate-500">
-                {issue.included_in_report
-                  ? "Included in exported report"
-                  : "Excluded from exported report"}
-              </span>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void handleToggleInclude();
-                }}
-                disabled={isSubmitting}
-                aria-label={issue.included_in_report ? "Exclude from Report" : "Include in Report"}
-                className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${
-                  issue.included_in_report
-                    ? "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                    : "bg-blue-600 text-white hover:bg-blue-700"
-                }`}
-              >
-                {issue.included_in_report ? (
-                  <>
-                    <XCircle size={13} className="text-slate-400" />
-                    <span>Ignore finding</span>
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 size={13} />
-                    <span>Accept finding</span>
-                  </>
-                )}
-              </button>
-            </div>
+            {!readOnly && (
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+                <span className="text-[11px] text-slate-500">
+                  {issue.included_in_report ? "Included in exported report" : "Excluded from exported report"}
+                </span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void handleToggleInclude();
+                  }}
+                  disabled={isSubmitting}
+                  aria-label={issue.included_in_report ? "Exclude from Report" : "Include in Report"}
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${
+                    issue.included_in_report
+                      ? "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                      : "bg-blue-600 text-white hover:bg-blue-700"
+                  }`}
+                >
+                  {issue.included_in_report ? (
+                    <><XCircle size={13} className="text-slate-400" /><span>Ignore finding</span></>
+                  ) : (
+                    <><CheckCircle2 size={13} /><span>Accept finding</span></>
+                  )}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

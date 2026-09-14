@@ -8,6 +8,10 @@
 4. Project detail polling is page-owned, guarded against overlapping loads, runs every 3000 ms while rows are `QUEUED`, `PROCESSING`, or defensive legacy `ANALYZING`, and stops when all rows are terminal. Human `workflow_status=ANALYZING` remains separate from processing state.
 5. Project document rows render `Sedang Dianalisis...` with progress and a disabled workspace button during processing. Terminal rows render `/documents/{id}/review` as `Buka Workspace`. Legacy serialized `ANALYZING` is covered by the table regression test.
 
+## Project lifecycle extension
+
+Projects now persist `finished_at` through migration `20260914_0012_project_lifecycle`. Lead engineers and superusers can finish only after all project documents have terminal processing statuses. Finished projects remain readable and exportable but reject assignment, upload, claim, document workflow transitions, and finding curation. Empty projects can be deleted; projects containing documents return HTTP 409 instead of cascading deletion.
+
 ## Verification record
 
 - Backend modified modules and tests compile with `python -m py_compile`.

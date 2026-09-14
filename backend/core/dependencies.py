@@ -15,7 +15,7 @@ from core.config import settings
 from db.session import get_session
 from domain.enums import UserRole
 from models.document import Document
-from models.user import User
+from models.project import Project
 from services.storage import LocalStorage
 from services.uploads import UploadService
 
@@ -96,9 +96,10 @@ async def require_user_manager(
 
 
 def accessible_document_query(document_id: UUID, current_user: User):
-    """Build the common document ownership predicate."""
     query = select(Document).where(Document.id == document_id).options(
-        joinedload(Document.owner), joinedload(Document.assigned_to)
+        joinedload(Document.owner),
+        joinedload(Document.assigned_to),
+        joinedload(Document.project),
     )
     if current_user.role == UserRole.ENGINEER:
         query = query.where(

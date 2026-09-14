@@ -16,6 +16,7 @@ interface IssuePanelProps {
   onJumpToPage?: (page: number) => void;
   onAddToDictionary?: (term: string) => void;
   isLoading?: boolean;
+  readOnly?: boolean;
 }
 
 type TabType = "all" | "audit" | "budinski" | "standards" | "language";
@@ -50,7 +51,6 @@ function getIssueTab(issue: IssueItem): TabType {
     ? "language"
     : "standards";
 }
-
 export function IssuePanel({
   issues,
   selectedIssueId,
@@ -59,6 +59,7 @@ export function IssuePanel({
   onJumpToPage,
   onAddToDictionary,
   isLoading = false,
+  readOnly = false,
 }: IssuePanelProps) {
   const [activeTab, setActiveTab] = useState<TabType>("audit");
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>("ALL");
@@ -423,6 +424,7 @@ export function IssuePanel({
                   issue={issue}
                   isSelected={isSelected}
                   onSelect={() => onSelectIssue(issue.id)}
+                  readOnly={readOnly}
                   onCurate={onCurateIssue}
                   onJumpToPage={onJumpToPage}
                   onAddToDictionary={onAddToDictionary}

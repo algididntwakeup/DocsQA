@@ -53,18 +53,44 @@ class ReportSynthesizer:
         for category, items in groups.items():
             types: dict[str, int] = {}
             for item in items:
-                typ = str(_value(item, "type", "FINDING")).upper(); types[typ] = types.get(typ, 0) + 1
+                typ = str(_value(item, "type", "FINDING")).upper()
+                types[typ] = types.get(typ, 0) + 1
             breakdown = ", ".join(f"{n} {typ.replace('_', ' ').lower()}" for typ, n in sorted(types.items()))
-            codes = ", ".join(sorted(types)); pages = sorted({str(_value(i, "page_number", "")) for i in items if _value(i, "page_number", None) is not None}, key=lambda v: (not v.isdigit(), int(v) if v.isdigit() else v))
-            page_text = ", ".join(pages[:12]) if pages else ("the affected document locations" if self.s.bottom_line == "BOTTOM LINE" else "lokasi dokumen terdampak")
-            if len(pages) > 12: page_text += f", and {len(pages)-12} more pages" if self.s.bottom_line == "BOTTOM LINE" else f", dan {len(pages)-12} halaman lainnya"
-            labels = [str((_value(i, "evidence", {}) or {}).get("label")) for i in items if (_value(i, "evidence", {}) or {}).get("label")]
-            example = f" Examples include {', '.join(labels[:5])}." if labels and self.s.bottom_line == "BOTTOM LINE" else (f" Contoh meliputi {', '.join(labels[:5])}." if labels else "")
+            codes = ", ".join(sorted(types))
+            pages = sorted(
+                {
+                    str(_value(i, "page_number", ""))
+                    for i in items
+                    if _value(i, "page_number", None) is not None
+                },
+                key=lambda v: (not v.isdigit(), int(v) if v.isdigit() else v),
+            )
+            page_text = ", ".join(pages[:12]) if pages else (
+                "the affected document locations" if self.s.bottom_line == "BOTTOM LINE" else "lokasi dokumen terdampak"
+            )
+            if len(pages) > 12:
+                page_text += (
+                    f", and {len(pages) - 12} more pages"
+                    if self.s.bottom_line == "BOTTOM LINE"
+                    else f", dan {len(pages) - 12} halaman lainnya"
+                )
+            labels = [
+                str((_value(i, "evidence", {}) or {}).get("label"))
+                for i in items
+                if (_value(i, "evidence", {}) or {}).get("label")
+            ]
+            examples = [str(_value(i, "message", "")).strip() for i in items if _value(i, "message", "")]
+            evidence_suffix = f" Persisted finding evidence: {' | '.join(examples[:5])}." if examples else ""
+            example = (
+                f" Examples include {', '.join(labels[:5])}."
+                if labels and self.s.bottom_line == "BOTTOM LINE"
+                else (f" Contoh meliputi {', '.join(labels[:5])}." if labels else "")
+            )
             if self.s.bottom_line == "BOTTOM LINE":
-                message = f"The review identified {len(items)} related finding(s) ({breakdown}) on printed page(s) {page_text}. Finding code(s): {codes}.{example} These findings represent one recurring control issue, not separate independent blockers; correct the underlying document-control mechanism and verify the complete set before reissue."
+                message = f"The review identified {len(items)} related finding(s) ({breakdown}) on printed page(s) {page_text}. Finding code(s): {codes}.{example}{evidence_suffix} These findings represent one recurring control issue, not separate independent blockers; correct the underlying document-control mechanism and verify the complete set before reissue."
                 suggestion = str(_value(items[0], "suggestion", "Correct the underlying control and verify all affected pages."))
             else:
-                message = f"Tinjauan mengidentifikasi {len(items)} temuan terkait ({breakdown}) pada halaman cetak {page_text}. Kode temuan: {codes}.{example} Temuan ini merupakan satu masalah pengendalian berulang, bukan penghalang independen; perbaiki mekanisme pengendalian dokumen dan verifikasi seluruh set sebelum penerbitan ulang."
+                message = f"Tinjauan mengidentifikasi {len(items)} temuan terkait ({breakdown}) pada halaman cetak {page_text}. Kode temuan: {codes}.{example}{evidence_suffix} Temuan ini merupakan satu masalah pengendalian berulang, bukan penghalang independen; perbaiki mekanisme pengendalian dokumen dan verifikasi seluruh set sebelum penerbitan ulang."
                 suggestion = str(_value(items[0], "suggestion", "Perbaiki pengendalian dan verifikasi semua halaman terdampak."))
             summaries.append({"type": category or "FINDINGS", "finding_codes": codes, "category": category, "count": str(len(items)), "message": message, "suggestion": suggestion})
         return summaries

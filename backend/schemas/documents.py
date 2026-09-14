@@ -56,6 +56,7 @@ class DocumentRead(ApiModel):
     reviewed_at: datetime | None = None
     verified_at: datetime | None = None
     verification_notes: str | None = None
+    project_finished: bool = False
     created_at: datetime
     updated_at: datetime
 

@@ -2,7 +2,7 @@
 
 import { AlertTriangle, FolderKanban, LoaderCircle, Plus, X } from "lucide-react";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { ApiError, assignProject, createProject, getCurrentUser, listManagedUsers, listProjectDocuments, listProjects, type ManagedUser, type ProjectItem } from "@/lib/api";
+import { ApiError, assignProject, createProject, deleteProject, finishProject, getCurrentUser, listManagedUsers, listProjectDocuments, listProjects, type ManagedUser, type ProjectItem } from "@/lib/api";
 import { ProjectCard } from "@/components/project/project-card";
 
 export default function ProjectsPage() {
@@ -85,6 +85,26 @@ export default function ProjectsPage() {
     }
   }
 
+  async function handleFinish(projectId: string) {
+    if (!window.confirm("Finish this project? Assignment and review changes will be disabled.")) return;
+    try {
+      await finishProject(projectId);
+      await load();
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : "Could not finish project.");
+    }
+  }
+
+  async function handleDelete(projectId: string) {
+    if (!window.confirm("Delete this empty project? This cannot be undone.")) return;
+    try {
+      await deleteProject(projectId);
+      await load();
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : "Could not delete project.");
+    }
+  }
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 space-y-8">
       {/* Page Heading */}
@@ -146,11 +166,13 @@ export default function ProjectsPage() {
               canAssign={currentRole === "LEAD_ENGINEER" || currentRole === "SUPERUSER"}
               engineers={engineers}
               onAssign={handleAssign}
+              canManage={currentRole === "LEAD_ENGINEER" || currentRole === "SUPERUSER"}
+              onFinish={handleFinish}
+              onDelete={handleDelete}
             />
           ))}
         </div>
       )}
-
       {/* Modal Create Project */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-xs">

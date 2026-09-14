@@ -31,8 +31,8 @@ class ProjectRead(ApiModel):
     assigned_to_name: str | None = None
     total_documents: int = 0
     status: str = "NO_DOCUMENTS"
+    finished_at: datetime | None = None
     created_at: datetime
-
 
 class ProjectAssignment(ApiModel):
     """Payload used by leads to assign a project to an engineer."""

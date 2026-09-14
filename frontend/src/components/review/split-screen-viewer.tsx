@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -35,12 +35,13 @@ interface SplitScreenViewerProps {
   document: DocumentItem;
   initialIssues: IssueItem[];
   embedded?: boolean;
+  readOnly?: boolean;
 }
-
 export function SplitScreenViewer({
   document,
   initialIssues,
   embedded = false,
+  readOnly = false,
 }: SplitScreenViewerProps) {
   const { locale } = useLocale();
   const [issues, setIssues] = useState<IssueItem[]>(initialIssues);
@@ -76,12 +77,6 @@ export function SplitScreenViewer({
     message: string;
   } | null>(null);
 
-  // Sync state if initialIssues change
-  useEffect(() => {
-    if (initialIssues.length > 0 && !selectedIssueId) {
-      setSelectedIssueId(initialIssues[0].id);
-    }
-  }, [initialIssues, selectedIssueId]);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const handleReloadIssues = useCallback(async () => {
@@ -113,6 +108,7 @@ export function SplitScreenViewer({
     issueId: string,
     payload: { included_in_report: boolean; reviewer_note?: string | null }
   ) => {
+    if (readOnly) return;
     try {
       const updated = await curateIssue(issueId, payload);
       setIssues((prev) => prev.map((item) => (item.id === issueId ? updated : item)));
@@ -362,6 +358,7 @@ export function SplitScreenViewer({
               onSelectIssue={handleSelectIssue}
               onCurateIssue={handleCurateIssue}
               onJumpToPage={setCurrentPage}
+              readOnly={readOnly}
               onAddToDictionary={handleAddToDictionary}
             />
           </section>

@@ -1,10 +1,11 @@
 import type { components } from "./api-schema";
 
-export type DocumentItem = Omit<components["schemas"]["DocumentRead"], "workflow_status"> & {
+export type DocumentItem = Omit<components["schemas"]["DocumentRead"], "workflow_status" | "project_finished"> & {
   workflow_status?: components["schemas"]["DocumentWorkflowStatus"];
   assigned_to_id?: string | null;
   assigned_to_name?: string | null;
   assigned_to_email?: string | null;
+  project_finished?: boolean;
 };
 export interface AssignedProjectDocument {
   id: string;
@@ -57,6 +58,7 @@ export interface ProjectItem {
   assigned_to_name?: string | null;
   total_documents?: number;
   status?: string;
+  finished_at?: string | null;
   created_at: string;
 }
 export interface LoginResponse {
@@ -243,6 +245,17 @@ export function createProject(payload: CreateProjectPayload): Promise<ProjectIte
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
+  });
+}
+export function finishProject(projectId: string): Promise<ProjectItem> {
+  return request<ProjectItem>(`/projects/${encodeURIComponent(projectId)}/finish`, {
+    method: "POST",
+  });
+}
+
+export function deleteProject(projectId: string): Promise<void> {
+  return request<void>(`/projects/${encodeURIComponent(projectId)}`, {
+    method: "DELETE",
   });
 }
 

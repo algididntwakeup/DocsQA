@@ -1,4 +1,4 @@
-import { CalendarDays, CheckCircle2, ChevronRight, FileText, MapPin, UserRound } from "lucide-react";
+import { CalendarDays, CheckCircle2, ChevronRight, FileText, MapPin, Trash2, UserRound } from "lucide-react";
 import Link from "next/link";
 import type { ManagedUser, ProjectItem } from "@/lib/api";
 
@@ -9,6 +9,9 @@ export function ProjectCard({
   canAssign = false,
   engineers = [],
   onAssign,
+  canManage = false,
+  onFinish,
+  onDelete,
 }: {
   project: ProjectItem;
   documentCount: number;
@@ -16,6 +19,9 @@ export function ProjectCard({
   canAssign?: boolean;
   engineers?: ManagedUser[];
   onAssign?: (projectId: string, userId: string | null) => void;
+  canManage?: boolean;
+  onFinish?: (projectId: string) => void;
+  onDelete?: (projectId: string) => void;
 }) {
   const date = new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(
     new Date(project.created_at)
@@ -83,7 +89,7 @@ export function ProjectCard({
         </div>
       </div>
 
-      {canAssign && onAssign && (
+      {canAssign && onAssign && project.status !== "FINISHED" && (
         <div className="mt-3 pt-2.5 border-t border-slate-100">
           <label className="flex flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">
             <span>Quick Assign</span>
@@ -103,6 +109,32 @@ export function ProjectCard({
                 ))}
             </select>
           </label>
+        </div>
+      )}
+      {project.status === "FINISHED" && (
+        <span className="mt-3 inline-flex w-fit rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-700 ring-1 ring-emerald-700/10">
+          Finished
+        </span>
+      )}
+      {canManage && project.status !== "FINISHED" && onFinish && onDelete && (
+        <div className="mt-3 flex items-center justify-end gap-2 border-t border-slate-100 pt-3">
+          <button
+            type="button"
+            onClick={() => onFinish(project.id)}
+            className="rounded-md border border-emerald-200 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-50"
+          >
+            Finish Project
+          </button>
+          <button
+            type="button"
+            aria-label={`Delete ${project.name}`}
+            disabled={documentCount > 0}
+            title={documentCount > 0 ? "Hanya project kosong yang dapat dihapus" : "Delete project"}
+            onClick={() => onDelete(project.id)}
+            className="inline-flex items-center gap-1 rounded-md border border-rose-200 px-2.5 py-1 text-[11px] font-semibold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Trash2 size={12} /> Delete
+          </button>
         </div>
       )}
     </article>

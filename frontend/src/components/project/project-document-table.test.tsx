@@ -70,4 +70,21 @@ describe("ProjectDocumentTable", () => {
     expect((screen.getByRole("button", { name: /buka workspace/i }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText(/Sedang Dianalisis/)).toBeDefined();
   });
-});
+
+  it("keeps terminal workspace links but hides upload and disables assignment when finished", () => {
+    render(
+      <ProjectDocumentTable
+        documents={documents}
+        role="LEAD_ENGINEER"
+        loading={false}
+        projectFinished
+        onUpload={vi.fn()}
+        onFiltersChange={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole("link", { name: /buka workspace/i })).not.toBeNull();
+    expect(screen.queryByRole("button", { name: /upload document/i })).toBeNull();
+    expect((screen.getByLabelText(/assign engineer-a/i) as HTMLSelectElement).disabled).toBe(true);
+  });
+ });

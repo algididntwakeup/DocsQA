@@ -1,5 +1,6 @@
 """Project-scoped document endpoints."""
 
+from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID
 
@@ -23,15 +24,53 @@ from services.uploads import UploadService
 router = APIRouter(prefix="/projects", tags=["projects"])
 
 
+TERMINAL_DOCUMENT_STATUSES = {
+    DocumentStatus.COMPLETED,
+    DocumentStatus.COMPLETED_WITH_WARNINGS,
+    DocumentStatus.FAILED,
+}
+
+
+def _project_status(project: Project) -> str:
+    if project.finished_at is not None:
+        return "FINISHED"
+    return "NO_DOCUMENTS" if not project.documents else "ACTIVE"
+
+
 def _project_read(project: Project) -> ProjectRead:
     data = ProjectRead.model_validate(project).model_dump()
     data.update(
         created_by_name=project.created_by.full_name if project.created_by else None,
         assigned_to_name=project.assigned_to.full_name if project.assigned_to else None,
         total_documents=len(project.documents),
-        status="NO_DOCUMENTS" if not project.documents else "ACTIVE",
+        status=_project_status(project),
     )
     return ProjectRead(**data)
+
+
+async def _load_project_for_mutation(session: AsyncSession, project_id: UUID) -> Project:
+    project = (
+        await session.execute(
+            select(Project)
+            .where(Project.id == project_id)
+            .options(
+                joinedload(Project.created_by),
+                joinedload(Project.assigned_to),
+                joinedload(Project.documents),
+            )
+        )
+    ).unique().scalar_one_or_none()
+    if project is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found.")
+    return project
+
+
+def _ensure_project_open(project: Project) -> None:
+    if project.finished_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Project is finished; assignment and review changes are disabled.",
+        )
 
 
 @router.post("", response_model=ProjectRead, status_code=201)
@@ -50,7 +89,6 @@ async def create_project(
     )
     session.add(project)
     await session.commit()
-    await session.refresh(project, attribute_names=["created_by", "assigned_to", "documents"])
     await session.refresh(project, attribute_names=["created_by", "assigned_to", "documents"])
     return _project_read(project)
 
@@ -102,19 +140,8 @@ async def assign_project(
     _: Annotated[User, Depends(require_lead)],
 ) -> ProjectRead:
     """Assign or unassign a project to an active user."""
-    project = (
-        await session.execute(
-            select(Project)
-            .where(Project.id == project_id)
-            .options(
-                joinedload(Project.created_by),
-                joinedload(Project.assigned_to),
-                joinedload(Project.documents),
-            )
-        )
-    ).unique().scalar_one_or_none()
-    if project is None:
-        raise HTTPException(status_code=404, detail="Project not found.")
+    project = await _load_project_for_mutation(session, project_id)
+    _ensure_project_open(project)
     if payload.assigned_to_id is not None:
         assigned = (
             await session.execute(
@@ -124,9 +151,59 @@ async def assign_project(
         if assigned is None:
             raise HTTPException(status_code=404, detail="Assigned user not found or inactive.")
     project.assigned_to_id = payload.assigned_to_id
+    project.assigned_to = assigned if payload.assigned_to_id is not None else None
     await session.commit()
     await session.refresh(project, attribute_names=["created_by", "assigned_to", "documents"])
     return _project_read(project)
+
+
+@router.post("/{project_id}/finish", response_model=ProjectRead)
+async def finish_project(
+    project_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    _: Annotated[User, Depends(require_lead)],
+) -> ProjectRead:
+    """Finish a project and make its review workspace read-only."""
+    project = await _load_project_for_mutation(session, project_id)
+    if project.finished_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Project is already finished.",
+        )
+    unfinished = [
+        document.original_filename
+        for document in project.documents
+        if document.status not in TERMINAL_DOCUMENT_STATUSES
+    ]
+    if unfinished:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "message": "Project cannot be finished while documents are still processing.",
+                "documents": unfinished,
+            },
+        )
+    project.finished_at = datetime.now(UTC)
+    await session.commit()
+    await session.refresh(project, attribute_names=["created_by", "assigned_to", "documents"])
+    return _project_read(project)
+
+
+@router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_project(
+    project_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    _: Annotated[User, Depends(require_lead)],
+) -> None:
+    """Delete an empty project; documents are never deleted implicitly."""
+    project = await _load_project_for_mutation(session, project_id)
+    if project.documents:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Project cannot be deleted while it contains documents.",
+        )
+    await session.delete(project)
+    await session.commit()
 
 
 @router.get("/{project_id}/documents", response_model=DocumentListResponse)
@@ -141,7 +218,7 @@ async def list_project_documents(
 ) -> DocumentListResponse:
     """List project documents with lead-only cross-engineer filters."""
     query = select(Document).where(Document.project_id == project_id).options(
-        joinedload(Document.owner), joinedload(Document.assigned_to)
+        joinedload(Document.owner), joinedload(Document.assigned_to), joinedload(Document.project)
     )
     if current_user.role == UserRole.ENGINEER:
         query = query.where(
@@ -171,6 +248,7 @@ async def list_project_documents(
                     "assigned_to_email": (
                         document.assigned_to.email if document.assigned_to else None
                     ),
+                    "project_finished": bool(document.project and document.project.finished_at),
                 }
             )
             for document in documents
@@ -190,13 +268,12 @@ async def upload_project_document(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> DocumentUploadResponse:
     """Upload a document and assign its project and owner."""
-    project = (
-        await session.execute(select(Project).where(Project.id == project_id))
-    ).scalar_one_or_none()
+    project = await session.get(Project, project_id)
     if project is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Project not found."
         )
+    _ensure_project_open(project)
     result = await upload_service.create_or_reuse(file, session)
     if not result.deduplicated:
         result.document.project_id = project_id

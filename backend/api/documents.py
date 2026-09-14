@@ -33,6 +33,7 @@ from domain.enums import (
 )
 from models.document import Document, StageRun
 from models.issue import Issue
+from models.project import Project
 from models.user import User
 from schemas.common import PageInfo, ProblemDetail
 from schemas.documents import (
@@ -81,7 +82,6 @@ async def check_engineer_wip_available(
     ).scalar_one_or_none()
     return active_document is None, active_document
 
-
 def _document_read(document: Document) -> DocumentRead:
     """Serialize a document with assignment and owner display metadata."""
     return DocumentRead.model_validate(document).model_copy(
@@ -89,9 +89,29 @@ def _document_read(document: Document) -> DocumentRead:
             "owner_name": document.owner.full_name if document.owner else None,
             "assigned_to_name": document.assigned_to.full_name if document.assigned_to else None,
             "assigned_to_email": document.assigned_to.email if document.assigned_to else None,
+            "project_finished": bool(document.project and document.project.finished_at),
         }
     )
 
+
+def _ensure_document_project_open(document: Document) -> None:
+    if document.project and document.project.finished_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Project is finished; document workflow changes are disabled.",
+        )
+
+async def _ensure_assignment_project_open(
+    session: AsyncSession, document: Document
+) -> None:
+    if document.project_id is None:
+        return
+    project = await session.get(Project, document.project_id)
+    if project is not None and project.finished_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Project is finished; document assignment changes are disabled.",
+        )
 
 async def _load_document_for_assignment(session: AsyncSession, document_id: UUID) -> Document:
     document = (
@@ -120,6 +140,7 @@ async def claim_document(
             )
         await session.execute(select(User).where(User.id == current_user.id).with_for_update())
         document = await _load_document_for_assignment(session, document_id)
+        await _ensure_assignment_project_open(session, document)
         if document.assigned_to_id is not None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Document is already assigned."
@@ -130,7 +151,7 @@ async def claim_document(
         document.assigned_to_id = current_user.id
         document.assigned_to = current_user
         await session.commit()
-        await session.refresh(document, attribute_names=["owner", "assigned_to"])
+        await session.refresh(document, attribute_names=["owner", "assigned_to", "project"])
         return _document_read(document)
     except HTTPException:
         await session.rollback()
@@ -150,11 +171,12 @@ async def assign_document(
     """Assign a document to an engineer, optionally overriding the WIP limit."""
     try:
         document = await _load_document_for_assignment(session, document_id)
+        await _ensure_assignment_project_open(session, document)
         if payload.engineer_id is None:
             document.assigned_to_id = None
             document.assigned_to = None
             await session.commit()
-            await session.refresh(document, attribute_names=["owner", "assigned_to"])
+            await session.refresh(document, attribute_names=["owner", "assigned_to", "project"])
             return _document_read(document)
         engineer = (
             await session.execute(
@@ -188,7 +210,7 @@ async def assign_document(
         document.assigned_to_id = engineer.id
         document.assigned_to = engineer
         await session.commit()
-        await session.refresh(document, attribute_names=["owner", "assigned_to"])
+        await session.refresh(document, attribute_names=["owner", "assigned_to", "project"])
         return _document_read(document)
     except HTTPException:
         await session.rollback()
@@ -212,7 +234,8 @@ async def mark_document_reviewed(
     current_user: Annotated[User, Depends(get_current_user)],
     document: Annotated[Document, Depends(get_accessible_document)],
 ) -> DocumentRead:
-    """Mark an owned document as reviewed by its engineer owner."""
+    """Mark an assigned document as reviewed by its engineer owner."""
+    _ensure_document_project_open(document)
     if document.assigned_to_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Document owner access required."
@@ -220,7 +243,7 @@ async def mark_document_reviewed(
     document.workflow_status = DocumentWorkflowStatus.REVIEWED_BY_ENGINEER
     document.reviewed_at = datetime.now(UTC)
     await session.commit()
-    await session.refresh(document)
+    await session.refresh(document, attribute_names=["owner", "assigned_to", "project"])
     return _document_read(document)
 
 
@@ -233,13 +256,14 @@ async def verify_document(
     payload: DocumentWorkflowUpdate | None = None,
 ) -> DocumentRead:
     """Verify a document as a lead engineer."""
+    _ensure_document_project_open(document)
     document.verified_by_id = current_user.id
     document.verified_at = datetime.now(UTC)
     document.workflow_status = DocumentWorkflowStatus.VERIFIED_BY_LEAD
     if payload is not None and payload.verification_notes is not None:
         document.verification_notes = payload.verification_notes
     await session.commit()
-    await session.refresh(document)
+    await session.refresh(document, attribute_names=["owner", "assigned_to", "project"])
     return _document_read(document)
 
 
@@ -252,6 +276,7 @@ async def request_document_revision(
     payload: DocumentWorkflowUpdate | None = None,
 ) -> DocumentRead:
     """Return a document to an engineer for revision."""
+    _ensure_document_project_open(document)
     requested_status = (
         payload.workflow_status
         if payload is not None and payload.workflow_status is not None
@@ -272,7 +297,7 @@ async def request_document_revision(
     if requested_status == DocumentWorkflowStatus.ANALYZING:
         document.reviewed_at = None
     await session.commit()
-    await session.refresh(document)
+    await session.refresh(document, attribute_names=["owner", "assigned_to", "project"])
     return _document_read(document)
 
 
@@ -285,7 +310,9 @@ async def list_documents(
 ) -> DocumentListResponse:
     """List documents visible to the current user."""
 
-    query = select(Document).options(joinedload(Document.owner), joinedload(Document.assigned_to))
+    query = select(Document).options(
+        joinedload(Document.owner), joinedload(Document.assigned_to), joinedload(Document.project)
+    )
     if current_user.role == UserRole.ENGINEER:
         query = query.where(Document.assigned_to_id == current_user.id)
     total = (await session.execute(select(func.count()).select_from(query.subquery()))).scalar_one()
@@ -341,9 +368,6 @@ async def upload_document(
         created_at=result.document.created_at,
         deduplicated=result.deduplicated,
     )
-
-
-@router.get("/{document_id}", response_model=DocumentRead, responses=NOT_READY)
 async def get_document(
     document_id: UUID,
     document: Annotated[Document, Depends(get_accessible_document)],
@@ -369,7 +393,7 @@ async def delete_document(
     document: Annotated[Document, Depends(get_accessible_document)],
     storage: Annotated[LocalStorage, Depends(get_storage)],
 ) -> Response:
-    """Permanently delete a document, its database records, storage files, and artifacts."""
+    _ensure_document_project_open(document)
 
     # 1. Clean up physical files from storage
     for uri in (document.storage_uri, document.canonical_pdf_uri):

@@ -12,6 +12,7 @@ from db.session import get_session
 from domain.enums import UserRole
 from models.document import Document
 from models.issue import Issue
+from models.project import Project
 from models.user import User
 from schemas.issues import IssueCurationRequest, IssueRead
 
@@ -25,19 +26,25 @@ async def curate_issue(
     session: Annotated[AsyncSession, Depends(get_session)],
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> IssueRead:
-    """Include/exclude a finding from the generated report and attach a note."""
     query = (
-        select(Issue)
+        select(Issue, Project.finished_at)
         .join(Document, Issue.document_id == Document.id)
+        .join(Project, Document.project_id == Project.id, isouter=True)
         .where(Issue.id == issue_id)
     )
     if current_user.role == UserRole.ENGINEER:
         query = query.where(
             or_(Document.assigned_to_id == current_user.id, Document.owner_id == current_user.id)
         )
-    issue = (await session.execute(query)).scalar_one_or_none()
-    if issue is None:
+    row = (await session.execute(query)).one_or_none()
+    if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Issue not found.")
+    issue, finished_at = row
+    if finished_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Project is finished; finding curation is disabled.",
+        )
     issue.included_in_report = payload.included_in_report
     issue.reviewer_note = payload.reviewer_note
     await session.commit()

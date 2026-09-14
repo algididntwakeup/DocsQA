@@ -28,6 +28,7 @@ export function ProjectDocumentTable({
   currentUserId,
   engineers: availableEngineers,
   onChanged,
+  projectFinished = false,
 }: {
   documents: DocumentItem[];
   role: UserRole;
@@ -37,6 +38,7 @@ export function ProjectDocumentTable({
   currentUserId?: string;
   engineers?: ManagedUser[];
   onChanged?: () => Promise<void>;
+  projectFinished?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -94,15 +96,17 @@ export function ProjectDocumentTable({
             accept="application/pdf,.pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             onChange={(event) => void chooseFile(event.target.files?.[0])}
           />
-          <button
-            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-blue-700 disabled:opacity-50"
-            type="button"
-            disabled={uploading}
-            onClick={() => inputRef.current?.click()}
-          >
-            <UploadCloud size={16} />
-            {uploading ? "Uploading..." : "Upload Document"}
-          </button>
+          {!projectFinished && (
+            <button
+              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-blue-700 disabled:opacity-50"
+              type="button"
+              disabled={uploading}
+              onClick={() => inputRef.current?.click()}
+            >
+              <UploadCloud size={16} />
+              {uploading ? "Uploading..." : "Upload Document"}
+            </button>
+          )}
         </div>
       </div>
 
@@ -215,16 +219,16 @@ export function ProjectDocumentTable({
                       </span>
                     </td>
                     {(role === "LEAD_ENGINEER" || role === "SUPERUSER") && (
-                       <td className="px-4 py-3.5 text-slate-600 text-xs">{document.owner_name ?? "Unknown uploader"}</td>
+                      <td className="px-4 py-3.5 text-slate-600 text-xs">{document.owner_name ?? "Unknown uploader"}</td>
                     )}
                     <td className="px-4 py-3.5">
                       {role === "LEAD_ENGINEER" || role === "SUPERUSER" ? (
                         <select
                           aria-label={`Assign ${document.filename}`}
                           value={document.assigned_to_id ?? ""}
-                          disabled={busyId === document.id}
-                           onChange={(event) => void assign(document.id, event.target.value || null)}
-                          className="h-7 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-800 focus:border-blue-500 focus:outline-none"
+                          disabled={projectFinished || busyId === document.id}
+                          onChange={(event) => void assign(document.id, event.target.value || null)}
+                          className="h-7 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-800 focus:border-blue-500 focus:outline-none disabled:opacity-60"
                         >
                           <option value="">Unassigned</option>
                           {(availableEngineers ?? []).map((engineerOption) => (
@@ -260,7 +264,7 @@ export function ProjectDocumentTable({
                           <span className="text-slate-400 text-[11px]">Unassigned</span>
                           <button
                             type="button"
-                            disabled={hasActiveTask || busyId === document.id}
+                            disabled={projectFinished || hasActiveTask || busyId === document.id}
                             title={hasActiveTask ? "Selesaikan tugas aktif Anda terlebih dahulu" : "Ambil Tugas"}
                             onClick={() => void claim(document.id)}
                             className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-[11px] font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-50"

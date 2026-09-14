@@ -7,6 +7,7 @@ from uuid import uuid4
 
 import docx
 
+from domain.enums import DocumentStatus, IssueCategory, Severity
 from models.document import Document
 from models.issue import Issue
 from services.export import assessment_from_document_findings, generate_ale_review_docx

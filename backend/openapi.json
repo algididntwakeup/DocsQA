@@ -1,6 +1,68 @@
 {
   "components": {
     "schemas": {
+      "AssignedProject": {
+        "properties": {
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "documents": {
+            "items": {
+              "$ref": "#/components/schemas/AssignedProjectDocument"
+            },
+            "title": "Documents",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "documents"
+        ],
+        "title": "AssignedProject",
+        "type": "object"
+      },
+      "AssignedProjectDocument": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "workflow_status": {
+            "title": "Workflow Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "workflow_status"
+        ],
+        "title": "AssignedProjectDocument",
+        "type": "object"
+      },
       "Body_upload_document_api_v1_documents_upload_post": {
         "properties": {
           "file": {
@@ -428,6 +490,31 @@
         "title": "DictionaryTermStatus",
         "type": "string"
       },
+      "DocumentAssignment": {
+        "additionalProperties": false,
+        "description": "Lead-controlled document assignment payload.",
+        "properties": {
+          "engineer_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Engineer Id"
+          },
+          "override_wip": {
+            "default": false,
+            "title": "Override Wip",
+            "type": "boolean"
+          }
+        },
+        "title": "DocumentAssignment",
+        "type": "object"
+      },
       "DocumentListResponse": {
         "additionalProperties": false,
         "description": "Paginated document collection.",
@@ -454,6 +541,40 @@
         "additionalProperties": false,
         "description": "Safe document metadata returned to clients.",
         "properties": {
+          "assigned_to_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assigned To Email"
+          },
+          "assigned_to_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assigned To Id"
+          },
+          "assigned_to_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assigned To Name"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -512,6 +633,11 @@
             "minimum": 0.0,
             "title": "Progress Pct",
             "type": "integer"
+          },
+          "project_finished": {
+            "default": false,
+            "title": "Project Finished",
+            "type": "boolean"
           },
           "project_id": {
             "anyOf": [
@@ -1459,6 +1585,18 @@
             ],
             "title": "Description"
           },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -1662,6 +1800,15 @@
         ],
         "title": "RegisterEngineerRequest",
         "type": "object"
+      },
+      "ReportLanguage": {
+        "description": "Supported render-time report languages.",
+        "enum": [
+          "en",
+          "id"
+        ],
+        "title": "ReportLanguage",
+        "type": "string"
       },
       "ReviewReportPreview": {
         "additionalProperties": false,
@@ -2800,6 +2947,59 @@
         ]
       }
     },
+    "/api/v1/auth/users/{user_id}/projects": {
+      "get": {
+        "description": "List projects containing documents assigned to the selected user.",
+        "operationId": "list_user_assigned_projects_api_v1_auth_users__user_id__projects_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AssignedProject"
+                  },
+                  "title": "Response List User Assigned Projects Api V1 Auth Users  User Id  Projects Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List User Assigned Projects",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/v1/auth/users/{user_id}/reset-password": {
       "post": {
         "description": "Replace an account password without exposing its hash.",
@@ -3282,7 +3482,6 @@
     },
     "/api/v1/documents/{document_id}": {
       "delete": {
-        "description": "Permanently delete a document, its database records, storage files, and artifacts.",
         "operationId": "delete_document_api_v1_documents__document_id__delete",
         "parameters": [
           {
@@ -3330,10 +3529,71 @@
         "tags": [
           "documents"
         ]
-      },
-      "get": {
-        "description": "Return safe metadata for one document.",
-        "operationId": "get_document_api_v1_documents__document_id__get",
+      }
+    },
+    "/api/v1/documents/{document_id}/assign": {
+      "post": {
+        "description": "Assign a document to an engineer, optionally overriding the WIP limit.",
+        "operationId": "assign_document_api_v1_documents__document_id__assign_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Document Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentAssignment"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Assign Document",
+        "tags": [
+          "documents"
+        ]
+      }
+    },
+    "/api/v1/documents/{document_id}/claim": {
+      "post": {
+        "description": "Claim an unassigned document when the engineer has no active WIP.",
+        "operationId": "claim_document_api_v1_documents__document_id__claim_post",
         "parameters": [
           {
             "in": "path",
@@ -3366,16 +3626,6 @@
               }
             },
             "description": "Validation Error"
-          },
-          "501": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description": "Feature not implemented"
           }
         },
         "security": [
@@ -3383,7 +3633,7 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "Get Document",
+        "summary": "Claim Document",
         "tags": [
           "documents"
         ]
@@ -3476,6 +3726,15 @@
               "description": "Include minor and informational findings.",
               "title": "Include Minors",
               "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "language",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/ReportLanguage",
+              "default": "en"
             }
           }
         ],
@@ -3615,7 +3874,7 @@
     },
     "/api/v1/documents/{document_id}/mark-reviewed": {
       "post": {
-        "description": "Mark an owned document as reviewed by its engineer owner.",
+        "description": "Mark an assigned document as reviewed by its engineer owner.",
         "operationId": "mark_document_reviewed_api_v1_documents__document_id__mark_reviewed_post",
         "parameters": [
           {
@@ -3727,6 +3986,15 @@
               "format": "uuid",
               "title": "Document Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "language",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/ReportLanguage",
+              "default": "en"
             }
           }
         ],
@@ -4015,7 +4283,6 @@
     },
     "/api/v1/issues/{issue_id}/curation": {
       "patch": {
-        "description": "Include/exclude a finding from the generated report and attach a note.",
         "operationId": "curate_issue_api_v1_issues__issue_id__curation_patch",
         "parameters": [
           {
@@ -4172,6 +4439,48 @@
           }
         ],
         "summary": "Create Project",
+        "tags": [
+          "projects"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}": {
+      "delete": {
+        "description": "Delete an empty project; documents are never deleted implicitly.",
+        "operationId": "delete_project_api_v1_projects__project_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Project",
         "tags": [
           "projects"
         ]
@@ -4399,6 +4708,55 @@
           }
         ],
         "summary": "Upload Project Document",
+        "tags": [
+          "projects"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/finish": {
+      "post": {
+        "description": "Finish a project and make its review workspace read-only.",
+        "operationId": "finish_project_api_v1_projects__project_id__finish_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Finish Project",
         "tags": [
           "projects"
         ]
