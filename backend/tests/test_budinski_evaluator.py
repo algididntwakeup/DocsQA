@@ -22,6 +22,7 @@ from tests.canonical_ale_fixture import CanonicalEvaluator
 def evaluator() -> BudinskiEvaluator:
     return BudinskiEvaluator()
 
+
 @pytest.fixture
 def canonical_evaluator() -> CanonicalEvaluator:
     return CanonicalEvaluator()
@@ -197,9 +198,7 @@ def test_baseline_conclusions_valid_fail_table_refs(evaluator: BudinskiEvaluator
     assert not baseline.conclusions_valid
     reason = baseline.reasons.get("conclusions_valid", "")
     assert (
-        "Table 6-3" in reason
-        or "Figure 6-2" in reason
-        or "table and figure references" in reason
+        "Table 6-3" in reason or "Figure 6-2" in reason or "table and figure references" in reason
     )
 
 
@@ -278,13 +277,17 @@ def test_baseline_ale_sample_score(
     assert not baseline.recommendations_actionable
     assert baseline.score == 1
     assert baseline.summary_ratio == "1/4"
+
+
 def test_ale_baseline_scorecard_group_averages(
     canonical_evaluator: CanonicalEvaluator,
     ale_doc_sections: dict[str, object],
     ale_layout_anomalies: list[LayoutAnomaly],
 ) -> None:
     """Verify group averages match the Review-ALE baseline report exactly."""
-    scorecard = canonical_evaluator.evaluate_41_checklist_items(ale_doc_sections, ale_layout_anomalies)
+    scorecard = canonical_evaluator.evaluate_41_checklist_items(
+        ale_doc_sections, ale_layout_anomalies
+    )
     assert isinstance(scorecard, BudinskiScorecard)
 
     assert scorecard.group_i_average == 4.00
@@ -300,7 +303,9 @@ def test_ale_baseline_scorecard_all_41_item_scores(
     ale_layout_anomalies: list[LayoutAnomaly],
 ) -> None:
     """Verify all 41 items in the 4 groups match the Review-ALE report scores."""
-    scorecard = canonical_evaluator.evaluate_41_checklist_items(ale_doc_sections, ale_layout_anomalies)
+    scorecard = canonical_evaluator.evaluate_41_checklist_items(
+        ale_doc_sections, ale_layout_anomalies
+    )
     # Group I: Technical Content (9 items)
     g1 = scorecard.technical_content
     assert g1.message_clear.score == 4
@@ -361,7 +366,9 @@ def test_ale_baseline_rework_items(
     ale_layout_anomalies: list[LayoutAnomaly],
 ) -> None:
     """Verify that get_rework_items() returns items with score <= 2."""
-    scorecard = canonical_evaluator.evaluate_41_checklist_items(ale_doc_sections, ale_layout_anomalies)
+    scorecard = canonical_evaluator.evaluate_41_checklist_items(
+        ale_doc_sections, ale_layout_anomalies
+    )
     rework = scorecard.get_rework_items()
 
     rework_keys = [key for _, key, _ in rework]
@@ -386,7 +393,9 @@ def test_ale_review_summary_score_string(
     ale_layout_anomalies: list[LayoutAnomaly],
 ) -> None:
     """Verify the summary line matches the exact header format from the report."""
-    scorecard = canonical_evaluator.evaluate_41_checklist_items(ale_doc_sections, ale_layout_anomalies)
+    scorecard = canonical_evaluator.evaluate_41_checklist_items(
+        ale_doc_sections, ale_layout_anomalies
+    )
     expected = (
         "REVIEWSCORE | doc=ID-N-CG-MM1-DSR-PL-00-3001 | rev=A | date=2026-08-21 | "
         "I=4.00 II=3.64 III=3.45 IV=3.10 | baseline=1/4 | blockers=2 majors=12 minors=15"
@@ -400,9 +409,12 @@ def test_all_items_count(
     ale_layout_anomalies: list[LayoutAnomaly],
 ) -> None:
     """Verify total checklist items count is exactly 41."""
-    scorecard = canonical_evaluator.evaluate_41_checklist_items(ale_doc_sections, ale_layout_anomalies)
+    scorecard = canonical_evaluator.evaluate_41_checklist_items(
+        ale_doc_sections, ale_layout_anomalies
+    )
     all_items = scorecard.get_all_items()
     assert len(all_items) == 41
+
 
 def test_ideal_document_evaluation(evaluator: BudinskiEvaluator) -> None:
     """Test a fully compliant document achieving high scores across all groups."""
@@ -465,12 +477,41 @@ def test_schema_score_item_bounds() -> None:
     assert valid.score == 3
 
 
+def test_non_laboratory_document_marks_lab_items_not_applicable(
+    evaluator: BudinskiEvaluator,
+) -> None:
+    """SoR documents must not be penalized for laboratory-only checklist items."""
+    scorecard = evaluator.evaluate_41_checklist_items(
+        {
+            "document_type": "SoR",
+            "title": "Statement of Requirements",
+            "introduction": {
+                "scope": "This document is for Operations approval and defines required actions."
+            },
+            "references": [],
+        },
+        [],
+    )
+
+    assert scorecard.overall_average is not None
+    assert 1.0 <= scorecard.overall_average <= 5.0
+    assert scorecard.report_mechanics is not None
+    assert scorecard.report_mechanics.experimental_steps_outlined.score is None
+    assert scorecard.report_mechanics.experimental_steps_outlined.status == "NOT_APPLICABLE"
+    assert scorecard.conclusions_and_craft is not None
+    assert scorecard.conclusions_and_craft.discussion_length_appropriate.score is None
+
+
 def test_determinism_repeated_calls(
     canonical_evaluator: CanonicalEvaluator,
     ale_doc_sections: dict[str, object],
     ale_layout_anomalies: list[LayoutAnomaly],
 ) -> None:
     """Repeated calls with identical inputs must produce identical outputs."""
-    scorecard1 = canonical_evaluator.evaluate_41_checklist_items(ale_doc_sections, ale_layout_anomalies)
-    scorecard2 = canonical_evaluator.evaluate_41_checklist_items(ale_doc_sections, ale_layout_anomalies)
+    scorecard1 = canonical_evaluator.evaluate_41_checklist_items(
+        ale_doc_sections, ale_layout_anomalies
+    )
+    scorecard2 = canonical_evaluator.evaluate_41_checklist_items(
+        ale_doc_sections, ale_layout_anomalies
+    )
     assert scorecard1.model_dump() == scorecard2.model_dump()

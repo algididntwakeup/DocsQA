@@ -56,6 +56,9 @@ Unlike generative AI tools that hallucinate, DocsQA runs on **100% deterministic
 - **Real-Time Scan Telemetry (SSE)**: Streams pipeline progress (`text/event-stream`) to the browser with automatic fallback to exponential backoff HTTP polling.
 - **Live Inspection Register**: The `/documents` dashboard subscribes to each queued or processing document, updates status/progress without a browser reload, and shows an animated live-monitoring indicator while work is active. The document status page uses the same SSE stream.
 - **Audit-First Review Workspace**: Review findings are organized into `Budinski & Layout Audit`, `Standards Audit`, and `Language`; layout evidence includes cross-page sentence snippets and page navigation, while Budinski evidence exposes rule context and suggested fixes.
+- **Budinski Technical-Writing Evaluation**: Applies the four baseline measures and the 41-item Appendix 12 checklist with integer scores from 1 to 5. Uninitialized legacy zeroes are treated as missing, never as a real score.
+- **Document-Type-Aware Scoring**: SoR, Specification, and Procedure documents mark laboratory-only checklist items as `NOT_APPLICABLE` with no numeric score; those items are excluded from group and overall averages.
+- **Executive DOCX Review Report**: The generated report leads with document identity, reviewer, review date, verdict, key actions, four-pillar averages, and consolidated critical findings. The detailed Appendix 12 checklist is placed in an appendix.
 - **Retention Policy Worker**: Enforces ephemeral upload boundaries (default 30 days), automatically pruning expired database records, local storage files, and extraction artifacts.
 - **Security Middleware**: Injects `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, and `Referrer-Policy` headers on all responses.
 
@@ -277,6 +280,24 @@ The `/documents` register is role-aware:
 - Lead and superuser review workspaces show an audit-mode banner and expose verification or revision actions after engineer review.
 
 Uploaded files and generated artifacts persist in the `app_uploads` Docker volume mounted at `/app/storage/uploads` by both the API and Celery worker. Do not use `docker compose down --volumes` unless a full data reset is intended.
+
+### Budinski Evaluation and DOCX Export
+
+The deterministic evaluator in `backend/services/budinski_evaluator.py` supports both laboratory reports and non-laboratory engineering documents. For non-laboratory document types, experimental-step, repeatability, and discussion-only checklist items are emitted with `status=NOT_APPLICABLE` and `score=null`. Averages include only evaluated items and are always within the 1.00–5.00 range when evaluated items exist.
+
+The production DOCX path is implemented by `assessment_from_document_findings()` and `generate_ale_review_docx()` in `backend/services/export.py`. Its executive order is:
+
+1. Document identity and verdict badge.
+2. Executive summary and up to five concrete recommendations.
+3. Four-pillar Budinski summary.
+4. Consolidated blockers and actionable corrections, including source excerpts and page ranges.
+5. Appendix A with the detailed 41-item checklist.
+
+Run the focused evaluator/export regression suite from the repository root:
+
+```powershell
+python -m pytest backend/tests/test_budinski_evaluator.py backend/tests/test_report.py backend/tests/test_review_export.py -q
+```
 
 Targeted validation commands:
 

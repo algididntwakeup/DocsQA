@@ -12,6 +12,8 @@ from models.document import Document
 from models.issue import Issue
 from services.export import assessment_from_document_findings, generate_ale_review_docx
 from services.report import build_review_report
+from services.report_synthesizer import ReportSynthesizer
+
 
 def _docx_text(word_doc: docx.document.Document) -> str:
     return "\n".join(
@@ -113,9 +115,7 @@ def test_build_review_report_full_composition() -> None:
 
     assert "VESSEL_CALC.pdf" in full_text
     all_table_text = "\n".join(
-        " ".join(cell.text for cell in row.cells)
-        for table in word_doc.tables
-        for row in table.rows
+        " ".join(cell.text for cell in row.cells) for table in word_doc.tables for row in table.rows
     )
     assert "TABLE_MATH_MISMATCH" in all_table_text
     assert "Confirmed with senior pressure vessel engineer." in all_table_text
@@ -195,9 +195,7 @@ def test_reference_findings_are_compact() -> None:
     assert "Next revision findings" in full_text
 
     all_table_text = "\n".join(
-        " ".join(cell.text for cell in row.cells)
-        for t in word_doc.tables
-        for row in t.rows
+        " ".join(cell.text for cell in row.cells) for t in word_doc.tables for row in t.rows
     )
     assert "Governing Industry Standards" not in full_text
 
@@ -238,9 +236,7 @@ def test_report_rejects_invalid_bounding_boxes() -> None:
 
     word_doc = docx.Document(io.BytesIO(docx_bytes))
     all_table_text = "\n".join(
-        " ".join(cell.text for cell in row.cells)
-        for t in word_doc.tables
-        for row in t.rows
+        " ".join(cell.text for cell in row.cells) for t in word_doc.tables for row in t.rows
     )
     assert "document evidence on page" not in all_table_text
     assert "Clause UG-99(b), standard page 76" in all_table_text
@@ -297,6 +293,7 @@ def test_report_orders_severity_and_uses_printed_reference_labels() -> None:
     assert "printed pages 21" in blocker_rows[0][2]
     assert next_rows[0][0] == "LOW"
 
+
 def test_export_uses_document_identity_without_sample_fallbacks() -> None:
     document = Document(
         id=uuid4(),
@@ -321,3 +318,25 @@ def test_export_uses_document_identity_without_sample_fallbacks() -> None:
     assert "Objective evidence is present in Section 2." in text
     for prohibited in ("ALE roadmap", "DOC-001", "Rev A", "2026-08-21", "MEPG", "Grissik"):
         assert prohibited not in text
+
+
+def test_structural_findings_use_ranges_and_source_excerpt() -> None:
+    synthesizer = ReportSynthesizer()
+    findings = [
+        {
+            "category": "LAYOUT",
+            "type": "UNCONTROLLED_PAGE",
+            "page_number": page,
+            "message": "Repeated layout control finding.",
+            "evidence": {"original_text": "Source excerpt from the affected page."},
+            "suggestion": "Apply the controlled document template.",
+        }
+        for page in (2, 3, 4, 8)
+    ]
+
+    rows = synthesizer.synthesize_blocker_groups(findings)
+
+    assert len(rows) == 1
+    assert "2-4, 8" in rows[0]["message"]
+    assert rows[0]["excerpt"] == "Source excerpt from the affected page."
+    assert "Repeated layout control finding." not in rows[0]["excerpt"]

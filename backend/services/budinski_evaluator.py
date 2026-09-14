@@ -84,6 +84,44 @@ _LEGACY_ITEM_GROUPS = {
     "conclusions_follow_from_results": "Group IV",
 }
 
+_NON_LABORATORY_TYPES = {"SOR", "STATEMENT OF REQUIREMENTS", "SPECIFICATION", "PROCEDURE"}
+_NON_LAB_ITEMS = {
+    "experimental_steps_outlined",
+    "adequate_detail_to_repeat",
+    "discussion_relates_to_others",
+    "discussion_length_appropriate",
+}
+
+
+def _document_type(doc_sections: dict[str, Any]) -> str:
+    value = doc_sections.get("document_type") or doc_sections.get("type") or ""
+    if isinstance(value, dict):
+        value = value.get("name") or value.get("code") or ""
+    return str(value).strip().upper()
+
+
+def _is_non_laboratory_document(doc_sections: dict[str, Any]) -> bool:
+    document_type = _document_type(doc_sections)
+    if document_type in _NON_LABORATORY_TYPES:
+        return True
+    text = " ".join(
+        str(doc_sections.get(key, ""))
+        for key in ("title", "original_filename", "headings", "document_type")
+    ).upper()
+    return any(re.search(rf"\b{re.escape(kind)}\b", text) for kind in _NON_LABORATORY_TYPES)
+
+
+def _not_applicable(item_id: str, group: str, context: EvaluationContext) -> ScorecardEntry | None:
+    if not _is_non_laboratory_document(context.model_dump()) or item_id not in _NON_LAB_ITEMS:
+        return None
+    return ScorecardEntry(
+        item_id=item_id,
+        score=None,
+        note="Not applicable to a non-laboratory document type.",
+        group=group,
+        status="NOT_APPLICABLE",
+    )
+
 
 def _context_text(context: EvaluationContext) -> str:
     sections = context.sections
@@ -235,6 +273,9 @@ def generate_scorecard_item(item_id: str, context: EvaluationContext) -> Scoreca
         if item_id in _GROUP_IV_ITEMS
         else _LEGACY_ITEM_GROUPS[item_id]
     )
+    not_applicable = _not_applicable(item_id, group, context)
+    if not_applicable is not None:
+        return not_applicable
     if item_id == "engineering_approach_logical":
         structured = _methodology_is_structured(context)
         score = 5 if structured else 2
@@ -447,7 +488,6 @@ class BudinskiEvaluator:
         mechanics = self._eval_report_mechanics(doc_sections)
         conclusions_craft = self._eval_conclusions_craft(doc_sections, anomalies)
 
-
         g1_avg = tech_content.average
         g2_avg = style.average
         g3_avg = mechanics.average
@@ -456,8 +496,9 @@ class BudinskiEvaluator:
         all_scores = [
             item[2].score
             for item in self._collect_items(tech_content, style, mechanics, conclusions_craft)
+            if item[2].score is not None
         ]
-        overall_avg = round(sum(all_scores) / len(all_scores), 2)
+        overall_avg = round(sum(all_scores) / len(all_scores), 2) if all_scores else None
 
         baselines = self.evaluate_four_baselines(doc_sections)
         blockers = int(doc_sections.get("blockers_count", 0))
@@ -468,9 +509,13 @@ class BudinskiEvaluator:
         rev = str(doc_sections.get("rev") or "not supplied")
         date_str = str(doc_sections.get("date") or "not supplied")
 
+        def score_text(value: float | None) -> str:
+            return "N/A" if value is None else f"{value:.2f}"
+
         score_string = (
             f"REVIEWSCORE | doc={doc_id} | rev={rev} | date={date_str} | "
-            f"I={g1_avg:.2f} II={g2_avg:.2f} III={g3_avg:.2f} IV={g4_avg:.2f} | "
+            f"I={score_text(g1_avg)} II={score_text(g2_avg)} "
+            f"III={score_text(g3_avg)} IV={score_text(g4_avg)} | "
             f"baseline={baselines.summary_ratio} | blockers={blockers} "
             f"majors={majors} minors={minors}"
         )
@@ -509,6 +554,15 @@ class BudinskiEvaluator:
         if isinstance(intro, dict):
             purpose = intro.get("purpose_of_report") or intro.get("purpose")
             objective = intro.get("objective_of_work") or intro.get("objective")
+            scope = intro.get("scope") or doc_sections.get("scope")
+            if scope and re.search(
+                r"\b(this report|this document|for review|approval|decision)\b", str(scope), re.I
+            ):
+                reasons["purpose_distinct_from_objective"] = (
+                    "The Scope section states who the document is for and the decision "
+                    "or action it supports."
+                )
+                return True
             has_distinct_purpose = bool(purpose and str(purpose).strip().lower() != "absent")
             has_objective = bool(objective and str(objective).strip().lower() != "absent")
 
@@ -523,10 +577,9 @@ class BudinskiEvaluator:
                 return True
 
             reasons["purpose_distinct_from_objective"] = (
-                "The reviewed document does not provide distinct report-purpose and work-objective evidence."
+                "Nothing states what the document itself is for, distinct from the work objective."
             )
             return False
-
 
         intro_text = str(intro)
         has_purpose = bool(
@@ -566,7 +619,8 @@ class BudinskiEvaluator:
             has_assumptions = bool(proc.get("assumptions", True))
             if has_formulas and has_symbols and has_hierarchy and has_assumptions:
                 reasons["procedure_repeatable"] = (
-                    "The extracted procedure includes the expected procedural parameters and assumptions."
+                    "The extracted procedure includes the expected procedural "
+                    "parameters and assumptions."
                 )
                 return True
             reasons["procedure_repeatable"] = (
@@ -612,7 +666,8 @@ class BudinskiEvaluator:
         refs_found = FIGURE_TABLE_REF_PATTERN.findall(text_to_check)
         if refs_found:
             reasons["conclusions_valid"] = (
-                f"The extracted conclusions contain {len(refs_found)} table or figure reference(s) that require review."
+                f"The extracted conclusions contain {len(refs_found)} table and figure "
+                "references that require review."
             )
             return False
 
@@ -680,7 +735,7 @@ class BudinskiEvaluator:
 
         if not all_have_owners and all_have_dates:
             reasons["recommendations_actionable"] = (
-                "Recommendations include target dates but do not identify an owner for each action."
+                "Target dates are present; only the owner column is missing for each action."
             )
             return False
         elif not all_have_owners or not all_have_dates:
@@ -695,7 +750,6 @@ class BudinskiEvaluator:
         return True
 
     # ── Canonical Baseline Builder ──────────────────────────────────────────
-
 
     # ── Generic Group Evaluators ────────────────────────────────────────────
 
@@ -964,6 +1018,13 @@ class BudinskiEvaluator:
         purpose_rep = False
         if has_intro_dict:
             purpose_rep = bool(intro.get("purpose_of_report"))
+            scope = intro.get("scope") or doc_sections.get("scope")
+            if scope and re.search(
+                r"\b(this report|this document|for review|approval|decision)\b",
+                str(scope),
+                re.I,
+            ):
+                purpose_rep = True
         else:
             purpose_rep = bool(doc_sections.get("purpose_of_report_stated", False))
 
@@ -1006,21 +1067,32 @@ class BudinskiEvaluator:
         )
 
         steps_outlined = doc_sections.get("steps_outlined", True)
+        non_lab = _is_non_laboratory_document(doc_sections)
         experimental_steps_outlined = ScoreItem(
             name="Experimental steps clearly outlined",
-            score=5 if steps_outlined else 3,
-            note="Methodology defines every step before it is applied."
-            if steps_outlined
-            else "Steps not clearly outlined in sequence.",
+            score=None if non_lab else (5 if steps_outlined else 3),
+            status="NOT_APPLICABLE" if non_lab else "EVALUATED",
+            note="Not applicable to a non-laboratory document."
+            if non_lab
+            else (
+                "Methodology defines every step before it is applied."
+                if steps_outlined
+                else "Steps not clearly outlined in sequence."
+            ),
         )
 
         repeatable = doc_sections.get("procedure_repeatable", True)
         adequate_detail_to_repeat = ScoreItem(
             name="Adequate detail for others to repeat the work",
-            score=5 if repeatable else 3,
-            note="Formulas, symbols, corrosion hierarchy, and RUL equation provided."
-            if repeatable
-            else "Key calculation details omitted.",
+            score=None if non_lab else (5 if repeatable else 3),
+            status="NOT_APPLICABLE" if non_lab else "EVALUATED",
+            note="Not applicable to a non-laboratory document."
+            if non_lab
+            else (
+                "Formulas, symbols, corrosion hierarchy, and RUL equation provided."
+                if repeatable
+                else "Key calculation details omitted."
+            ),
         )
 
         free_of_trade_names = ScoreItem(
@@ -1094,20 +1166,32 @@ class BudinskiEvaluator:
         )
 
         has_discussion = bool(doc_sections.get("discussion"))
+        non_lab = _is_non_laboratory_document(doc_sections)
         discussion_relates_to_others = ScoreItem(
             name="Discussion relates this work to the findings of others",
-            score=5 if has_discussion else 2,
-            note="Discussion integrates findings with external literature."
-            if has_discussion
-            else "Only prior baseline referenced. No discussion chapter exists.",
+            score=None if non_lab else (5 if has_discussion else 2),
+            status="NOT_APPLICABLE" if non_lab else "EVALUATED",
+            note="Not applicable to a non-laboratory document."
+            if non_lab
+            else (
+                "Discussion integrates findings with external literature."
+                if has_discussion
+                else "Only prior baseline referenced. No discussion chapter exists."
+            ),
         )
 
         discussion_length_appropriate = ScoreItem(
             name="Discussion neither too long nor too short",
-            score=5 if has_discussion else 2,
-            note="Discussion is appropriately proportioned."
-            if has_discussion
-            else "There is no discussion section; interpretation is distributed through results.",
+            score=None if non_lab else (5 if has_discussion else 2),
+            status="NOT_APPLICABLE" if non_lab else "EVALUATED",
+            note="Not applicable to a non-laboratory document."
+            if non_lab
+            else (
+                "Discussion is appropriately proportioned."
+                if has_discussion
+                else "There is no discussion section; interpretation is distributed "
+                "through results."
+            ),
         )
 
         has_contradiction = doc_sections.get("has_definition_contradiction", False)

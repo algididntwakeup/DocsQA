@@ -11,7 +11,7 @@ Appendix 12 review checklist items divided into 4 groups:
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import Field, computed_field
 
@@ -45,23 +45,31 @@ class EvaluationContext(ApiModel):
     metadata: DocumentMetadata
     sections: ExtractedSections
     findings: list[Any] = Field(default_factory=list)
+    document_type: str = ""
 
 
 class ScorecardEntry(ApiModel):
     """Flat scorecard item used by the phase-1 evaluator contract."""
 
     item_id: str
-    score: int = Field(ge=1, le=5)
+    score: int | None = Field(default=None, ge=1, le=5)
     note: str = ""
     group: str
+    status: Literal["EVALUATED", "NOT_APPLICABLE"] = "EVALUATED"
 
 
 class ScoreItem(ApiModel):
     """A single review checklist item with 1-5 score and reviewer note."""
 
     name: str = Field(default="", description="Name or title of checklist item.")
-    score: int = Field(ge=1, le=5, description="Objective score from 1 (disagree) to 5 (agree).")
+    score: int | None = Field(
+        default=None,
+        ge=1,
+        le=5,
+        description="Objective score from 1 (disagree) to 5 (agree); NA items have no score.",
+    )
     note: str = Field(default="", description="Reviewer observation and justification.")
+    status: Literal["EVALUATED", "NOT_APPLICABLE"] = "EVALUATED"
 
 
 class TechnicalContentGroup(ApiModel):
@@ -81,7 +89,7 @@ class TechnicalContentGroup(ApiModel):
 
     @computed_field  # type: ignore[prop-decorator]
     @property
-    def average(self) -> float:
+    def average(self) -> float | None:
         scores = [
             self.message_clear.score,
             self.logical_approach.score,
@@ -93,7 +101,8 @@ class TechnicalContentGroup(ApiModel):
             self.original_free_of_plagiarism.score,
             self.timely.score,
         ]
-        return round(sum(scores) / len(scores), 2)
+        valid = [score for score in scores if score is not None]
+        return round(sum(valid) / len(valid), 2) if valid else None
 
 
 class StyleGroup(ApiModel):
@@ -113,13 +122,11 @@ class StyleGroup(ApiModel):
     standard_writing_practice: ScoreItem = Field(
         description="Conforms to standard writing practice."
     )
-    layout_and_whitespace: ScoreItem = Field(
-        description="Page layout and white space acceptable."
-    )
+    layout_and_whitespace: ScoreItem = Field(description="Page layout and white space acceptable.")
 
     @computed_field  # type: ignore[prop-decorator]
     @property
-    def average(self) -> float:
+    def average(self) -> float | None:
         scores = [
             self.objective_tone.score,
             self.sections_logical.score,
@@ -133,7 +140,8 @@ class StyleGroup(ApiModel):
             self.standard_writing_practice.score,
             self.layout_and_whitespace.score,
         ]
-        return round(sum(scores) / len(scores), 2)
+        valid = [score for score in scores if score is not None]
+        return round(sum(valid) / len(valid), 2) if valid else None
 
 
 class ReportMechanicsGroup(ApiModel):
@@ -162,7 +170,7 @@ class ReportMechanicsGroup(ApiModel):
 
     @computed_field  # type: ignore[prop-decorator]
     @property
-    def average(self) -> float:
+    def average(self) -> float | None:
         scores = [
             self.sufficient_background.score,
             self.purpose_of_work_clear.score,
@@ -176,7 +184,8 @@ class ReportMechanicsGroup(ApiModel):
             self.free_of_trade_names.score,
             self.test_standards_cited.score,
         ]
-        return round(sum(scores) / len(scores), 2)
+        valid = [score for score in scores if score is not None]
+        return round(sum(valid) / len(valid), 2) if valid else None
 
 
 class ConclusionsAndCraftGroup(ApiModel):
@@ -211,7 +220,7 @@ class ConclusionsAndCraftGroup(ApiModel):
 
     @computed_field  # type: ignore[prop-decorator]
     @property
-    def average(self) -> float:
+    def average(self) -> float | None:
         scores = [
             self.results_clearly_stated.score,
             self.results_free_of_discussion.score,
@@ -224,7 +233,8 @@ class ConclusionsAndCraftGroup(ApiModel):
             self.references_properly_attributed.score,
             self.sentence_paragraph_length.score,
         ]
-        return round(sum(scores) / len(scores), 2)
+        valid = [score for score in scores if score is not None]
+        return round(sum(valid) / len(valid), 2) if valid else None
 
 
 class BaselineMeasures(ApiModel):
@@ -253,12 +263,14 @@ class BaselineMeasures(ApiModel):
     @property
     def score(self) -> int:
         """Count of passing baseline measures (0 to 4)."""
-        return sum([
-            self.purpose_distinct_from_objective,
-            self.procedure_repeatable,
-            self.conclusions_valid,
-            self.recommendations_actionable,
-        ])
+        return sum(
+            [
+                self.purpose_distinct_from_objective,
+                self.procedure_repeatable,
+                self.conclusions_valid,
+                self.recommendations_actionable,
+            ]
+        )
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -279,11 +291,13 @@ class BudinskiScorecard(ApiModel):
     # for the current evaluator and export path while the refactor migrates.
     items: list[ScorecardEntry] = Field(default_factory=list)
 
-    group_i_average: float = Field(default=0.0, description="Average score for Group I.")
-    group_ii_average: float = Field(default=0.0, description="Average score for Group II.")
-    group_iii_average: float = Field(default=0.0, description="Average score for Group III.")
-    group_iv_average: float = Field(default=0.0, description="Average score for Group IV.")
-    overall_average: float = Field(default=0.0, description="Overall average score (1-5).")
+    group_i_average: float | None = Field(default=None, description="Average score for Group I.")
+    group_ii_average: float | None = Field(default=None, description="Average score for Group II.")
+    group_iii_average: float | None = Field(
+        default=None, description="Average score for Group III."
+    )
+    group_iv_average: float | None = Field(default=None, description="Average score for Group IV.")
+    overall_average: float | None = Field(default=None, description="Overall average score (1-5).")
 
     baseline_measures: BaselineMeasures | None = Field(
         default=None, description="Standing 4 baseline measures."
@@ -305,7 +319,7 @@ class BudinskiScorecard(ApiModel):
         baseline_items = [
             item for item in self.items if item.group.lower() in {"baseline", "baselines"}
         ]
-        return float(sum(item.score >= 3 for item in baseline_items))
+        return float(sum(item.score is not None and item.score >= 3 for item in baseline_items))
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -319,9 +333,15 @@ class BudinskiScorecard(ApiModel):
         }
         averages: dict[str, float] = {}
         for group, legacy_field in group_names.items():
-            entries = [item.score for item in self.items if item.group == group]
-            averages[group] = round(sum(entries) / len(entries), 2) if entries else float(
-                getattr(self, legacy_field)
+            entries = [
+                item.score for item in self.items if item.group == group and item.score is not None
+            ]
+            averages[group] = (
+                round(sum(entries) / len(entries), 2)
+                if entries
+                else float(
+                    getattr(self, legacy_field) if getattr(self, legacy_field) is not None else 0.0
+                )
             )
         return averages
 
@@ -344,7 +364,7 @@ class BudinskiScorecard(ApiModel):
             (
                 item.group,
                 item.item_id,
-                ScoreItem(name=item.item_id, score=item.score, note=item.note),
+                ScoreItem(name=item.item_id, score=item.score, note=item.note, status=item.status),
             )
             for item in self.items
         )
@@ -352,7 +372,11 @@ class BudinskiScorecard(ApiModel):
 
     def get_rework_items(self) -> list[tuple[str, str, ScoreItem]]:
         """Return all checklist items scoring 2 or below (treated as requiring rework)."""
-        return [(grp, key, item) for grp, key, item in self.get_all_items() if item.score <= 2]
+        return [
+            (grp, key, item)
+            for grp, key, item in self.get_all_items()
+            if item.score is not None and item.score <= 2
+        ]
 
 
 class BlockerFinding(ApiModel):
@@ -389,15 +413,11 @@ class DemonstrationRewrite(ApiModel):
     section_title: str = Field(
         default="§7.1 Conclusions", description="Section heading being rewritten."
     )
-    intro_note: str = Field(
-        default="", description="Introductory context for the demonstration."
-    )
+    intro_note: str = Field(default="", description="Introductory context for the demonstration.")
     as_written_title: str = Field(default="AS WRITTEN (PRINTED PAGE 28, ABRIDGED)")
     as_written_text: str = Field(description="Original section text.")
     faults_summary: str = Field(description="Summary of faults against Budinski rules.")
-    demonstration_title: str = Field(
-        default="DEMONSTRATION — THE SAME CONTENT AS CONCLUSIONS"
-    )
+    demonstration_title: str = Field(default="DEMONSTRATION — THE SAME CONTENT AS CONCLUSIONS")
     demonstration_items: list[str] = Field(
         default_factory=list, description="List of rewritten single sentences."
     )
@@ -408,6 +428,9 @@ class AssessmentMetadata(ApiModel):
     """Metadata block for the document under review."""
 
     document_reviewed: str = Field(description="Full identity string of the reviewed document.")
+    document_type: str = Field(default="", description="Normalized source document type.")
+    review_date: str = Field(default="", description="Date on which the review was performed.")
+    reviewer: str = Field(default="", description="PIC reviewer name.")
     type_of_review: str = Field(
         default=(
             "Technical writing review only. Structure, evidence traceability, "
@@ -440,6 +463,7 @@ class AssessmentMetadata(ApiModel):
 
 class AssessmentData(ApiModel):
     """Full data model required to generate a complete engineering review DOCX report."""
+
     title: str = Field(default="Document review")
     subtitle: str = Field(
         default=(
