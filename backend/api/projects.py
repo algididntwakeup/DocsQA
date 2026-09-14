@@ -77,7 +77,7 @@ def _ensure_project_open(project: Project) -> None:
 async def create_project(
     payload: ProjectCreate,
     session: Annotated[AsyncSession, Depends(get_session)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require_lead)],
 ) -> ProjectRead:
     """Create a project for lead users."""
     project = Project(

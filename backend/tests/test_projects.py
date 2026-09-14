@@ -31,6 +31,32 @@ async def test_only_lead_can_assign_projects() -> None:
 
 
 @pytest.mark.anyio
+async def test_lead_can_create_project() -> None:
+    from api.projects import create_project
+    from schemas.project import ProjectCreate
+
+    lead = _user(UserRole.LEAD_ENGINEER)
+    session = AsyncMock()
+    async def refresh(val, *args, **kwargs):
+        val.id = uuid4()
+        val.created_at = datetime.now(UTC)
+        val.created_by = lead
+        val.assigned_to = None
+        val.documents = []
+    session.refresh.side_effect = refresh
+
+    created = await create_project(
+        ProjectCreate(name="New Plant"),
+        session,
+        lead,
+    )
+    assert created.name == "New Plant"
+    assert created.created_by_name == lead.full_name
+    session.add.assert_called_once()
+    session.commit.assert_awaited_once()
+
+
+@pytest.mark.anyio
 async def test_lead_can_assign_active_engineer() -> None:
     lead = _user(UserRole.LEAD_ENGINEER)
     engineer = _user(UserRole.ENGINEER)

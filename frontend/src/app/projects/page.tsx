@@ -24,7 +24,7 @@ export default function ProjectsPage() {
       const next = await listProjects();
       setProjects(next);
       const current = await getCurrentUser();
-      setCanCreateProject(true);
+      setCanCreateProject(current.role === "LEAD_ENGINEER" || current.role === "SUPERUSER");
       setCurrentRole(current.role);
       const entries = await Promise.all(
         next.map(async (project) => [project.id, (await listProjectDocuments(project.id)).pagination.total] as const)
