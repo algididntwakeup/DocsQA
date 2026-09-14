@@ -439,11 +439,8 @@ class AssessmentMetadata(ApiModel):
 
 
 class AssessmentData(ApiModel):
-    """Full data model required to generate a complete Review-ALE DOCX report."""
-
-    title: str = Field(
-        default="Review of Asset Life Extension Study, Grissik Plant Static Equipment"
-    )
+    """Full data model required to generate a complete engineering review DOCX report."""
+    title: str = Field(default="Document review")
     subtitle: str = Field(
         default=(
             "Scored against the document review checklist of Budinski, "
@@ -451,12 +448,7 @@ class AssessmentData(ApiModel):
         )
     )
     header_title: str = Field(default="DOCUMENT REVIEW · ENGINEERING")
-    running_header: str = Field(
-        default=(
-            "Review of ALE Study Grissik Static Equipment, "
-            "Doc. ID-N-CG-MM1-DSR-PL-00-3001 Rev A — writing review only"
-        )
-    )
+    running_header: str = Field(default="Document review")
     metadata: AssessmentMetadata
     summary_judgement: list[str] = Field(
         default_factory=list, description="Paragraphs of summary judgement."

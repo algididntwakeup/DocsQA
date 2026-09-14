@@ -94,27 +94,26 @@ export function PdfCanvasViewer({
   // Keep the loading task so we can destroy it on unmount / id change.
   const loadingTaskRef = useRef<pdfjsLib.PDFDocumentLoadingTask | null>(null);
 
-  // Resize observer measures scroll pane width without cascading re-renders
+  // Observe the stable outer viewer so loading overlays do not remove the target.
   useEffect(() => {
-    const scroll = scrollRef.current;
-    if (!scroll) return;
+    const viewer = viewerRef.current;
+    if (!viewer) return;
     const update = () => {
-      const w = scroll.clientWidth;
-      if (w > 0) {
-        setContainerWidth((prev) => {
-          // Ignore changes <= 24px (e.g. scrollbar appearing/disappearing) to prevent layout oscillation
-          if (prev === 0 || Math.abs(prev - w) > 24) {
-            return w;
-          }
-          return prev;
-        });
-      }
+      const w = viewer.clientWidth;
+      if (w > 0) setContainerWidth((prev) => (prev === 0 || Math.abs(prev - w) > 24 ? w : prev));
     };
     update();
     const observer = new ResizeObserver(update);
-    observer.observe(scroll);
+    observer.observe(viewer);
     return () => observer.disconnect();
   }, []);
+
+  useEffect(() => {
+    const loadedDoc = loaded?.doc;
+    return () => {
+      if (loadedDoc) void loadedDoc.cleanup().catch(() => undefined);
+    };
+  }, [loaded]);
 
   // Open the document once; dispose on unmount / id change.
   useEffect(() => {
@@ -133,18 +132,9 @@ export function PdfCanvasViewer({
         loadingTaskRef.current = task;
         const doc = await task.promise;
         if (disposed) {
-          void task.destroy();
+          await task.destroy();
           return;
         }
-
-        try {
-          const firstPage = await doc.getPage(1);
-          const unscaled = firstPage.getViewport({ scale: 1 });
-          setIntrinsicSize({ width: unscaled.width, height: unscaled.height });
-        } catch {
-          // fallback to initial 612 x 792 if first page unscaled viewport cannot be read
-        }
-
         setPageCount(doc.numPages);
         setLoaded({ doc });
         setIsLoading(false);
@@ -158,10 +148,12 @@ export function PdfCanvasViewer({
     void open();
     return () => {
       disposed = true;
+      setLoaded(null);
       void loadingTaskRef.current?.destroy().catch(() => undefined);
       loadingTaskRef.current = null;
     };
   }, [documentId]);
+
 
   // Derive highlights if activeIssue is provided and highlights array is empty
   const effectiveHighlights = useMemo(() => {
@@ -213,85 +205,71 @@ export function PdfCanvasViewer({
   const fitScale = useMemo(() => {
     const available = containerWidth > 48 ? containerWidth - 48 : 600;
     const base = intrinsicSize.width > 0 ? intrinsicSize.width : 612;
-    return Math.max(available / base, 0.35);
+    return Math.max(available / base, MIN_ZOOM);
   }, [containerWidth, intrinsicSize.width]);
 
   const renderScale = fitScale * zoom;
 
-  const renderedSize = useMemo(() => {
-    return {
-      width: Math.floor((intrinsicSize.width || 612) * renderScale),
-      height: Math.floor((intrinsicSize.height || 792) * renderScale),
-    };
-  }, [intrinsicSize, renderScale]);
+  const renderedSize = useMemo(() => ({
+    width: Math.floor((intrinsicSize.width || 612) * renderScale),
+    height: Math.floor((intrinsicSize.height || 792) * renderScale),
+  }), [intrinsicSize, renderScale]);
 
   const renderTick = useRef(0);
+  const renderTaskRef = useRef<pdfjsLib.RenderTask | null>(null);
 
   // Render the requested page onto the canvas.
   useEffect(() => {
+    renderTaskRef.current?.cancel();
+    renderTaskRef.current = null;
     const doc = loaded?.doc;
     const canvas = canvasRef.current;
     if (!doc || !canvas || isLoading) return;
-
+    const liveDoc = doc;
+    const liveCanvas = canvas;
     const tick = ++renderTick.current;
     let cancelled = false;
-    let renderTask: pdfjsLib.RenderTask | null = null;
+    let page: pdfjsLib.PDFPageProxy | null = null;
 
     async function draw() {
+      let renderTask: pdfjsLib.RenderTask | null = null;
       try {
-        const liveDoc = loaded?.doc;
-        const liveCanvas = canvasRef.current;
-        if (!liveDoc || !liveCanvas) return;
-        const page = await liveDoc.getPage(pageNumber);
-        if (cancelled || tick !== renderTick.current) return;
-
-        // Check if page intrinsic size differs (e.g. landscape vs portrait)
-        const unscaled = page.getViewport({ scale: 1 });
-        setIntrinsicSize((prev) => {
-          if (
-            Math.abs(prev.width - unscaled.width) < 1 &&
-            Math.abs(prev.height - unscaled.height) < 1
-          ) {
-            return prev;
-          }
-          return { width: unscaled.width, height: unscaled.height };
-        });
-
+        page = await liveDoc.getPage(pageNumber);
+        if (cancelled || tick !== renderTick.current || !page) return;
+        const baseViewport = page.getViewport({ scale: 1 });
+        setIntrinsicSize({ width: baseViewport.width, height: baseViewport.height });
         const viewport = page.getViewport({ scale: renderScale });
         const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
-
-        const cssWidth = Math.floor(viewport.width);
-        const cssHeight = Math.floor(viewport.height);
-
         liveCanvas.width = Math.floor(viewport.width * dpr);
         liveCanvas.height = Math.floor(viewport.height * dpr);
-        liveCanvas.style.width = `${cssWidth}px`;
-        liveCanvas.style.height = `${cssHeight}px`;
-
+        liveCanvas.style.width = `${Math.floor(viewport.width)}px`;
+        liveCanvas.style.height = `${Math.floor(viewport.height)}px`;
         const context = liveCanvas.getContext("2d");
         if (!context) return;
         context.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-        renderTask = page.render({
-          canvasContext: context,
-          viewport,
-          canvas: liveCanvas,
-        });
+        renderTask = page.render({ canvasContext: context, viewport, canvas: liveCanvas });
+        renderTaskRef.current = renderTask;
         await renderTask.promise;
+        if (!cancelled && tick === renderTick.current) setLoadError(null);
       } catch (err) {
-        if (err instanceof Error && err.name === "RenderingCancelledException") return;
-        if (!cancelled && tick === renderTick.current) {
-          setLoadError(err instanceof Error ? err.message : "Failed to render page.");
-        }
+        if (err instanceof Error && (err.name === "RenderingCancelledException" || err.name === "AbortException")) return;
+        if (!cancelled && tick === renderTick.current) setLoadError(err instanceof Error ? err.message : "Failed to render page.");
+      } finally {
+        if (renderTaskRef.current === renderTask) renderTaskRef.current = null;
+        page?.cleanup();
       }
     }
     void draw();
-
     return () => {
       cancelled = true;
-      renderTask?.cancel();
+      renderTaskRef.current?.cancel();
+      renderTaskRef.current = null;
+      liveCanvas.width = 0;
+      liveCanvas.height = 0;
+      page?.cleanup();
     };
   }, [loaded, pageNumber, renderScale, isLoading]);
+
 
   // Scroll to top only when the requested page actually changes
   const prevPageRef = useRef(pageNumber);

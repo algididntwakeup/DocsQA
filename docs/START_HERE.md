@@ -45,6 +45,7 @@ This is the central index every new agent must read in full. Repository state al
   Fixed HTTP 500 in project assignment relationship refresh (`session.refresh(project, attribute_names=...)`),
   resolved `mark_document_reviewed` test fixture permissions, and updated Kanban WIP=1 state machine (Cases A–E)
   with formal Indonesian tooltips and direct review links in `ProjectDocumentTable` (see `docs/ASSIGNMENT_WIP_FIX_PLAN.md`).
+- **Latest stabilization checkpoint**: Runtime ALE/sample report fallbacks are isolated to a test-only canonical fixture; assignment/claim rollback and nullable relationship serialization are hardened; PDF render cancellation and cleanup are explicit; project registers poll every 3 seconds and gate workspace access until terminal processing. Verification: frontend TypeScript, changed-file ESLint, 52 Vitest tests, and production build passed. Backend pytest remains blocked in the current environment because `pytest` is not installed.
 - **Latest admin UI checkpoint**: Added `Lihat Projects` to `/admin/users` with a project modal and
   direct links to assigned project registers and assigned document workflow/status details.
 - **Latest review UI checkpoint**: Rebuilt `/documents/{id}/review` as an isolated three-zone

@@ -13,6 +13,11 @@ function formatDate(value: string) {
 function shortId(id: string | null | undefined) {
   return id ? `${id.slice(0, 8)}...` : "Unassigned";
 }
+function isProcessingStatus(status: DocumentItem["status"]): boolean {
+  const normalized = String(status);
+  return normalized === "QUEUED" || normalized === "PROCESSING" || normalized === "ANALYZING";
+}
+
 
 export function ProjectDocumentTable({
   documents,
@@ -181,10 +186,12 @@ export function ProjectDocumentTable({
             <tbody className="divide-y divide-slate-100">
               {visible.map((document) => {
                 const workflow = document.workflow_status ?? "ANALYZING";
+                const processing = isProcessingStatus(document.status);
                 const hasActiveTask = Boolean(currentUserId) && documents.some(
                   (item) => item.assigned_to_id === currentUserId && (item.workflow_status ?? "ANALYZING") === "ANALYZING"
                 );
                 const isAssignedToCurrentUser = Boolean(currentUserId) && document.assigned_to_id === currentUserId;
+                const progressLabel = `${document.progress_pct}%`;
                 return (
                   <tr key={document.id} className="transition hover:bg-slate-50/80">
                     <td className="px-6 py-3.5">
@@ -283,12 +290,24 @@ export function ProjectDocumentTable({
                       </div>
                     </td>
                     <td className="px-6 py-3.5 text-right">
-                      <Link
-                        className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-800 hover:underline"
-                        href={`/documents/${document.id}/review`}
-                      >
-                        Open Review <ExternalLink size={13} />
-                      </Link>
+                      {processing ? (
+                        <button
+                          type="button"
+                          disabled
+                          aria-label={`Buka Workspace ${document.filename}`}
+                          title="Workspace tersedia setelah pemrosesan selesai"
+                          className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 text-xs font-bold text-slate-500 disabled:cursor-not-allowed"
+                        >
+                          Sedang Dianalisis... <span aria-label={`Progress ${progressLabel}`}>{progressLabel}</span>
+                        </button>
+                      ) : (
+                        <Link
+                          className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-800 hover:underline"
+                          href={`/documents/${document.id}/review`}
+                        >
+                          Buka Workspace <ExternalLink size={13} />
+                        </Link>
+                      )}
                     </td>
                   </tr>
                 );

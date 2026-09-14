@@ -365,10 +365,8 @@ async def execute_document_pipeline(
     evaluator = BudinskiEvaluator()
     doc_sections = {
         "filename": document.original_filename,
-        "is_ale_baseline": (
-            "MEPG" in document.original_filename or "ALE" in document.original_filename
-        ),
     }
+
     if extracted_artifact is not None:
         doc_sections.update(_build_content_signals(extracted_artifact))
         section_items = [

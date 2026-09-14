@@ -141,3 +141,53 @@ async def test_lead_assign_normal_and_override() -> None:
     assert result.assigned_to_id == engineer.id
     assert result.owner_id == uploader.id
     assert session.commit.await_count == 1
+
+@pytest.mark.anyio
+async def test_lead_unassigns_nullable_owner_document() -> None:
+    lead = _user(UserRole.LEAD_ENGINEER)
+    document = _document()
+    session = AsyncMock()
+    session.execute.return_value = Result(document)
+
+    result = await assign_document(
+        document.id,
+        DocumentAssignment(engineer_id=None),
+        session,
+        lead,
+    )
+
+    assert result.assigned_to_id is None
+    assert result.owner_id is None
+    assert session.commit.await_count == 1
+
+
+@pytest.mark.anyio
+async def test_assignment_rolls_back_failed_commit_and_can_retry() -> None:
+    lead = _user(UserRole.LEAD_ENGINEER)
+    engineer = _user(UserRole.ENGINEER)
+    document = _document()
+    session = AsyncMock()
+    session.execute.side_effect = [
+        Result(document), Result(engineer), Result(None),
+        Result(document), Result(engineer), Result(None),
+    ]
+    session.commit.side_effect = [RuntimeError("transient commit failure"), None]
+
+    with pytest.raises(RuntimeError):
+        await assign_document(
+            document.id,
+            DocumentAssignment(engineer_id=engineer.id),
+            session,
+            lead,
+        )
+
+    result = await assign_document(
+        document.id,
+        DocumentAssignment(engineer_id=engineer.id),
+        session,
+        lead,
+    )
+
+    assert result.assigned_to_id == engineer.id
+    session.rollback.assert_awaited_once()
+    assert session.commit.await_count == 2

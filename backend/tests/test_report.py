@@ -7,10 +7,16 @@ from uuid import uuid4
 
 import docx
 
-from domain.enums import DocumentStatus, IssueCategory, Severity
 from models.document import Document
 from models.issue import Issue
+from services.export import assessment_from_document_findings, generate_ale_review_docx
 from services.report import build_review_report
+
+def _docx_text(word_doc: docx.document.Document) -> str:
+    return "\n".join(
+        [p.text for p in word_doc.paragraphs]
+        + [cell.text for table in word_doc.tables for row in table.rows for cell in row.cells]
+    )
 
 
 def test_build_review_report_empty_findings() -> None:
@@ -289,3 +295,28 @@ def test_report_orders_severity_and_uses_printed_reference_labels() -> None:
     assert blocker_rows[0][0] == "HIGH"
     assert "printed pages 21" in blocker_rows[0][2]
     assert next_rows[0][0] == "LOW"
+
+def test_export_uses_document_identity_without_sample_fallbacks() -> None:
+    document = Document(
+        id=uuid4(),
+        original_filename="Inspection_Report.pdf",
+        safe_filename="inspection_report",
+        status=DocumentStatus.COMPLETED,
+    )
+    issue = Issue(
+        id=uuid4(),
+        document_id=document.id,
+        category=IssueCategory.TRACEABILITY,
+        type="SECTION_EVIDENCE",
+        severity=Severity.HIGH,
+        message="Objective evidence is present in Section 2.",
+        page_number=2,
+        evidence={"section": "Objective"},
+        included_in_report=True,
+    )
+    assessment = assessment_from_document_findings(document, [issue])
+    text = _docx_text(docx.Document(io.BytesIO(generate_ale_review_docx(assessment))))
+    assert "Inspection_Report.pdf" in text
+    assert "Objective evidence is present in Section 2." in text
+    for prohibited in ("ALE roadmap", "DOC-001", "Rev A", "2026-08-21", "MEPG", "Grissik"):
+        assert prohibited not in text

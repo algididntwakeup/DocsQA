@@ -113,24 +113,31 @@ async def claim_document(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> DocumentRead:
     """Claim an unassigned document when the engineer has no active WIP."""
-    if current_user.role != UserRole.ENGINEER:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Engineer access required."
-        )
-    await session.execute(select(User).where(User.id == current_user.id).with_for_update())
-    document = await _load_document_for_assignment(session, document_id)
-    if document.assigned_to_id is not None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Document is already assigned."
-        )
-    available, _ = await check_engineer_wip_available(session, current_user.id)
-    if not available:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=WIP_ERROR)
-    document.assigned_to_id = current_user.id
-    document.assigned_to = current_user
-    await session.commit()
-    await session.refresh(document, attribute_names=["owner", "assigned_to"])
-    return _document_read(document)
+    try:
+        if current_user.role != UserRole.ENGINEER:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Engineer access required."
+            )
+        await session.execute(select(User).where(User.id == current_user.id).with_for_update())
+        document = await _load_document_for_assignment(session, document_id)
+        if document.assigned_to_id is not None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Document is already assigned."
+            )
+        available, _ = await check_engineer_wip_available(session, current_user.id)
+        if not available:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=WIP_ERROR)
+        document.assigned_to_id = current_user.id
+        document.assigned_to = current_user
+        await session.commit()
+        await session.refresh(document, attribute_names=["owner", "assigned_to"])
+        return _document_read(document)
+    except HTTPException:
+        await session.rollback()
+        raise
+    except Exception:
+        await session.rollback()
+        raise
 
 
 @router.post("/{document_id}/assign", response_model=DocumentRead)
@@ -141,47 +148,56 @@ async def assign_document(
     current_user: Annotated[User, Depends(require_lead)],
 ) -> DocumentRead:
     """Assign a document to an engineer, optionally overriding the WIP limit."""
-    document = await _load_document_for_assignment(session, document_id)
-    if payload.engineer_id is None:
-        document.assigned_to_id = None
-        document.assigned_to = None
+    try:
+        document = await _load_document_for_assignment(session, document_id)
+        if payload.engineer_id is None:
+            document.assigned_to_id = None
+            document.assigned_to = None
+            await session.commit()
+            await session.refresh(document, attribute_names=["owner", "assigned_to"])
+            return _document_read(document)
+        engineer = (
+            await session.execute(
+                select(User)
+                .where(
+                    User.id == payload.engineer_id,
+                    User.is_active.is_(True),
+                    User.role == UserRole.ENGINEER,
+                )
+                .with_for_update()
+            )
+        ).scalar_one_or_none()
+        if engineer is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Engineer not found or inactive."
+            )
+        if not payload.override_wip:
+            available, active_document = await check_engineer_wip_available(session, engineer.id)
+            if not available:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={
+                        "message": "Engineer already has an active document.",
+                        "active_document": {
+                            "id": str(active_document.id),
+                            "filename": active_document.original_filename,
+                            "workflow_status": active_document.workflow_status.value,
+                        },
+                    },
+                )
+        document.assigned_to_id = engineer.id
+        document.assigned_to = engineer
         await session.commit()
         await session.refresh(document, attribute_names=["owner", "assigned_to"])
         return _document_read(document)
-    engineer = (
-        await session.execute(
-            select(User)
-            .where(
-                User.id == payload.engineer_id,
-                User.is_active.is_(True),
-                User.role == UserRole.ENGINEER,
-            )
-            .with_for_update()
-        )
-    ).scalar_one_or_none()
-    if engineer is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Engineer not found or inactive."
-        )
-    if not payload.override_wip:
-        available, active_document = await check_engineer_wip_available(session, engineer.id)
-        if not available:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail={
-                    "message": "Engineer already has an active document.",
-                    "active_document": {
-                        "id": str(active_document.id),
-                        "filename": active_document.original_filename,
-                        "workflow_status": active_document.workflow_status.value,
-                    },
-                },
-            )
-    document.assigned_to_id = engineer.id
-    document.assigned_to = engineer
-    await session.commit()
-    await session.refresh(document, attribute_names=["owner", "assigned_to"])
-    return _document_read(document)
+    except HTTPException:
+        await session.rollback()
+        raise
+    except Exception:
+        await session.rollback()
+        raise
+
+
 
 
 NOT_READY: dict[int | str, dict[str, Any]] = {

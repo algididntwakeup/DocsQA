@@ -40,6 +40,34 @@ describe("ProjectDocumentTable", () => {
     render(<ProjectDocumentTable documents={documents} role="ENGINEER" loading={false} onUpload={vi.fn()} onFiltersChange={vi.fn()} />);
 
     expect(screen.queryByLabelText("Engineer")).toBeNull();
-    expect(screen.getByRole("link", { name: /open review/i }).getAttribute("href")).toBe("/documents/doc-a/review");
+    expect(screen.getByRole("link", { name: /buka workspace/i }).getAttribute("href")).toBe("/documents/doc-a/review");
+  });
+  it("disables workspace while a document is processing", () => {
+    render(
+      <ProjectDocumentTable
+        documents={[{ ...documents[0], status: "PROCESSING", progress_pct: 42 }]}
+        role="ENGINEER"
+        loading={false}
+        onUpload={vi.fn()}
+        onFiltersChange={vi.fn()}
+      />,
+    );
+    expect((screen.getByRole("button", { name: /buka workspace/i }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText(/42%/)).toBeDefined();
+    expect(screen.queryByRole("link", { name: /buka workspace/i })).toBeNull();
+  });
+
+  it("gates workspace for legacy serialized analyzing status", () => {
+    render(
+      <ProjectDocumentTable
+        documents={[{ ...documents[0], status: "ANALYZING" as DocumentItem["status"], progress_pct: 42 }]}
+        role="ENGINEER"
+        loading={false}
+        onUpload={vi.fn()}
+        onFiltersChange={vi.fn()}
+      />,
+    );
+    expect((screen.getByRole("button", { name: /buka workspace/i }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText(/Sedang Dianalisis/)).toBeDefined();
   });
 });

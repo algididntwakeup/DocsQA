@@ -26,7 +26,7 @@ from schemas.budinski import (
     StyleGroup,
     TechnicalContentGroup,
 )
-from services.budinski_evaluator import create_canonical_ale_assessment_data
+from tests.canonical_ale_fixture import create_canonical_ale_assessment_data
 from services.docx_styler import create_callout_box, format_table_header, set_cell_shading
 from services.export import (
     assessment_from_document_findings,
@@ -452,13 +452,15 @@ class TestReviewExportDocx:
 
     def test_report_synthesizer_is_deterministic(self) -> None:
         synthesizer = ReportSynthesizer()
-        metadata = {"document_reviewed": "DOC-001 Rev A"}
+        metadata = {"document_reviewed": "Inspection_Report.pdf"}
         scorecard = {"baseline_score": 2}
         findings = [{"type": "TOC_DRIFT", "message": "Contents page drift"}]
         first = synthesizer.generate_summary_judgement(findings, scorecard, metadata)
         second = synthesizer.generate_summary_judgement(findings, scorecard, metadata)
         assert first == second
-        assert "DOC-001 Rev A" in first
+        assert "Inspection_Report.pdf" in first
+        assert "DOC-001" not in first
+        assert "Rev A" not in first
 
     def test_export_adapter_accepts_persisted_computed_scorecard_fields(
         self, canonical_assessment: AssessmentData

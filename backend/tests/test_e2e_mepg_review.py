@@ -32,12 +32,10 @@ import pytest
 from docx.document import Document as DocxDocument
 
 from schemas.extraction import PageBlock, PDFPage
-from services.budinski_evaluator import (
-    BudinskiEvaluator,
-    create_canonical_ale_assessment_data,
-)
+from services.budinski_evaluator import BudinskiEvaluator
 from services.export import generate_ale_review_docx
 from services.layout_inspector import DocumentLayoutInspector
+from tests.canonical_ale_fixture import create_canonical_ale_assessment_data
 from services.standard_traceability import STANDARD_PATTERNS
 
 FIXTURE_PATH = (

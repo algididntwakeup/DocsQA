@@ -91,14 +91,12 @@ def assessment_from_document_findings(
     scorecard = _load_scorecard(scorecard_data)
     baseline = scorecard.baseline_measures or BaselineMeasures(
         purpose_distinct_from_objective=False,
-        procedure_repeatable=True,
+        procedure_repeatable=False,
         conclusions_valid=False,
         recommendations_actionable=False,
         reasons={
             "purpose_distinct_from_objective": "No persisted baseline assessment was available.",
-            "procedure_repeatable": (
-                "Procedure evidence was not reconstructed in the export adapter."
-            ),
+            "procedure_repeatable": "Procedure evidence was not reconstructed in the export adapter.",
             "conclusions_valid": "No persisted baseline assessment was available.",
             "recommendations_actionable": "No persisted baseline assessment was available.",
         },

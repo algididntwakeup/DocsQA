@@ -2,8 +2,10 @@
 
 import { AlertTriangle, ArrowLeft, MapPin, RefreshCw } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, getCurrentUser, listEngineers, listProjectDocuments, listProjects, uploadProjectDocument, type DocumentItem, type ManagedUser, type ProjectItem, type UserRole } from "@/lib/api";
+
+const isProcessingStatus = (status: string) => status === "QUEUED" || status === "PROCESSING" || status === "ANALYZING";
 import { ProjectDocumentTable } from "@/components/project/project-document-table";
 
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -16,6 +18,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<{ engineerId?: string; sortBy: "date_desc" | "date_asc"; hasBlockers?: boolean }>({ sortBy: "date_desc" });
+  const loadingRef = useRef(false);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void params.then(({ id }) => setProjectId(id)), 0);
@@ -23,24 +26,22 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   }, [params]);
 
   const load = useCallback(async () => {
-    if (!projectId) return;
+    if (!projectId || loadingRef.current) return;
+    loadingRef.current = true;
     try {
       setError(null);
       const user = await getCurrentUser();
       const [projects, result, activeEngineers] = await Promise.all([
-        listProjects(),
-        listProjectDocuments(projectId, filters),
+        listProjects(), listProjectDocuments(projectId, filters),
         user.role === "LEAD_ENGINEER" || user.role === "SUPERUSER" ? listEngineers() : Promise.resolve([]),
       ]);
       setProject(projects.find((item) => item.id === projectId) ?? null);
       setDocuments(result.documents);
-      setRole(user.role);
-      setCurrentUserId(user.id);
-      setEngineers(activeEngineers);
+      setRole(user.role); setCurrentUserId(user.id); setEngineers(activeEngineers);
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : "Could not load project details.");
     } finally {
-      setLoading(false);
+      loadingRef.current = false; setLoading(false);
     }
   }, [filters, projectId]);
 
@@ -48,6 +49,13 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
   }, [load]);
+
+  useEffect(() => {
+    if (!documents.some((document) => isProcessingStatus(String(document.status)))) return;
+    const timer = window.setInterval(() => void load(), 3000);
+    return () => window.clearInterval(timer);
+  }, [documents, load]);
+
 
   async function upload(file: File) {
     if (!projectId) return;

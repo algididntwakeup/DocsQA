@@ -26,11 +26,16 @@ class ReportSynthesizer:
         arithmetic = sum("MATH" in str(_value(i, "type")).upper() or "ARITH" in str(_value(i, "type")).upper() for i in findings_list)
         structural = sum(any(t in (str(_value(i, "type")) + " " + str(_value(i, "message"))).upper() for t in ("TOC", "NAVIGATION", "UNCONTROLLED", "REFERENCE")) for i in findings_list)
         total = len(findings_list)
-        title = _value(metadata, "document_reviewed", "the reviewed document")
+        title = _value(metadata, "document_reviewed", "the reviewed document") or "the reviewed document"
+        headings = _value(metadata, "section_headings", []) or []
+        heading_text = ", ".join(str(item) for item in headings[:4]) if isinstance(headings, list) else str(headings)
+        evidence = [str(_value(item, "message")) for item in findings_list if _value(item, "message")]
+        evidence_text = evidence[0] if evidence else "no finding message was persisted"
         baseline = _value(scorecard, "baseline_score", "")
+        context = f" Extracted sections include {heading_text}." if heading_text else ""
         if self.s is get_report_strings(ReportLanguage.ENGLISH):
-            return "\n\n".join([f"The review of {title} identified {total} normalized finding(s). Arithmetic and count integrity signals: {arithmetic}; the report should preserve any reconciled totals while correcting confirmed exceptions.", f"Structural and navigation signals: {structural}, including table-of-contents, uncontrolled-page, or reference closure issues where detected. The Budinski baseline score is {baseline} where available.", "Closure status is determined by the blocking findings and the reviewer’s inclusion choices; a reissue should not proceed until critical blockers are resolved."])
-        return "\n\n".join([f"Tinjauan atas {title} mengidentifikasi {total} temuan ternormalisasi. Sinyal integritas aritmetika dan jumlah: {arithmetic}; laporan harus mempertahankan total yang telah direkonsiliasi sambil memperbaiki pengecualian yang terkonfirmasi.", f"Sinyal struktur dan navigasi: {structural}, termasuk masalah daftar isi, halaman tidak terkendali, atau penutupan referensi jika terdeteksi. Nilai dasar Budinski adalah {baseline} jika tersedia.", "Status penutupan ditentukan oleh temuan penghalang dan pilihan penyertaan peninjau; penerbitan ulang tidak boleh dilakukan sebelum penghalang kritis diselesaikan."])
+            return "\n\n".join([f"The review of {title} identified {total} normalized finding(s). Arithmetic and count integrity signals: {arithmetic}; the report should preserve any reconciled totals while correcting confirmed exceptions.{context}", f"Structural and navigation signals: {structural}, including table-of-contents, uncontrolled-page, or reference closure issues where detected. The Budinski baseline score is {baseline} where available. Extracted evidence begins: {evidence_text}.", "Closure status is determined by the blocking findings and the reviewer’s inclusion choices; a reissue should not proceed until critical blockers are resolved."])
+        return "\n\n".join([f"Tinjauan atas {title} mengidentifikasi {total} temuan ternormalisasi. Sinyal integritas aritmetika dan jumlah: {arithmetic}; laporan harus mempertahankan total yang telah direkonsiliasi sambil memperbaiki pengecualian yang terkonfirmasi.{context}", f"Sinyal struktur dan navigasi: {structural}, termasuk masalah daftar isi, halaman tidak terkendali, atau penutupan referensi jika terdeteksi. Nilai dasar Budinski adalah {baseline} jika tersedia. Bukti ekstraksi dimulai: {evidence_text}.", "Status penutupan ditentukan oleh temuan penghalang dan pilihan penyertaan peninjau; penerbitan ulang tidak boleh dilakukan sebelum penghalang kritis diselesaikan."])
 
     def generate_bottom_line(self, blockers: Iterable[Any]) -> str:
         first = next(iter(blockers), None)
