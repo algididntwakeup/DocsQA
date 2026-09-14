@@ -16,6 +16,7 @@ from db.session import get_session
 from domain.enums import UserRole
 from models.document import Document
 from models.project import Project
+from models.user import User
 from services.storage import LocalStorage
 from services.uploads import UploadService
 
