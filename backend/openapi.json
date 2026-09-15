@@ -3844,7 +3844,7 @@
     },
     "/api/v1/documents/{document_id}/export": {
       "get": {
-        "description": "Export the annotated original PDF or formal DOCX review report.",
+        "description": "Export the formal review report (PDF via LibreOffice or DOCX) or annotated original PDF.",
         "operationId": "export_document_api_v1_documents__document_id__export_get",
         "parameters": [
           {
@@ -3860,9 +3860,10 @@
           {
             "in": "query",
             "name": "format",
-            "required": true,
+            "required": false,
             "schema": {
-              "pattern": "^(pdf|docx)$",
+              "default": "docx",
+              "pattern": "^(pdf|docx|annotated_pdf)$",
               "title": "Format",
               "type": "string"
             }
@@ -3884,8 +3885,32 @@
             "name": "language",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/ReportLanguage",
-              "default": "en"
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ReportLanguage"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Language"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lang",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^(en|id)$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lang"
             }
           }
         ],
@@ -3920,6 +3945,68 @@
           }
         ],
         "summary": "Export Document",
+        "tags": [
+          "documents"
+        ]
+      }
+    },
+    "/api/v1/documents/{document_id}/file": {
+      "get": {
+        "description": "Stream the canonical PDF rendition or file preview of an uploaded document.",
+        "operationId": "get_document_file_api_v1_documents__document_id__file_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Document Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Document or file not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Document preview is pending"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Document File",
         "tags": [
           "documents"
         ]
@@ -4074,8 +4161,8 @@
     },
     "/api/v1/documents/{document_id}/pdf": {
       "get": {
-        "description": "Stream the canonical PDF rendition of an uploaded document.",
-        "operationId": "get_document_pdf_api_v1_documents__document_id__pdf_get",
+        "description": "Stream the canonical PDF rendition or file preview of an uploaded document.",
+        "operationId": "get_document_file_api_v1_documents__document_id__pdf_get",
         "parameters": [
           {
             "in": "path",
@@ -4102,6 +4189,16 @@
             },
             "description": "Document or canonical PDF not found"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Document preview is pending"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -4118,7 +4215,7 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "Get Document Pdf",
+        "summary": "Get Document File",
         "tags": [
           "documents"
         ]
