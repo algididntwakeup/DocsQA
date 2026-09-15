@@ -42,7 +42,7 @@ def upgrade() -> None:
         users.insert().from_select(
             ["id", "email", "hashed_password", "full_name", "role"],
             sa.select(
-                sa.literal(ADMIN_ID),
+                sa.cast(sa.literal(ADMIN_ID), sa.Uuid()),
                 sa.literal("admin@localhost"),
                 sa.literal(ADMIN_PASSWORD_HASH),
                 sa.literal("Local Superuser"),
@@ -55,4 +55,4 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Remove the seeded superuser without changing existing account passwords."""
     users = sa.table("users", sa.column("id", sa.Uuid()))
-    op.execute(users.delete().where(users.c.id == sa.literal(ADMIN_ID)))
+    op.execute(users.delete().where(users.c.id == sa.cast(sa.literal(ADMIN_ID), sa.Uuid())))
