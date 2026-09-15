@@ -363,9 +363,29 @@ export interface paths {
         };
         /**
          * Export Document
-         * @description Export the annotated original PDF or formal DOCX review report.
+         * @description Export the formal review report (PDF via LibreOffice or DOCX) or annotated original PDF.
          */
         get: operations["export_document_api_v1_documents__document_id__export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/{document_id}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Document File
+         * @description Stream the canonical PDF rendition or file preview of an uploaded document.
+         */
+        get: operations["get_document_file_api_v1_documents__document_id__file_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -422,10 +442,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get Document Pdf
-         * @description Stream the canonical PDF rendition of an uploaded document.
+         * Get Document File
+         * @description Stream the canonical PDF rendition or file preview of an uploaded document.
          */
-        get: operations["get_document_pdf_api_v1_documents__document_id__pdf_get"];
+        get: operations["get_document_file_api_v1_documents__document_id__pdf_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2529,11 +2549,12 @@ export interface operations {
     };
     export_document_api_v1_documents__document_id__export_get: {
         parameters: {
-            query: {
-                format: string;
+            query?: {
+                format?: string;
                 /** @description Include minor and informational findings. */
                 include_minors?: boolean;
-                language?: components["schemas"]["ReportLanguage"];
+                language?: components["schemas"]["ReportLanguage"] | null;
+                lang?: string | null;
             };
             header?: never;
             path: {
@@ -2552,6 +2573,53 @@ export interface operations {
             };
             /** @description Document not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_document_file_api_v1_documents__document_id__file_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Document or file not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Document preview is pending */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2645,7 +2713,7 @@ export interface operations {
             };
         };
     };
-    get_document_pdf_api_v1_documents__document_id__pdf_get: {
+    get_document_file_api_v1_documents__document_id__pdf_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -2665,6 +2733,15 @@ export interface operations {
             };
             /** @description Document or canonical PDF not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Document preview is pending */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
