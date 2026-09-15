@@ -1,11 +1,11 @@
-# DocsQA — Automated Document Quality Assurance & Traceability Platform
+# PRISM - Precision Review and Inspection System Management
 
 [![Backend Quality](https://img.shields.io/badge/backend-195%2B%20passed-success?style=flat-square&logo=python)](backend/)
 [![Frontend Checks](https://img.shields.io/badge/frontend-60%20passed-success?style=flat-square&logo=react)](frontend/)
 [![Architecture](<https://img.shields.io/badge/type-100%25%20deterministic%20(non--LLM)-blue?style=flat-square>)]()
 [![Docker Compose](https://img.shields.io/badge/docker%20compose-ready-2496ED?style=flat-square&logo=docker)](docker-compose.yml)
 
-**DocsQA** is an automated, audit-grade Quality Assurance (QA) and Traceability platform designed for heavy-engineering design deliverables, specifications, calculation sheets, and vendor manuals.
+**PRISM** is an automated, audit-grade Quality Assurance (QA) and Traceability platform designed for heavy-engineering design deliverables, specifications, calculation sheets, and vendor manuals.
 
 Unlike generative AI tools that hallucinate, DocsQA runs on **100% deterministic, reproducible algorithms** to provide rigorous compliance auditing against international standards (ASME, ASTM, API, ISO, NACE, AWS).
 
@@ -15,7 +15,7 @@ Unlike generative AI tools that hallucinate, DocsQA runs on **100% deterministic
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────────────┐
-│                                       DOCSQA PLATFORM                                       │
+│                                       PRISM PLATFORM                                       │
 ├──────────────────────────────┬──────────────────────────────┬───────────────────────────────┤
 │  DETERMINISTIC TRACEABILITY  │     REVIEW WORKSPACE & OCC   │     LINGUISTIC GOVERNANCE     │
 │  • Table Math & Tolerances   │  • Split-Screen PDF Viewer   │  • Custom Engineering Dict    │
@@ -92,8 +92,8 @@ claim, lead assignment, and emergency WIP override actions.
 1. Clone the repository and enter the project directory:
 
 ```bash
-git clone https://github.com/algididntwakeup/DocsQA.git
-cd DocsQA
+git clone https://github.com/reksolindo-org/PRISM.git
+cd PRISM
 ```
 
 2. Create the Docker environment file:
