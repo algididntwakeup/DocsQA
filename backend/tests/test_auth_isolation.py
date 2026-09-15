@@ -1,6 +1,7 @@
 """Authentication and document ownership policy tests."""
 
 from datetime import UTC, datetime, timedelta
+from typing import Any
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
@@ -231,7 +232,7 @@ def test_logout_expires_access_cookie() -> None:
     assert "Max-Age=0" in response.headers["set-cookie"]
 
 
-def _result(value):
+def _result(value: Any) -> Any:
     return type("Result", (), {"scalar_one_or_none": lambda self: value})()
 
 

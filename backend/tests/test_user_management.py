@@ -1,6 +1,7 @@
 """Tests for lead/superuser account administration."""
 
 from datetime import UTC, datetime
+from typing import Any
 from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
 
@@ -27,7 +28,7 @@ def _user(role: UserRole) -> User:
     )
 
 
-def _result(value):
+def _result(value: Any) -> Any:
     return type(
         "Result",
         (),
@@ -74,7 +75,7 @@ async def test_create_user_hashes_temporary_password() -> None:
     session.scalar.return_value = 0
     session.add = Mock()
 
-    async def refresh(user, *args):
+    async def refresh(user: Any, *args: Any) -> None:
         user.id = user.id or uuid4()
         user.is_active = True
         user.created_at = datetime.now(UTC)

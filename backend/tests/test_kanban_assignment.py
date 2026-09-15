@@ -1,6 +1,7 @@
 """Tests for per-engineer document assignment and the WIP=1 policy."""
 
 from datetime import UTC, datetime
+from typing import Any
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
@@ -28,8 +29,8 @@ def _user(role: UserRole) -> User:
 def _document(
     *,
     assigned_to: User | None = None,
-    status=DocumentWorkflowStatus.ANALYZING,
-    project_id=None,
+    status: DocumentWorkflowStatus = DocumentWorkflowStatus.ANALYZING,
+    project_id: Any = None,
 ) -> Document:
     now = datetime.now(UTC)
     return Document(
@@ -54,10 +55,10 @@ def _document(
 
 
 class Result:
-    def __init__(self, value):
+    def __init__(self, value: Any) -> None:
         self.value = value
 
-    def scalar_one_or_none(self):
+    def scalar_one_or_none(self) -> Any:
         return self.value
 
 
@@ -152,7 +153,8 @@ async def test_lead_assign_normal_and_override() -> None:
             lead,
         )
     assert error.value.status_code == 400
-    assert error.value.detail["active_document"]["id"] == str(first.id)
+    assert isinstance(error.value.detail, dict)
+    assert error.value.detail.get("active_document", {}).get("id") == str(first.id)
 
     result = await assign_document(
         override_target.id,

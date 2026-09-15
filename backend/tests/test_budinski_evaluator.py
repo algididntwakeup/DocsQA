@@ -308,6 +308,7 @@ def test_ale_baseline_scorecard_all_41_item_scores(
     )
     # Group I: Technical Content (9 items)
     g1 = scorecard.technical_content
+    assert g1 is not None
     assert g1.message_clear.score == 4
     assert g1.logical_approach.score == 5
     assert g1.adequate_research.score == 3
@@ -320,6 +321,7 @@ def test_ale_baseline_scorecard_all_41_item_scores(
 
     # Group II: Style (11 items)
     g2 = scorecard.style
+    assert g2 is not None
     assert g2.objective_tone.score == 5
     assert g2.sections_logical.score == 4
     assert g2.readership_level.score == 5
@@ -334,6 +336,7 @@ def test_ale_baseline_scorecard_all_41_item_scores(
 
     # Group III: Report Mechanics (11 items)
     g3 = scorecard.report_mechanics
+    assert g3 is not None
     assert g3.sufficient_background.score == 5
     assert g3.purpose_of_work_clear.score == 5
     assert g3.objective_of_work_clear.score == 5
@@ -348,6 +351,7 @@ def test_ale_baseline_scorecard_all_41_item_scores(
 
     # Group IV: Conclusions & Craft (10 items)
     g4 = scorecard.conclusions_and_craft
+    assert g4 is not None
     assert g4.results_clearly_stated.score == 5
     assert g4.results_free_of_discussion.score == 4
     assert g4.graphs_and_tables_proper.score == 3
@@ -384,6 +388,7 @@ def test_ale_baseline_rework_items(
 
     # Every item in rework list must have score <= 2
     for _, _, item in rework:
+        assert item.score is not None
         assert item.score <= 2
 
 
@@ -461,6 +466,7 @@ def test_ideal_document_evaluation(evaluator: BudinskiEvaluator) -> None:
     assert baselines is not None
     assert baselines.score == 4
     assert baselines.summary_ratio == "4/4"
+    assert scorecard.overall_average is not None
     assert scorecard.overall_average >= 4.5
     assert len(scorecard.get_rework_items()) == 0
 

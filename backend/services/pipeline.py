@@ -363,7 +363,7 @@ async def execute_document_pipeline(
     # 3. BUDINSKI_AUDIT
     stage_3 = await _emit_transition(PipelineStage.BUDINSKI_AUDIT, StageStatus.RUNNING, 40)
     evaluator = BudinskiEvaluator()
-    doc_sections = {
+    doc_sections: dict[str, Any] = {
         "filename": document.original_filename,
     }
 
@@ -544,7 +544,7 @@ async def execute_document_pipeline(
 
     # Map Budinski Findings to Issue models with category BUDINSKI
     section_evidence = doc_sections.get("section_evidence")
-    section_dict = section_evidence if isinstance(section_evidence, dict) else {}
+    section_dict: dict[str, Any] = section_evidence if isinstance(section_evidence, dict) else {}
     for group_name, item_key, item in scorecard.get_rework_items():
         heading = section_dict.get(group_name)
         bbox = heading.bbox if heading is not None else None

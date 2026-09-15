@@ -63,8 +63,9 @@ def _group_issue_rows(issues: Iterable[Issue]) -> list[tuple[Issue, int, str]]:
     counts: dict[tuple[Any, ...], int] = {}
     locations: dict[tuple[Any, ...], list[str]] = {}
     for issue in issues:
-        evidence = issue.evidence or {}
+        evidence: dict[str, Any] = issue.evidence or {}
         category = str(getattr(issue.category, "value", issue.category))
+        key: tuple[Any, ...]
         if category in {"LINGUISTIC", "SPELLING", "GRAMMAR", "DICTIONARY"}:
             key = (category, issue.type, _paragraph_key(issue))
         else:
@@ -145,7 +146,7 @@ def _evidence_text(evidence: dict[str, Any]) -> str:
 
 
 def _recommendation(issue: Issue) -> str:
-    evidence = issue.evidence or {}
+    evidence: dict[str, Any] = issue.evidence or {}
     suggestion = evidence.get("suggestion")
     if suggestion:
         return f"Review and apply the suggested correction: {suggestion}"
@@ -332,9 +333,9 @@ def build_review_report(
             else "Bukti pemilik/tenggat waktu diperiksa jika tersedia",
         ),
     )
-    for label, result, evidence in baseline_rows:
+    for label, result, evidence_text in baseline_rows:
         cells = baseline_table.add_row().cells
-        cells[0].text, cells[1].text, cells[2].text = label, result, evidence
+        cells[0].text, cells[1].text, cells[2].text = label, result, evidence_text
 
     if scorecard:
         report.add_heading("Budinski Appendix 12 scorecard", level=1)

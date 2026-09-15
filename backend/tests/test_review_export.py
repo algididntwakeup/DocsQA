@@ -215,7 +215,7 @@ class TestReviewExportDocx:
             severity = "MAJOR"
             page_number = 1
             message = "Document-control field is absent."
-            evidence = {}
+            evidence: dict[str, Any] = {}
 
             def __init__(self, issue_type: str) -> None:
                 self.type = issue_type
@@ -236,7 +236,7 @@ class TestReviewExportDocx:
             severity = "HIGH"
             message = "ISO 9001 is missing."
             page_number = 1
-            evidence = {}
+            evidence: dict[str, Any] = {}
 
         result = assessment_from_document_findings(object(), [Issue()])
         assert not result.blockers

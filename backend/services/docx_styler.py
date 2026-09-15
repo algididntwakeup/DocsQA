@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 from docx.document import Document as DocxDocument
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml import parse_xml
@@ -78,7 +80,7 @@ def create_callout_box(
         for run in paragraph.runs:
             run.font.name = "Arial"
             run.font.size = Pt(10)
-    return cell
+    return cast(_Cell, cell)
 
 
 def format_table_header(

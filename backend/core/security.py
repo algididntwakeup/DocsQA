@@ -13,12 +13,12 @@ _password_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def hash_password(plain: str) -> str:
     """Hash a password using bcrypt."""
-    return _password_context.hash(plain)
+    return str(_password_context.hash(plain))
 
 
 def verify_password(plain: str, hashed: str) -> bool:
     """Verify a plaintext password against a bcrypt hash."""
-    return _password_context.verify(plain, hashed)
+    return bool(_password_context.verify(plain, hashed))
 
 
 def create_access_token(data: dict[str, Any], expires_delta: timedelta | None = None) -> str:

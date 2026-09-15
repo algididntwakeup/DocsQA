@@ -16,6 +16,7 @@ from models.document import Document
 from models.issue import Issue
 from models.project import Project
 from models.user import User
+from schemas.common import PageInfo
 from schemas.documents import DocumentListResponse, DocumentRead, DocumentUploadResponse
 from schemas.project import ProjectAssignment, ProjectCreate, ProjectRead
 from services.pipeline import enqueue_extraction
@@ -260,7 +261,11 @@ async def list_project_documents(
             )
             for document in documents
         ],
-        pagination={"page": 1, "page_size": max(1, len(documents)), "total": len(documents)},
+        pagination=PageInfo(
+            page=1,
+            page_size=max(1, len(documents)),
+            total=len(documents),
+        ),
     )
 
 

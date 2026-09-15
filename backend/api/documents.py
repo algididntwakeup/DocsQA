@@ -221,9 +221,13 @@ async def assign_document(
                     detail={
                         "message": "Engineer already has an active document.",
                         "active_document": {
-                            "id": str(active_document.id),
-                            "filename": active_document.original_filename,
-                            "workflow_status": active_document.workflow_status.value,
+                            "id": str(active_document.id) if active_document else None,
+                            "filename": (
+                                active_document.original_filename if active_document else None
+                            ),
+                            "workflow_status": (
+                                active_document.workflow_status.value if active_document else None
+                            ),
                         },
                     },
                 )

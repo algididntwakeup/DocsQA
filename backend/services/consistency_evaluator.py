@@ -259,11 +259,11 @@ def detect_category_band_contradictions(
         if not is_closure_or_summary(section.name, section.text):
             continue
         matches = list(_BAND_RE.finditer(section.text))
-        parsed = [
-            (match, parse_numeric_interval(match.group("interval"), match.group("label")))
-            for match in matches
-        ]
-        parsed = [(match, interval) for match, interval in parsed if interval]
+        parsed: list[tuple[re.Match[str], NumericInterval]] = []
+        for match in matches:
+            interval = parse_numeric_interval(match.group("interval"), match.group("label"))
+            if interval is not None:
+                parsed.append((match, interval))
         for index, (left_match, left) in enumerate(parsed):
             for right_match, right in parsed[index + 1 :]:
                 if (

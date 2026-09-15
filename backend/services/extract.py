@@ -14,6 +14,7 @@ import tempfile
 import time
 from contextlib import suppress
 from pathlib import Path
+from typing import Any
 from uuid import UUID
 
 from schemas.extraction import (
@@ -49,7 +50,7 @@ _EXPLICIT_PAGE_PATTERN = re.compile(
 )
 
 
-def _printed_page_label(blocks: list[dict], page_height: float) -> str | None:
+def _printed_page_label(blocks: list[dict[str, Any]], page_height: float) -> str | None:
     """Read the printed page label from footer text, not the PDF position."""
     candidates: list[tuple[float, str]] = []
     for block in blocks:

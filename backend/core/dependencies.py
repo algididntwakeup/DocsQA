@@ -1,7 +1,7 @@
 """FastAPI dependencies that expose locally configured infrastructure."""
 
 from functools import lru_cache
-from typing import Annotated
+from typing import Annotated, Any, cast
 from uuid import UUID
 
 import jwt
@@ -120,7 +120,7 @@ def check_document_read_access(document: Document, current_user: User) -> bool:
     return False
 
 
-def accessible_document_query(document_id: UUID, current_user: User):
+def accessible_document_query(document_id: UUID, current_user: User) -> Any:
     """Build the eager-loaded document query used by document read endpoints."""
     query = (
         select(Document)
@@ -150,7 +150,7 @@ async def get_accessible_document(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have access to this document.",
         )
-    return document
+    return cast(Document, document)
 
 
 @lru_cache

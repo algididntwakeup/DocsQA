@@ -1,3 +1,5 @@
+from typing import Any
+
 from schemas.budinski import DocumentMetadata, EvaluationContext, ExtractedSections
 from services.budinski_evaluator import generate_scorecard_item
 
@@ -5,7 +7,7 @@ from services.budinski_evaluator import generate_scorecard_item
 def _context(
     *,
     sections: ExtractedSections | None = None,
-    findings: list[dict] | None = None,
+    findings: list[dict[str, Any]] | None = None,
     cover_date: str = "2026-09-10",
     creation_date: str = "2026-09-01",
 ) -> EvaluationContext:

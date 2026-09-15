@@ -1,6 +1,7 @@
 """Project assignment authorization tests."""
 
 from datetime import UTC, datetime
+from typing import Any
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
@@ -43,7 +44,7 @@ async def test_lead_can_create_project() -> None:
     lead = _user(UserRole.LEAD_ENGINEER)
     session = AsyncMock()
 
-    async def refresh(val, *args, **kwargs):
+    async def refresh(val: Any, *args: Any, **kwargs: Any) -> None:
         val.id = uuid4()
         val.created_at = datetime.now(UTC)
         val.created_by = lead
@@ -84,7 +85,7 @@ async def test_lead_can_assign_active_engineer() -> None:
     assigned_result = type("AssignedResult", (), {"scalar_one_or_none": lambda self: engineer})()
     session.execute.side_effect = [result, assigned_result]
 
-    async def refresh(value, *args, **kwargs):
+    async def refresh(value: Any, *args: Any, **kwargs: Any) -> None:
         value.assigned_to = engineer
 
     session.refresh.side_effect = refresh
@@ -122,7 +123,7 @@ async def test_assign_project_refreshes_relationships() -> None:
 
     refresh_calls = []
 
-    async def refresh(value, *args, **kwargs):
+    async def refresh(value: Any, *args: Any, **kwargs: Any) -> None:
         refresh_calls.append((value, args, kwargs))
         value.assigned_to = engineer
 
@@ -163,7 +164,7 @@ async def test_lead_can_finish_terminal_project() -> None:
     )()
     session.execute.return_value = result
 
-    async def refresh(value, *args, **kwargs):
+    async def refresh(value: Any, *args: Any, **kwargs: Any) -> None:
         return None
 
     session.refresh.side_effect = refresh

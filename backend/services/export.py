@@ -196,9 +196,9 @@ def assessment_from_document_findings(
         },
     )
     synthesizer = ReportSynthesizer(language)
-    blockers = []
-    majors = []
-    lang_findings = []
+    blockers: list[BlockerFinding] = []
+    majors: list[MajorFinding] = []
+    lang_findings: list[LanguageFinding] = []
     blocker_levels = {"BLOCKER", "CRITICAL", "HIGH"}
     control_blocker_types = {
         "UNCONTROLLED_PAGE",
@@ -813,7 +813,7 @@ def generate_ale_review_docx(
     verdict_cell = _add_callout_box(
         doc,
         bg_hex="FEF2F2" if verdict_color == COLOR_FAIL else "ECFDF5",
-        border_color_hex=verdict_color,
+        border_color_hex=str(verdict_color),
         border_sz="36",
     )
     verdict_p = verdict_cell.paragraphs[0]
@@ -1212,7 +1212,7 @@ def generate_ale_review_docx(
     g2_avg = group_averages.get("Group II")
     g3_avg = group_averages.get("Group III")
     g4_avg = group_averages.get("Group IV")
-    all_scores = [item.score for item in scorecard.items]
+    all_scores = [item.score for item in scorecard.items if item.score is not None]
     overall_avg = (
         round(sum(all_scores) / len(all_scores), 2) if all_scores else scorecard.overall_average
     )
@@ -1288,7 +1288,7 @@ def generate_ale_review_docx(
     p_sc_space.paragraph_format.space_after = Pt(4)
 
     # Detailed 41-item checklist is deliberately placed after the executive sections.
-    doc.add_page_break()
+    doc.add_page_break()  # type: ignore[no-untyped-call]
     _add_heading_1(doc, strings.appendix_a_title)
     # Detailed 41-Item Table
     _add_body_p(
@@ -1320,12 +1320,12 @@ def generate_ale_review_docx(
 
     if scorecard.items:
         dynamic_groups: dict[str, list[tuple[str, str, int | None, str, str]]] = {}
-        for item in scorecard.items:
-            code = item.item_id
-            name = get_budinski_item_name(code, language) or item.item_id
-            note = item.note or get_budinski_guidance_note(code, item.score, language)
-            dynamic_groups.setdefault(item.group, []).append(
-                (code, name, item.score, note, item.status)
+        for score_entry in scorecard.items:
+            code = score_entry.item_id
+            name = get_budinski_item_name(code, language) or score_entry.item_id
+            note = score_entry.note or get_budinski_guidance_note(code, score_entry.score, language)
+            dynamic_groups.setdefault(score_entry.group, []).append(
+                (code, name, score_entry.score, note, score_entry.status)
             )
         group_i_items = dynamic_groups.get("Group I", [])
         group_ii_items = dynamic_groups.get("Group II", [])
@@ -1342,6 +1342,7 @@ def generate_ale_review_docx(
             group_iii_items = []
             group_iv_items = []
         else:
+            assert tc is not None and st is not None and rm is not None and cc is not None
             if not all((tc, st, rm, cc)):
                 raise ValueError("Legacy scorecard groups are required when items is empty")
             group_i_items = [
