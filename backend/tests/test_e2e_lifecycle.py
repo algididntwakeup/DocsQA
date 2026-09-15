@@ -22,12 +22,13 @@ import pypdf
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from core.dependencies import get_storage
+from core.dependencies import get_current_user, get_storage
 from db.session import get_session
-from domain.enums import DocumentStatus, IssueCategory, Severity
+from domain.enums import DocumentStatus, IssueCategory, Severity, UserRole
 from main import app
 from models.document import Document
 from models.issue import Issue
+from models.user import User
 from services.storage.local import LocalStorage
 
 
@@ -38,6 +39,14 @@ async def test_full_document_lifecycle_e2e(tmp_path: Path) -> None:
     now = datetime.now(UTC)
     doc_id = uuid4()
     issue_id = uuid4()
+    lead = User(
+        id=uuid4(),
+        email="lead@test.local",
+        hashed_password="unused",
+        full_name="Test Lead",
+        role=UserRole.LEAD_ENGINEER,
+        is_active=True,
+    )
 
     # Step 1: Ingest document
     doc = Document(
@@ -101,6 +110,11 @@ async def test_full_document_lifecycle_e2e(tmp_path: Path) -> None:
                         return doc
                     return None
 
+                def one_or_none(self) -> tuple[Any, Any] | None:
+                    if "from issues" in stmt_str:
+                        return issue, None
+                    return None
+
                 def scalars(self) -> Any:
                     class MockScalars:
                         def all(self) -> list[Any]:
@@ -128,6 +142,7 @@ async def test_full_document_lifecycle_e2e(tmp_path: Path) -> None:
 
     app.dependency_overrides[get_session] = override_get_session
     app.dependency_overrides[get_storage] = lambda: storage
+    app.dependency_overrides[get_current_user] = lambda: lead
 
     try:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:

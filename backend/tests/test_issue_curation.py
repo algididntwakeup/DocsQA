@@ -9,14 +9,27 @@ from uuid import UUID, uuid4
 
 from fastapi.testclient import TestClient
 
+from core.dependencies import get_current_user
 from db.session import get_session
-from domain.enums import DocumentStatus, IssueCategory, Severity
+from domain.enums import DocumentStatus, IssueCategory, Severity, UserRole
 from main import app
 from models.document import Document
 from models.issue import Issue
+from models.user import User
 from schemas.issues import BoundingBox, LinguisticEvidence
 
 client = TestClient(app)
+
+
+def _test_user() -> User:
+    return User(
+        id=uuid4(),
+        email="lead@test.local",
+        hashed_password="unused",
+        full_name="Test Lead",
+        role=UserRole.LEAD_ENGINEER,
+        is_active=True,
+    )
 
 
 def _make_dummy_issue(
@@ -67,7 +80,7 @@ def test_curate_issue_include_and_exclude() -> None:
 
     mock_session = AsyncMock()
     mock_result = MagicMock()
-    mock_result.scalar_one_or_none.return_value = issue
+    mock_result.one_or_none.return_value = (issue, None)
     mock_session.execute.return_value = mock_result
 
     async def _mock_refresh(obj: Any) -> None:
@@ -79,6 +92,7 @@ def test_curate_issue_include_and_exclude() -> None:
         return mock_session
 
     app.dependency_overrides[get_session] = _override_get_session
+    app.dependency_overrides[get_current_user] = _test_user
     try:
         # 1. Exclude finding
         res1 = client.patch(
@@ -110,19 +124,21 @@ def test_curate_issue_include_and_exclude() -> None:
         assert issue.included_in_report is True
     finally:
         app.dependency_overrides.pop(get_session, None)
+        app.dependency_overrides.pop(get_current_user, None)
 
 
 def test_curate_issue_not_found() -> None:
     """Attempting to curate a non-existent issue returns 404."""
     mock_session = AsyncMock()
     mock_result = MagicMock()
-    mock_result.scalar_one_or_none.return_value = None
+    mock_result.one_or_none.return_value = None
     mock_session.execute.return_value = mock_result
 
     async def _override_get_session() -> AsyncMock:
         return mock_session
 
     app.dependency_overrides[get_session] = _override_get_session
+    app.dependency_overrides[get_current_user] = _test_user
     try:
         res = client.patch(
             f"/api/v1/issues/{uuid4()}/curation",
@@ -132,14 +148,19 @@ def test_curate_issue_not_found() -> None:
         assert res.json()["detail"] == "Issue not found."
     finally:
         app.dependency_overrides.pop(get_session, None)
+        app.dependency_overrides.pop(get_current_user, None)
 
 
 def test_curate_issue_validation_error() -> None:
     """Invalid payload triggers 422 validation error."""
-    res = client.patch(
-        f"/api/v1/issues/{uuid4()}/curation",
-        json={"reviewer_note": "missing included_in_report"},
-    )
+    app.dependency_overrides[get_current_user] = _test_user
+    try:
+        res = client.patch(
+            f"/api/v1/issues/{uuid4()}/curation",
+            json={"reviewer_note": "missing included_in_report"},
+        )
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
     assert res.status_code == 422
 
 
@@ -163,6 +184,7 @@ def test_get_report_preview_with_blockers() -> None:
         return mock_session
 
     app.dependency_overrides[get_session] = _override_get_session
+    app.dependency_overrides[get_current_user] = _test_user
     try:
         res = client.get(f"/api/v1/documents/{doc_id}/report")
         assert res.status_code == 200
@@ -175,6 +197,7 @@ def test_get_report_preview_with_blockers() -> None:
         assert data["counts_by_severity"]["LOW"] == 1
     finally:
         app.dependency_overrides.pop(get_session, None)
+        app.dependency_overrides.pop(get_current_user, None)
 
 
 def test_get_report_preview_no_blockers() -> None:
@@ -196,6 +219,7 @@ def test_get_report_preview_no_blockers() -> None:
         return mock_session
 
     app.dependency_overrides[get_session] = _override_get_session
+    app.dependency_overrides[get_current_user] = _test_user
     try:
         res = client.get(f"/api/v1/documents/{doc_id}/report")
         assert res.status_code == 200
@@ -205,6 +229,7 @@ def test_get_report_preview_no_blockers() -> None:
         assert data["summary_judgement"] == "No blocker findings are included in the draft report."
     finally:
         app.dependency_overrides.pop(get_session, None)
+        app.dependency_overrides.pop(get_current_user, None)
 
 
 def test_get_report_preview_document_not_found() -> None:
@@ -218,9 +243,11 @@ def test_get_report_preview_document_not_found() -> None:
         return mock_session
 
     app.dependency_overrides[get_session] = _override_get_session
+    app.dependency_overrides[get_current_user] = _test_user
     try:
         res = client.get(f"/api/v1/documents/{uuid4()}/report")
         assert res.status_code == 404
         assert res.json()["detail"] == "Document not found."
     finally:
         app.dependency_overrides.pop(get_session, None)
+        app.dependency_overrides.pop(get_current_user, None)
