@@ -68,6 +68,7 @@ class DocumentRead(ApiModel):
 DocumentListItem = DocumentRead
 DocumentDetail = DocumentRead
 
+
 class DocumentWorkflowUpdate(ApiModel):
     """Payload for assigning a document and changing its review workflow."""
 

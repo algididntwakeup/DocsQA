@@ -82,10 +82,7 @@ class ReportSynthesizer:
         )
         total = len(findings_list)
         fallback_title = "the reviewed document" if self.is_english else "dokumen yang ditinjau"
-        title = (
-            _value(metadata, "document_reviewed", fallback_title)
-            or fallback_title
-        )
+        title = _value(metadata, "document_reviewed", fallback_title) or fallback_title
         headings = _value(metadata, "section_headings", []) or []
         heading_text = (
             ", ".join(str(item) for item in headings[:4])
@@ -106,17 +103,45 @@ class ReportSynthesizer:
             context = f" Extracted sections include {heading_text}." if heading_text else ""
             return "\n\n".join(
                 [
-                    f"The review of {title} identified {total} normalized finding(s). Arithmetic and count integrity signals: {arithmetic}; the report should preserve any reconciled totals while correcting confirmed exceptions.{context}",
-                    f"Structural and navigation signals: {structural}, including table-of-contents, uncontrolled-page, or reference closure issues where detected. The Budinski baseline score is {baseline} where available. Extracted evidence begins: {evidence_text}.",
-                    "Closure status is determined by the blocking findings and the reviewer’s inclusion choices; a reissue should not proceed until critical blockers are resolved.",
+                    (
+                        f"The review of {title} identified {total} normalized finding(s). "
+                        f"Arithmetic and count integrity signals: {arithmetic}; the report "
+                        "should preserve any reconciled totals while correcting confirmed "
+                        f"exceptions.{context}"
+                    ),
+                    (
+                        f"Structural and navigation signals: {structural}, including "
+                        "table-of-contents, uncontrolled-page, or reference closure issues "
+                        f"where detected. The Budinski baseline score is {baseline} where "
+                        f"available. Extracted evidence begins: {evidence_text}."
+                    ),
+                    (
+                        "Closure status is determined by the blocking findings and the "
+                        "reviewer’s inclusion choices; a reissue should not proceed until "
+                        "critical blockers are resolved."
+                    ),
                 ]
             )
         context = f" Bagian yang diekstrak meliputi {heading_text}." if heading_text else ""
         return "\n\n".join(
             [
-                f"Tinjauan atas {title} mengidentifikasi {total} temuan ternormalisasi. Sinyal integritas aritmetika dan jumlah: {arithmetic}; laporan harus mempertahankan total yang telah direkonsiliasi sambil memperbaiki pengecualian yang terkonfirmasi.{context}",
-                f"Sinyal struktur dan navigasi: {structural}, termasuk masalah daftar isi, halaman tidak terkendali, atau penutupan referensi jika terdeteksi. Nilai dasar Budinski adalah {baseline} jika tersedia. Bukti ekstraksi dimulai: {evidence_text}.",
-                "Status penutupan ditentukan oleh temuan penghalang dan pilihan penyertaan peninjau; penerbitan ulang tidak boleh dilakukan sebelum penghalang kritis diselesaikan.",
+                (
+                    f"Tinjauan atas {title} mengidentifikasi {total} temuan ternormalisasi. "
+                    f"Sinyal integritas aritmetika dan jumlah: {arithmetic}; laporan harus "
+                    "mempertahankan total yang telah direkonsiliasi sambil memperbaiki "
+                    f"pengecualian yang terkonfirmasi.{context}"
+                ),
+                (
+                    f"Sinyal struktur dan navigasi: {structural}, termasuk masalah daftar "
+                    "isi, halaman tidak terkendali, atau penutupan referensi jika terdeteksi. "
+                    f"Nilai dasar Budinski adalah {baseline} jika tersedia. Bukti ekstraksi "
+                    f"dimulai: {evidence_text}."
+                ),
+                (
+                    "Status penutupan ditentukan oleh temuan penghalang dan pilihan "
+                    "penyertaan peninjau; penerbitan ulang tidak boleh dilakukan sebelum "
+                    "penghalang kritis diselesaikan."
+                ),
             ]
         )
 
@@ -124,9 +149,13 @@ class ReportSynthesizer:
         first = next(iter(blockers), None)
         if first is None:
             return (
-                "No blocking finding was identified; close the remaining findings in the next controlled review."
+                "No blocking finding was identified; close the remaining findings in the "
+                "next controlled review."
                 if self.is_english
-                else "Tidak ada temuan penghalang; tutup temuan yang tersisa pada tinjauan terkendali berikutnya."
+                else (
+                    "Tidak ada temuan penghalang; tutup temuan yang tersisa pada tinjauan "
+                    "terkendali berikutnya."
+                )
             )
         fallback_title = "the critical blocker" if self.is_english else "penghalang kritis"
         fallback_fix = (
@@ -201,7 +230,12 @@ class ReportSynthesizer:
                 else (f" Contoh meliputi {', '.join(labels[:5])}." if labels else "")
             )
             if self.is_english:
-                message = f"The review identified {len(items)} related finding(s) ({breakdown}) on printed page(s) {page_text}. Finding code(s): {codes}.{example} These findings represent one recurring control issue, not separate independent blockers."
+                message = (
+                    f"The review identified {len(items)} related finding(s) ({breakdown}) "
+                    f"on printed page(s) {page_text}. Finding code(s): {codes}.{example} "
+                    "These findings represent one recurring control issue, not separate "
+                    "independent blockers."
+                )
                 suggestion = str(
                     _value(
                         items[0],
@@ -210,7 +244,12 @@ class ReportSynthesizer:
                     )
                 )
             else:
-                message = f"Tinjauan mengidentifikasi {len(items)} temuan terkait ({breakdown}) pada halaman cetak {page_text}. Kode temuan: {codes}.{example} Temuan ini merupakan satu masalah pengendalian berulang, bukan penghalang independen."
+                message = (
+                    f"Tinjauan mengidentifikasi {len(items)} temuan terkait ({breakdown}) "
+                    f"pada halaman cetak {page_text}. Kode temuan: {codes}.{example} "
+                    "Temuan ini merupakan satu masalah pengendalian berulang, bukan "
+                    "penghalang independen."
+                )
                 suggestion = str(
                     _value(
                         items[0],
@@ -245,14 +284,23 @@ class ReportSynthesizer:
                 issue_type,
                 self.s.rec_default,
             )
-            # If the persisted suggestion is present and strictly matches the target language, use it;
+            # Use a persisted suggestion only when it matches the target language;
             # otherwise fall back to the clean localized default to avoid mixed language.
             persisted_suggestion = str(_value(item, "suggestion", "")).strip()
             if persisted_suggestion:
                 # Check if persisted suggestion has obvious other-language keywords
-                if self.is_english and any(w in persisted_suggestion.lower() for w in ("perbaiki", "terapkan", "perbarui", "halaman")):
-                    action = default
-                elif not self.is_english and any(w in persisted_suggestion.lower() for w in ("apply", "correct", "verify", "update")):
+                if (
+                    self.is_english
+                    and any(
+                        w in persisted_suggestion.lower()
+                        for w in ("perbaiki", "terapkan", "perbarui", "halaman")
+                    )
+                    or not self.is_english
+                    and any(
+                        w in persisted_suggestion.lower()
+                        for w in ("apply", "correct", "verify", "update")
+                    )
+                ):
                     action = default
                 else:
                     action = persisted_suggestion
@@ -323,7 +371,8 @@ class ReportSynthesizer:
             ["The report provides a traceable basis for the findings and requested corrections."]
             if self.is_english
             else [
-                "Laporan menyediakan dasar yang dapat dilacak untuk temuan dan perbaikan yang diminta."
+                "Laporan menyediakan dasar yang dapat dilacak untuk temuan dan "
+                "perbaikan yang diminta."
             ]
         )
 
@@ -386,10 +435,7 @@ class ReportSynthesizer:
             ("why_it_matters", self.s.why_it_matters),
             ("what_would_fix_it", self.s.what_would_fix_it),
         ]
-        return [
-            {label: str(_value(item, attr)) for attr, label in field_keys}
-            for item in blockers
-        ]
+        return [{label: str(_value(item, attr)) for attr, label in field_keys} for item in blockers]
 
     def synthesize_major_findings(self, findings: Iterable[Any]) -> list[dict[str, str]]:
         selected = []
@@ -431,9 +477,11 @@ class ReportSynthesizer:
             key = (page, original, suggested)
             if key not in seen:
                 seen.add(key)
-                rows.append({
-                    self.s.page.upper(): page,
-                    self.s.as_written.upper(): original,
-                    self.s.suggested.upper(): suggested,
-                })
+                rows.append(
+                    {
+                        self.s.page.upper(): page,
+                        self.s.as_written.upper(): original,
+                        self.s.suggested.upper(): suggested,
+                    }
+                )
         return rows

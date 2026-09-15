@@ -1,8 +1,8 @@
 """Fixed renderer copy for deterministic bilingual review reports."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 from domain.enums import ReportLanguage
 
@@ -151,11 +151,17 @@ _EN = ReportStrings(
     summary_judgement="Summary judgement",
     bottom_line="BOTTOM LINE",
     baseline_measures="The four baseline measures",
-    baseline_intro="Standing baseline measures evaluated on every engineering document review per Budinski Chapters 9–11:",
+    baseline_intro=(
+        "Standing baseline measures evaluated on every engineering document review "
+        "per Budinski Chapters 9–11:"
+    ),
     baseline_score="Baseline score",
     passing="of 4 passing",
     scorecard="Scorecard",
-    scorecard_intro="The Budinski scorecard is presented first so the overall writing assessment is not buried beneath repeated document-control findings.",
+    scorecard_intro=(
+        "The Budinski scorecard is presented first so the overall writing assessment is "
+        "not buried beneath repeated document-control findings."
+    ),
     blockers="Blockers",
     blockers_intro="Blocking findings that prevent the document from being relied upon as issued:",
     no_blockers="No blocking findings identified.",
@@ -179,7 +185,11 @@ _EN = ReportStrings(
     demonstration_rewrite="Demonstration rewrite",
     faults_against_rules="Faults against Budinski rules: ",
     scorecard_detail="Scorecard detail",
-    scorecard_detail_intro="Scored against the 41 items of the Appendix 12 review checklist from Budinski, Engineers' Guide to Technical Writing (2001). Scores: 1 = disagree, 5 = agree. Any item scoring 2 or below is treated as requiring rework.",
+    scorecard_detail_intro=(
+        "Scored against the 41 items of the Appendix 12 review checklist from Budinski, "
+        "Engineers' Guide to Technical Writing (2001). Scores: 1 = disagree, 5 = agree. "
+        "Any item scoring 2 or below is treated as requiring rework."
+    ),
     group="Group",
     focus_area="Focus Area",
     items="Items",
@@ -216,7 +226,9 @@ _EN = ReportStrings(
     demo_intro="Demonstration of a clearer conclusion structure:",
     demo_as_written="As Written",
     demo_demonstration="Demonstration",
-    demo_conclusion="This demonstration separates the conclusion statements from supporting detail.",
+    demo_conclusion=(
+        "This demonstration separates the conclusion statements from supporting detail."
+    ),
     group_i="Group I: Technical Content",
     group_ii="Group II: Style",
     group_iii="Group III: Report Mechanics",
@@ -226,7 +238,9 @@ _EN = ReportStrings(
     group_iii_desc="Introduction and Procedure",
     group_iv_desc="Results, Discussion, Conclusions, Craft",
     default_measure_purpose="State the report purpose separately from the work objective.",
-    default_measure_procedure="Provide enough method detail for another competent party to repeat the work.",
+    default_measure_procedure=(
+        "Provide enough method detail for another competent party to repeat the work."
+    ),
     default_measure_conclusions="Separate conclusions from results and discussion.",
     default_measure_recommendations="Name an owner and due date for each recommendation.",
     # Strict anti-bahasa belang additions:
@@ -250,8 +264,12 @@ _EN = ReportStrings(
     measure_procedure_name="Procedure repeatable",
     measure_conclusions_name="Conclusions are conclusions",
     measure_recommendations_name="Recommendations actionable",
-    measure_purpose_detail="States the purpose of the report explicitly, distinct from the objective of the work",
-    measure_procedure_detail="Procedure detailed enough for another competent party to repeat the work",
+    measure_purpose_detail=(
+        "States the purpose of the report explicitly, distinct from the objective of the work"
+    ),
+    measure_procedure_detail=(
+        "Procedure detailed enough for another competent party to repeat the work"
+    ),
     measure_conclusions_detail="Conclusions are conclusions, not results and not discussion",
     measure_recommendations_detail="Recommendations name an owner and a date",
     baseline_reason_no_assessment="No persisted baseline assessment was available.",
@@ -260,23 +278,32 @@ _EN = ReportStrings(
     category_findings="Findings",
     category_action_items="Action Items",
     rec_uncontrolled_page="Apply controlled document template to all affected pages.",
-    rec_cross_page_break="Correct pagination so sentences and paragraphs do not break across pages.",
+    rec_cross_page_break=(
+        "Correct pagination so sentences and paragraphs do not break across pages."
+    ),
     rec_reference_drift="Update page references and re-verify table of contents.",
     rec_default="Correct findings, verify source evidence, and issue controlled revision.",
-    rec_fallback_closing="Maintain evidence base and perform final verification before controlled release.",
+    rec_fallback_closing=(
+        "Maintain evidence base and perform final verification before controlled release."
+    ),
     action_default="Correct the identified issue and verify the revised section.",
     not_located="Not located",
     page_prefix="Page",
     review_wording="Review wording.",
     blocker_title_instances="{count} instances",
     blocker_consolidated_where="Consolidated across the affected printed pages",
-    blocker_why_it_matters_default="The repeated findings indicate one unresolved control weakness across the document.",
+    blocker_why_it_matters_default=(
+        "The repeated findings indicate one unresolved control weakness across the document."
+    ),
     blocker_no_source_excerpt="No source excerpt was persisted for this finding.",
     report_subtitle="Executive engineering-document review report",
     appendix_a_title="Appendix A - Budinski Appendix 12 checklist",
     appendix_a_intro="Detailed 41-item evaluation across all four Appendix 12 checklist groups:",
     fix_reissue_default="Correct, verify, and reissue the affected section.",
-    score_summary_callout="Overall average: {overall} / 5.00. Group averages: I {g1}, II {g2}, III {g3}, IV {g4}. Items requiring rework: {rework}.",
+    score_summary_callout=(
+        "Overall average: {overall} / 5.00. Group averages: I {g1}, II {g2}, "
+        "III {g3}, IV {g4}. Items requiring rework: {rework}."
+    ),
     next_revision_findings="Next revision findings",
 )
 
@@ -287,13 +314,21 @@ _ID = ReportStrings(
     summary_judgement="Penilaian ringkasan",
     bottom_line="KESIMPULAN UTAMA",
     baseline_measures="Empat ukuran dasar",
-    baseline_intro="Ukuran dasar yang dievaluasi pada setiap tinjauan dokumen rekayasa sesuai Bab 9–11 Budinski:",
+    baseline_intro=(
+        "Ukuran dasar yang dievaluasi pada setiap tinjauan dokumen rekayasa sesuai "
+        "Bab 9–11 Budinski:"
+    ),
     baseline_score="Nilai dasar",
     passing="dari 4 lulus",
     scorecard="Kartu nilai",
-    scorecard_intro="Kartu nilai Budinski disajikan terlebih dahulu agar penilaian penulisan keseluruhan tidak tertutup oleh temuan pengendalian dokumen yang berulang.",
+    scorecard_intro=(
+        "Kartu nilai Budinski disajikan terlebih dahulu agar penilaian penulisan "
+        "keseluruhan tidak tertutup oleh temuan pengendalian dokumen yang berulang."
+    ),
     blockers="Penghalang",
-    blockers_intro="Temuan penghalang yang membuat dokumen tidak dapat diandalkan sebagaimana diterbitkan:",
+    blockers_intro=(
+        "Temuan penghalang yang membuat dokumen tidak dapat diandalkan sebagaimana diterbitkan:"
+    ),
     no_blockers="Tidak ada temuan penghalang.",
     blocker="Penghalang",
     where="Lokasi",
@@ -315,7 +350,11 @@ _ID = ReportStrings(
     demonstration_rewrite="Contoh penulisan ulang",
     faults_against_rules="Pelanggaran terhadap aturan Budinski: ",
     scorecard_detail="Rincian kartu nilai",
-    scorecard_detail_intro="Dinilai berdasarkan 41 item daftar periksa tinjauan Lampiran 12 dari Budinski, Engineers' Guide to Technical Writing (2001). Nilai: 1 = tidak setuju, 5 = setuju. Item dengan nilai 2 atau kurang memerlukan pengerjaan ulang.",
+    scorecard_detail_intro=(
+        "Dinilai berdasarkan 41 item daftar periksa tinjauan Lampiran 12 dari Budinski, "
+        "Engineers' Guide to Technical Writing (2001). Nilai: 1 = tidak setuju, "
+        "5 = setuju. Item dengan nilai 2 atau kurang memerlukan pengerjaan ulang."
+    ),
     group="Grup",
     focus_area="Fokus",
     items="Item",
@@ -362,9 +401,13 @@ _ID = ReportStrings(
     group_iii_desc="Pendahuluan dan Prosedur",
     group_iv_desc="Hasil, Pembahasan, Kesimpulan, Keterampilan",
     default_measure_purpose="Nyatakan tujuan laporan secara terpisah dari tujuan pekerjaan.",
-    default_measure_procedure="Berikan rincian metode yang cukup agar pihak kompeten lain dapat mengulangi pekerjaan.",
+    default_measure_procedure=(
+        "Berikan rincian metode yang cukup agar pihak kompeten lain dapat mengulangi pekerjaan."
+    ),
     default_measure_conclusions="Pisahkan kesimpulan dari hasil dan pembahasan.",
-    default_measure_recommendations="Sebutkan pemilik dan tanggal jatuh tempo untuk setiap rekomendasi.",
+    default_measure_recommendations=(
+        "Sebutkan pemilik dan tanggal jatuh tempo untuk setiap rekomendasi."
+    ),
     # Strict anti-bahasa belang additions:
     executive_summary="Ringkasan eksekutif",
     verdict_label="STATUS / PUTUSAN",
@@ -386,8 +429,12 @@ _ID = ReportStrings(
     measure_procedure_name="Prosedur dapat diulangi",
     measure_conclusions_name="Kesimpulan adalah kesimpulan",
     measure_recommendations_name="Rekomendasi dapat ditindaklanjuti",
-    measure_purpose_detail="Menyatakan tujuan laporan secara eksplisit, terpisah dari tujuan pekerjaan",
-    measure_procedure_detail="Prosedur cukup rinci agar pihak kompeten lain dapat mengulangi pekerjaan",
+    measure_purpose_detail=(
+        "Menyatakan tujuan laporan secara eksplisit, terpisah dari tujuan pekerjaan"
+    ),
+    measure_procedure_detail=(
+        "Prosedur cukup rinci agar pihak kompeten lain dapat mengulangi pekerjaan"
+    ),
     measure_conclusions_detail="Kesimpulan murni kesimpulan, bukan hasil dan bukan pembahasan",
     measure_recommendations_detail="Rekomendasi mencantumkan pemilik dan tenggat waktu",
     baseline_reason_no_assessment="Tidak ada penilaian dasar tersimpan yang tersedia.",
@@ -396,23 +443,35 @@ _ID = ReportStrings(
     category_findings="Temuan",
     category_action_items="Rencana Tindakan",
     rec_uncontrolled_page="Terapkan template dokumen terkendali pada seluruh halaman terdampak.",
-    rec_cross_page_break="Perbaiki penomoran halaman agar kalimat dan paragraf tidak terputus lintas halaman.",
+    rec_cross_page_break=(
+        "Perbaiki penomoran halaman agar kalimat dan paragraf tidak terputus lintas halaman."
+    ),
     rec_reference_drift="Perbarui referensi halaman dan verifikasi ulang daftar isi.",
     rec_default="Perbaiki temuan, verifikasi bukti sumber, dan terbitkan revisi terkendali.",
-    rec_fallback_closing="Pertahankan basis bukti dan lakukan verifikasi akhir sebelum penerbitan terkendali.",
+    rec_fallback_closing=(
+        "Pertahankan basis bukti dan lakukan verifikasi akhir sebelum penerbitan terkendali."
+    ),
     action_default="Perbaiki masalah yang teridentifikasi dan verifikasi bagian yang direvisi.",
     not_located="Lokasi tidak ditemukan",
     page_prefix="Halaman",
     review_wording="Periksa pilihan kata.",
     blocker_title_instances="{count} kejadian",
     blocker_consolidated_where="Dikosolidasikan di seluruh halaman cetak terdampak",
-    blocker_why_it_matters_default="Temuan berulang menunjukkan satu kelemahan pengendalian yang belum terselesaikan di seluruh dokumen.",
+    blocker_why_it_matters_default=(
+        "Temuan berulang menunjukkan satu kelemahan pengendalian yang belum "
+        "terselesaikan di seluruh dokumen."
+    ),
     blocker_no_source_excerpt="Tidak ada kutipan sumber yang tersimpan untuk temuan ini.",
     report_subtitle="Laporan tinjauan dokumen rekayasa eksekutif",
     appendix_a_title="Lampiran A - Daftar Periksa Lampiran 12 Budinski",
-    appendix_a_intro="Evaluasi terperinci 41 item di seluruh empat grup daftar periksa Lampiran 12:",
+    appendix_a_intro=(
+        "Evaluasi terperinci 41 item di seluruh empat grup daftar periksa Lampiran 12:"
+    ),
     fix_reissue_default="Perbaiki, verifikasi, dan terbitkan ulang bagian terdampak.",
-    score_summary_callout="Rata-rata keseluruhan: {overall} / 5.00. Rata-rata grup: I {g1}, II {g2}, III {g3}, IV {g4}. Item yang memerlukan perbaikan: {rework}.",
+    score_summary_callout=(
+        "Rata-rata keseluruhan: {overall} / 5.00. Rata-rata grup: I {g1}, II {g2}, "
+        "III {g3}, IV {g4}. Item yang memerlukan perbaikan: {rework}."
+    ),
     next_revision_findings="Temuan revisi berikutnya",
 )
 
@@ -685,13 +744,19 @@ def get_budinski_item_name(code: str, language: ReportLanguage = ReportLanguage.
     return code
 
 
-def get_budinski_guidance_note(code: str, score: int | None, language: ReportLanguage = ReportLanguage.ENGLISH) -> str:
+def get_budinski_guidance_note(
+    code: str, score: int | None, language: ReportLanguage = ReportLanguage.ENGLISH
+) -> str:
     """Return localized reviewer guidance or explanation for a checklist item."""
     lang_key = "id" if language == ReportLanguage.INDONESIAN else "en"
     item = BUDINSKI_41_ITEMS.get(code)
     if not item:
         if score is not None and score <= 2:
-            return "Perlu pengerjaan ulang." if language == ReportLanguage.INDONESIAN else "Requires rework."
+            return (
+                "Perlu pengerjaan ulang."
+                if language == ReportLanguage.INDONESIAN
+                else "Requires rework."
+            )
         return "Sesuai standar." if language == ReportLanguage.INDONESIAN else "Satisfactory."
     if score is not None and score <= 2:
         return item.get(f"guidance_{lang_key}", item.get("guidance_en", ""))

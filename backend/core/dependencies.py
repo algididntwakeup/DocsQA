@@ -122,10 +122,14 @@ def check_document_read_access(document: Document, current_user: User) -> bool:
 
 def accessible_document_query(document_id: UUID, current_user: User):
     """Build the eager-loaded document query used by document read endpoints."""
-    query = select(Document).where(Document.id == document_id).options(
-        joinedload(Document.owner),
-        joinedload(Document.assigned_to),
-        joinedload(Document.project),
+    query = (
+        select(Document)
+        .where(Document.id == document_id)
+        .options(
+            joinedload(Document.owner),
+            joinedload(Document.assigned_to),
+            joinedload(Document.project),
+        )
     )
     return query
 

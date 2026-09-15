@@ -50,16 +50,20 @@ def _project_read(project: Project) -> ProjectRead:
 
 async def _load_project_for_mutation(session: AsyncSession, project_id: UUID) -> Project:
     project = (
-        await session.execute(
-            select(Project)
-            .where(Project.id == project_id)
-            .options(
-                joinedload(Project.created_by),
-                joinedload(Project.assigned_to),
-                joinedload(Project.documents),
+        (
+            await session.execute(
+                select(Project)
+                .where(Project.id == project_id)
+                .options(
+                    joinedload(Project.created_by),
+                    joinedload(Project.assigned_to),
+                    joinedload(Project.documents),
+                )
             )
         )
-    ).unique().scalar_one_or_none()
+        .unique()
+        .scalar_one_or_none()
+    )
     if project is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found.")
     return project
@@ -124,10 +128,7 @@ async def list_projects(
             )
         )
     projects = (
-        (await session.execute(query.order_by(Project.created_at.desc())))
-        .unique()
-        .scalars()
-        .all()
+        (await session.execute(query.order_by(Project.created_at.desc()))).unique().scalars().all()
     )
     return [_project_read(project) for project in projects]
 
@@ -217,8 +218,14 @@ async def list_project_documents(
     has_blockers: bool | None = None,
 ) -> DocumentListResponse:
     """List project documents with lead-only cross-engineer filters."""
-    query = select(Document).where(Document.project_id == project_id).options(
-        joinedload(Document.owner), joinedload(Document.assigned_to), joinedload(Document.project)
+    query = (
+        select(Document)
+        .where(Document.project_id == project_id)
+        .options(
+            joinedload(Document.owner),
+            joinedload(Document.assigned_to),
+            joinedload(Document.project),
+        )
     )
     if current_user.role == UserRole.ENGINEER:
         query = query.where(
@@ -270,9 +277,7 @@ async def upload_project_document(
     """Upload a document and assign its project and owner."""
     project = await session.get(Project, project_id)
     if project is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Project not found."
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found.")
     _ensure_project_open(project)
     result = await upload_service.create_or_reuse(file, session)
     if not result.deduplicated:

@@ -349,14 +349,20 @@ def test_evaluator_required_reference_rule() -> None:
     assert findings[0].rule_id == "RULE-REQ-REF-TEST"
 
     # Triggered with citation -> compliant
-    assert evaluator.evaluate_text(
-        "Perform 100% radiographic examination per ASME Section V on all seams."
-    ) == []
+    assert (
+        evaluator.evaluate_text(
+            "Perform 100% radiographic examination per ASME Section V on all seams."
+        )
+        == []
+    )
 
     # Triggered but exempted -> compliant
-    assert evaluator.evaluate_text(
-        "Radiographic examination considered, but no NDE required for category D."
-    ) == []
+    assert (
+        evaluator.evaluate_text(
+            "Radiographic examination considered, but no NDE required for category D."
+        )
+        == []
+    )
 
 
 # ── 3. Benchmark Verification Suite (Precision, Recall, FPR) ──────────
@@ -566,9 +572,7 @@ def test_invalid_rules_yaml_unknown_rule_type() -> None:
 
 
 def test_invalid_rules_yaml_missing_expected_condition() -> None:
-    bad = VALID_RULES_YAML.replace(
-        '    expected_condition: "hydrostatic test ratio >= 1.30"\n', ""
-    )
+    bad = VALID_RULES_YAML.replace('    expected_condition: "hydrostatic test ratio >= 1.30"\n', "")
     with pytest.raises(ValidationError):
         _parse_rules_yaml(bad)
 
@@ -583,9 +587,10 @@ def test_pack_bundle_upload_valid() -> None:
     manifest = _parse_pack_yaml(VALID_PACK_YAML)
     rules = _parse_rules_yaml(VALID_RULES_YAML)
     bundle = PackBundleUpload.model_validate(
-        {"manifest": manifest.model_dump(mode="json"), "rules": [
-            r.model_dump(mode="json") for r in rules
-        ]}
+        {
+            "manifest": manifest.model_dump(mode="json"),
+            "rules": [r.model_dump(mode="json") for r in rules],
+        }
     )
     assert bundle.manifest.origin is PackOrigin.CUSTOM
     assert len(bundle.rules) == 2
@@ -610,9 +615,11 @@ def test_pack_bundle_upload_rejects_duplicate_rule_ids() -> None:
     rules = _parse_rules_yaml(VALID_RULES_YAML)
     with pytest.raises(ValidationError, match="Duplicate rule_id"):
         PackBundleUpload.model_validate(
-            {"manifest": manifest.model_dump(mode="json"),
-             "rules": [r.model_dump(mode="json") for r in rules]
-             + [rules[0].model_dump(mode="json")]}
+            {
+                "manifest": manifest.model_dump(mode="json"),
+                "rules": [r.model_dump(mode="json") for r in rules]
+                + [rules[0].model_dump(mode="json")],
+            }
         )
 
 
@@ -623,9 +630,10 @@ def test_pack_bundle_upload_rejects_standard_code_mismatch() -> None:
         r.standard_code = "API 510"
     with pytest.raises(ValidationError, match="standard_code does not match"):
         PackBundleUpload.model_validate(
-            {"manifest": manifest.model_dump(mode="json"), "rules": [
-                r.model_dump(mode="json") for r in rules
-            ]}
+            {
+                "manifest": manifest.model_dump(mode="json"),
+                "rules": [r.model_dump(mode="json") for r in rules],
+            }
         )
 
 
@@ -757,8 +765,7 @@ def test_docx_report_with_reference_rule_findings() -> None:
     )
     assert expected_prov in full_text
     assert (
-        "Discrepancy with design calculations" in full_text
-        or "Confirmed discrepancy" in full_text
+        "Discrepancy with design calculations" in full_text or "Confirmed discrepancy" in full_text
     )
     assert "Align specification and design parameters with ASME BPVC.VIII.1" in full_text
 
@@ -772,9 +779,7 @@ def test_docx_report_with_reference_rule_findings() -> None:
     # Reference standards verification section contains all 4 standards
     assert "Governed Reference Standards Verification" in full_text
     all_table_text = "\n".join(
-        " ".join(cell.text for cell in row.cells)
-        for t in word_doc.tables
-        for row in t.rows
+        " ".join(cell.text for cell in row.cells) for t in word_doc.tables for row in t.rows
     )
     assert "ASME BPVC.VIII.1" in all_table_text
     assert "API RP 580" in all_table_text

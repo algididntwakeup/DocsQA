@@ -290,9 +290,7 @@ class DocumentLayoutInspector:
 
         return anomalies
 
-    def detect_unintended_whitespace(
-        self, page_metrics: list[PageMetric]
-    ) -> list[LayoutAnomaly]:
+    def detect_unintended_whitespace(self, page_metrics: list[PageMetric]) -> list[LayoutAnomaly]:
         """
         Detect pages in the middle of a document with text utilization ratio < 25%
         (void or largely blank pages before transitioning to subsequent sections).
@@ -399,11 +397,7 @@ class DocumentLayoutInspector:
             )
             hf_text = f"{page.header_text or ''} {page.footer_text or ''}".strip()
             if not has_page_num:
-                text_to_search = (
-                    page.raw_text
-                    or hf_text
-                    or " ".join(b.text for b in page.blocks)
-                )
+                text_to_search = page.raw_text or hf_text or " ".join(b.text for b in page.blocks)
                 has_page_num = bool(_PAGE_NUMBER_PATTERN.search(text_to_search))
             if not has_page_num:
                 missing_elements.append("page_number")
@@ -421,9 +415,7 @@ class DocumentLayoutInspector:
                 )
                 if not has_doc_num:
                     text_to_search = (
-                        page.raw_text
-                        or hf_text
-                        or " ".join(b.text for b in page.blocks)
+                        page.raw_text or hf_text or " ".join(b.text for b in page.blocks)
                     )
                     has_doc_num = bool(_DOC_NUMBER_PATTERN.search(text_to_search))
 

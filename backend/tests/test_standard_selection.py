@@ -116,9 +116,7 @@ def test_auto_detection_skips_unconfigured_packs(tmp_path: Path) -> None:
     }
     # Simulate the selection filter directly:
     candidates = [
-        p
-        for p in (live, dead)
-        if _match_key(p.manifest.standard_code) == _match_key("API RP 580")
+        p for p in (live, dead) if _match_key(p.manifest.standard_code) == _match_key("API RP 580")
     ]
     assert {p.manifest.status for p in candidates} == {"UNCONFIGURED"}
     # And confirm resolve skips both (neither pack_id appears anywhere active).
@@ -166,9 +164,7 @@ def test_unknown_citation_activates_nothing() -> None:
 def test_explicit_selection_overrides_and_adds() -> None:
     """Explicit IDs activate packs even with zero matching citations."""
     resolver = PackResolver()
-    active = resolver.resolve_active_packs(
-        [], explicit_pack_ids=["asme_sec_viii_div1"]
-    )
+    active = resolver.resolve_active_packs([], explicit_pack_ids=["asme_sec_viii_div1"])
     assert [p.manifest.pack_id for p in active] == ["asme_sec_viii_div1"]
 
 
@@ -213,9 +209,7 @@ def test_tenant_custom_packs_are_discovered(tmp_path: Path) -> None:
         ids = [p.manifest.pack_id for p in available]
         assert "cust_acme" in ids
 
-        active = resolver.resolve_active_packs(
-            ["ACME SPEC 1"], tenant_id=tenant_id
-        )
+        active = resolver.resolve_active_packs(["ACME SPEC 1"], tenant_id=tenant_id)
         assert [p.manifest.pack_id for p in active] == ["cust_acme"]
     finally:
         PackResolver._tenant_packs_dir = original  # type: ignore[method-assign]
@@ -272,9 +266,7 @@ def test_multi_pack_rule_ids_never_collide() -> None:
     assert asme is not None and api is not None
 
     all_ids = [
-        rule_id
-        for pack in (asme, api)
-        for rule_id, _rule in prefix_rule_ids(pack, tenant_id=None)
+        rule_id for pack in (asme, api) for rule_id, _rule in prefix_rule_ids(pack, tenant_id=None)
     ]
     assert len(all_ids) == len(set(all_ids))
     assert all_ids == sorted(set(all_ids)) or len(all_ids) >= len(set(all_ids))
@@ -313,9 +305,7 @@ def _analysis_payload(codes: list[str]) -> str:
 
 def test_pipeline_selects_packs_from_artifact() -> None:
     """select_reference_packs runs only citation-relevant CONFIGURED packs."""
-    rule_ids = select_reference_packs(
-        _analysis_payload(["ASME BPVC.VIII.1", "API RP 580"])
-    )
+    rule_ids = select_reference_packs(_analysis_payload(["ASME BPVC.VIII.1", "API RP 580"]))
     # API RP 580 is UNCONFIGURED: only ASME rules come back.
     assert rule_ids
     assert all(rid.startswith("sys:asme_sec_viii_div1:") for rid in rule_ids)

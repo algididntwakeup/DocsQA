@@ -416,4 +416,3 @@ def test_backward_compatibility_issue_payload() -> None:
         assert data["counts_by_severity"]["LOW"] == 1
     finally:
         app.dependency_overrides.pop(get_session, None)
-

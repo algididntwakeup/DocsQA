@@ -35,8 +35,8 @@ from schemas.extraction import PageBlock, PDFPage
 from services.budinski_evaluator import BudinskiEvaluator
 from services.export import generate_ale_review_docx
 from services.layout_inspector import DocumentLayoutInspector
-from tests.canonical_ale_fixture import create_canonical_ale_assessment_data
 from services.standard_traceability import STANDARD_PATTERNS
+from tests.canonical_ale_fixture import create_canonical_ale_assessment_data
 
 FIXTURE_PATH = (
     Path(__file__).parent.parent.parent
@@ -144,7 +144,27 @@ class TestMEPGReviewPipelineE2E:
         )
         # Verify page indices match the 21 data pages in Appendices A to E
         expected_indices = [
-            31, 32, 33, 34, 35, 36, 37, 39, 40, 41, 42, 43, 45, 46, 47, 48, 50, 51, 52, 53, 55,
+            31,
+            32,
+            33,
+            34,
+            35,
+            36,
+            37,
+            39,
+            40,
+            41,
+            42,
+            43,
+            45,
+            46,
+            47,
+            48,
+            50,
+            51,
+            52,
+            53,
+            55,
         ]
         actual_indices = sorted(a.page_index for a in missing_doc_anomalies)
         assert actual_indices == expected_indices

@@ -10,11 +10,13 @@ from __future__ import annotations
 
 import io
 from pathlib import Path
+from typing import Any
 
 import docx
 import pytest
 from docx.document import Document as DocxDocument
 
+from domain.enums import ReportLanguage
 from schemas.budinski import (
     AssessmentData,
     AssessmentMetadata,
@@ -26,8 +28,6 @@ from schemas.budinski import (
     StyleGroup,
     TechnicalContentGroup,
 )
-from tests.canonical_ale_fixture import create_canonical_ale_assessment_data
-from domain.enums import ReportLanguage
 from services.docx_styler import create_callout_box, format_table_header, set_cell_shading
 from services.export import (
     LibreOfficeConversionError,
@@ -37,6 +37,7 @@ from services.export import (
     generate_ale_review_docx,
 )
 from services.report_synthesizer import ReportSynthesizer
+from tests.canonical_ale_fixture import create_canonical_ale_assessment_data
 
 
 def _extract_all_doc_text(doc: DocxDocument) -> str:
@@ -662,12 +663,16 @@ class TestBilingualStrictIsolation:
             "Parameter Daftar Periksa",
         ]
         for word in indonesian_forbidden:
-            assert word not in full_text, f"Found unexpected Indonesian string in English report: '{word}'"
+            assert word not in full_text, (
+                f"Found unexpected Indonesian string in English report: '{word}'"
+            )
 
     def test_strict_indonesian_purity(self, canonical_assessment: AssessmentData) -> None:
         """Language=id must have full Indonesian boilerplate and zero English boilerplate."""
         canonical_assessment.metadata.not_covered = "Kecukupan rekayasa sendiri."
-        docx_bytes = generate_ale_review_docx(canonical_assessment, language=ReportLanguage.INDONESIAN)
+        docx_bytes = generate_ale_review_docx(
+            canonical_assessment, language=ReportLanguage.INDONESIAN
+        )
         doc = docx.Document(io.BytesIO(docx_bytes))
         full_text = _extract_all_doc_text(doc)
 
@@ -704,7 +709,9 @@ class TestBilingualStrictIsolation:
             "Reviewer Note",
         ]
         for phrase in english_forbidden:
-            assert phrase not in full_text, f"Found untranslated English phrase in Indonesian report: '{phrase}'"
+            assert phrase not in full_text, (
+                f"Found untranslated English phrase in Indonesian report: '{phrase}'"
+            )
 
 
 class TestLibreOfficePDFConversion:
@@ -715,7 +722,9 @@ class TestLibreOfficePDFConversion:
         with pytest.raises(FileNotFoundError):
             convert_docx_to_pdf(tmp_path / "nonexistent.docx", tmp_path)
 
-    def test_convert_docx_to_pdf_mock_subprocess(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_convert_docx_to_pdf_mock_subprocess(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """convert_docx_to_pdf invokes headless command and verifies PDF output existence."""
         import subprocess
 
@@ -739,7 +748,9 @@ class TestLibreOfficePDFConversion:
         assert result_path.exists()
         assert result_path.read_bytes().startswith(b"%PDF-")
 
-    def test_convert_docx_to_pdf_error_handling(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_convert_docx_to_pdf_error_handling(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """convert_docx_to_pdf raises LibreOfficeConversionError on non-zero exit code."""
         import subprocess
 

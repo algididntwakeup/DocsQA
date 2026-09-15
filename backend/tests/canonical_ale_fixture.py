@@ -1,7 +1,6 @@
 from collections.abc import Sequence
 from typing import Any
 
-from schemas.extraction import LayoutAnomaly
 from schemas.budinski import (
     AssessmentData,
     AssessmentMetadata,
@@ -17,6 +16,7 @@ from schemas.budinski import (
     StyleGroup,
     TechnicalContentGroup,
 )
+from schemas.extraction import LayoutAnomaly
 from services.budinski_evaluator import BudinskiEvaluator
 
 
@@ -27,6 +27,7 @@ class CanonicalEvaluator(BudinskiEvaluator):
         layout_anomalies: Sequence[LayoutAnomaly | dict[str, Any]] | None = None,
     ) -> BudinskiScorecard:
         return self._build_ale_baseline_scorecard(doc_sections, layout_anomalies or [])
+
     def _build_ale_baseline_scorecard(
         self,
         doc_sections: dict[str, Any],
@@ -367,7 +368,6 @@ class CanonicalEvaluator(BudinskiEvaluator):
             minors_count=minors,
             review_score_string=score_string,
         )
-
 
 
 def create_canonical_ale_assessment_data() -> AssessmentData:

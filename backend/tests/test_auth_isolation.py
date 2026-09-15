@@ -64,20 +64,32 @@ def test_lead_scope_query_does_not_add_owner_filter() -> None:
 
 def test_document_read_access_isolated_for_engineer_and_global_for_lead_roles() -> None:
     owner = User(
-        id=uuid4(), email="owner@example.test", hashed_password="unused",
-        full_name="Owner", role=UserRole.ENGINEER,
+        id=uuid4(),
+        email="owner@example.test",
+        hashed_password="unused",
+        full_name="Owner",
+        role=UserRole.ENGINEER,
     )
     other_engineer = User(
-        id=uuid4(), email="other@example.test", hashed_password="unused",
-        full_name="Other", role=UserRole.ENGINEER,
+        id=uuid4(),
+        email="other@example.test",
+        hashed_password="unused",
+        full_name="Other",
+        role=UserRole.ENGINEER,
     )
     lead = User(
-        id=uuid4(), email="lead@example.test", hashed_password="unused",
-        full_name="Lead", role=UserRole.LEAD_ENGINEER,
+        id=uuid4(),
+        email="lead@example.test",
+        hashed_password="unused",
+        full_name="Lead",
+        role=UserRole.LEAD_ENGINEER,
     )
     superuser = User(
-        id=uuid4(), email="admin@example.test", hashed_password="unused",
-        full_name="Admin", role=UserRole.SUPERUSER,
+        id=uuid4(),
+        email="admin@example.test",
+        hashed_password="unused",
+        full_name="Admin",
+        role=UserRole.SUPERUSER,
     )
     document = Document(owner_id=owner.id, assigned_to_id=None)
 
@@ -90,24 +102,39 @@ def test_document_read_access_project_aware_for_engineers() -> None:
     from models.project import Project
 
     owner = User(
-        id=uuid4(), email="owner@example.test", hashed_password="unused",
-        full_name="Owner", role=UserRole.ENGINEER,
+        id=uuid4(),
+        email="owner@example.test",
+        hashed_password="unused",
+        full_name="Owner",
+        role=UserRole.ENGINEER,
     )
     doc_pic = User(
-        id=uuid4(), email="doc_pic@example.test", hashed_password="unused",
-        full_name="Doc PIC", role=UserRole.ENGINEER,
+        id=uuid4(),
+        email="doc_pic@example.test",
+        hashed_password="unused",
+        full_name="Doc PIC",
+        role=UserRole.ENGINEER,
     )
     project_lead_assigned = User(
-        id=uuid4(), email="proj_assigned@example.test", hashed_password="unused",
-        full_name="Project Assignee", role=UserRole.ENGINEER,
+        id=uuid4(),
+        email="proj_assigned@example.test",
+        hashed_password="unused",
+        full_name="Project Assignee",
+        role=UserRole.ENGINEER,
     )
     project_creator = User(
-        id=uuid4(), email="proj_creator@example.test", hashed_password="unused",
-        full_name="Project Creator", role=UserRole.ENGINEER,
+        id=uuid4(),
+        email="proj_creator@example.test",
+        hashed_password="unused",
+        full_name="Project Creator",
+        role=UserRole.ENGINEER,
     )
     unrelated_engineer = User(
-        id=uuid4(), email="unrelated@example.test", hashed_password="unused",
-        full_name="Unrelated", role=UserRole.ENGINEER,
+        id=uuid4(),
+        email="unrelated@example.test",
+        hashed_password="unused",
+        full_name="Unrelated",
+        role=UserRole.ENGINEER,
     )
 
     project = Project(
@@ -144,8 +171,12 @@ def _request_with_cookie(value: str | None) -> Request:
 @pytest.mark.anyio
 async def test_cookie_token_has_priority_over_authorization_header() -> None:
     user = User(
-        id=uuid4(), email="cookie@example.test", hashed_password="unused",
-        full_name="Cookie User", role=UserRole.ENGINEER, is_active=True,
+        id=uuid4(),
+        email="cookie@example.test",
+        hashed_password="unused",
+        full_name="Cookie User",
+        role=UserRole.ENGINEER,
+        is_active=True,
     )
     session = AsyncMock()
     session.execute.return_value = type("Result", (), {"scalar_one_or_none": lambda self: user})()
@@ -175,8 +206,12 @@ async def test_expired_cookie_is_reported_explicitly() -> None:
 @pytest.mark.anyio
 async def test_engineer_cannot_pass_lead_guard() -> None:
     engineer = User(
-        id=uuid4(), email="engineer@example.test", hashed_password="unused",
-        full_name="Engineer", role=UserRole.ENGINEER, is_active=True,
+        id=uuid4(),
+        email="engineer@example.test",
+        hashed_password="unused",
+        full_name="Engineer",
+        role=UserRole.ENGINEER,
+        is_active=True,
     )
 
     with pytest.raises(HTTPException) as error:
@@ -189,6 +224,7 @@ def test_logout_expires_access_cookie() -> None:
     response = Response()
 
     import asyncio
+
     asyncio.run(logout(response))
 
     assert 'access_token="";' in response.headers["set-cookie"]
@@ -202,8 +238,12 @@ def _result(value):
 @pytest.mark.anyio
 async def test_profile_update_changes_name_and_normalizes_email() -> None:
     user = User(
-        id=uuid4(), email="old@example.test", hashed_password="unused",
-        full_name="Old Name", role=UserRole.ENGINEER, is_active=True,
+        id=uuid4(),
+        email="old@example.test",
+        hashed_password="unused",
+        full_name="Old Name",
+        role=UserRole.ENGINEER,
+        is_active=True,
         created_at=datetime.now(UTC),
     )
     session = AsyncMock()
@@ -223,8 +263,12 @@ async def test_profile_update_changes_name_and_normalizes_email() -> None:
 @pytest.mark.anyio
 async def test_user_cannot_deactivate_themselves() -> None:
     user = User(
-        id=uuid4(), email="lead@example.test", hashed_password="unused",
-        full_name="Lead", role=UserRole.LEAD_ENGINEER, is_active=True,
+        id=uuid4(),
+        email="lead@example.test",
+        hashed_password="unused",
+        full_name="Lead",
+        role=UserRole.LEAD_ENGINEER,
+        is_active=True,
     )
     with pytest.raises(HTTPException, match="Cannot deactivate your own account") as error:
         await update_user_status(user.id, UserStatusUpdate(is_active=False), AsyncMock(), user)
@@ -234,12 +278,20 @@ async def test_user_cannot_deactivate_themselves() -> None:
 @pytest.mark.anyio
 async def test_last_active_lead_cannot_be_deactivated() -> None:
     lead = User(
-        id=uuid4(), email="lead@example.test", hashed_password="unused",
-        full_name="Lead", role=UserRole.LEAD_ENGINEER, is_active=True,
+        id=uuid4(),
+        email="lead@example.test",
+        hashed_password="unused",
+        full_name="Lead",
+        role=UserRole.LEAD_ENGINEER,
+        is_active=True,
     )
     target = User(
-        id=uuid4(), email="other-lead@example.test", hashed_password="unused",
-        full_name="Other Lead", role=UserRole.LEAD_ENGINEER, is_active=True,
+        id=uuid4(),
+        email="other-lead@example.test",
+        hashed_password="unused",
+        full_name="Other Lead",
+        role=UserRole.LEAD_ENGINEER,
+        is_active=True,
     )
     session = AsyncMock()
     session.execute.return_value = _result(target)

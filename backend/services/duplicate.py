@@ -61,10 +61,7 @@ def _clean_text(text: str) -> str:
 
 def _substantive_tokens(text: str) -> set[str]:
     """Return normalized tokens useful for cheap duplicate candidate pruning."""
-    return {
-        token
-        for token in re.findall(rf"[a-z0-9]{{{MIN_TOKEN_LENGTH},}}", text.lower())
-    }
+    return {token for token in re.findall(rf"[a-z0-9]{{{MIN_TOKEN_LENGTH},}}", text.lower())}
 
 
 def _is_boilerplate(text: str) -> bool:

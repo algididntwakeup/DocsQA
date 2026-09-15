@@ -211,12 +211,18 @@ def build_review_report(
 
     title = report.add_paragraph(style="Title")
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    title.add_run("DOCUMENT REVIEW ENGINEERING" if is_english else "REKAYASA TINJAUAN KUALITAS DOKUMEN")
+    title.add_run(
+        "DOCUMENT REVIEW ENGINEERING" if is_english else "REKAYASA TINJAUAN KUALITAS DOKUMEN"
+    )
     subtitle = report.add_paragraph()
     subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
     doc_prefix = "Review of" if is_english else "Tinjauan atas"
     subtitle.add_run(f"{doc_prefix} {document.original_filename}").bold = True
-    basis_text = "Basis: deterministic internal-consistency review profile." if is_english else "Dasar: profil tinjauan konsistensi internal deterministik."
+    basis_text = (
+        "Basis: deterministic internal-consistency review profile."
+        if is_english
+        else "Dasar: profil tinjauan konsistensi internal deterministik."
+    )
     report.add_paragraph(basis_text)
 
     report.add_heading(strings.summary_judgement, level=1)
@@ -256,7 +262,8 @@ def build_review_report(
         )
     else:
         report.add_paragraph(
-            "KESIMPULAN UTAMA  Selesaikan temuan penghalang yang tercantum sebelum penerbitan ulang, lalu perbarui "
+            "KESIMPULAN UTAMA  Selesaikan temuan penghalang yang tercantum sebelum "
+            "penerbitan ulang, lalu perbarui "
             "navigasi dokumen dan tinjau semua nilai rujukan."
         )
 
@@ -288,29 +295,41 @@ def build_review_report(
     baseline_table = report.add_table(rows=1, cols=3)
     baseline_table.style = "Table Grid"
     for cell, label in zip(
-        baseline_table.rows[0].cells, (strings.measure_header, strings.result_header, strings.evidence_header), strict=False
+        baseline_table.rows[0].cells,
+        (strings.measure_header, strings.result_header, strings.evidence_header),
+        strict=False,
     ):
         cell.text = label
     baseline_rows = (
         (
             strings.measure_purpose_name,
-            strings.outcome_pass if any("purpose" in i.message.lower() for i in budinski) is False else ("REVIEW" if is_english else "TINJAU"),
-            "Extracted purpose/objective signals" if is_english else "Sinyal tujuan/sasaran yang diekstrak",
+            strings.outcome_pass
+            if any("purpose" in i.message.lower() for i in budinski) is False
+            else ("REVIEW" if is_english else "TINJAU"),
+            "Extracted purpose/objective signals"
+            if is_english
+            else "Sinyal tujuan/sasaran yang diekstrak",
         ),
         (
             strings.measure_procedure_name,
             "REVIEW" if is_english else "TINJAU",
-            "Procedure and methodology text extracted from source" if is_english else "Teks prosedur dan metodologi diekstrak dari sumber",
+            "Procedure and methodology text extracted from source"
+            if is_english
+            else "Teks prosedur dan metodologi diekstrak dari sumber",
         ),
         (
             strings.measure_conclusions_name,
             "REVIEW" if is_english else "TINJAU",
-            "Conclusion section and cross-page findings" if is_english else "Bagian kesimpulan dan temuan lintas halaman",
+            "Conclusion section and cross-page findings"
+            if is_english
+            else "Bagian kesimpulan dan temuan lintas halaman",
         ),
         (
             strings.measure_recommendations_name,
             "REVIEW" if is_english else "TINJAU",
-            "Owner/date evidence is checked where available" if is_english else "Bukti pemilik/tenggat waktu diperiksa jika tersedia",
+            "Owner/date evidence is checked where available"
+            if is_english
+            else "Bukti pemilik/tenggat waktu diperiksa jika tersedia",
         ),
     )
     for label, result, evidence in baseline_rows:
@@ -471,12 +490,16 @@ def build_review_report(
         if is_english:
             report.add_paragraph(
                 "Language and mechanics findings are consolidated by rule to keep the report "
-                "actionable without repeating every individual token: " + "; ".join(summary_parts) + "."
+                "actionable without repeating every individual token: "
+                + "; ".join(summary_parts)
+                + "."
             )
         else:
             report.add_paragraph(
                 "Temuan bahasa dan mekanika dikonsolidasikan menurut aturan agar laporan tetap "
-                "dapat ditindaklanjuti tanpa mengulang setiap kata: " + "; ".join(summary_parts) + "."
+                "dapat ditindaklanjuti tanpa mengulang setiap kata: "
+                + "; ".join(summary_parts)
+                + "."
             )
 
     report.add_heading(strings.limits_of_review, level=1)
@@ -491,14 +514,21 @@ def build_review_report(
         )
     else:
         report.add_paragraph(
-            "Ini adalah tinjauan konsistensi internal dan kualitas dokumen. Tinjauan ini tidak menyetujui "
-            "pekerjaan rekayasa, mensertifikasi keselamatan, atau memvalidasi kelayakan desain maupun kepatuhan eksternal."
+            "Ini adalah tinjauan konsistensi internal dan kualitas dokumen. Tinjauan ini "
+            "tidak menyetujui pekerjaan rekayasa, mensertifikasi keselamatan, atau "
+            "memvalidasi kelayakan desain maupun kepatuhan eksternal."
         )
         report.add_paragraph(
-            "DocsQA tidak menyetujui desain, memverifikasi keselamatan rekayasa, atau menggantikan pertimbangan "
+            "DocsQA tidak menyetujui desain, memverifikasi keselamatan rekayasa, atau "
+            "menggantikan pertimbangan "
             "insinyur profesional berlisensi."
         )
-    report.add_heading("Governed Reference Standards Verification" if is_english else "Verifikasi Standar Acuan Terkelola", level=1)
+    report.add_heading(
+        "Governed Reference Standards Verification"
+        if is_english
+        else "Verifikasi Standar Acuan Terkelola",
+        level=1,
+    )
     standards_table = report.add_table(rows=1, cols=2)
     standards_table.style = "Table Grid"
     standards_table.rows[0].cells[0].text = "Reference standard" if is_english else "Standar acuan"
@@ -512,7 +542,11 @@ def build_review_report(
         cells = standards_table.add_row().cells
         cells[0].text = standard
         cells[1].text = status
-    report.add_paragraph("REVIEWSCORE | generated deterministically from included findings" if is_english else "REVIEWSCORE | dibuat secara deterministik dari temuan yang disertakan")
+    report.add_paragraph(
+        "REVIEWSCORE | generated deterministically from included findings"
+        if is_english
+        else "REVIEWSCORE | dibuat secara deterministik dari temuan yang disertakan"
+    )
     output = io.BytesIO()
     report.save(output)
     return output.getvalue()

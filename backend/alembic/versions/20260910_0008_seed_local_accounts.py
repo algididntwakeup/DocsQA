@@ -37,9 +37,12 @@ def upgrade() -> None:
         .values(hashed_password=ENGINEER_PASSWORD_HASH)
     )
     connection = op.get_bind()
-    if connection.execute(
-        sa.select(users.c.id).where(users.c.email == "admin@localhost")
-    ).scalar_one_or_none() is None:
+    if (
+        connection.execute(
+            sa.select(users.c.id).where(users.c.email == "admin@localhost")
+        ).scalar_one_or_none()
+        is None
+    ):
         op.bulk_insert(
             users,
             [

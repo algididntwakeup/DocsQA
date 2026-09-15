@@ -84,9 +84,7 @@ class Document(TimestampMixin, Base):
     assigned_to_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("users.id"), nullable=True, index=True
     )
-    verified_by_id: Mapped[UUID | None] = mapped_column(
-        ForeignKey("users.id"), nullable=True
-    )
+    verified_by_id: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     workflow_status: Mapped[DocumentWorkflowStatus] = mapped_column(
         Enum(DocumentWorkflowStatus, name="document_workflow_status", native_enum=False),
         default=DocumentWorkflowStatus.ANALYZING,

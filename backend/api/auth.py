@@ -74,8 +74,10 @@ async def login(
     user = (
         await session.execute(select(User).where(User.email == payload.email))
     ).scalar_one_or_none()
-    if user is None or not user.is_active or not verify_password(
-        payload.password, user.hashed_password
+    if (
+        user is None
+        or not user.is_active
+        or not verify_password(payload.password, user.hashed_password)
     ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password."
@@ -198,14 +200,19 @@ async def list_user_assigned_projects(
 ) -> list[AssignedProject]:
     """List projects containing documents assigned to the selected user."""
     projects = (
-        await session.execute(
-            select(Project)
-            .join(Document, Document.project_id == Project.id)
-            .where(Document.assigned_to_id == user_id)
-            .options(joinedload(Project.documents))
-            .order_by(Project.created_at.desc())
+        (
+            await session.execute(
+                select(Project)
+                .join(Document, Document.project_id == Project.id)
+                .where(Document.assigned_to_id == user_id)
+                .options(joinedload(Project.documents))
+                .order_by(Project.created_at.desc())
+            )
         )
-    ).unique().scalars().all()
+        .unique()
+        .scalars()
+        .all()
+    )
     return [
         AssignedProject(
             id=project.id,

@@ -28,9 +28,7 @@ class Project(Base):
     assigned_to_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("users.id"), nullable=True, index=True
     )
-    finished_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

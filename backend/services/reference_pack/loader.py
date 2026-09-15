@@ -198,14 +198,7 @@ class PackResolver:
     def _tenant_packs_dir(self, tenant_id: str) -> Path:
         """``storage/uploads/tenants/{tenant_id}/packs`` — the per-tenant pack store."""
         backend_root = Path(__file__).resolve().parents[2]
-        return (
-            backend_root
-            / "storage"
-            / "uploads"
-            / "tenants"
-            / str(tenant_id)
-            / "packs"
-        )
+        return backend_root / "storage" / "uploads" / "tenants" / str(tenant_id) / "packs"
 
     def _load_custom_pack(self, pack_dir: Path, tenant_id: str) -> ReferencePack | None:
         """Load a tenant custom pack; a broken bundle is skipped, never fatal."""
@@ -260,9 +253,7 @@ class PackResolver:
         for pack_id in explicit_pack_ids or []:
             requested = by_id.get(pack_id)
             if requested is None:
-                raise PackResolutionError(
-                    f"Requested reference pack '{pack_id}' is not available."
-                )
+                raise PackResolutionError(f"Requested reference pack '{pack_id}' is not available.")
             if requested.manifest.status not in _INACTIVE_STATUSES:
                 selected[requested.manifest.pack_id] = requested
 
@@ -298,8 +289,6 @@ def prefix_rule_ids(
     (or duplicate uploads from different tenants) can never collide.
     """
     prefix = (
-        f"usr:{tenant_id}:{pack.manifest.pack_id}"
-        if tenant_id
-        else f"sys:{pack.manifest.pack_id}"
+        f"usr:{tenant_id}:{pack.manifest.pack_id}" if tenant_id else f"sys:{pack.manifest.pack_id}"
     )
     return [(f"{prefix}:{rule.rule_id}", rule) for rule in pack.rules]

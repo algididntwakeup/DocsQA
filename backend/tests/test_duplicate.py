@@ -122,8 +122,7 @@ def test_large_document_uses_bounded_candidate_matching() -> None:
             ExtractionArtifact(
                 document_id=uuid4(),
                 pages=[
-                    PageMetadata(page_index=index, width=612.0, height=792.0)
-                    for index in range(60)
+                    PageMetadata(page_index=index, width=612.0, height=792.0) for index in range(60)
                 ],
                 spans=spans,
             )

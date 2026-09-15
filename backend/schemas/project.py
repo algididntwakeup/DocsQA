@@ -34,6 +34,7 @@ class ProjectRead(ApiModel):
     finished_at: datetime | None = None
     created_at: datetime
 
+
 class ProjectAssignment(ApiModel):
     """Payload used by leads to assign a project to an engineer."""
 

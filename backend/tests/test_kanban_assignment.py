@@ -189,6 +189,7 @@ async def test_lead_assign_allows_active_document_in_another_project() -> None:
     assert active_elsewhere.project_id != target.project_id
     session.commit.assert_awaited_once()
 
+
 @pytest.mark.anyio
 async def test_lead_unassigns_nullable_owner_document() -> None:
     lead = _user(UserRole.LEAD_ENGINEER)
@@ -215,8 +216,12 @@ async def test_assignment_rolls_back_failed_commit_and_can_retry() -> None:
     document = _document()
     session = AsyncMock()
     session.execute.side_effect = [
-        Result(document), Result(engineer), Result(None),
-        Result(document), Result(engineer), Result(None),
+        Result(document),
+        Result(engineer),
+        Result(None),
+        Result(document),
+        Result(engineer),
+        Result(None),
     ]
     session.commit.side_effect = [RuntimeError("transient commit failure"), None]
 

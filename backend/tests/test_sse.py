@@ -103,14 +103,13 @@ async def test_stream_document_events_success() -> None:
 
                 # Parse SSE data chunk
                 data_line = [line for line in content.splitlines() if line.startswith("data: ")][0]
-                payload = json.loads(data_line[len("data: "):])
+                payload = json.loads(data_line[len("data: ") :])
                 assert payload["document_id"] == str(doc_id)
                 assert payload["status"] == "COMPLETED"
                 assert payload["progress_pct"] == 100
                 assert len(payload["stages"]) == 2
     finally:
         app.dependency_overrides.clear()
-
 
 
 @pytest.mark.anyio

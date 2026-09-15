@@ -220,9 +220,7 @@ class PackBundleUpload(ApiModel):
             raise ValueError("Duplicate rule_id in bundle")
         for rule in self.rules:
             if rule.standard_code != self.manifest.standard_code:
-                raise ValueError(
-                    f"Rule {rule.rule_id} standard_code does not match manifest"
-                )
+                raise ValueError(f"Rule {rule.rule_id} standard_code does not match manifest")
         return self
 
 

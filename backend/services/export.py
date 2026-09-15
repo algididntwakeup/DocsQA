@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import io
 import os
-from pathlib import Path
 import shutil
 import subprocess
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 import docx
@@ -24,6 +24,7 @@ from docx.shared import Inches, Pt, RGBColor
 from docx.table import Table, _Cell, _Row
 from pypdf.annotations import Rectangle, Text
 
+from domain.enums import ReportLanguage
 from schemas.budinski import (
     AssessmentData,
     AssessmentMetadata,
@@ -34,7 +35,6 @@ from schemas.budinski import (
     MajorFinding,
     ScoreItem,
 )
-from domain.enums import ReportLanguage
 from services.docx_styler import apply_document_defaults
 from services.report_locale import (
     get_budinski_guidance_note,
@@ -65,7 +65,12 @@ def convert_docx_to_pdf(docx_path: Path, output_dir: Path, timeout: int = 30) ->
     output_dir = Path(output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    binary = os.environ.get("LIBREOFFICE_BIN") or shutil.which("libreoffice") or shutil.which("soffice") or "soffice"
+    binary = (
+        os.environ.get("LIBREOFFICE_BIN")
+        or shutil.which("libreoffice")
+        or shutil.which("soffice")
+        or "soffice"
+    )
     cmd = [
         binary,
         "--headless",
@@ -78,8 +83,7 @@ def convert_docx_to_pdf(docx_path: Path, output_dir: Path, timeout: int = 30) ->
     try:
         result = subprocess.run(
             cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             text=True,
             timeout=timeout,
             check=False,
@@ -96,13 +100,16 @@ def convert_docx_to_pdf(docx_path: Path, output_dir: Path, timeout: int = 30) ->
 
     if result.returncode != 0:
         raise LibreOfficeConversionError(
-            f"LibreOffice conversion failed (exit code {result.returncode}): {result.stderr.strip() or result.stdout.strip()}"
+            "LibreOffice conversion failed "
+            f"(exit code {result.returncode}): "
+            f"{result.stderr.strip() or result.stdout.strip()}"
         )
 
     expected_pdf = output_dir / f"{docx_path.stem}.pdf"
     if not expected_pdf.is_file() or expected_pdf.stat().st_size == 0:
         raise LibreOfficeConversionError(
-            f"LibreOffice reported success but output PDF was not produced or is empty: {expected_pdf}"
+            "LibreOffice reported success but output PDF was not produced or is empty: "
+            f"{expected_pdf}"
         )
 
     return expected_pdf
@@ -210,7 +217,10 @@ def assessment_from_document_findings(
         blockers.append(
             BlockerFinding(
                 number=len(blockers) + 1,
-                title=f"{group.get('finding_codes', group['type'])} ({strings.blocker_title_instances.format(count=group['count'])})",
+                title=(
+                    f"{group.get('finding_codes', group['type'])} "
+                    f"({strings.blocker_title_instances.format(count=group['count'])})"
+                ),
                 where_location=strings.blocker_consolidated_where,
                 what_it_says=group["message"],
                 what_body_has=group.get("excerpt") or strings.blocker_no_source_excerpt,
@@ -248,9 +258,7 @@ def assessment_from_document_findings(
 
     doc_name = getattr(document, "original_filename", "Document" if is_english else "Dokumen")
     metadata = AssessmentMetadata(
-        document_reviewed=(
-            f"{doc_name} | {getattr(document, 'id', '')}"
-        ),
+        document_reviewed=(f"{doc_name} | {getattr(document, 'id', '')}"),
         document_type=str(getattr(document, "document_type", "") or ""),
         reviewer=str(getattr(getattr(document, "verified_by", None), "full_name", "") or ""),
         type_of_review=strings.type_of_review,
@@ -275,8 +283,7 @@ def assessment_from_document_findings(
         scorecard=scorecard,
         what_it_does_well=[],
         limits_of_review=[metadata.not_covered],
-        review_score_string=scorecard.review_score_string
-        or strings.review_score_fallback,
+        review_score_string=scorecard.review_score_string or strings.review_score_fallback,
     )
 
 
@@ -737,7 +744,6 @@ def generate_ale_review_docx(
     verified = getattr(document, "verified_by", None)
     prepared_by = getattr(owner, "full_name", strings.not_supplied)
     checked_by = getattr(verified, "full_name", strings.pending_verification)
-    is_english = language == ReportLanguage.ENGLISH
     meta_entries = [
         (strings.doc_no, meta.document_reviewed),
         (
@@ -1465,7 +1471,9 @@ def generate_ale_review_docx(
         p_b = banner_cell.paragraphs[0]
         p_b.paragraph_format.space_before = Pt(0)
         p_b.paragraph_format.space_after = Pt(0)
-        r_b = p_b.add_run(f"{g_title} — {g_desc}  ({strings.group_average}: {_score_text(g_avg)} / 5.00)")
+        r_b = p_b.add_run(
+            f"{g_title} — {g_desc}  ({strings.group_average}: {_score_text(g_avg)} / 5.00)"
+        )
         r_b.bold = True
         r_b.font.name = "Arial"
         r_b.font.size = Pt(9.5)

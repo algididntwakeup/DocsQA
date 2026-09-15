@@ -199,13 +199,9 @@ class ReferenceRuleEvaluator:
         findings: list[ReferenceFinding] = []
         for rule in self.rules:
             if rule.kind == "range" and rule.range_params:
-                findings.extend(
-                    self._eval_range(rule, rule.range_params, text, page_number)
-                )
+                findings.extend(self._eval_range(rule, rule.range_params, text, page_number))
             elif rule.kind == "unit" and rule.unit_params:
-                findings.extend(
-                    self._eval_unit(rule, rule.unit_params, text, page_number)
-                )
+                findings.extend(self._eval_unit(rule, rule.unit_params, text, page_number))
             elif rule.kind == "numeric_limit" and rule.numeric_limit_params:
                 findings.extend(
                     self._eval_numeric_limit(rule, rule.numeric_limit_params, text, page_number)
@@ -244,13 +240,9 @@ class ReferenceRuleEvaluator:
             # Evaluate range, unit, numeric_limit, and terminology per page
             for rule in self.rules:
                 if rule.kind == "range" and rule.range_params:
-                    all_findings.extend(
-                        self._eval_range(rule, rule.range_params, page_text, p)
-                    )
+                    all_findings.extend(self._eval_range(rule, rule.range_params, page_text, p))
                 elif rule.kind == "unit" and rule.unit_params:
-                    all_findings.extend(
-                        self._eval_unit(rule, rule.unit_params, page_text, p)
-                    )
+                    all_findings.extend(self._eval_unit(rule, rule.unit_params, page_text, p))
                 elif rule.kind == "numeric_limit" and rule.numeric_limit_params:
                     all_findings.extend(
                         self._eval_numeric_limit(rule, rule.numeric_limit_params, page_text, p)
@@ -282,9 +274,7 @@ class ReferenceRuleEvaluator:
         page_number: int,
     ) -> ReferenceFinding:
         compliance_status = (
-            "UNRESOLVED"
-            if rule.requires_engineering_judgement
-            else rule.default_status
+            "UNRESOLVED" if rule.requires_engineering_judgement else rule.default_status
         )
         return ReferenceFinding(
             rule_id=rule.rule_id,
@@ -350,18 +340,26 @@ class ReferenceRuleEvaluator:
                     f"{params.parameter_name} of {val}{unit_suffix} is outside "
                     f"permitted standard range [{min_repr}, {max_repr}]."
                 )
-                msg = rule.message_template.format(
-                    parameter=params.parameter_name,
-                    value=val,
-                    unit=unit,
-                    clause=rule.clause,
-                ) if "{" in rule.message_template else rule.message_template
-                rec = rule.recommendation_template.format(
-                    parameter=params.parameter_name,
-                    min_val=params.min_value,
-                    max_val=params.max_value,
-                    clause=rule.clause,
-                ) if "{" in rule.recommendation_template else rule.recommendation_template
+                msg = (
+                    rule.message_template.format(
+                        parameter=params.parameter_name,
+                        value=val,
+                        unit=unit,
+                        clause=rule.clause,
+                    )
+                    if "{" in rule.message_template
+                    else rule.message_template
+                )
+                rec = (
+                    rule.recommendation_template.format(
+                        parameter=params.parameter_name,
+                        min_val=params.min_value,
+                        max_val=params.max_value,
+                        clause=rule.clause,
+                    )
+                    if "{" in rule.recommendation_template
+                    else rule.recommendation_template
+                )
 
                 findings.append(
                     self._create_finding(
@@ -406,17 +404,25 @@ class ReferenceRuleEvaluator:
                     f"Non-standard or forbidden unit '{detected_unit}' used for "
                     f"{params.parameter_name}."
                 )
-                msg = rule.message_template.format(
-                    parameter=params.parameter_name,
-                    unit=detected_unit,
-                    clause=rule.clause,
-                ) if "{" in rule.message_template else rule.message_template
-                rec = rule.recommendation_template.format(
-                    parameter=params.parameter_name,
-                    canonical=params.canonical_unit,
-                    allowed=", ".join(params.allowed_units),
-                    clause=rule.clause,
-                ) if "{" in rule.recommendation_template else rule.recommendation_template
+                msg = (
+                    rule.message_template.format(
+                        parameter=params.parameter_name,
+                        unit=detected_unit,
+                        clause=rule.clause,
+                    )
+                    if "{" in rule.message_template
+                    else rule.message_template
+                )
+                rec = (
+                    rule.recommendation_template.format(
+                        parameter=params.parameter_name,
+                        canonical=params.canonical_unit,
+                        allowed=", ".join(params.allowed_units),
+                        clause=rule.clause,
+                    )
+                    if "{" in rule.recommendation_template
+                    else rule.recommendation_template
+                )
 
                 findings.append(
                     self._create_finding(
@@ -474,18 +480,26 @@ class ReferenceRuleEvaluator:
                     f"{params.parameter_name} value {val} violates standard limit "
                     f"({params.operator} {lim})."
                 )
-                msg = rule.message_template.format(
-                    parameter=params.parameter_name,
-                    value=val,
-                    limit=lim,
-                    clause=rule.clause,
-                ) if "{" in rule.message_template else rule.message_template
-                rec = rule.recommendation_template.format(
-                    parameter=params.parameter_name,
-                    limit=lim,
-                    operator=params.operator,
-                    clause=rule.clause,
-                ) if "{" in rule.recommendation_template else rule.recommendation_template
+                msg = (
+                    rule.message_template.format(
+                        parameter=params.parameter_name,
+                        value=val,
+                        limit=lim,
+                        clause=rule.clause,
+                    )
+                    if "{" in rule.message_template
+                    else rule.message_template
+                )
+                rec = (
+                    rule.recommendation_template.format(
+                        parameter=params.parameter_name,
+                        limit=lim,
+                        operator=params.operator,
+                        clause=rule.clause,
+                    )
+                    if "{" in rule.recommendation_template
+                    else rule.recommendation_template
+                )
 
                 findings.append(
                     self._create_finding(
@@ -525,15 +539,23 @@ class ReferenceRuleEvaluator:
                     f"Non-standard terminology '{match.group(0)}' used instead of governed "
                     f"term '{params.preferred_term}'."
                 )
-                msg = rule.message_template.format(
-                    deprecated=match.group(0),
-                    preferred=params.preferred_term,
-                    clause=rule.clause,
-                ) if "{" in rule.message_template else rule.message_template
-                rec = rule.recommendation_template.format(
-                    preferred=params.preferred_term,
-                    clause=rule.clause,
-                ) if "{" in rule.recommendation_template else rule.recommendation_template
+                msg = (
+                    rule.message_template.format(
+                        deprecated=match.group(0),
+                        preferred=params.preferred_term,
+                        clause=rule.clause,
+                    )
+                    if "{" in rule.message_template
+                    else rule.message_template
+                )
+                rec = (
+                    rule.recommendation_template.format(
+                        preferred=params.preferred_term,
+                        clause=rule.clause,
+                    )
+                    if "{" in rule.recommendation_template
+                    else rule.recommendation_template
+                )
 
                 findings.append(
                     self._create_finding(
@@ -587,15 +609,23 @@ class ReferenceRuleEvaluator:
                 + (f" clause {params.required_clause}" if params.required_clause else "")
                 + "."
             )
-            msg = rule.message_template.format(
-                trigger=triggered_keyword,
-                required_standard=params.required_standard,
-                clause=rule.clause,
-            ) if "{" in rule.message_template else rule.message_template
-            rec = rule.recommendation_template.format(
-                required_standard=params.required_standard,
-                clause=rule.clause,
-            ) if "{" in rule.recommendation_template else rule.recommendation_template
+            msg = (
+                rule.message_template.format(
+                    trigger=triggered_keyword,
+                    required_standard=params.required_standard,
+                    clause=rule.clause,
+                )
+                if "{" in rule.message_template
+                else rule.message_template
+            )
+            rec = (
+                rule.recommendation_template.format(
+                    required_standard=params.required_standard,
+                    clause=rule.clause,
+                )
+                if "{" in rule.recommendation_template
+                else rule.recommendation_template
+            )
 
             findings.append(
                 self._create_finding(
@@ -633,8 +663,7 @@ class RuleEvaluator:
     def __init__(self, pack_id: str, rules: list[RuleDefinition]) -> None:
         if len(rules) > MAX_RULES_PER_RUN:
             raise ValueError(
-                f"Rule set exceeds maximum of {MAX_RULES_PER_RUN} rules per run "
-                f"(got {len(rules)})."
+                f"Rule set exceeds maximum of {MAX_RULES_PER_RUN} rules per run (got {len(rules)})."
             )
         self.pack_id = pack_id
         self.rules = rules
@@ -768,20 +797,34 @@ class RuleEvaluator:
         page = self._page(facts)
 
         if not self._regex_search(trigger, text):
-            return self._result(base, facts, page, RuleEvaluationStatus.NOT_APPLICABLE,
-                                detected_fact=None)
+            return self._result(
+                base, facts, page, RuleEvaluationStatus.NOT_APPLICABLE, detected_fact=None
+            )
 
         for ex in exemptions:
             if self._regex_search(str(ex), text):
-                return self._result(base, facts, page, RuleEvaluationStatus.PASS,
-                                    detected_fact=f"Exemption present: '{ex}'",
-                                    confidence=0.8)
+                return self._result(
+                    base,
+                    facts,
+                    page,
+                    RuleEvaluationStatus.PASS,
+                    detected_fact=f"Exemption present: '{ex}'",
+                    confidence=0.8,
+                )
 
         if self._regex_search(required, text):
-            return self._result(base, facts, page, RuleEvaluationStatus.PASS,
-                                detected_fact=f"Citation to {required} present.")
+            return self._result(
+                base,
+                facts,
+                page,
+                RuleEvaluationStatus.PASS,
+                detected_fact=f"Citation to {required} present.",
+            )
         return self._result(
-            base, facts, page, RuleEvaluationStatus.FINDING,
+            base,
+            facts,
+            page,
+            RuleEvaluationStatus.FINDING,
             detected_fact=(
                 f"Document triggers '{trigger.strip(chr(92) + 'b') or trigger}' content "
                 f"without citing {required}."
@@ -802,17 +845,25 @@ class RuleEvaluator:
 
         match = self._regex_search(citation_pattern, text)
         if match is None:
-            return self._result(base, facts, page, RuleEvaluationStatus.NOT_APPLICABLE,
-                                detected_fact=None)
+            return self._result(
+                base, facts, page, RuleEvaluationStatus.NOT_APPLICABLE, detected_fact=None
+            )
         cited_edition = (match.group(1) if match.groups() else match.group(0)).strip()
         if expected_edition and cited_edition == expected_edition:
-            return self._result(base, facts, page, RuleEvaluationStatus.PASS,
-                                detected_fact=f"Cited edition {cited_edition} matches.")
+            return self._result(
+                base,
+                facts,
+                page,
+                RuleEvaluationStatus.PASS,
+                detected_fact=f"Cited edition {cited_edition} matches.",
+            )
         return self._result(
-            base, facts, page, RuleEvaluationStatus.FINDING,
+            base,
+            facts,
+            page,
+            RuleEvaluationStatus.FINDING,
             detected_fact=(
-                f"Cited edition '{cited_edition}' does not match pack edition "
-                f"'{expected_edition}'."
+                f"Cited edition '{cited_edition}' does not match pack edition '{expected_edition}'."
             ),
             confidence=0.9,
         )
@@ -831,13 +882,26 @@ class RuleEvaluator:
 
         section_data = fields.get(section) if isinstance(fields, dict) else None
         if section_data is None:
-            return self._result(base, facts, page, RuleEvaluationStatus.NOT_APPLICABLE,
-                                detected_fact=f"Section '{section}' not found in document.")
+            return self._result(
+                base,
+                facts,
+                page,
+                RuleEvaluationStatus.NOT_APPLICABLE,
+                detected_fact=f"Section '{section}' not found in document.",
+            )
         if isinstance(section_data, dict) and field in section_data:
-            return self._result(base, facts, page, RuleEvaluationStatus.PASS,
-                                detected_fact=f"Field '{field}' present in '{section}'.")
+            return self._result(
+                base,
+                facts,
+                page,
+                RuleEvaluationStatus.PASS,
+                detected_fact=f"Field '{field}' present in '{section}'.",
+            )
         return self._result(
-            base, facts, page, RuleEvaluationStatus.FINDING,
+            base,
+            facts,
+            page,
+            RuleEvaluationStatus.FINDING,
             detected_fact=f"Required field '{field}' missing from section '{section}'.",
         )
 
@@ -857,8 +921,13 @@ class RuleEvaluator:
 
         match = self._regex_search(pattern, text)
         if match is None:
-            return self._result(base, facts, self._page(facts),
-                                RuleEvaluationStatus.NOT_APPLICABLE, detected_fact=None)
+            return self._result(
+                base,
+                facts,
+                self._page(facts),
+                RuleEvaluationStatus.NOT_APPLICABLE,
+                detected_fact=None,
+            )
         raw = (match.group(1) if match.groups() else match.group(0)).replace(",", "")
         try:
             value = float(raw)
@@ -869,24 +938,33 @@ class RuleEvaluator:
             low_ok = value >= min_value if inclusive_min else value > min_value
             if not low_ok:
                 return self._result(
-                    base, facts, self._page(facts), RuleEvaluationStatus.FINDING,
+                    base,
+                    facts,
+                    self._page(facts),
+                    RuleEvaluationStatus.FINDING,
                     detected_fact=(
-                        f"Value {value} is below the minimum {min_value} "
-                        f"of the permitted range."
+                        f"Value {value} is below the minimum {min_value} of the permitted range."
                     ),
                 )
         if max_value is not None:
             high_ok = value <= max_value if inclusive_max else value < max_value
             if not high_ok:
                 return self._result(
-                    base, facts, self._page(facts), RuleEvaluationStatus.FINDING,
+                    base,
+                    facts,
+                    self._page(facts),
+                    RuleEvaluationStatus.FINDING,
                     detected_fact=(
-                        f"Value {value} is above the maximum {max_value} "
-                        f"of the permitted range."
+                        f"Value {value} is above the maximum {max_value} of the permitted range."
                     ),
                 )
-        return self._result(base, facts, self._page(facts), RuleEvaluationStatus.PASS,
-                            detected_fact=f"Value {value} within permitted range.")
+        return self._result(
+            base,
+            facts,
+            self._page(facts),
+            RuleEvaluationStatus.PASS,
+            detected_fact=f"Value {value} within permitted range.",
+        )
 
     def _eval_unit_compatibility(
         self,
@@ -903,17 +981,33 @@ class RuleEvaluator:
 
         match = self._regex_search(pattern, text)
         if match is None:
-            return self._result(base, facts, page, RuleEvaluationStatus.NOT_APPLICABLE,
-                                detected_fact=None)
+            return self._result(
+                base, facts, page, RuleEvaluationStatus.NOT_APPLICABLE, detected_fact=None
+            )
         unit = (match.group(1) if match.groups() else match.group(0)).strip().lower()
         if unit in forbidden:
-            return self._result(base, facts, page, RuleEvaluationStatus.FINDING,
-                                detected_fact=f"Forbidden unit '{unit}' used.")
+            return self._result(
+                base,
+                facts,
+                page,
+                RuleEvaluationStatus.FINDING,
+                detected_fact=f"Forbidden unit '{unit}' used.",
+            )
         if not allowed or unit in allowed:
-            return self._result(base, facts, page, RuleEvaluationStatus.PASS,
-                                detected_fact=f"Unit '{unit}' is compatible.")
-        return self._result(base, facts, page, RuleEvaluationStatus.FINDING,
-                            detected_fact=f"Unit '{unit}' is not in the allowed set.")
+            return self._result(
+                base,
+                facts,
+                page,
+                RuleEvaluationStatus.PASS,
+                detected_fact=f"Unit '{unit}' is compatible.",
+            )
+        return self._result(
+            base,
+            facts,
+            page,
+            RuleEvaluationStatus.FINDING,
+            detected_fact=f"Unit '{unit}' is not in the allowed set.",
+        )
 
     def _eval_terminology_consistency(
         self,
@@ -941,13 +1035,21 @@ class RuleEvaluator:
                 if not has_context:
                     continue
             return self._result(
-                base, facts, page, RuleEvaluationStatus.FINDING,
+                base,
+                facts,
+                page,
+                RuleEvaluationStatus.FINDING,
                 detected_fact=(
                     f"Deprecated term '{match.group(0)}' used instead of '{preferred}'."
                 ),
             )
-        return self._result(base, facts, page, RuleEvaluationStatus.PASS,
-                            detected_fact="No deprecated terminology found.")
+        return self._result(
+            base,
+            facts,
+            page,
+            RuleEvaluationStatus.PASS,
+            detected_fact="No deprecated terminology found.",
+        )
 
     def _eval_table_prose_reconciliation(
         self,
@@ -962,21 +1064,33 @@ class RuleEvaluator:
         page = self._page(facts)
 
         if table_value is None or prose_value is None:
-            return self._result(base, facts, page, RuleEvaluationStatus.NOT_APPLICABLE,
-                                detected_fact="Table/prose pair not present in facts.")
+            return self._result(
+                base,
+                facts,
+                page,
+                RuleEvaluationStatus.NOT_APPLICABLE,
+                detected_fact="Table/prose pair not present in facts.",
+            )
         try:
             tv = float(table_value)
             pv = float(prose_value)
         except (TypeError, ValueError):
             return self._unresolved(base, facts, "Table/prose values are not numeric.")
         if abs(tv - pv) <= tolerance:
-            return self._result(base, facts, page, RuleEvaluationStatus.PASS,
-                                detected_fact=f"Table value {tv} matches prose value {pv}.")
+            return self._result(
+                base,
+                facts,
+                page,
+                RuleEvaluationStatus.PASS,
+                detected_fact=f"Table value {tv} matches prose value {pv}.",
+            )
         return self._result(
-            base, facts, page, RuleEvaluationStatus.FINDING,
+            base,
+            facts,
+            page,
+            RuleEvaluationStatus.FINDING,
             detected_fact=(
-                f"Table value {tv} disagrees with prose value {pv} "
-                f"(tolerance {tolerance})."
+                f"Table value {tv} disagrees with prose value {pv} (tolerance {tolerance})."
             ),
         )
 
@@ -993,13 +1107,20 @@ class RuleEvaluator:
 
         match = self._regex_search(condition_pattern, text)
         if match is None:
-            return self._result(base, facts, page, RuleEvaluationStatus.NOT_APPLICABLE,
-                                detected_fact="Applicability condition not met.")
+            return self._result(
+                base,
+                facts,
+                page,
+                RuleEvaluationStatus.NOT_APPLICABLE,
+                detected_fact="Applicability condition not met.",
+            )
         return self._result(
-            base, facts, page, RuleEvaluationStatus.UNRESOLVED,
+            base,
+            facts,
+            page,
+            RuleEvaluationStatus.UNRESOLVED,
             detected_fact=(
-                f"Applicability condition '{match.group(0)}' met; "
-                "requires engineering judgement."
+                f"Applicability condition '{match.group(0)}' met; requires engineering judgement."
             ),
             confidence=0.5,
         )
@@ -1015,4 +1136,3 @@ _RULE_HANDLERS: dict[RuleType, str] = {
     RuleType.TABLE_PROSE_RECONCILIATION: "_eval_table_prose_reconciliation",
     RuleType.APPLICABILITY_CONDITION: "_eval_applicability_condition",
 }
-

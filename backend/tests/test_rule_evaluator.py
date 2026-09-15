@@ -60,8 +60,13 @@ def make_facts(**overrides: Any) -> dict[str, Any]:
 
 def make_bbox(page_index: int = 2) -> BoundingBox:
     return BoundingBox(
-        page_index=page_index, x0=0.0, y0=0.0, x1=100.0, y1=50.0,
-        page_width=612.0, page_height=792.0,
+        page_index=page_index,
+        x0=0.0,
+        y0=0.0,
+        x1=100.0,
+        y1=50.0,
+        page_width=612.0,
+        page_height=792.0,
     )
 
 
@@ -140,9 +145,7 @@ def test_citation_edition_match_ok(evaluator: RuleEvaluator) -> None:
         RuleType.CITATION_EDITION_MATCH,
         {"citation_pattern": r"ASME BPVC\.VIII\.1[ \-]*(\d{4})", "expected_edition": "2021"},
     )
-    result = evaluator.evaluate_rule(
-        rule, make_facts(text="Design per ASME BPVC.VIII.1 2021.")
-    )
+    result = evaluator.evaluate_rule(rule, make_facts(text="Design per ASME BPVC.VIII.1 2021."))
     assert result.status is RuleEvaluationStatus.PASS
 
 
@@ -151,9 +154,7 @@ def test_citation_edition_mismatch_is_finding(evaluator: RuleEvaluator) -> None:
         RuleType.CITATION_EDITION_MATCH,
         {"citation_pattern": r"ASME BPVC\.VIII\.1[ \-]*(\d{4})", "expected_edition": "2021"},
     )
-    result = evaluator.evaluate_rule(
-        rule, make_facts(text="Design per ASME BPVC.VIII.1 2019.")
-    )
+    result = evaluator.evaluate_rule(rule, make_facts(text="Design per ASME BPVC.VIII.1 2019."))
     assert result.status is RuleEvaluationStatus.FINDING
     assert "2019" in (result.detected_fact or "")
 
@@ -374,9 +375,7 @@ def test_table_prose_match_passes(evaluator: RuleEvaluator) -> None:
         RuleType.TABLE_PROSE_RECONCILIATION,
         {"tolerance": 0.01},
     )
-    result = evaluator.evaluate_rule(
-        rule, make_facts(table_value=2.50, prose_value=2.5)
-    )
+    result = evaluator.evaluate_rule(rule, make_facts(table_value=2.50, prose_value=2.5))
     assert result.status is RuleEvaluationStatus.PASS
 
 
@@ -385,9 +384,7 @@ def test_table_prose_mismatch_is_finding(evaluator: RuleEvaluator) -> None:
         RuleType.TABLE_PROSE_RECONCILIATION,
         {"tolerance": 0.01},
     )
-    result = evaluator.evaluate_rule(
-        rule, make_facts(table_value=2.50, prose_value=2.75)
-    )
+    result = evaluator.evaluate_rule(rule, make_facts(table_value=2.50, prose_value=2.75))
     assert result.status is RuleEvaluationStatus.FINDING
 
 
@@ -405,9 +402,7 @@ def test_table_prose_non_numeric_unresolved(evaluator: RuleEvaluator) -> None:
         RuleType.TABLE_PROSE_RECONCILIATION,
         {"tolerance": 0.01},
     )
-    result = evaluator.evaluate_rule(
-        rule, make_facts(table_value="abc", prose_value=2.5)
-    )
+    result = evaluator.evaluate_rule(rule, make_facts(table_value="abc", prose_value=2.5))
     assert result.status is RuleEvaluationStatus.UNRESOLVED
 
 
@@ -538,9 +533,9 @@ def test_terminology_terms_are_escaped_not_treated_as_patterns(
     assert result.status is RuleEvaluationStatus.FINDING
     assert "(a+)+b" in (result.detected_fact or "")
     # Must not match a long 'a' run (which the unescaped pattern would).
-    assert evaluator.evaluate_rule(
-        rule, make_facts(text="a" * 40)
-    ).status is RuleEvaluationStatus.PASS
+    assert (
+        evaluator.evaluate_rule(rule, make_facts(text="a" * 40)).status is RuleEvaluationStatus.PASS
+    )
 
 
 def test_invalid_regex_pattern_is_not_applicable_not_crash(evaluator: RuleEvaluator) -> None:
@@ -560,18 +555,23 @@ def test_regex_timeout_isolated_per_pattern_call() -> None:
         {"pattern": r"ratio\s*=\s*([0-9.]+)", "min_value": 1.3},
         rule_id="GOOD",
     )
-    assert evaluator.evaluate_rule(good, make_facts(text="ratio = 1.4")).status is \
-        RuleEvaluationStatus.PASS
+    assert (
+        evaluator.evaluate_rule(good, make_facts(text="ratio = 1.4")).status
+        is RuleEvaluationStatus.PASS
+    )
     evil = make_rule(
         RuleType.NUMERIC_RANGE,
         {"pattern": r"(a+)+$", "min_value": 1.0},
         rule_id="EVIL",
     )
-    assert evaluator.evaluate_rule(
-        evil, make_facts(text="a" * 40 + "X")
-    ).status is RuleEvaluationStatus.UNRESOLVED
-    assert evaluator.evaluate_rule(good, make_facts(text="ratio = 1.4")).status is \
-        RuleEvaluationStatus.PASS
+    assert (
+        evaluator.evaluate_rule(evil, make_facts(text="a" * 40 + "X")).status
+        is RuleEvaluationStatus.UNRESOLVED
+    )
+    assert (
+        evaluator.evaluate_rule(good, make_facts(text="ratio = 1.4")).status
+        is RuleEvaluationStatus.PASS
+    )
 
 
 # ── Rule cap guardrail ────────────────────────────────────────────────

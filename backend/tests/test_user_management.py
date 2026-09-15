@@ -1,8 +1,7 @@
 """Tests for lead/superuser account administration."""
 
-from unittest.mock import AsyncMock
-from unittest.mock import Mock
 from datetime import UTC, datetime
+from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
 
 import pytest
@@ -29,7 +28,14 @@ def _user(role: UserRole) -> User:
 
 
 def _result(value):
-    return type("Result", (), {"scalar_one_or_none": lambda self: value, "scalars": lambda self: type("Scalars", (), {"all": lambda self: value})()})()
+    return type(
+        "Result",
+        (),
+        {
+            "scalar_one_or_none": lambda self: value,
+            "scalars": lambda self: type("Scalars", (), {"all": lambda self: value})(),
+        },
+    )()
 
 
 @pytest.mark.anyio
@@ -98,7 +104,9 @@ async def test_status_toggle_and_password_reset() -> None:
     session.execute.return_value = _result(target)
     session.scalar.return_value = 0
 
-    status_result = await update_user_status(target.id, UserStatusUpdate(is_active=False), session, lead)
+    status_result = await update_user_status(
+        target.id, UserStatusUpdate(is_active=False), session, lead
+    )
     assert status_result.is_active is False
 
     old_hash = target.hashed_password

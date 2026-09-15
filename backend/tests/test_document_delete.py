@@ -24,8 +24,12 @@ def test_delete_document_404_when_missing() -> None:
     mock_result.scalar_one_or_none.return_value = None
     mock_session.execute.return_value = mock_result
     current_user = User(
-        id=uuid4(), email="lead@test.local", hashed_password="unused",
-        full_name="Lead", role=UserRole.LEAD_ENGINEER, is_active=True,
+        id=uuid4(),
+        email="lead@test.local",
+        hashed_password="unused",
+        full_name="Lead",
+        role=UserRole.LEAD_ENGINEER,
+        is_active=True,
     )
 
     async def _override_get_session() -> AsyncMock:
@@ -74,8 +78,12 @@ def test_delete_document_success(tmp_path: Path) -> None:
     mock_result.scalar_one_or_none.return_value = mock_doc
     mock_session.execute.return_value = mock_result
     current_user = User(
-        id=uuid4(), email="lead@test.local", hashed_password="unused",
-        full_name="Lead", role=UserRole.LEAD_ENGINEER, is_active=True,
+        id=uuid4(),
+        email="lead@test.local",
+        hashed_password="unused",
+        full_name="Lead",
+        role=UserRole.LEAD_ENGINEER,
+        is_active=True,
     )
 
     async def _override_get_session() -> AsyncMock:

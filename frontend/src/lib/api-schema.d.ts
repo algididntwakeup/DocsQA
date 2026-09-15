@@ -280,7 +280,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Get Document
+         * @description Return safe metadata for one document.
+         */
+        get: operations["get_document_api_v1_documents__document_id__get"];
         put?: never;
         post?: never;
         /** Delete Document */
@@ -966,6 +970,10 @@ export interface components {
             project_finished: boolean;
             /** Project Id */
             project_id?: string | null;
+            /** Project Name */
+            project_name?: string | null;
+            /** Project Plant */
+            project_plant?: string | null;
             /** Reviewed At */
             reviewed_at?: string | null;
             /** Sha256 */
@@ -978,6 +986,8 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /** Uploaded By Name */
+            uploaded_by_name?: string | null;
             /** Verification Notes */
             verification_notes?: string | null;
             /** Verified At */
@@ -2242,6 +2252,12 @@ export interface operations {
             query?: {
                 page?: number;
                 page_size?: number;
+                /** @description Lead-only project filter for the master inspection register. */
+                project_id?: string | null;
+                /** @description Lead-only engineer assignment filter. */
+                assigned_to_id?: string | null;
+                /** @description Lead-only workflow filter. */
+                workflow_status?: "ANALYZING" | "REVIEWED_BY_ENGINEER" | "VERIFIED_BY_LEAD";
             };
             header?: never;
             path?: never;
@@ -2307,6 +2323,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DocumentUploadResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Feature not implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    get_document_api_v1_documents__document_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentRead"];
                 };
             };
             /** @description Validation Error */

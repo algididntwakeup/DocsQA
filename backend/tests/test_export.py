@@ -147,9 +147,7 @@ def test_build_review_report_docx(tmp_path: Path) -> None:
     word_doc = docx.Document(io.BytesIO(docx_bytes))
     full_text = "\n".join(p.text for p in word_doc.paragraphs)
     all_table_text = "\n".join(
-        " ".join(cell.text for cell in row.cells)
-        for table in word_doc.tables
-        for row in table.rows
+        " ".join(cell.text for cell in row.cells) for table in word_doc.tables for row in table.rows
     )
 
     # Verify key sections
@@ -183,11 +181,12 @@ def test_build_review_report_docx(tmp_path: Path) -> None:
 @pytest.mark.anyio
 async def test_export_endpoints(tmp_path: Path) -> None:
     """HTTP export endpoint handles PDF and DOCX formats and rejects legacy formats."""
+    from unittest.mock import patch
+
     from core.dependencies import get_current_user, get_storage
     from db.session import get_session
     from domain.enums import UserRole
     from models.user import User
-    from unittest.mock import patch
 
     doc, issues = _make_sample_models(tmp_path)
     storage = LocalStorage(root=tmp_path)
@@ -225,7 +224,9 @@ async def test_export_endpoints(tmp_path: Path) -> None:
     try:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             # 1. Annotated PDF (source overlay)
-            res_annotated = await client.get(f"/api/v1/documents/{doc.id}/export?format=annotated_pdf")
+            res_annotated = await client.get(
+                f"/api/v1/documents/{doc.id}/export?format=annotated_pdf"
+            )
             assert res_annotated.status_code == 200
             assert res_annotated.headers["content-type"] == "application/pdf"
             assert "attachment" in res_annotated.headers["content-disposition"]
@@ -234,10 +235,12 @@ async def test_export_endpoints(tmp_path: Path) -> None:
 
             # 1b. PDF review report (LibreOffice conversion)
             with patch("api.documents.convert_docx_to_pdf") as mock_convert:
+
                 def fake_convert(src: Path, outdir: Path) -> Path:
                     pdf_out = outdir / f"{src.stem}.pdf"
                     pdf_out.write_bytes(b"%PDF-1.4 mock review pdf")
                     return pdf_out
+
                 mock_convert.side_effect = fake_convert
                 res_pdf = await client.get(f"/api/v1/documents/{doc.id}/export?format=pdf")
                 assert res_pdf.status_code == 200

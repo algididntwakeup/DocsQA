@@ -3,14 +3,12 @@ import contextlib
 import json
 import logging
 import shutil
+import tempfile
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from pathlib import Path
-import tempfile
 from typing import Annotated, Any
 from uuid import UUID
-
-logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
 from fastapi.responses import FileResponse, StreamingResponse
@@ -64,6 +62,8 @@ from services.pipeline import enqueue_extraction
 from services.storage.local import LocalStorage
 from services.uploads import UploadService
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 WIP_ERROR = (
@@ -90,6 +90,7 @@ async def check_engineer_wip_available(
     ).scalar_one_or_none()
     return active_document is None, active_document
 
+
 def _document_read(document: Document) -> DocumentRead:
     """Serialize a document with assignment and owner display metadata."""
     return DocumentRead.model_validate(document).model_copy(
@@ -112,9 +113,8 @@ def _ensure_document_project_open(document: Document) -> None:
             detail="Project is finished; document workflow changes are disabled.",
         )
 
-async def _ensure_assignment_project_open(
-    session: AsyncSession, document: Document
-) -> None:
+
+async def _ensure_assignment_project_open(session: AsyncSession, document: Document) -> None:
     if document.project_id is None:
         return
     project = await session.get(Project, document.project_id)
@@ -124,13 +124,10 @@ async def _ensure_assignment_project_open(
             detail="Project is finished; document assignment changes are disabled.",
         )
 
+
 async def _load_document_for_assignment(session: AsyncSession, document_id: UUID) -> Document:
     document = (
-        await session.execute(
-            select(Document)
-            .where(Document.id == document_id)
-            .with_for_update()
-        )
+        await session.execute(select(Document).where(Document.id == document_id).with_for_update())
     ).scalar_one_or_none()
     if document is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
@@ -156,7 +153,11 @@ async def claim_document(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Document is already assigned."
             )
-        available, _ = await check_engineer_wip_available(session, current_user.id, document.project_id)
+        available, _ = await check_engineer_wip_available(
+            session,
+            current_user.id,
+            document.project_id,
+        )
         if not available:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=WIP_ERROR)
         document.assigned_to_id = current_user.id
@@ -209,7 +210,11 @@ async def assign_document(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Engineer not found or inactive."
             )
         if not payload.override_wip:
-            available, active_document = await check_engineer_wip_available(session, engineer.id, document.project_id)
+            available, active_document = await check_engineer_wip_available(
+                session,
+                engineer.id,
+                document.project_id,
+            )
             if not available:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -235,8 +240,6 @@ async def assign_document(
     except Exception:
         await session.rollback()
         raise
-
-
 
 
 NOT_READY: dict[int | str, dict[str, Any]] = {
@@ -374,8 +377,7 @@ async def list_documents(
     rows = (
         (
             await session.execute(
-                query
-                .order_by(Document.created_at.desc())
+                query.order_by(Document.created_at.desc())
                 .offset((page - 1) * page_size)
                 .limit(page_size)
             )
@@ -384,10 +386,7 @@ async def list_documents(
         .all()
     )
     return DocumentListResponse(
-        documents=[
-            _document_read(d)
-            for d in rows
-        ],
+        documents=[_document_read(d) for d in rows],
         pagination=PageInfo(page=page, page_size=page_size, total=total),
     )
 
@@ -456,7 +455,9 @@ async def delete_document(
     if document.workflow_status == DocumentWorkflowStatus.VERIFIED_BY_LEAD:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Dokumen yang sudah diverifikasi resmi tidak dapat dihapus demi integritas audit.",
+            detail=(
+                "Dokumen yang sudah diverifikasi resmi tidak dapat dihapus demi integritas audit."
+            ),
         )
     if document.workflow_status == DocumentWorkflowStatus.REVIEWED_BY_ENGINEER:
         raise HTTPException(
@@ -466,12 +467,15 @@ async def delete_document(
     if document.assigned_to_id is not None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Dokumen sedang ditugaskan ke engineer. Lepaskan tugas (unassign) terlebih dahulu sebelum menghapus.",
+            detail=(
+                "Dokumen sedang ditugaskan ke engineer. Lepaskan tugas (unassign) terlebih "
+                "dahulu sebelum menghapus."
+            ),
         )
-    if (
-        document.owner_id != current_user.id
-        and current_user.role not in {UserRole.LEAD_ENGINEER, UserRole.SUPERUSER}
-    ):
+    if document.owner_id != current_user.id and current_user.role not in {
+        UserRole.LEAD_ENGINEER,
+        UserRole.SUPERUSER,
+    }:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Hanya uploader atau Lead Engineer yang dapat menghapus dokumen.",
@@ -706,7 +710,9 @@ async def get_document_file(
             try:
                 source_path = storage.get_full_path(document.storage_path)
                 if source_path.exists():
-                    logger.info("Attempting on-the-fly DOCX to PDF conversion for document %s", document.id)
+                    logger.info(
+                        "Attempting on-the-fly DOCX to PDF conversion for document %s", document.id
+                    )
                     pdf_path = convert_docx_to_pdf(source_path, source_path.parent)
                     document.canonical_pdf_uri = f"local://documents/{document.id}/preview.pdf"
                     await session.commit()
@@ -870,7 +876,19 @@ async def get_report_preview(
             "HIGH",
         }:
             blockers += 1
-    summary = ("Blockers require correction before reissue." if language == ReportLanguage.ENGLISH else "Penghalang harus diperbaiki sebelum penerbitan ulang.") if blockers else ("No blocker findings are included in the draft report." if language == ReportLanguage.ENGLISH else "Tidak ada temuan penghalang dalam laporan draf.")
+    summary = (
+        (
+            "Blockers require correction before reissue."
+            if language == ReportLanguage.ENGLISH
+            else "Penghalang harus diperbaiki sebelum penerbitan ulang."
+        )
+        if blockers
+        else (
+            "No blocker findings are included in the draft report."
+            if language == ReportLanguage.ENGLISH
+            else "Tidak ada temuan penghalang dalam laporan draf."
+        )
+    )
     return ReviewReportPreview(
         document_id=document_id,
         included_findings=len(issues),
@@ -896,7 +914,9 @@ async def export_document(
     storage: Annotated[LocalStorage, Depends(get_storage)],
     document: Annotated[Document, Depends(get_accessible_document)],
     format: Annotated[str, Query(pattern=r"^(pdf|docx|annotated_pdf)$")] = "docx",
-    include_minors: Annotated[bool, Query(description="Include minor and informational findings.")] = False,
+    include_minors: Annotated[
+        bool, Query(description="Include minor and informational findings.")
+    ] = False,
     language: Annotated[ReportLanguage | None, Query()] = None,
     lang: Annotated[str | None, Query(pattern=r"^(en|id)$")] = None,
 ) -> Response:
