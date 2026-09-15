@@ -13,23 +13,17 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    bind = op.get_bind()
-    inspector = sa.inspect(bind)
-    columns = {column["name"] for column in inspector.get_columns("documents")}
-    if "assigned_to_id" not in columns:
-        op.add_column("documents", sa.Column("assigned_to_id", sa.Uuid(), nullable=True))
-    indexes = {index["name"] for index in inspector.get_indexes("documents")}
-    if "ix_documents_assigned_to_id" not in indexes:
-        op.create_index("ix_documents_assigned_to_id", "documents", ["assigned_to_id"])
-    foreign_keys = {foreign_key["name"] for foreign_key in inspector.get_foreign_keys("documents")}
-    if "fk_documents_assigned_to_id_users" not in foreign_keys:
-        op.create_foreign_key(
-            "fk_documents_assigned_to_id_users",
-            "documents",
-            "users",
-            ["assigned_to_id"],
-            ["id"],
-        )
+    # This migration runs against the schema created by 0007 and must also
+    # support Alembic's offline SQL generation, where inspection is unavailable.
+    op.add_column("documents", sa.Column("assigned_to_id", sa.Uuid(), nullable=True))
+    op.create_index("ix_documents_assigned_to_id", "documents", ["assigned_to_id"])
+    op.create_foreign_key(
+        "fk_documents_assigned_to_id_users",
+        "documents",
+        "users",
+        ["assigned_to_id"],
+        ["id"],
+    )
 
 
 def downgrade() -> None:

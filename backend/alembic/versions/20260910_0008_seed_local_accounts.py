@@ -36,25 +36,20 @@ def upgrade() -> None:
         .where(users.c.email == "engineer@localhost")
         .values(hashed_password=ENGINEER_PASSWORD_HASH)
     )
-    connection = op.get_bind()
-    if (
-        connection.execute(
-            sa.select(users.c.id).where(users.c.email == "admin@localhost")
-        ).scalar_one_or_none()
-        is None
-    ):
-        op.bulk_insert(
-            users,
-            [
-                {
-                    "id": ADMIN_ID,
-                    "email": "admin@localhost",
-                    "hashed_password": ADMIN_PASSWORD_HASH,
-                    "full_name": "Local Superuser",
-                    "role": "SUPERUSER",
-                }
-            ],
+    # Use INSERT ... SELECT so the migration also works in Alembic offline mode.
+    # Offline migrations do not have a live bind available for a read-before-insert.
+    op.execute(
+        users.insert().from_select(
+            ["id", "email", "hashed_password", "full_name", "role"],
+            sa.select(
+                sa.literal(ADMIN_ID),
+                sa.literal("admin@localhost"),
+                sa.literal(ADMIN_PASSWORD_HASH),
+                sa.literal("Local Superuser"),
+                sa.literal("SUPERUSER"),
+            ).where(~sa.exists().where(users.c.email == "admin@localhost")),
         )
+    )
 
 
 def downgrade() -> None:
