@@ -123,6 +123,12 @@
 .text-primary {
   color: var(--primary);
 }
+a.bg-blue-600,
+button.bg-blue-600,
+a.text-white,
+button.text-white {
+  color: #ffffff !important;
+}
 
 @layer base {
   * { box-sizing: border-box; }

@@ -114,7 +114,7 @@ export function Dashboard() {
                 : "Daftar seluruh dokumen teknis yang ditugaskan kepada Anda atau yang Anda unggah lintas proyek."}
             </p>
           </div>
-          <Link href="/upload" className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-bold !text-white shadow-sm transition hover:bg-blue-700">
+          <Link href="/upload" className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-blue-700">
             <Plus size={16} /> Dokumen Baru
           </Link>
         </header>
