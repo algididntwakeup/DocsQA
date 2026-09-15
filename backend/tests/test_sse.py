@@ -13,10 +13,12 @@ from uuid import uuid4
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from core.dependencies import get_current_user
 from db.session import get_session
-from domain.enums import DocumentStatus, StageStatus
+from domain.enums import DocumentStatus, StageStatus, UserRole
 from main import app
 from models.document import Document, StageRun
+from models.user import User
 
 
 @pytest.mark.anyio
@@ -87,6 +89,14 @@ async def test_stream_document_events_success() -> None:
         yield _mock_session
 
     app.dependency_overrides[get_session] = override_get_session
+    app.dependency_overrides[get_current_user] = lambda: User(
+        id=uuid4(),
+        email="lead@test.local",
+        hashed_password="unused",
+        full_name="Test Lead",
+        role=UserRole.LEAD_ENGINEER,
+        is_active=True,
+    )
 
     try:
         with patch("api.documents.async_session_factory", mock_session_factory):
@@ -129,6 +139,14 @@ async def test_stream_document_events_not_found() -> None:
         yield MockEmptySession()
 
     app.dependency_overrides[get_session] = override_get_session
+    app.dependency_overrides[get_current_user] = lambda: User(
+        id=uuid4(),
+        email="lead@test.local",
+        hashed_password="unused",
+        full_name="Test Lead",
+        role=UserRole.LEAD_ENGINEER,
+        is_active=True,
+    )
 
     try:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:

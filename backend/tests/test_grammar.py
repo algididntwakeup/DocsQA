@@ -1,5 +1,6 @@
 """Unit tests for Grammar and Style Analysis Service (M4.1b)."""
 
+from unittest.mock import patch
 from uuid import uuid4
 
 from schemas.extraction import CoordinateContract, ExtractionArtifact, PageMetadata, TextSpan
@@ -75,7 +76,11 @@ def test_circuit_breaker_trips_safely() -> None:
     analyzer = GrammarAnalyzer(enable_remote_lt=True)
     # Trigger lt check which will safely catch the java 1.8 failure and engage circuit breaker
     artifact = _make_artifact("Review the the weld procedures.")
-    analysis = analyzer.analyze(artifact)
+    with patch(
+        "language_tool_python.LanguageTool",
+        side_effect=RuntimeError("LanguageTool unavailable in test"),
+    ):
+        analysis = analyzer.analyze(artifact)
 
     assert analyzer._circuit_breaker_tripped is True
     # Still finds the repeated word using deterministic fallback

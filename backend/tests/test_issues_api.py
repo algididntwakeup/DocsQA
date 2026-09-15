@@ -7,11 +7,13 @@ from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
+from core.dependencies import get_current_user
 from db.session import get_session
-from domain.enums import DocumentStatus, IssueCategory, Severity
+from domain.enums import DocumentStatus, IssueCategory, Severity, UserRole
 from main import app
 from models.document import Document
 from models.issue import Issue
+from models.user import User
 from schemas.issues import (
     BoundingBox,
     BudinskiEvidence,
@@ -21,6 +23,17 @@ from schemas.issues import (
 )
 
 client = TestClient(app)
+
+
+def _test_user() -> User:
+    return User(
+        id=uuid4(),
+        email="lead@test.local",
+        hashed_password="unused",
+        full_name="Test Lead",
+        role=UserRole.LEAD_ENGINEER,
+        is_active=True,
+    )
 
 
 def test_list_document_issues_404_when_document_missing() -> None:
@@ -34,12 +47,14 @@ def test_list_document_issues_404_when_document_missing() -> None:
         return mock_session
 
     app.dependency_overrides[get_session] = _override_get_session
+    app.dependency_overrides[get_current_user] = _test_user
     try:
         response = client.get(f"/api/v1/documents/{uuid4()}/issues")
         assert response.status_code == 404
         assert response.json()["detail"] == "Document not found."
     finally:
         app.dependency_overrides.pop(get_session, None)
+        app.dependency_overrides.pop(get_current_user, None)
 
 
 def test_list_document_issues_empty_list() -> None:
@@ -72,6 +87,7 @@ def test_list_document_issues_empty_list() -> None:
         return mock_session
 
     app.dependency_overrides[get_session] = _override_get_session
+    app.dependency_overrides[get_current_user] = _test_user
     try:
         response = client.get(f"/api/v1/documents/{doc_id}/issues")
         assert response.status_code == 200
@@ -83,6 +99,7 @@ def test_list_document_issues_empty_list() -> None:
         assert data["counts_by_severity"] == {s.value: 0 for s in Severity}
     finally:
         app.dependency_overrides.pop(get_session, None)
+        app.dependency_overrides.pop(get_current_user, None)
 
 
 def test_list_document_issues_with_populated_issues() -> None:
@@ -152,6 +169,7 @@ def test_list_document_issues_with_populated_issues() -> None:
         return mock_session
 
     app.dependency_overrides[get_session] = _override_get_session
+    app.dependency_overrides[get_current_user] = _test_user
     try:
         url = f"/api/v1/documents/{doc_id}/issues?category=TRACEABILITY&page=1&page_size=10"
         response = client.get(url)
@@ -170,6 +188,7 @@ def test_list_document_issues_with_populated_issues() -> None:
         assert item["evidence"]["stated_value"] == "100"
     finally:
         app.dependency_overrides.pop(get_session, None)
+        app.dependency_overrides.pop(get_current_user, None)
 
 
 def test_list_document_issues_layout_category_and_blocker_severity() -> None:
@@ -241,6 +260,7 @@ def test_list_document_issues_layout_category_and_blocker_severity() -> None:
         return mock_session
 
     app.dependency_overrides[get_session] = _override_get_session
+    app.dependency_overrides[get_current_user] = _test_user
     try:
         url = f"/api/v1/documents/{doc_id}/issues?category=LAYOUT&page=1&page_size=10"
         response = client.get(url)
@@ -259,6 +279,7 @@ def test_list_document_issues_layout_category_and_blocker_severity() -> None:
         assert item["evidence"]["snippet"] == "Table 6-3 and"
     finally:
         app.dependency_overrides.pop(get_session, None)
+        app.dependency_overrides.pop(get_current_user, None)
 
 
 def test_list_document_issues_budinski_category() -> None:
@@ -324,6 +345,7 @@ def test_list_document_issues_budinski_category() -> None:
         return mock_session
 
     app.dependency_overrides[get_session] = _override_get_session
+    app.dependency_overrides[get_current_user] = _test_user
     try:
         url = f"/api/v1/documents/{doc_id}/issues?category=BUDINSKI"
         response = client.get(url)
@@ -339,6 +361,7 @@ def test_list_document_issues_budinski_category() -> None:
         assert item["evidence"]["what_it_says"] == "Criticality 2 defined as 0-6 years"
     finally:
         app.dependency_overrides.pop(get_session, None)
+        app.dependency_overrides.pop(get_current_user, None)
 
 
 def test_backward_compatibility_issue_payload() -> None:
@@ -401,6 +424,7 @@ def test_backward_compatibility_issue_payload() -> None:
         return mock_session
 
     app.dependency_overrides[get_session] = _override_get_session
+    app.dependency_overrides[get_current_user] = _test_user
     try:
         url = f"/api/v1/documents/{doc_id}/issues"
         response = client.get(url)
@@ -416,3 +440,4 @@ def test_backward_compatibility_issue_payload() -> None:
         assert data["counts_by_severity"]["LOW"] == 1
     finally:
         app.dependency_overrides.pop(get_session, None)
+        app.dependency_overrides.pop(get_current_user, None)
