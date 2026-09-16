@@ -1320,17 +1320,17 @@
       },
       "LoginRequest": {
         "properties": {
-          "email": {
-            "title": "Email",
-            "type": "string"
-          },
           "password": {
             "title": "Password",
+            "type": "string"
+          },
+          "username": {
+            "title": "Username",
             "type": "string"
           }
         },
         "required": [
-          "email",
+          "username",
           "password"
         ],
         "title": "LoginRequest",
@@ -1982,6 +1982,20 @@
         "title": "Severity",
         "type": "string"
       },
+      "SsoExchangeRequest": {
+        "properties": {
+          "token": {
+            "minLength": 1,
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "title": "SsoExchangeRequest",
+        "type": "object"
+      },
       "StageFailureEvidence": {
         "additionalProperties": false,
         "description": "Sanitized pipeline-stage failure surfaced without losing other results.",
@@ -2478,10 +2492,32 @@
         "additionalProperties": false,
         "description": "User representation used by the lead user-management console.",
         "properties": {
+          "bima_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bima Id"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
             "type": "string"
+          },
+          "department": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Department"
           },
           "email": {
             "title": "Email",
@@ -2499,6 +2535,17 @@
           "is_active": {
             "title": "Is Active",
             "type": "boolean"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
           },
           "role": {
             "$ref": "#/components/schemas/UserRole"
@@ -2565,10 +2612,32 @@
         "additionalProperties": false,
         "description": "Public user representation.",
         "properties": {
+          "bima_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bima Id"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
             "type": "string"
+          },
+          "department": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Department"
           },
           "email": {
             "title": "Email",
@@ -2586,6 +2655,17 @@
           "is_active": {
             "title": "Is Active",
             "type": "boolean"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
           },
           "role": {
             "$ref": "#/components/schemas/UserRole"
@@ -2899,6 +2979,47 @@
           }
         ],
         "summary": "Register Engineer",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/sso/exchange": {
+      "post": {
+        "operationId": "exchange_sso_api_v1_auth_sso_exchange_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SsoExchangeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Exchange Sso",
         "tags": [
           "auth"
         ]
