@@ -48,6 +48,9 @@ export interface UserSession {
   role: UserRole;
   is_active: boolean;
   created_at: string;
+  bima_id?: number | null;
+  department?: string | null;
+  position?: string | null;
 }
 export interface ProjectItem {
   id: string;
@@ -195,15 +198,25 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
-export async function login(email: string, password: string): Promise<LoginResponse> {
+export async function login(username: string, password: string): Promise<LoginResponse> {
   const res = await request<LoginResponse>("/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ username, password }),
   });
   if (res?.access_token) {
     setAuthToken(res.access_token);
   }
+  return res;
+}
+
+export async function exchangeSsoToken(token: string): Promise<LoginResponse> {
+  const res = await request<LoginResponse>("/auth/sso/exchange", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token }),
+  });
+  if (res?.access_token) setAuthToken(res.access_token);
   return res;
 }
 

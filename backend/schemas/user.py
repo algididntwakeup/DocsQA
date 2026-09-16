@@ -27,6 +27,9 @@ class UserRead(ApiModel):
     full_name: str
     role: UserRole
     is_active: bool
+    bima_id: int | None = None
+    department: str | None = None
+    position: str | None = None
     created_at: datetime
 
 

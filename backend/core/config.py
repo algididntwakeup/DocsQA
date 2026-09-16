@@ -49,6 +49,11 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     COOKIE_SECURE: bool = False
 
+    # ── BIMA identity provider ────────────────────────────────────────
+    BIMA_BASE_URL: str = "https://bima.reksolindo.co.id"
+    BIMA_CLIENT_ID: str = "docsqa"
+    BIMA_TIMEOUT_SECONDS: float = 10.0
+
     # ── NLP / LanguageTool ───────────────────────────────────────────
     LANGUAGE_TOOL_HOST: str = "http://localhost:8081"
 

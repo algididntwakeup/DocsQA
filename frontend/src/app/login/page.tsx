@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, LockKeyhole, Mail, ShieldCheck } from "lucide-react";
+import { ArrowRight, KeyRound, LockKeyhole, Mail, ShieldCheck, Sparkles } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ApiError, login } from "@/lib/api";
@@ -11,7 +11,7 @@ import { ReksolindoLogo } from "@/components/layout/reksolindo-logo";
 export default function LoginPage() {
   const router = useRouter();
   const { t } = useLocale();
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -21,13 +21,18 @@ export default function LoginPage() {
     setSubmitting(true);
     setError(null);
     try {
-      await login(email.trim(), password);
+      await login(username.trim(), password);
       router.push("/projects");
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : t("unableSignIn"));
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function startSso() {
+    const redirectUri = `${window.location.origin}/auth/sso/callback`;
+    window.location.href = `https://bima.reksolindo.co.id/sso/authorize?client_id=docsqa&redirect_uri=${encodeURIComponent(redirectUri)}&scope=profile%20roles%20permissions%20email%20department`;
   }
 
   return (
@@ -73,19 +78,20 @@ export default function LoginPage() {
 
           <form className="mt-8 space-y-4" onSubmit={submit}>
             <div>
-              <label htmlFor="email" className="block text-xs font-semibold text-slate-700">
-                {t("email")}
+               <label htmlFor="username" className="block text-xs font-semibold text-slate-700">
+                 Username atau email
               </label>
               <div className="relative mt-1">
                 <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
-                  id="email"
-                  type="email"
-                  autoComplete="email"
-                  placeholder="you@reksolindo.com"
+                   id="username"
+                   aria-label="Email"
+                   type="text"
+                   autoComplete="username"
+                   placeholder="username atau email"
                   required
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
+                   value={username}
+                   onChange={(event) => setUsername(event.target.value)}
                   className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none"
                 />
               </div>
@@ -126,6 +132,20 @@ export default function LoginPage() {
               <ArrowRight size={15} />
             </button>
           </form>
+          <div className="my-6 flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+            <span className="h-px flex-1 bg-slate-200" />
+            <span>atau masuk instan</span>
+            <span className="h-px flex-1 bg-slate-200" />
+          </div>
+          <button
+            type="button"
+            onClick={startSso}
+            className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 text-xs font-bold text-blue-800 transition hover:border-blue-300 hover:bg-blue-100"
+          >
+            <Sparkles size={15} />
+            Masuk via BIMA SSO (Satu Klik)
+            <KeyRound size={15} />
+          </button>
         </section>
       </div>
     </div>

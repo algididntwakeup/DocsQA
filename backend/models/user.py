@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, DateTime, Enum, String, func
+from sqlalchemy import Boolean, DateTime, Enum, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db.base import Base
@@ -22,7 +22,10 @@ class User(Base):
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
-    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    bima_id: Mapped[int | None] = mapped_column(Integer, unique=True, index=True, nullable=True)
+    department: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    position: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    hashed_password: Mapped[str | None] = mapped_column(String(255), nullable=True)
     full_name: Mapped[str] = mapped_column(String(150), nullable=False)
     role: Mapped[UserRole] = mapped_column(
         Enum(UserRole, name="user_role", native_enum=False),

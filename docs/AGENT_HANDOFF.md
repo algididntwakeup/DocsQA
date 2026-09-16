@@ -71,6 +71,20 @@ This file records implementation decisions that must not be reverted or duplicat
 
 ## Multi-User API Contract
 
+- Authentication supports BIMA credential login and BIMA SSO. Credential login calls BIMA
+  `/api/auth/login` with `username` and `password`, then resolves the profile through
+  `/api/auth/me`. SSO starts at BIMA `/sso/authorize` and exchanges the callback token through
+  DocsQA `POST /api/v1/auth/sso/exchange`, which calls BIMA `/api/sso/verify` with `client_id=docsqa`.
+- BIMA responses use a `data` envelope; SSO profile data is at `data.user`. The BIMA client maps
+  `is_admin` or `super-administrator` to `SUPERUSER`, lead/manager/project-manager roles or a
+  `Lead` position to `LEAD_ENGINEER`, and all other users to `ENGINEER`.
+- BIMA users are JIT-provisioned by `upsert_bima_user`, keyed by `bima_id` or normalized email.
+  SSO users have a nullable `hashed_password`; local password authentication remains available
+  as a fallback for emergency local accounts. Migration `20260916_0013_bima_identity` is the
+  current identity schema head.
+- BIMA SSO redirect URIs must be registered/whitelisted in BIMA. Local development uses
+  `http://localhost:3000/auth/sso/callback`; production must register the deployed HTTPS URI.
+
 - `POST /api/v1/auth/login` returns a bearer token and user role; `GET /api/v1/auth/me` returns
   the current user.
 - `GET /api/v1/projects` lists visible projects. `GET /api/v1/projects/{project_id}/documents`
@@ -213,4 +227,3 @@ production endpoint: HTTP 200
   5. `current_user.role in {LEAD_ENGINEER, SUPERUSER}`
 - For DOCX uploads, the review endpoints serve the converted `preview.pdf`. If the document is still in `QUEUED` or `PROCESSING` pipeline state, an HTTP 409 is returned with a descriptive message. If completed, an on-the-fly conversion fallback via headless LibreOffice is invoked if `preview.pdf` was not yet generated.
 - `pdf-canvas-viewer.tsx` and API helpers fetch with `credentials: "include"`, pass the Bearer token via `Authorization: Bearer <token>`, and use `cache: "no-store"` to avoid browser caching of transient preview generation states.
-

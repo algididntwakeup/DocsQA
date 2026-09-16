@@ -36,6 +36,12 @@ This is the central index every new agent must read in full. Repository state al
 - **Latest identity/workspace checkpoint**: Added authenticated profile editing at
   `PATCH /api/v1/auth/me` and `/settings/profile`, self-service password management, and
   normal page scrolling in the application shell.
+- **Latest BIMA authentication checkpoint**: Added dual BIMA authentication with credential
+  login (`/api/auth/login`) and one-click SSO (`/sso/authorize` -> `/api/sso/verify`). Both flows
+  JIT-provision or synchronize DocsQA users, map BIMA roles to DocsQA roles, issue the internal
+  JWT cookie session, and support local-password fallback for emergency accounts. Migration
+  `20260916_0013_bima_identity` adds nullable SSO identity/profile fields. Docker verification:
+  API, worker, frontend, PostgreSQL, and Redis healthy; BIMA login flow tested successfully.
 - **Latest project-assignment checkpoint**: Added nullable `projects.assigned_to_id`, migration
   `20260910_0009_project_assignment`, lead-only project assignment, user project filtering,
   engineer project creation, creator/assignee names, document counts, and assigned visibility.
@@ -70,6 +76,8 @@ This is the central index every new agent must read in full. Repository state al
     Alembic revision `20260910_0010 (head)`.
   - Latest export/reference regression: **55 passed**, Ruff passed, and `git diff --check` passed.
   - Docker visual smoke: DOCX conversion passed, 16 PDF pages produced, 16 PNG pages rendered, and all pages contain text.
+  - BIMA auth focused tests: **2 passed**; production frontend build and lint passed after adding
+    the SSO callback Suspense boundary; backend image includes `httpx`.
 - **Remaining Work**:
   - Add HTTP coverage for profile update, email uniqueness, project assignment, assigned visibility,
     engineer project creation, document claim, and owner-name responses.
