@@ -1500,6 +1500,17 @@
         "additionalProperties": false,
         "description": "Payload for creating a project.",
         "properties": {
+          "bima_project_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bima Project Id"
+          },
           "code": {
             "anyOf": [
               {
@@ -1540,6 +1551,11 @@
               }
             ],
             "title": "Plant Area"
+          },
+          "status": {
+            "default": "ACTIVE",
+            "title": "Status",
+            "type": "string"
           }
         },
         "required": [
@@ -4808,6 +4824,81 @@
           }
         ],
         "summary": "Create Project",
+        "tags": [
+          "projects"
+        ]
+      }
+    },
+    "/api/v1/projects/sync-bima": {
+      "post": {
+        "description": "Synchronize BIMA projects into the local project master data.",
+        "operationId": "sync_bima_projects_api_v1_projects_sync_bima_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-BIMA-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Bima-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "bima_access_token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Bima Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "integer"
+                  },
+                  "title": "Response Sync Bima Projects Api V1 Projects Sync Bima Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Sync Bima Projects",
         "tags": [
           "projects"
         ]
