@@ -90,9 +90,15 @@ async def upsert_bima_user(session: AsyncSession, bima_user_dict: dict[str, Any]
     return user
 
 
-def _token_response(response: Response, user: User) -> TokenResponse:
+def _token_response(response: Response, user: User, bima_token: str | None = None) -> TokenResponse:
     token = create_access_token({"sub": str(user.id), "role": user.role.value})
     response.set_cookie(key="access_token", value=f"Bearer {token}", **access_token_cookie_kwargs())
+    if bima_token:
+        response.set_cookie(
+            key="bima_access_token",
+            value=bima_token,
+            **access_token_cookie_kwargs(),
+        )
     return TokenResponse(access_token=token, user=UserRead.model_validate(user))
 
 
@@ -111,11 +117,16 @@ async def login(
 ) -> TokenResponse:
     """Authenticate an active user and issue a JWT."""
     try:
+        bima_user = await bima_client.login_with_bima_credentials(payload.username, payload.password)
         user = await upsert_bima_user(
             session,
-            await bima_client.login_with_bima_credentials(payload.username, payload.password),
+            bima_user,
         )
-        return _token_response(response, user)
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="User account is inactive."
+            )
+        return _token_response(response, user, bima_user.get("bima_token"))
     except HTTPException as bima_error:
         if bima_error.status_code != status.HTTP_401_UNAUTHORIZED:
             raise
@@ -133,6 +144,7 @@ async def login(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password."
         )
+    response.delete_cookie(key="bima_access_token")
     return _token_response(response, fallback_user)
 
 
@@ -142,18 +154,20 @@ async def exchange_sso(
     response: Response,
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> TokenResponse:
-    user = await upsert_bima_user(session, await bima_client.verify_sso_token(payload.token))
+    bima_user = await bima_client.verify_sso_token(payload.token)
+    user = await upsert_bima_user(session, bima_user)
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="User account is inactive."
         )
-    return _token_response(response, user)
+    return _token_response(response, user, bima_user.get("bima_token"))
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(response: Response) -> None:
     """Clear the browser session cookie."""
     response.delete_cookie(key="access_token")
+    response.delete_cookie(key="bima_access_token")
 
 
 @router.get("/me", response_model=UserRead)

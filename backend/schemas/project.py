@@ -3,7 +3,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from schemas.base import ApiModel
 
@@ -14,6 +14,8 @@ class ProjectCreate(ApiModel):
     name: str = Field(min_length=1, max_length=200)
     code: str | None = Field(default=None, max_length=50)
     description: str | None = None
+    bima_project_id: int | None = None
+    status: str = "ACTIVE"
     plant_area: str | None = Field(default=None, max_length=100)
 
 
@@ -33,6 +35,11 @@ class ProjectRead(ApiModel):
     status: str = "NO_DOCUMENTS"
     finished_at: datetime | None = None
     created_at: datetime
+
+    @field_validator("status", mode="before")
+    @classmethod
+    def default_missing_status(cls, value: str | None) -> str:
+        return value or "ACTIVE"
 
 
 class ProjectAssignment(ApiModel):

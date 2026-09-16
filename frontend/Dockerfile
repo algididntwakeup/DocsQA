@@ -7,8 +7,10 @@ FROM node:24-alpine AS builder
 WORKDIR /app
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
-ARG NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api/v1
-ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
+ARG NEXT_PUBLIC_APP_URL=
+ARG NEXT_PUBLIC_BIMA_CLIENT_ID=prism
+ENV NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
+ENV NEXT_PUBLIC_BIMA_CLIENT_ID=${NEXT_PUBLIC_BIMA_CLIENT_ID}
 RUN npm run build
 
 FROM node:24-alpine AS runtime
@@ -28,6 +30,6 @@ USER nextjs
 EXPOSE 3000
 
 HEALTHCHECK --interval=10s --timeout=3s --start-period=15s --retries=5 \
-  CMD wget -qO- http://127.0.0.1:3000/ >/dev/null || exit 1
+  CMD wget -qO- http://0.0.0.0:3000/ >/dev/null || exit 1
 
 CMD ["node", "server.js"]

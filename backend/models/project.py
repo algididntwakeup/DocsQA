@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db.base import Base
@@ -23,6 +23,8 @@ class Project(Base):
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     code: Mapped[str | None] = mapped_column(String(50), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    bima_project_id: Mapped[int | None] = mapped_column(Integer, unique=True, index=True, nullable=True)
+    status: Mapped[str] = mapped_column(String(30), default="ACTIVE", nullable=False)
     plant_area: Mapped[str | None] = mapped_column(String(100), nullable=True)
     created_by_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
     assigned_to_id: Mapped[UUID | None] = mapped_column(

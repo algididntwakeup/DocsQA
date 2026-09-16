@@ -43,7 +43,7 @@ services:
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/1
       STORAGE_ROOT: /app/storage/uploads
-      CORS_ORIGINS: '["http://localhost:3000","http://127.0.0.1:3000"]'
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
       AUTH_MODE: required
       SECRET_KEY: ${SECRET_KEY:-change-this-development-secret-key}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}

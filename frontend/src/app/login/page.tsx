@@ -31,8 +31,11 @@ export default function LoginPage() {
   }
 
   function startSso() {
-    const redirectUri = `${window.location.origin}/auth/sso/callback`;
-    window.location.href = `https://bima.reksolindo.co.id/sso/authorize?client_id=docsqa&redirect_uri=${encodeURIComponent(redirectUri)}&scope=profile%20roles%20permissions%20email%20department`;
+    const redirectUri = typeof window !== "undefined"
+      ? `${window.location.origin}/auth/sso/callback`
+      : `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/auth/sso/callback`;
+    const clientId = process.env.NEXT_PUBLIC_BIMA_CLIENT_ID ?? "prism";
+    window.location.href = `https://bima.reksolindo.co.id/sso/authorize?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=profile%20roles%20permissions%20email%20department`;
   }
 
   return (

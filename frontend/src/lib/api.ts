@@ -99,18 +99,14 @@ export interface CreateManagedUserPayload {
 
 export function getApiBaseUrl(): string {
   if (typeof window !== "undefined") {
-    const custom = process.env.NEXT_PUBLIC_API_BASE_URL;
-    if (custom && !custom.includes("localhost:8000") && !custom.includes("127.0.0.1:8000")) {
-      return custom.replace(/\/+$/, "");
-    }
     return "/api/v1";
   }
 
-  const internal = process.env.INTERNAL_API_URL;
+  const internal = process.env.INTERNAL_BACKEND_URL;
   if (internal) {
     return `${internal.replace(/\/+$/, "")}/api/v1`;
   }
-  return (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api/v1").replace(/\/+$/, "");
+  return "http://api:8000/api/v1";
 }
 
 let memoryAuthToken: string | null = null;
@@ -130,7 +126,7 @@ function getTokenFromCookie(): string | null {
 export function getAuthToken(): string | null {
   if (typeof window !== "undefined") {
     try {
-      const stored = sessionStorage.getItem("docsqa_auth_token") || localStorage.getItem("docsqa_auth_token");
+      const stored = sessionStorage.getItem("prism_auth_token") || localStorage.getItem("prism_auth_token");
       if (stored) return stored;
     } catch {
       // Ignore storage errors in restricted environments
@@ -146,11 +142,11 @@ export function setAuthToken(token: string | null): void {
   if (typeof window !== "undefined") {
     try {
       if (token) {
-        sessionStorage.setItem("docsqa_auth_token", token);
-        localStorage.setItem("docsqa_auth_token", token);
+        sessionStorage.setItem("prism_auth_token", token);
+        localStorage.setItem("prism_auth_token", token);
       } else {
-        sessionStorage.removeItem("docsqa_auth_token");
-        localStorage.removeItem("docsqa_auth_token");
+        sessionStorage.removeItem("prism_auth_token");
+        localStorage.removeItem("prism_auth_token");
       }
     } catch {
       // Ignore storage errors in restricted environments
@@ -218,6 +214,16 @@ export async function exchangeSsoToken(token: string): Promise<LoginResponse> {
   });
   if (res?.access_token) setAuthToken(res.access_token);
   return res;
+}
+
+export interface BimaSyncResponse {
+  synced: number;
+  created: number;
+  updated: number;
+}
+
+export function syncBimaProjects(): Promise<BimaSyncResponse> {
+  return request<BimaSyncResponse>("/projects/sync-bima", { method: "POST" });
 }
 
 export async function logout(): Promise<void> {

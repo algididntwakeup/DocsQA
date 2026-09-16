@@ -38,10 +38,19 @@ This is the central index every new agent must read in full. Repository state al
   normal page scrolling in the application shell.
 - **Latest BIMA authentication checkpoint**: Added dual BIMA authentication with credential
   login (`/api/auth/login`) and one-click SSO (`/sso/authorize` -> `/api/sso/verify`). Both flows
-  JIT-provision or synchronize DocsQA users, map BIMA roles to DocsQA roles, issue the internal
+  JIT-provision or synchronize PRISM users, map BIMA roles to PRISM roles, issue the internal
   JWT cookie session, and support local-password fallback for emergency accounts. Migration
   `20260916_0013_bima_identity` adds nullable SSO identity/profile fields. Docker verification:
   API, worker, frontend, PostgreSQL, and Redis healthy; BIMA login flow tested successfully.
+- **Latest deployment/project-master checkpoint**: Browser API calls now use same-origin
+  `/api/v1` through the Next.js rewrite proxy and no longer depend on a compiled public API host.
+  Added environment-driven CORS and corporate-domain routing, BIMA project master synchronization
+  (`POST /api/v1/projects/sync-bima`), project identity migration `20260916_0014_bima_projects`,
+  and the lead/superuser `Tarik Proyek BIMA` action.
+- **PRISM deployment identity**: Production configuration uses `APP_NAME=PRISM - Document
+  Assurance Platform`, `https://prism.reksolindo.co.id`, and BIMA client ID `prism`. Compose keeps
+  its existing internal project name to preserve PostgreSQL/Redis volume continuity. Migration
+  `20260916_0014_bima_projects` is applied locally and is the current database head.
 - **Latest project-assignment checkpoint**: Added nullable `projects.assigned_to_id`, migration
   `20260910_0009_project_assignment`, lead-only project assignment, user project filtering,
   engineer project creation, creator/assignee names, document counts, and assigned visibility.
