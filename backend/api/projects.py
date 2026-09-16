@@ -1,10 +1,20 @@
 """Project-scoped document endpoints."""
 
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, Cookie, Depends, File, Header, HTTPException, Query, UploadFile, status
+from fastapi import (
+    APIRouter,
+    Cookie,
+    Depends,
+    File,
+    Header,
+    HTTPException,
+    Query,
+    UploadFile,
+    status,
+)
 from sqlalchemy import exists, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
@@ -19,8 +29,8 @@ from models.user import User
 from schemas.common import PageInfo
 from schemas.documents import DocumentListResponse, DocumentRead, DocumentUploadResponse
 from schemas.project import ProjectAssignment, ProjectCreate, ProjectRead
-from services.pipeline import enqueue_extraction
 from services import bima_client
+from services.pipeline import enqueue_extraction
 from services.uploads import UploadService
 
 router = APIRouter(prefix="/projects", tags=["projects"])
@@ -81,7 +91,7 @@ def _ensure_project_open(project: Project) -> None:
         )
 
 
-def _bima_project_id(data: dict) -> int | None:
+def _bima_project_id(data: dict[str, Any]) -> int | None:
     value = data.get("bima_project_id", data.get("id"))
     return int(value) if value is not None else None
 

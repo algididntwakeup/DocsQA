@@ -117,7 +117,9 @@ async def login(
 ) -> TokenResponse:
     """Authenticate an active user and issue a JWT."""
     try:
-        bima_user = await bima_client.login_with_bima_credentials(payload.username, payload.password)
+        bima_user = await bima_client.login_with_bima_credentials(
+            payload.username, payload.password
+        )
         user = await upsert_bima_user(
             session,
             bima_user,

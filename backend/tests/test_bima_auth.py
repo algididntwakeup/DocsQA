@@ -1,5 +1,7 @@
 """Focused unit coverage for BIMA normalization and JIT provisioning."""
 
+from typing import Any
+
 import pytest
 
 from domain.enums import UserRole
@@ -57,24 +59,27 @@ def test_bima_envelope_profile_mapping() -> None:
 
 
 @pytest.mark.anyio
-async def test_fetch_bima_projects(monkeypatch) -> None:
+async def test_fetch_bima_projects(monkeypatch: pytest.MonkeyPatch) -> None:
     class Response:
         status_code = 200
 
         def raise_for_status(self) -> None:
             return None
 
-        def json(self) -> dict:
-            return {"success": True, "data": {"projects": [{"id": 7, "code": "P-7", "name": "Plant 7"}]}}
+        def json(self) -> dict[str, Any]:
+            return {
+                "success": True,
+                "data": {"projects": [{"id": 7, "code": "P-7", "name": "Plant 7"}]},
+            }
 
     class Client:
-        async def __aenter__(self):
+        async def __aenter__(self) -> "Client":
             return self
 
-        async def __aexit__(self, *_args):
+        async def __aexit__(self, *_args: Any) -> None:
             return None
 
-        async def get(self, _url, headers):
+        async def get(self, _url: str, headers: dict[str, str]) -> Response:
             assert headers == {"Authorization": "Bearer bima-token"}
             return Response()
 

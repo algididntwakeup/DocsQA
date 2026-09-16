@@ -38,7 +38,9 @@ async def get_current_user(
             query = query.where(User.email.in_(settings.local_fallback_emails))
         else:
             query = query.where(User.role.in_([UserRole.SUPERUSER, UserRole.LEAD_ENGINEER]))
-        local_user = (await session.execute(query.order_by(User.email.asc()).limit(1))).scalar_one_or_none()
+        local_user = (
+            await session.execute(query.order_by(User.email.asc()).limit(1))
+        ).scalar_one_or_none()
         if local_user is not None:
             return local_user
         raise HTTPException(

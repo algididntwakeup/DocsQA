@@ -3,6 +3,7 @@
 from collections.abc import Sequence
 
 import sqlalchemy as sa
+
 from alembic import op
 
 revision: str = "20260916_0014"
@@ -14,7 +15,8 @@ depends_on: str | Sequence[str] | None = None
 def upgrade() -> None:
     op.add_column("projects", sa.Column("bima_project_id", sa.Integer(), nullable=True))
     op.add_column(
-        "projects", sa.Column("status", sa.String(length=30), nullable=False, server_default="ACTIVE")
+        "projects",
+        sa.Column("status", sa.String(length=30), nullable=False, server_default="ACTIVE"),
     )
     op.create_index("ix_projects_bima_project_id", "projects", ["bima_project_id"], unique=True)
 

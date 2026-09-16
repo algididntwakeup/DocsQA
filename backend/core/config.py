@@ -73,7 +73,11 @@ class Settings(BaseSettings):
 
     @property
     def local_fallback_emails(self) -> list[str]:
-        return [email.strip().lower() for email in self.LOCAL_FALLBACK_EMAILS.split(",") if email.strip()]
+        return [
+            email.strip().lower()
+            for email in self.LOCAL_FALLBACK_EMAILS.split(",")
+            if email.strip()
+        ]
 
     # ── Table Math Tolerance ─────────────────────────────────────────
     TABLE_MATH_TOLERANCE_PERCENT: float = 0.5
