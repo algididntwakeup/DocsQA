@@ -612,6 +612,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/sync-bima": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sync Bima Projects
+         * @description Synchronize BIMA projects into the local project master data.
+         */
+        post: operations["sync_bima_projects_api_v1_projects_sync_bima_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}": {
         parameters: {
             query?: never;
@@ -1334,6 +1354,8 @@ export interface components {
          * @description Payload for creating a project.
          */
         ProjectCreate: {
+            /** Bima Project Id */
+            bima_project_id?: number | null;
             /** Code */
             code?: string | null;
             /** Description */
@@ -1342,6 +1364,11 @@ export interface components {
             name: string;
             /** Plant Area */
             plant_area?: string | null;
+            /**
+             * Status
+             * @default ACTIVE
+             */
+            status: string;
         };
         /**
          * ProjectRead
@@ -3096,6 +3123,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProjectRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sync_bima_projects_api_v1_projects_sync_bima_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-BIMA-Token"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                bima_access_token?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: number;
+                    };
                 };
             };
             /** @description Validation Error */
