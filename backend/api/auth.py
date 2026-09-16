@@ -1,11 +1,10 @@
 """Authentication endpoints."""
 
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from pydantic import BaseModel, Field
-from pydantic import AliasChoices, ConfigDict
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
@@ -22,7 +21,6 @@ from domain.enums import UserRole
 from models.document import Document
 from models.project import Project
 from models.user import User
-from services import bima_client
 from schemas.user import (
     ChangePasswordRequest,
     ManagedUserCreate,
@@ -32,6 +30,7 @@ from schemas.user import (
     UserRead,
     UserStatusUpdate,
 )
+from services import bima_client
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -64,15 +63,19 @@ class AssignedProjectDocument(BaseModel):
     workflow_status: str
 
 
-async def upsert_bima_user(session: AsyncSession, bima_user_dict: dict) -> User:
+async def upsert_bima_user(session: AsyncSession, bima_user_dict: dict[str, Any]) -> User:
     """Provision or synchronize a BIMA identity without creating local passwords."""
     bima_id = bima_user_dict.get("bima_id")
     email = str(bima_user_dict.get("email", "")).strip().lower()
-    user = None
+    user: User | None = None
     if bima_id is not None:
-        user = (await session.execute(select(User).where(User.bima_id == bima_id))).scalar_one_or_none()
+        user = (
+            await session.execute(select(User).where(User.bima_id == bima_id))
+        ).scalar_one_or_none()
     if user is None and email:
-        user = (await session.execute(select(User).where(func.lower(User.email) == email))).scalar_one_or_none()
+        user = (
+            await session.execute(select(User).where(func.lower(User.email) == email))
+        ).scalar_one_or_none()
     if user is None:
         user = User(email=email, full_name=bima_user_dict["full_name"], is_active=True)
         session.add(user)
@@ -108,22 +111,42 @@ async def login(
 ) -> TokenResponse:
     """Authenticate an active user and issue a JWT."""
     try:
-        user = await upsert_bima_user(session, await bima_client.login_with_bima_credentials(payload.username, payload.password))
+        user = await upsert_bima_user(
+            session,
+            await bima_client.login_with_bima_credentials(payload.username, payload.password),
+        )
         return _token_response(response, user)
     except HTTPException as bima_error:
         if bima_error.status_code != status.HTTP_401_UNAUTHORIZED:
             raise
-    user = (await session.execute(select(User).where(func.lower(User.email) == payload.username.strip().lower()))).scalar_one_or_none()
-    if user is None or not user.is_active or not user.hashed_password or not verify_password(payload.password, user.hashed_password):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password.")
-    return _token_response(response, user)
+    fallback_user = (
+        await session.execute(
+            select(User).where(func.lower(User.email) == payload.username.strip().lower())
+        )
+    ).scalar_one_or_none()
+    if (
+        fallback_user is None
+        or not fallback_user.is_active
+        or not fallback_user.hashed_password
+        or not verify_password(payload.password, fallback_user.hashed_password)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password."
+        )
+    return _token_response(response, fallback_user)
 
 
 @router.post("/sso/exchange", response_model=TokenResponse)
-async def exchange_sso(payload: SsoExchangeRequest, response: Response, session: Annotated[AsyncSession, Depends(get_session)]) -> TokenResponse:
+async def exchange_sso(
+    payload: SsoExchangeRequest,
+    response: Response,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> TokenResponse:
     user = await upsert_bima_user(session, await bima_client.verify_sso_token(payload.token))
     if not user.is_active:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User account is inactive.")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="User account is inactive."
+        )
     return _token_response(response, user)
 
 

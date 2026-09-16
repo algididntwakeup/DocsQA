@@ -116,5 +116,6 @@ async def test_status_toggle_and_password_reset() -> None:
     )
     assert reset_result.email == target.email
     assert target.hashed_password != old_hash
+    assert target.hashed_password is not None
     assert verify_password("new-temporary-secret", target.hashed_password)
     assert session.commit.await_count == 2
