@@ -1,10 +1,20 @@
 """Project-scoped document endpoints."""
 
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import (
+    APIRouter,
+    Cookie,
+    Depends,
+    File,
+    Header,
+    HTTPException,
+    Query,
+    UploadFile,
+    status,
+)
 from sqlalchemy import exists, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
@@ -19,6 +29,7 @@ from models.user import User
 from schemas.common import PageInfo
 from schemas.documents import DocumentListResponse, DocumentRead, DocumentUploadResponse
 from schemas.project import ProjectAssignment, ProjectCreate, ProjectRead
+from services import bima_client
 from services.pipeline import enqueue_extraction
 from services.uploads import UploadService
 
@@ -44,6 +55,8 @@ def _project_read(project: Project) -> ProjectRead:
         created_by_name=project.created_by.full_name if project.created_by else None,
         assigned_to_name=project.assigned_to.full_name if project.assigned_to else None,
         total_documents=len(project.documents),
+        # The API status remains the DocsQA lifecycle status; BIMA's raw status
+        # is persisted separately on Project for synchronization decisions.
         status=_project_status(project),
     )
     return ProjectRead(**data)
@@ -76,6 +89,56 @@ def _ensure_project_open(project: Project) -> None:
             status_code=status.HTTP_409_CONFLICT,
             detail="Project is finished; assignment and review changes are disabled.",
         )
+
+
+def _bima_project_id(data: dict[str, Any]) -> int | None:
+    value = data.get("bima_project_id", data.get("id"))
+    return int(value) if value is not None else None
+
+
+@router.post("/sync-bima")
+async def sync_bima_projects(
+    session: Annotated[AsyncSession, Depends(get_session)],
+    current_user: Annotated[User, Depends(require_lead)],
+    bima_token: Annotated[str | None, Header(alias="X-BIMA-Token")] = None,
+    bima_cookie: Annotated[str | None, Cookie(alias="bima_access_token")] = None,
+) -> dict[str, int]:
+    """Synchronize BIMA projects into the local project master data."""
+    token = bima_token or bima_cookie
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="BIMA token is required to sync projects.",
+        )
+    remote_projects = await bima_client.fetch_bima_projects(token)
+    created = 0
+    updated = 0
+    for remote in remote_projects:
+        remote_id = _bima_project_id(remote)
+        code = remote.get("code") or remote.get("project_code")
+        name = str(remote.get("name") or remote.get("project_name") or "BIMA Project")
+        query = select(Project)
+        match_conditions = [Project.name == name]
+        if remote_id is not None:
+            match_conditions.insert(0, Project.bima_project_id == remote_id)
+        if code:
+            match_conditions.insert(0, Project.code == str(code))
+        query = query.where(or_(*match_conditions))
+        project = (await session.execute(query)).scalar_one_or_none()
+        if project is None:
+            project = Project(name=name, created_by_id=current_user.id)
+            session.add(project)
+            created += 1
+        else:
+            updated += 1
+        project.bima_project_id = remote_id
+        project.name = name
+        project.code = str(code) if code is not None else project.code
+        project.description = remote.get("description") or project.description
+        project.plant_area = remote.get("plant_area") or remote.get("plant") or project.plant_area
+        project.status = str(remote.get("status") or "ACTIVE").upper()
+    await session.commit()
+    return {"synced": len(remote_projects), "created": created, "updated": updated}
 
 
 @router.post("", response_model=ProjectRead, status_code=201)

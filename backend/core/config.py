@@ -18,19 +18,21 @@ class Settings(BaseSettings):
     )
 
     # ── Application ──────────────────────────────────────────────────
-    APP_NAME: str = "Document QC API"
+    APP_NAME: str = "PRISM - Document Assurance Platform"
     DEBUG: bool = False
 
     # ── CORS ─────────────────────────────────────────────────────────
-    CORS_ORIGINS: list[str] = ["http://localhost:3000"]
+    CORS_ORIGINS: str = ""
+    CORS_ORIGIN_REGEX: str = ""
+    LOCAL_FALLBACK_EMAILS: str = ""
 
     # ── Database ─────────────────────────────────────────────────────
-    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/docqc"
+    DATABASE_URL: str = "postgresql+asyncpg://docqc:docqc@postgres:5432/docqc"
 
     # ── Redis / Celery ───────────────────────────────────────────────
-    REDIS_URL: str = "redis://localhost:6379/0"
-    CELERY_BROKER_URL: str = "redis://localhost:6379/0"
-    CELERY_RESULT_BACKEND: str = "redis://localhost:6379/1"
+    REDIS_URL: str = "redis://redis:6379/0"
+    CELERY_BROKER_URL: str = "redis://redis:6379/0"
+    CELERY_RESULT_BACKEND: str = "redis://redis:6379/1"
 
     # ── File Storage ─────────────────────────────────────────────────
     STORAGE_ROOT: Path = Path("./data")
@@ -51,11 +53,31 @@ class Settings(BaseSettings):
 
     # ── BIMA identity provider ────────────────────────────────────────
     BIMA_BASE_URL: str = "https://bima.reksolindo.co.id"
-    BIMA_CLIENT_ID: str = "docsqa"
+    BIMA_CLIENT_ID: str = "prism"
     BIMA_TIMEOUT_SECONDS: float = 10.0
 
     # ── NLP / LanguageTool ───────────────────────────────────────────
-    LANGUAGE_TOOL_HOST: str = "http://localhost:8081"
+    LANGUAGE_TOOL_HOST: str = "http://languagetool:8081"
+
+    @property
+    def cors_origins(self) -> list[str]:
+        value = self.CORS_ORIGINS.strip()
+        if not value:
+            return []
+        if value.startswith("["):
+            import json
+
+            parsed = json.loads(value)
+            return [str(origin).strip() for origin in parsed if str(origin).strip()]
+        return [origin.strip() for origin in value.split(",") if origin.strip()]
+
+    @property
+    def local_fallback_emails(self) -> list[str]:
+        return [
+            email.strip().lower()
+            for email in self.LOCAL_FALLBACK_EMAILS.split(",")
+            if email.strip()
+        ]
 
     # ── Table Math Tolerance ─────────────────────────────────────────
     TABLE_MATH_TOLERANCE_PERCENT: float = 0.5

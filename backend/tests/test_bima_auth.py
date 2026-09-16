@@ -1,7 +1,11 @@
 """Focused unit coverage for BIMA normalization and JIT provisioning."""
 
+from typing import Any
+
+import pytest
+
 from domain.enums import UserRole
-from services.bima_client import _profile
+from services.bima_client import _profile, fetch_bima_projects
 
 
 def test_bima_role_mapping() -> None:
@@ -52,3 +56,32 @@ def test_bima_envelope_profile_mapping() -> None:
     assert profile["bima_id"] == 42
     assert profile["full_name"] == "Harry Agustiana"
     assert profile["role"] == UserRole.SUPERUSER
+
+
+@pytest.mark.anyio
+async def test_fetch_bima_projects(monkeypatch: pytest.MonkeyPatch) -> None:
+    class Response:
+        status_code = 200
+
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, Any]:
+            return {
+                "success": True,
+                "data": {"projects": [{"id": 7, "code": "P-7", "name": "Plant 7"}]},
+            }
+
+    class Client:
+        async def __aenter__(self) -> "Client":
+            return self
+
+        async def __aexit__(self, *_args: Any) -> None:
+            return None
+
+        async def get(self, _url: str, headers: dict[str, str]) -> Response:
+            assert headers == {"Authorization": "Bearer bima-token"}
+            return Response()
+
+    monkeypatch.setattr("services.bima_client.httpx.AsyncClient", lambda **_kwargs: Client())
+    assert await fetch_bima_projects("bima-token") == [{"id": 7, "code": "P-7", "name": "Plant 7"}]

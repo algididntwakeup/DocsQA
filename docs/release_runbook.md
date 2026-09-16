@@ -107,8 +107,9 @@ Configure the following environment variables in `.env` or container orchestrato
 | `DOCSQA_REDIS_URL` | Redis connection URI | `redis://localhost:6379/0` | Protect with Redis ACL / TLS |
 | `DOCSQA_STORAGE_ROOT` | Root filesystem path for document storage | `./storage` | Ensure disk quotas and ACLs |
 | `DOCSQA_RETENTION_DAYS` | Days before expired uploads are purged | `30` | Per PRD §4.3 ephemeral policy |
-| `DOCSQA_CORS_ORIGINS` | Permitted browser origins | `http://localhost:3000` | Set to exact production domain |
-| `NEXT_PUBLIC_API_BASE_URL`| Frontend API endpoint | `http://localhost:8000/api/v1`| Use HTTPS in production |
+| `CORS_ORIGINS` | Permitted browser origins | `https://prism.reksolindo.co.id` | Set to the exact PRISM production domain |
+| `NEXT_PUBLIC_APP_URL` | Public PRISM application URL | `https://prism.reksolindo.co.id` | Used for BIMA SSO callback generation |
+| `BIMA_CLIENT_ID` | Registered BIMA SSO client | `prism` | Must match the BIMA client registration |
 | `AUTH_MODE` | Authentication mode | `required` in Docker | Keep required outside local development |
 
 | `SECRET_KEY` | JWT signing secret | none for production | Use a long random secret from a secret manager |

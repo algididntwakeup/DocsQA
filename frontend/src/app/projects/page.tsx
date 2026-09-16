@@ -1,8 +1,8 @@
 "use client";
 
-import { AlertTriangle, FolderKanban, LoaderCircle, Plus, X } from "lucide-react";
+import { AlertTriangle, CloudDownload, FolderKanban, LoaderCircle, Plus, X } from "lucide-react";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { ApiError, createProject, deleteProject, finishProject, getCurrentUser, listProjectDocuments, listProjects, type ProjectItem } from "@/lib/api";
+import { ApiError, createProject, deleteProject, finishProject, getCurrentUser, listProjectDocuments, listProjects, syncBimaProjects, type ProjectItem } from "@/lib/api";
 import { ProjectCard } from "@/components/project/project-card";
 
 export default function ProjectsPage() {
@@ -17,6 +17,7 @@ export default function ProjectsPage() {
   const [creating, setCreating] = useState(false);
   const [verifiedCounts, setVerifiedCounts] = useState<Record<string, number>>({});
   const [currentRole, setCurrentRole] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -92,6 +93,18 @@ export default function ProjectsPage() {
     }
   }
 
+  async function handleBimaSync() {
+    setSyncing(true);
+    try {
+      await syncBimaProjects();
+      await load();
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : "Could not sync BIMA projects.");
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 space-y-8">
       {/* Page Heading */}
@@ -101,16 +114,30 @@ export default function ProjectsPage() {
           <h1 className="mt-1 text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">Projects & Plants</h1>
           <p className="mt-1 text-sm text-slate-600">Choose a project to inspect and curate its controlled document register.</p>
         </div>
-        {canCreateProject && (
-          <button
-            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs transition hover:bg-blue-700 self-start sm:self-auto"
-            type="button"
-            onClick={() => setModalOpen(true)}
-          >
-            <Plus size={16} />
-            Create Project
-          </button>
-        )}
+        <div className="flex flex-wrap gap-2 self-start sm:self-auto">
+          {canCreateProject && (
+            <button
+              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs transition hover:bg-blue-700 disabled:opacity-50"
+              type="button"
+              onClick={() => setModalOpen(true)}
+              disabled={syncing}
+            >
+              <Plus size={16} />
+              Create Project
+            </button>
+          )}
+          {canCreateProject && (
+            <button
+              className="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-xs font-bold text-blue-800 transition hover:bg-blue-100 disabled:opacity-50"
+              type="button"
+              onClick={() => void handleBimaSync()}
+              disabled={syncing}
+            >
+              <CloudDownload size={16} />
+              {syncing ? "Syncing..." : "Tarik Proyek BIMA"}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Error Alert */}

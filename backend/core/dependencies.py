@@ -33,13 +33,13 @@ async def get_current_user(
     if token is None and credentials is not None:
         token = credentials.credentials
     if settings.AUTH_MODE == "disabled" and token is None:
+        query = select(User).where(User.is_active.is_(True))
+        if settings.local_fallback_emails:
+            query = query.where(User.email.in_(settings.local_fallback_emails))
+        else:
+            query = query.where(User.role.in_([UserRole.SUPERUSER, UserRole.LEAD_ENGINEER]))
         local_user = (
-            await session.execute(
-                select(User)
-                .where(User.email.in_(["admin@localhost", "lead.engineer@localhost"]))
-                .order_by(User.email.asc())
-                .limit(1)
-            )
+            await session.execute(query.order_by(User.email.asc()).limit(1))
         ).scalar_one_or_none()
         if local_user is not None:
             return local_user

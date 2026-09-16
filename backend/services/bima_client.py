@@ -88,7 +88,9 @@ async def login_with_bima_credentials(username: str, password: str) -> dict[str,
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Unable to resolve BIMA profile.",
                 )
-            return _profile(profile.json())
+            normalized = _profile(profile.json())
+            normalized["bima_token"] = str(token)
+            return normalized
     except HTTPException:
         raise
     except httpx.HTTPError as exc:
@@ -109,7 +111,41 @@ async def verify_sso_token(token: str) -> dict[str, Any]:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid BIMA SSO token."
                 )
-            return _profile(response.json())
+            normalized = _profile(response.json())
+            normalized["bima_token"] = token
+            return normalized
+    except HTTPException:
+        raise
+    except httpx.HTTPError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="BIMA is unavailable."
+        ) from exc
+
+
+async def fetch_bima_projects(bima_token: str) -> list[dict[str, Any]]:
+    """Fetch active/reference projects from BIMA using a user bearer token."""
+    try:
+        async with httpx.AsyncClient(timeout=settings.BIMA_TIMEOUT_SECONDS) as client:
+            response = await client.get(
+                f"{settings.BIMA_BASE_URL.rstrip('/')}/api/projects",
+                headers={"Authorization": f"Bearer {bima_token}"},
+            )
+            if response.status_code == 401:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="BIMA project access is unauthorized.",
+                )
+            response.raise_for_status()
+            payload = response.json()
+            data = payload.get("data", payload) if isinstance(payload, dict) else payload
+            if isinstance(data, dict):
+                data = data.get("projects", data.get("items", []))
+            if not isinstance(data, list):
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail="Invalid BIMA project response.",
+                )
+            return [item for item in data if isinstance(item, dict)]
     except HTTPException:
         raise
     except httpx.HTTPError as exc:

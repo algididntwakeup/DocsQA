@@ -74,7 +74,8 @@ This file records implementation decisions that must not be reverted or duplicat
 - Authentication supports BIMA credential login and BIMA SSO. Credential login calls BIMA
   `/api/auth/login` with `username` and `password`, then resolves the profile through
   `/api/auth/me`. SSO starts at BIMA `/sso/authorize` and exchanges the callback token through
-  DocsQA `POST /api/v1/auth/sso/exchange`, which calls BIMA `/api/sso/verify` with `client_id=docsqa`.
+  PRISM `POST /api/v1/auth/sso/exchange`, which calls BIMA `/api/sso/verify` with the configured
+  `BIMA_CLIENT_ID` (production: `prism`).
 - BIMA responses use a `data` envelope; SSO profile data is at `data.user`. The BIMA client maps
   `is_admin` or `super-administrator` to `SUPERUSER`, lead/manager/project-manager roles or a
   `Lead` position to `LEAD_ENGINEER`, and all other users to `ENGINEER`.
@@ -84,6 +85,17 @@ This file records implementation decisions that must not be reverted or duplicat
   current identity schema head.
 - BIMA SSO redirect URIs must be registered/whitelisted in BIMA. Local development uses
   `http://localhost:3000/auth/sso/callback`; production must register the deployed HTTPS URI.
+- Runtime frontend API calls use same-origin `/api/v1`; `frontend/next.config.ts` rewrites them to
+  `INTERNAL_BACKEND_URL` (Compose service `api`). Do not reintroduce a public API URL into the
+  browser bundle. Set `NEXT_PUBLIC_APP_URL` for SSO callback generation and `CORS_ORIGINS` or
+  `CORS_ORIGIN_REGEX` for deployments where the browser origin differs from the frontend proxy.
+- Production deployment identity is PRISM: set `APP_NAME=PRISM - Document Assurance Platform`,
+  `NEXT_PUBLIC_APP_URL=https://prism.reksolindo.co.id`, `CORS_ORIGINS=https://prism.reksolindo.co.id`,
+  and `BIMA_CLIENT_ID=prism`. Keep the Compose project name unchanged unless volumes are migrated.
+- `POST /api/v1/projects/sync-bima` is lead/superuser-only and uses the HttpOnly `bima_access_token`
+  established during BIMA credential/SSO login. It calls BIMA `GET /api/projects`, matches by BIMA
+  ID/code/name, and upserts the local project master data. Migration `20260916_0014_bima_projects`
+  adds `projects.bima_project_id` and the persisted BIMA status.
 
 - `POST /api/v1/auth/login` returns a bearer token and user role; `GET /api/v1/auth/me` returns
   the current user.
