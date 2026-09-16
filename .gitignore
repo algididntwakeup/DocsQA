@@ -12,6 +12,20 @@ Thumbs.db
 !.env.*.example
 *.pem
 
+# Docker Compose local configuration
+compose.yaml
+compose.yml
+docker-compose.yml
+docker-compose.yaml
+compose.override.yaml
+compose.override.yml
+docker-compose.override.yml
+docker-compose.override.yaml
+!compose.yaml.example
+!compose.*.example
+!docker-compose.example.yml
+!docker-compose.*.example.yml
+
 # Python
 __pycache__/
 *.py[cod]

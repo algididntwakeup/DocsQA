@@ -3,7 +3,7 @@
 [![Backend Quality](https://img.shields.io/badge/backend-195%2B%20passed-success?style=flat-square&logo=python)](backend/)
 [![Frontend Checks](https://img.shields.io/badge/frontend-60%20passed-success?style=flat-square&logo=react)](frontend/)
 [![Architecture](<https://img.shields.io/badge/type-100%25%20deterministic%20(non--LLM)-blue?style=flat-square>)]()
-[![Docker Compose](https://img.shields.io/badge/docker%20compose-ready-2496ED?style=flat-square&logo=docker)](docker-compose.yml)
+[![Docker Compose](https://img.shields.io/badge/docker%20compose-ready-2496ED?style=flat-square&logo=docker)](compose.yaml.example)
 
 **PRISM** is an automated, audit-grade Quality Assurance (QA) and Traceability platform designed for heavy-engineering design deliverables, specifications, calculation sheets, and vendor manuals.
 
@@ -73,7 +73,7 @@ Unlike generative AI tools that hallucinate, DocsQA runs on **100% deterministic
 
 ## Docker Deployment
 
-Docker Compose starts the complete stack: PostgreSQL 17, Redis 7, Alembic migrations, FastAPI, Celery, and Next.js. Authentication is enabled by default. The canonical Compose file is `compose.yaml`; Docker Compose automatically prefers it when both Compose files exist.
+Docker Compose starts the complete stack: PostgreSQL 17, Redis 7, Alembic migrations, FastAPI, Celery, and Next.js. Authentication is enabled by default. The template Compose file is provided as `compose.yaml.example`.
 
 Current local Docker status: PostgreSQL and Redis are both running and healthy. The full backend
 suite passes with the Redis integration test skipped by default; that test is opt-in through
@@ -96,13 +96,14 @@ git clone https://github.com/reksolindo-org/PRISM.git
 cd PRISM
 ```
 
-2. Create the Docker environment file:
+2. Create the Docker environment and Compose files:
 
 ```bash
 cp .env.docker.example .env
+cp compose.yaml.example compose.yaml
 ```
 
-On Windows PowerShell, use `Copy-Item .env.docker.example .env`.
+On Windows PowerShell, use `Copy-Item .env.docker.example .env; Copy-Item compose.yaml.example compose.yaml`.
 
 3. Edit `.env` before starting the server. At minimum, set unique values for:
 
