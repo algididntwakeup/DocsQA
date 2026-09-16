@@ -105,6 +105,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/sso/exchange": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Exchange Sso */
+        post: operations["exchange_sso_api_v1_auth_sso_exchange_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/users": {
         parameters: {
             query?: never;
@@ -1237,10 +1254,10 @@ export interface components {
         };
         /** LoginRequest */
         LoginRequest: {
-            /** Email */
-            email: string;
             /** Password */
             password: string;
+            /** Username */
+            username: string;
         };
         /**
          * ManagedUserCreate
@@ -1500,6 +1517,11 @@ export interface components {
          * @enum {string}
          */
         Severity: "BLOCKER" | "CRITICAL" | "MAJOR" | "MINOR" | "INFO" | "HIGH" | "MEDIUM" | "LOW";
+        /** SsoExchangeRequest */
+        SsoExchangeRequest: {
+            /** Token */
+            token: string;
+        };
         /**
          * StageFailureEvidence
          * @description Sanitized pipeline-stage failure surfaced without losing other results.
@@ -1705,11 +1727,15 @@ export interface components {
          * @description User representation used by the lead user-management console.
          */
         UserManagementRead: {
+            /** Bima Id */
+            bima_id?: number | null;
             /**
              * Created At
              * Format: date-time
              */
             created_at: string;
+            /** Department */
+            department?: string | null;
             /** Email */
             email: string;
             /** Full Name */
@@ -1721,6 +1747,8 @@ export interface components {
             id: string;
             /** Is Active */
             is_active: boolean;
+            /** Position */
+            position?: string | null;
             role: components["schemas"]["UserRole"];
             /**
              * Total Documents Owned
@@ -1751,11 +1779,15 @@ export interface components {
          * @description Public user representation.
          */
         UserRead: {
+            /** Bima Id */
+            bima_id?: number | null;
             /**
              * Created At
              * Format: date-time
              */
             created_at: string;
+            /** Department */
+            department?: string | null;
             /** Email */
             email: string;
             /** Full Name */
@@ -1767,6 +1799,8 @@ export interface components {
             id: string;
             /** Is Active */
             is_active: boolean;
+            /** Position */
+            position?: string | null;
             role: components["schemas"]["UserRole"];
         };
         /**
@@ -1962,6 +1996,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UserRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    exchange_sso_api_v1_auth_sso_exchange_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SsoExchangeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenResponse"];
                 };
             };
             /** @description Validation Error */
