@@ -4,11 +4,13 @@ import { ExternalLink, FolderKanban, LoaderCircle, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ApiError, listProjectsForUser, type AssignedProject, type ManagedUser } from "@/lib/api";
+import { useLocale } from "@/components/layout/locale-provider";
 
 export function UserProjectsModal({ user, onClose }: { user: ManagedUser | null; onClose: () => void }) {
   const [projects, setProjects] = useState<AssignedProject[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { t } = useLocale();
 
   useEffect(() => {
     if (!user) return;
@@ -17,11 +19,11 @@ export function UserProjectsModal({ user, onClose }: { user: ManagedUser | null;
       setError(null);
       void listProjectsForUser(user.id)
         .then(setProjects)
-        .catch((caught) => setError(caught instanceof ApiError ? caught.message : "Could not load projects."))
+        .catch((caught) => setError(caught instanceof ApiError ? caught.message : t("couldNotLoadProjects")))
         .finally(() => setLoading(false));
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [user]);
+  }, [user, t]);
 
   if (!user) return null;
 
@@ -35,17 +37,17 @@ export function UserProjectsModal({ user, onClose }: { user: ManagedUser | null;
       <div className="w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
         <div className="flex items-start justify-between border-b border-slate-100 pb-4">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Assigned Work</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{t("assignedWork")}</p>
             <h2 id="user-projects-title" className="text-lg font-bold text-slate-900">
-              Projects for {user.full_name}
+              {t("projectsFor", { name: user.full_name })}
             </h2>
             <p className="text-xs text-slate-500">
-              Projects and documents currently assigned to this engineer.
+              {t("assignedWorkDescription")}
             </p>
           </div>
           <button
             type="button"
-            aria-label="Close"
+             aria-label={t("close")}
             onClick={onClose}
             className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
           >
@@ -57,14 +59,14 @@ export function UserProjectsModal({ user, onClose }: { user: ManagedUser | null;
           {loading ? (
             <div className="flex min-h-[200px] flex-col items-center justify-center gap-2 text-slate-400">
               <LoaderCircle className="animate-spin text-blue-600" size={24} />
-              <span className="text-xs font-semibold">Loading projects...</span>
+               <span className="text-xs font-semibold">{t("loadingProjects")}</span>
             </div>
           ) : error ? (
             <p className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">{error}</p>
           ) : projects.length === 0 ? (
             <div className="flex min-h-[200px] flex-col items-center justify-center gap-2 text-center text-slate-400">
               <FolderKanban size={32} className="text-slate-300" />
-              <p className="text-xs font-medium">No assigned documents.</p>
+               <p className="text-xs font-medium">{t("noAssignedDocuments")}</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -92,7 +94,7 @@ export function UserProjectsModal({ user, onClose }: { user: ManagedUser | null;
                     onClick={onClose}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 shrink-0"
                   >
-                    Open <ExternalLink size={13} />
+                     {t("open")} <ExternalLink size={13} />
                   </Link>
                 </div>
               ))}

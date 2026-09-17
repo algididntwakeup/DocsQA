@@ -18,10 +18,12 @@ import {
 import { formatBytes, formatDate } from "@/lib/format";
 import { ScanProgress } from "./scan-progress";
 import { StatusBadge } from "./status-badge";
+import { useLocale } from "@/components/layout/locale-provider";
 
 const TERMINAL = new Set(["COMPLETED", "COMPLETED_WITH_WARNINGS", "FAILED"]);
 
 export function DocumentStatusView({ id }: { id: string }) {
+  const { t } = useLocale();
   const router = useRouter();
   const [document, setDocument] = useState<DocumentItem | null>(null);
   const [scan, setScan] = useState<DocumentStatus | null>(null);
@@ -59,11 +61,11 @@ export function DocumentStatusView({ id }: { id: string }) {
       retryRef.current = 1000;
       return nextScan;
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : "Could not load document status.");
+      setError(caught instanceof ApiError ? caught.message : t("couldNotLoadDocument"));
       retryRef.current = Math.min(Math.round(retryRef.current * 1.7), 8000);
       return null;
     }
-  }, [id]);
+  }, [id, t]);
 
   useEffect(() => {
     let active = true;
@@ -151,9 +153,9 @@ export function DocumentStatusView({ id }: { id: string }) {
 
   return (
     <>
-      <Link className="back-link" href={document?.project_id ? `/projects/${document.project_id}` : "/projects"}><ArrowLeft size={15} />Project / Inspection register</Link>
-      {error && <div className="alert alert-error" role="alert"><AlertTriangle /><span><strong>Status unavailable</strong>{error}</span><button type="button" onClick={() => void load()}>Retry</button></div>}
-      {!document || !scan ? <div className="panel loading-state" role="status">Reading pipeline telemetry…</div> : <>
+      <Link className="back-link" href={document?.project_id ? `/projects/${document.project_id}` : "/projects"}><ArrowLeft size={15} />{t("project")} / {t("inspectionRegister")}</Link>
+      {error && <div className="alert alert-error" role="alert"><AlertTriangle /><span><strong>{t("couldNotLoadDocument")}</strong>{error}</span><button type="button" onClick={() => void load()}>{t("retry")}</button></div>}
+      {!document || !scan ? <div className="panel loading-state" role="status">{t("readingTelemetry")}</div> : <>
         <div className="document-hero">
           <div className="document-icon"><FileText /></div>
           <div>

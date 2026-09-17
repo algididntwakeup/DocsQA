@@ -38,15 +38,19 @@ fastapi.exceptions.HTTPException: 403: Document owner access required.
 ```python
 project.assigned_to_id = payload.assigned_to_id
 await session.commit()
-await session.refresh(project)           # ← only refreshes scalar columns
-return _project_read(project)            # ← _project_read() accesses project.assigned_to.full_name
+await session.refresh(project)  # ← only refreshes scalar columns
+return _project_read(
+    project
+)  # ← _project_read() accesses project.assigned_to.full_name
 ```
 
 `session.refresh(project)` **without** `attribute_names=["created_by", "assigned_to", "documents"]` leaves the lazy-loaded relationships detached / expired after the commit. When `_project_read()` accesses `project.assigned_to.full_name`, SQLAlchemy attempts a lazy load on a closed / detached async session connection, raising `MissingGreenlet` / `AttributeError`, which surfaces to the client as HTTP 500.
 
 **Fix:**
 ```python
-await session.refresh(project, attribute_names=["created_by", "assigned_to", "documents"])
+await session.refresh(
+    project, attribute_names=["created_by", "assigned_to", "documents"]
+)
 ```
 
 ```

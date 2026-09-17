@@ -5,9 +5,10 @@ import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ApiError, assignDocument, claimDocument, deleteDocument, type DocumentItem, type ManagedUser, type UserRole } from "@/lib/api";
+import { useLocale } from "@/components/layout/locale-provider";
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+  return new Intl.DateTimeFormat(typeof navigator !== "undefined" ? navigator.language : "en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 }
 
 function shortId(id: string | null | undefined) {
@@ -42,6 +43,7 @@ export function ProjectDocumentTable({
   onChanged?: () => Promise<void>;
   projectFinished?: boolean;
 }) {
+  const { t } = useLocale();
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [engineer, setEngineer] = useState("all");
@@ -61,14 +63,14 @@ export function ProjectDocumentTable({
 
   async function claim(documentId: string) {
     setBusyId(documentId);
-    try { await claimDocument(documentId); toast.success("Document claimed successfully."); await onChanged?.(); }
-    catch (caught) { toast.error(caught instanceof ApiError ? caught.message : "Could not claim document."); }
+      try { await claimDocument(documentId); toast.success(t("claim")); await onChanged?.(); }
+    catch (caught) { toast.error(caught instanceof ApiError ? caught.message : t("couldNotLoadDocument")); }
     finally { setBusyId(null); }
   }
 
   async function assign(documentId: string, engineerId: string | null, override = false) {
     setBusyId(documentId);
-    try { await assignDocument(documentId, engineerId, override); setOverrideRequest(null); toast.success("Document assignment updated."); await onChanged?.(); }
+      try { await assignDocument(documentId, engineerId, override); setOverrideRequest(null); toast.success(t("save")); await onChanged?.(); }
     catch (caught) {
       if (!override && engineerId && caught instanceof ApiError && caught.status === 400) setOverrideRequest({ documentId, engineerId, message: caught.message });
       else toast.error(caught instanceof ApiError ? caught.message : "Could not assign document.");
@@ -100,10 +102,10 @@ export function ProjectDocumentTable({
   return (
     <section className="rounded-xl border border-slate-200 bg-white shadow-xs overflow-hidden">
       {/* Table Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 p-5 sm:px-6">
+       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 p-5 sm:px-6">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Document Inspection Register</p>
-          <h2 className="text-lg font-bold text-slate-900">{documents.length} controlled documents</h2>
+           <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{t("inspectionRegister")}</p>
+           <h2 className="text-lg font-bold text-slate-900">{documents.length} {t("documents")}</h2>
         </div>
         <div>
           <input
@@ -121,7 +123,7 @@ export function ProjectDocumentTable({
               onClick={() => inputRef.current?.click()}
             >
               <UploadCloud size={16} />
-              {uploading ? "Uploading..." : "Upload Document"}
+               {uploading ? t("uploading") : t("uploadDocument")}
             </button>
           )}
         </div>

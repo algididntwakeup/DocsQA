@@ -7,7 +7,7 @@
 
 **PRISM** is an automated, audit-grade Quality Assurance (QA) and Traceability platform designed for heavy-engineering design deliverables, specifications, calculation sheets, and vendor manuals.
 
-Unlike generative AI tools that hallucinate, DocsQA runs on **100% deterministic, reproducible algorithms** to provide rigorous compliance auditing against international standards (ASME, ASTM, API, ISO, NACE, AWS).
+Unlike generative AI tools that hallucinate, PRISM runs on **100% deterministic, reproducible algorithms** to provide rigorous compliance auditing against international standards (ASME, ASTM, API, ISO, NACE, AWS).
 
 ---
 
@@ -334,7 +334,7 @@ npm run build
 ## Monorepo Architecture
 
 ```text
-DocsQA/
+PRISM/
 ├── backend/
 │   ├── alembic/              # Database schema versioning & migration scripts
 │   ├── api/                  # FastAPI routers (documents, issues, audit, dictionary)

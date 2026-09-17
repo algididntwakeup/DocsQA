@@ -82,7 +82,7 @@ export default function LoginPage() {
           <form className="mt-8 space-y-4" onSubmit={submit}>
             <div>
                <label htmlFor="username" className="block text-xs font-semibold text-slate-700">
-                 Username atau email
+                  {t("usernameOrEmail")}
               </label>
               <div className="relative mt-1">
                 <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -91,7 +91,7 @@ export default function LoginPage() {
                    aria-label="Email"
                    type="text"
                    autoComplete="username"
-                   placeholder="username atau email"
+                    placeholder={t("usernameOrEmail")}
                   required
                    value={username}
                    onChange={(event) => setUsername(event.target.value)}
@@ -137,7 +137,7 @@ export default function LoginPage() {
           </form>
           <div className="my-6 flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">
             <span className="h-px flex-1 bg-slate-200" />
-            <span>atau masuk instan</span>
+            <span>{t("instantSignIn")}</span>
             <span className="h-px flex-1 bg-slate-200" />
           </div>
           <button
@@ -146,7 +146,7 @@ export default function LoginPage() {
             className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 text-xs font-bold text-blue-800 transition hover:border-blue-300 hover:bg-blue-100"
           >
             <Sparkles size={15} />
-            Masuk via BIMA SSO (Satu Klik)
+            {t("bimaSso")}
             <KeyRound size={15} />
           </button>
         </section>

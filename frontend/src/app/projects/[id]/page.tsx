@@ -7,6 +7,7 @@ import { ApiError, getCurrentUser, listEngineers, listProjectDocuments, listProj
 
 const isProcessingStatus = (status: string) => status === "QUEUED" || status === "PROCESSING" || status === "ANALYZING";
 import { ProjectDocumentTable } from "@/components/project/project-document-table";
+import { useLocale } from "@/components/layout/locale-provider";
 
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -19,6 +20,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<{ engineerId?: string; sortBy: "date_desc" | "date_asc"; hasBlockers?: boolean }>({ sortBy: "date_desc" });
   const loadingRef = useRef(false);
+  const { t } = useLocale();
 
   useEffect(() => {
     const timer = window.setTimeout(() => void params.then(({ id }) => setProjectId(id)), 0);
@@ -39,11 +41,11 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       setDocuments(result.documents);
       setRole(user.role); setCurrentUserId(user.id); setEngineers(activeEngineers);
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : "Could not load project details.");
+      setError(caught instanceof ApiError ? caught.message : t("couldNotLoadProjects"));
     } finally {
       loadingRef.current = false; setLoading(false);
     }
-  }, [filters, projectId]);
+  }, [filters, projectId, t]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
@@ -63,7 +65,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       await uploadProjectDocument(projectId, file);
       await load();
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : "Upload failed.");
+      setError(caught instanceof ApiError ? caught.message : t("uploadCouldNotComplete"));
     }
   }
 
@@ -72,7 +74,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
         <div className="flex min-h-[300px] flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-slate-200 bg-white p-12 text-slate-400">
           <RefreshCw className="animate-spin text-blue-600" size={24} />
-          <span className="text-xs font-semibold">Loading project details...</span>
+          <span className="text-xs font-semibold">{t("loadingProjects")}</span>
         </div>
       </div>
     );
@@ -87,20 +89,20 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           className="inline-flex items-center gap-1 font-semibold text-blue-600 hover:text-blue-700 hover:underline"
         >
           <ArrowLeft size={13} />
-          Projects
+            {t("projects")}
         </Link>
         <span>/</span>
-        <span className="text-slate-800 truncate font-semibold">{project?.name ?? "Project"}</span>
+        <span className="text-slate-800 truncate font-semibold">{project?.name ?? t("project")}</span>
       </nav>
 
       {/* Detail Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-slate-200 pb-6">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Document Inspection Register</p>
-          <h1 className="mt-1 text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">{project?.name ?? "Project"}</h1>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{t("inspectionRegister")}</p>
+          <h1 className="mt-1 text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">{project?.name ?? t("project")}</h1>
           <p className="mt-1.5 inline-flex items-center gap-1.5 text-xs text-slate-500">
             <MapPin size={14} className="text-blue-600" />
-            {project?.plant_area ?? "Area not supplied"}
+            {project?.plant_area ?? t("areaNotSupplied")}
             {project?.code && ` · ${project.code}`}
           </p>
         </div>
@@ -110,7 +112,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 self-start sm:self-auto transition"
         >
           <RefreshCw size={13} />
-          Refresh
+          {t("refresh")}
         </button>
       </div>
 
@@ -123,7 +125,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             onClick={() => void load()}
             className="font-bold underline hover:text-rose-950"
           >
-            Retry
+            {t("retry")}
           </button>
         </div>
       )}

@@ -1,6 +1,7 @@
 import { CalendarDays, CheckCircle2, ChevronRight, CircleCheck, FileText, MapPin, Trash2, UserRound } from "lucide-react";
 import Link from "next/link";
 import type { ProjectItem } from "@/lib/api";
+import { useLocale } from "@/components/layout/locale-provider";
 
 export function ProjectCard({
   project,
@@ -17,7 +18,8 @@ export function ProjectCard({
   onFinish?: (projectId: string) => void;
   onDelete?: (projectId: string) => void;
 }) {
-  const date = new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(
+  const { locale, t } = useLocale();
+  const date = new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(
     new Date(project.created_at)
   );
 
@@ -28,7 +30,7 @@ export function ProjectCard({
           <div className="space-y-2">
             <span className="inline-flex items-center gap-1.5 rounded-md bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700 ring-1 ring-blue-700/10">
               <MapPin size={12} />
-              {project.plant_area ?? "Area not supplied"}
+              {project.plant_area ?? t("areaNotSupplied")}
             </span>
             <h2 className="text-base font-bold tracking-tight text-slate-900 group-hover:text-blue-600 transition-colors">
               {project.name}
@@ -44,19 +46,19 @@ export function ProjectCard({
       <div className="mt-4 grid grid-cols-3 gap-2 border-y border-slate-100 py-3 text-center">
         <div className="flex flex-col items-center">
           <span className="flex items-center gap-1 text-[11px] text-slate-500">
-            <FileText size={13} className="text-blue-600" /> Docs
+            <FileText size={13} className="text-blue-600" /> {t("docs")}
           </span>
           <b className="mt-0.5 text-sm font-bold text-slate-900">{documentCount}</b>
         </div>
         <div className="flex flex-col items-center border-x border-slate-100">
           <span className="flex items-center gap-1 text-[11px] text-slate-500">
-            <CheckCircle2 size={13} className="text-emerald-600" /> Verified
+            <CheckCircle2 size={13} className="text-emerald-600" /> {t("verified")}
           </span>
           <b className="mt-0.5 text-sm font-bold text-slate-900">{verifiedCount}</b>
         </div>
         <div className="flex flex-col items-center">
           <span className="flex items-center gap-1 text-[11px] text-slate-500">
-            <CalendarDays size={13} className="text-amber-600" /> Updated
+            <CalendarDays size={13} className="text-amber-600" /> {t("updated")}
           </span>
           <small className="mt-0.5 text-[11px] font-semibold text-slate-700 truncate max-w-[80px]">
             {date}
@@ -67,10 +69,10 @@ export function ProjectCard({
       <div className="mt-3 space-y-1 text-xs text-slate-600">
         <div className="flex items-center justify-between text-[11px]">
           <span className="flex items-center gap-1 text-slate-400">
-            <UserRound size={12} /> Created:
+            <UserRound size={12} /> {t("created")}:
           </span>
           <b className="font-semibold text-slate-800 truncate max-w-[130px]">
-            {project.created_by_name ?? "System"}
+            {project.created_by_name ?? t("system")}
           </b>
         </div>
       </div>
@@ -78,9 +80,9 @@ export function ProjectCard({
       <div className="mt-5 -mx-5 -mb-5 flex min-h-[52px] items-center justify-between gap-3 rounded-b-2xl border-t border-slate-100 bg-slate-50/70 px-5 py-2.5">
         {project.status === "FINISHED" ? (
           <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700 ring-1 ring-emerald-700/10">
-            <CircleCheck size={12} /> Finished
+             <CircleCheck size={12} /> {t("finished")}
           </span>
-        ) : <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500"><span className="h-1.5 w-1.5 rounded-full bg-blue-500" />Active project</span>}
+         ) : <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500"><span className="h-1.5 w-1.5 rounded-full bg-blue-500" />{t("activeProject")}</span>}
         {canManage && project.status !== "FINISHED" && onFinish && onDelete && (
           <div className="flex items-center gap-1.5">
           <button
@@ -89,7 +91,7 @@ export function ProjectCard({
             className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-[11px] font-bold text-white shadow-xs transition hover:bg-blue-700 active:scale-[0.98]"
           >
             <CheckCircle2 size={12} />
-            Finish Project
+             {t("finish")}
           </button>
           <button
             type="button"
