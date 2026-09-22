@@ -16,6 +16,7 @@ import {
 import { CreateUserModal } from "@/components/admin/create-user-modal";
 import { UserTable } from "@/components/admin/user-table";
 import { UserProjectsModal } from "@/components/admin/user-projects-modal";
+import { useLocale } from "@/components/layout/locale-provider";
 
 export default function AdminUsersPage() {
   const router = useRouter();
@@ -26,6 +27,7 @@ export default function AdminUsersPage() {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [projectsUser, setProjectsUser] = useState<ManagedUser | null>(null);
+  const { t } = useLocale();
 
   useEffect(() => {
     let active = true;
@@ -39,7 +41,7 @@ export default function AdminUsersPage() {
         const managed = await listManagedUsers();
         if (active) setUsers(managed);
       } catch (caught) {
-        if (active) setError(caught instanceof ApiError ? caught.message : "Could not load user management.");
+        if (active) setError(caught instanceof ApiError ? caught.message : t("couldNotLoadUsers"));
       } finally {
         if (active) setLoading(false);
       }
@@ -47,7 +49,7 @@ export default function AdminUsersPage() {
     return () => {
       active = false;
     };
-  }, [router]);
+  }, [router, t]);
 
   async function create(payload: CreateManagedUserPayload) {
     setCreating(true);
@@ -57,7 +59,7 @@ export default function AdminUsersPage() {
       setUsers((current) => [created, ...current]);
       setModalOpen(false);
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : "Could not create user.");
+      setError(caught instanceof ApiError ? caught.message : t("couldNotCreateUser"));
     } finally {
       setCreating(false);
     }
@@ -70,17 +72,17 @@ export default function AdminUsersPage() {
       const updated = await updateManagedUserStatus(user.id, !user.is_active);
       setUsers((current) => current.map((item) => (item.id === updated.id ? updated : item)));
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : "Could not update account status.");
+      setError(caught instanceof ApiError ? caught.message : t("couldNotUpdateStatus"));
     } finally {
       setBusyUserId(null);
     }
   }
 
   async function resetPassword(user: ManagedUser) {
-    const password = window.prompt(`New temporary password for ${user.email}`);
+    const password = window.prompt(t("temporaryPasswordPrompt", { email: user.email }));
     if (!password) return;
     if (password.length < 8) {
-      setError("Temporary password must be at least 8 characters.");
+      setError(t("temporaryPasswordError"));
       return;
     }
     setBusyUserId(user.id);
@@ -89,7 +91,7 @@ export default function AdminUsersPage() {
       const updated = await resetManagedUserPassword(user.id, password);
       setUsers((current) => current.map((item) => (item.id === updated.id ? updated : item)));
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : "Could not reset password.");
+      setError(caught instanceof ApiError ? caught.message : t("couldNotResetPassword"));
     } finally {
       setBusyUserId(null);
     }
@@ -100,10 +102,10 @@ export default function AdminUsersPage() {
       {/* Header with clear hierarchy and generous spacing */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 border-b border-slate-200 pb-6">
         <div className="space-y-1.5">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-blue-600">Access Control</p>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">User Management</h1>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-blue-600">{t("adminAccessControl")}</p>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">{t("userManagement")}</h1>
           <p className="text-sm text-slate-600 max-w-2xl">
-            Lead engineers and superusers can provision accounts, change status, and reset passwords.
+            {t("userManagementDescription")}
           </p>
         </div>
         <button
@@ -112,7 +114,7 @@ export default function AdminUsersPage() {
           onClick={() => setModalOpen(true)}
         >
           <Plus size={16} />
-          Tambah User Baru
+          {t("addUser")}
         </button>
       </div>
 
@@ -126,15 +128,15 @@ export default function AdminUsersPage() {
       {loading ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white p-12 text-sm text-slate-500 shadow-xs">
           <LoaderCircle className="mb-3 animate-spin text-blue-600" size={28} />
-          Loading users...
+          {t("loadingUsers")}
         </div>
       ) : users.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center shadow-xs">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-50 text-blue-600 mb-3">
             <Users size={24} />
           </div>
-          <h2 className="text-base font-bold text-slate-900">No users found</h2>
-          <p className="mt-1 text-xs text-slate-500">Add a new user to grant platform access.</p>
+          <h2 className="text-base font-bold text-slate-900">{t("noUsers")}</h2>
+          <p className="mt-1 text-xs text-slate-500">{t("noUsersDescription")}</p>
         </div>
       ) : (
         <UserTable

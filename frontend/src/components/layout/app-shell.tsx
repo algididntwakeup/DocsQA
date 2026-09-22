@@ -75,7 +75,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               href="/documents"
             >
               <ShieldCheck size={15} />
-              Inspection Workspace
+              {t("inspectionWorkspace")}
             </Link>
             {canManageUsers && (
               <Link

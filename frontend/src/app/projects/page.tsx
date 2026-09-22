@@ -4,6 +4,7 @@ import { AlertTriangle, CloudDownload, FolderKanban, LoaderCircle, Plus, X } fro
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { ApiError, createProject, deleteProject, finishProject, getCurrentUser, listProjectDocuments, listProjects, syncBimaProjects, type ProjectItem } from "@/lib/api";
 import { ProjectCard } from "@/components/project/project-card";
+import { useLocale } from "@/components/layout/locale-provider";
 
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<ProjectItem[]>([]);
@@ -18,6 +19,7 @@ export default function ProjectsPage() {
   const [verifiedCounts, setVerifiedCounts] = useState<Record<string, number>>({});
   const [currentRole, setCurrentRole] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const { t } = useLocale();
 
   const load = useCallback(async () => {
     try {
@@ -45,11 +47,11 @@ export default function ProjectsPage() {
         )
       );
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : "Could not load projects.");
+       setError(caught instanceof ApiError ? caught.message : t("couldNotLoadProjects"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
@@ -67,29 +69,29 @@ export default function ProjectsPage() {
       setArea("");
       await load();
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : "Could not create project.");
+       setError(caught instanceof ApiError ? caught.message : t("couldNotCreateProject"));
     } finally {
       setCreating(false);
     }
   }
 
   async function handleFinish(projectId: string) {
-    if (!window.confirm("Finish this project? Assignment and review changes will be disabled.")) return;
+    if (!window.confirm(t("finishProjectConfirm"))) return;
     try {
       await finishProject(projectId);
       await load();
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : "Could not finish project.");
+      setError(caught instanceof ApiError ? caught.message : t("couldNotFinishProject"));
     }
   }
 
   async function handleDelete(projectId: string) {
-    if (!window.confirm("Delete this empty project? This cannot be undone.")) return;
+    if (!window.confirm(t("deleteProjectConfirm"))) return;
     try {
       await deleteProject(projectId);
       await load();
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : "Could not delete project.");
+      setError(caught instanceof ApiError ? caught.message : t("couldNotDeleteProject"));
     }
   }
 
@@ -99,7 +101,7 @@ export default function ProjectsPage() {
       await syncBimaProjects();
       await load();
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : "Could not sync BIMA projects.");
+      setError(caught instanceof ApiError ? caught.message : t("couldNotSyncProjects"));
     } finally {
       setSyncing(false);
     }
@@ -110,9 +112,9 @@ export default function ProjectsPage() {
       {/* Page Heading */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-slate-200 pb-6">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Portfolio Overview</p>
-          <h1 className="mt-1 text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">Projects & Plants</h1>
-          <p className="mt-1 text-sm text-slate-600">Choose a project to inspect and curate its controlled document register.</p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{t("portfolioOverview")}</p>
+          <h1 className="mt-1 text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">{t("projectsPlants")}</h1>
+          <p className="mt-1 text-sm text-slate-600">{t("projectDescription")}</p>
         </div>
         <div className="flex flex-wrap gap-2 self-start sm:self-auto">
           {canCreateProject && (
@@ -123,7 +125,7 @@ export default function ProjectsPage() {
               disabled={syncing}
             >
               <Plus size={16} />
-              Create Project
+              {t("createProject")}
             </button>
           )}
           {canCreateProject && (
@@ -134,7 +136,7 @@ export default function ProjectsPage() {
               disabled={syncing}
             >
               <CloudDownload size={16} />
-              {syncing ? "Syncing..." : "Tarik Proyek BIMA"}
+              {syncing ? t("syncing") : t("syncProjects")}
             </button>
           )}
         </div>
@@ -150,7 +152,7 @@ export default function ProjectsPage() {
             onClick={() => void load()}
             className="font-bold underline hover:text-rose-950"
           >
-            Retry
+             {t("retry")}
           </button>
         </div>
       )}
@@ -159,15 +161,15 @@ export default function ProjectsPage() {
       {loading ? (
         <div className="flex min-h-[300px] flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-slate-200 bg-white/50 p-12 text-slate-400">
           <LoaderCircle className="animate-spin text-blue-600" size={28} />
-          <span className="text-sm font-medium">Loading project portfolio...</span>
+          <span className="text-sm font-medium">{t("loadingProjects")}</span>
         </div>
       ) : projects.length === 0 ? (
         <div className="flex min-h-[300px] flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-slate-200 bg-white p-12 text-center text-slate-500 shadow-xs">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
             <FolderKanban size={24} />
           </div>
-          <h2 className="text-base font-bold text-slate-900">No Projects Found</h2>
-          <p className="max-w-md text-xs text-slate-500">Projects will appear once assigned or created by your engineering team lead.</p>
+          <h2 className="text-base font-bold text-slate-900">{t("noProjects")}</h2>
+          <p className="max-w-md text-xs text-slate-500">{t("noProjectsDescription")}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -190,12 +192,12 @@ export default function ProjectsPage() {
           <form className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl" onSubmit={submitProject}>
             <div className="flex items-start justify-between border-b border-slate-100 pb-4">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-blue-600">Project Setup</p>
-                <h2 className="text-lg font-bold text-slate-900">Create a New Project</h2>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-blue-600">{t("projectSetup")}</p>
+                <h2 className="text-lg font-bold text-slate-900">{t("newProject")}</h2>
               </div>
               <button
                 type="button"
-                aria-label="Close"
+                 aria-label={t("close")}
                 onClick={() => setModalOpen(false)}
                 className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
               >
@@ -205,7 +207,7 @@ export default function ProjectsPage() {
 
             <div className="mt-4 space-y-4">
               <label className="block text-xs font-bold text-slate-700">
-                Project Name
+                 {t("projectName")}
                 <input
                   required
                   value={name}
@@ -216,7 +218,7 @@ export default function ProjectsPage() {
               </label>
 
               <label className="block text-xs font-bold text-slate-700">
-                Plant Area
+                 {t("plantArea")}
                 <input
                   value={area}
                   onChange={(event) => setArea(event.target.value)}
@@ -232,13 +234,13 @@ export default function ProjectsPage() {
                 className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
                 onClick={() => setModalOpen(false)}
               >
-                Cancel
+                 {t("cancel")}
               </button>
               <button
                 className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-blue-700 disabled:opacity-50"
                 disabled={creating}
               >
-                {creating ? "Creating..." : "Create Project"}
+                 {creating ? t("creating") : t("createProject")}
               </button>
             </div>
           </form>

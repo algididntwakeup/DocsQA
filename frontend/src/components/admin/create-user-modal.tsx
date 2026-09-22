@@ -3,6 +3,7 @@
 import { X } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import type { CreateManagedUserPayload, UserRole } from "@/lib/api";
+import { useLocale } from "@/components/layout/locale-provider";
 
 export function CreateUserModal({
   open,
@@ -15,6 +16,7 @@ export function CreateUserModal({
   onClose: () => void;
   onSubmit: (payload: CreateManagedUserPayload) => Promise<void>;
 }) {
+  const { t } = useLocale();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -41,16 +43,16 @@ export function CreateUserModal({
       <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
         <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-blue-600">Account Provisioning</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-blue-600">{t("accountProvisioning")}</p>
             <h2 id="create-user-title" className="mt-1 text-lg font-bold text-slate-900">
-              Tambah User Baru
+              {t("addUser")}
             </h2>
-            <p className="text-xs text-slate-500">Berikan password sementara yang aman untuk user baru.</p>
+            <p className="text-xs text-slate-500">{t("temporaryPasswordHelp")}</p>
           </div>
           <button
             type="button"
             className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-            aria-label="Close"
+             aria-label={t("close")}
             onClick={onClose}
           >
             <X size={18} />
@@ -59,7 +61,7 @@ export function CreateUserModal({
 
         <form className="mt-4 space-y-4" onSubmit={(event) => void submit(event)}>
           <div>
-            <label className="block text-xs font-semibold text-slate-700">Nama Lengkap</label>
+             <label className="block text-xs font-semibold text-slate-700">{t("fullName")}</label>
             <input
               className="mt-1 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-900 focus:border-blue-500 focus:outline-none"
               required
@@ -82,7 +84,7 @@ export function CreateUserModal({
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700">Password Awal</label>
+             <label className="block text-xs font-semibold text-slate-700">{t("initialPassword")}</label>
             <input
               className="mt-1 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-900 focus:border-blue-500 focus:outline-none"
               type="password"
@@ -90,12 +92,12 @@ export function CreateUserModal({
               required
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder="Minimum 8 karakter"
+               placeholder={t("minimumPassword")}
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700">Role</label>
+             <label className="block text-xs font-semibold text-slate-700">{t("role")}</label>
             <select
               className="mt-1 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-900 focus:border-blue-500 focus:outline-none"
               value={role}
@@ -112,14 +114,14 @@ export function CreateUserModal({
               className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
               onClick={onClose}
             >
-              Batal
+               {t("cancel")}
             </button>
             <button
               type="submit"
               className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-blue-700 disabled:opacity-50"
               disabled={busy}
             >
-              {busy ? "Creating..." : "Create user"}
+               {busy ? t("creatingUser") : t("createUser")}
             </button>
           </div>
         </form>

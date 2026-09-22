@@ -17,9 +17,10 @@ of all cell bounding boxes â€” one 4-tuple per cell. It is **NOT** a 2D row
 grid. The old code iterated it as a grid:
 
 ```python
-for row_idx, row in enumerate(table.cells):      # row = (x0, y0, x1, y1)
-    for col_idx, cell_rect in enumerate(row):    # cell_rect = float (one coord!)
-        if cell_rect[2] <= cell_rect[0]: ...     # TypeError: float not subscriptable
+for row_idx, row in enumerate(table.cells):  # row = (x0, y0, x1, y1)
+    for col_idx, cell_rect in enumerate(row):  # cell_rect = float (one coord!)
+        if cell_rect[2] <= cell_rect[0]:
+            ...  # TypeError: float not subscriptable
 ```
 
 **Fix**: Use `table.rows` â†’ `TableRow.cells` for proper 2D row-major iteration:
@@ -29,7 +30,7 @@ finder = page.find_tables()
 for table in finder.tables[:_MAX_TABLES_PER_PAGE]:
     for row_idx, table_row in enumerate(table.rows):
         for col_idx, cell_rect in enumerate(table_row.cells):
-            if cell_rect is None:        # merged/spanned cell
+            if cell_rect is None:  # merged/spanned cell
                 continue
             x0, y0, x1, y1 = float(cell_rect[0]), float(cell_rect[1]), ...
 ```

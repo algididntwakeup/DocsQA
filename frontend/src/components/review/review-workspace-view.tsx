@@ -17,8 +17,10 @@ import {
 } from "@/lib/api";
 import { SplitScreenViewer } from "./split-screen-viewer";
 import { ExportModal } from "./export-modal";
+import { useLocale } from "@/components/layout/locale-provider";
 
 export function ReviewWorkspaceView({ id }: { id: string }) {
+  const { t } = useLocale();
   const [document, setDocument] = useState<DocumentItem | null>(null);
   const [issues, setIssues] = useState<IssueItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -95,7 +97,7 @@ export function ReviewWorkspaceView({ id }: { id: string }) {
     return (
       <div className="fixed inset-0 flex h-screen w-screen flex-col items-center justify-center bg-slate-50 text-slate-600 gap-3" role="status">
         <div className="h-8 w-8 animate-spin rounded-full border-3 border-blue-600 border-t-transparent" />
-        <p className="text-xs font-semibold text-slate-700">Loading document inspection & telemetry...</p>
+        <p className="text-xs font-semibold text-slate-700">{t("loadingRegister")}</p>
       </div>
     );
   }
@@ -106,7 +108,7 @@ export function ReviewWorkspaceView({ id }: { id: string }) {
         <div className="w-full max-w-lg rounded-2xl border border-rose-200 bg-white p-6 shadow-xl space-y-4">
           <div className="flex items-center gap-3 text-rose-600">
             <AlertTriangle size={24} />
-            <h2 className="text-base font-bold text-slate-900">Unable to initialize review workspace</h2>
+            <h2 className="text-base font-bold text-slate-900">{t("couldNotLoadWorkspace")}</h2>
           </div>
           <p className="text-xs text-slate-600">{error ?? "Document not found."}</p>
           <div className="flex items-center justify-between pt-2 border-t border-slate-100">
@@ -114,7 +116,7 @@ export function ReviewWorkspaceView({ id }: { id: string }) {
               className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:underline"
               href={`/documents/${id}`}
             >
-              <ArrowLeft size={14} /> Kembali ke Dokumen
+               <ArrowLeft size={14} /> {t("document")}
             </Link>
             <button
               type="button"
@@ -124,7 +126,7 @@ export function ReviewWorkspaceView({ id }: { id: string }) {
                 setReloadKey((k) => k + 1);
               }}
             >
-              <RotateCw size={13} /> Retry
+               <RotateCw size={13} /> {t("retry")}
             </button>
           </div>
         </div>
