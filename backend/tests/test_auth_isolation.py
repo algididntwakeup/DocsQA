@@ -32,7 +32,7 @@ def test_passwords_and_tokens_round_trip() -> None:
     assert claims["exp"]
 
 
-def test_document_query_is_eager_loaded_for_access_checks() -> None:
+def test_document_query_eager_loads_project_members() -> None:
     """Document reads load ownership fields before the permission decision."""
     from core.dependencies import accessible_document_query
 
@@ -46,7 +46,7 @@ def test_document_query_is_eager_loaded_for_access_checks() -> None:
     query = accessible_document_query(uuid4(), engineer)
     compiled = str(query.compile(compile_kwargs={"literal_binds": False}))
     assert "documents.id" in compiled
-    assert "project_members" in compiled or "project_members" in str(query)
+    assert any("Project.members" in str(option.path) for option in query._with_options)
 
 def test_lead_scope_query_does_not_add_owner_filter() -> None:
     from core.dependencies import accessible_document_query
