@@ -38,6 +38,7 @@ describe("SplitScreenViewer", () => {
       id: "iss-1",
       document_id: "doc-test-123",
       category: "LAYOUT",
+      type: "RULE_TABLE_MATH_001",
       severity: "CRITICAL",
       confidence: 0.95,
       message: "Row sum error in hydraulic test data",
