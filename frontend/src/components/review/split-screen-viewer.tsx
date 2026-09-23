@@ -402,42 +402,34 @@ export function SplitScreenViewer({
             </ResizablePanel>
           </ResizablePanelGroup>
         ) : (
-          <div className="review-workspace-split flex-1 flex overflow-hidden relative min-h-0 min-w-0">
-            {/* Left / Center: PDF Document Viewer */}
-            <main
-              className={`review-document-pane flex-1 h-full min-h-0 overflow-hidden min-w-0 ${
-                mobilePane === "document" ? "block" : "hidden"
-              }`}
-            >
-              <DocumentViewer
-                documentId={document.id}
-                documentTitle={document.filename}
-                activeIssue={selectedIssue}
-                currentPage={currentPage}
-                totalPages={document.page_count ?? 1}
-                onPageChange={setCurrentPage}
-                onJumpToFinding={(target) => {
-                  if (target.page_number) setCurrentPage(target.page_number);
-                }}
-              />
-            </main>
-
-            {/* Right Pane: Findings Curation Panel */}
-            <section
-              className={`review-findings-pane w-full h-full min-h-0 min-w-0 shrink-0 overflow-hidden ${
-                mobilePane === "findings" ? "block" : "hidden"
-              }`}
-            >
-              <IssuePanel
-                issues={issues}
-                selectedIssueId={selectedIssueId}
-                onSelectIssue={handleSelectIssue}
-                onCurateIssue={handleCurateIssue}
-                onJumpToPage={setCurrentPage}
-                readOnly={readOnly}
-                onAddToDictionary={handleAddToDictionary}
-              />
-            </section>
+          <div className="review-workspace-split relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
+            {mobilePane === "document" ? (
+              <main className="review-document-pane h-full min-h-0 min-w-0 flex-1 overflow-hidden">
+                <DocumentViewer
+                  documentId={document.id}
+                  documentTitle={document.filename}
+                  activeIssue={selectedIssue}
+                  currentPage={currentPage}
+                  totalPages={document.page_count ?? 1}
+                  onPageChange={setCurrentPage}
+                  onJumpToFinding={(target) => {
+                    if (target.page_number) setCurrentPage(target.page_number);
+                  }}
+                />
+              </main>
+            ) : (
+              <section className="review-findings-pane h-full min-h-0 min-w-0 flex-1 overflow-hidden">
+                <IssuePanel
+                  issues={issues}
+                  selectedIssueId={selectedIssueId}
+                  onSelectIssue={handleSelectIssue}
+                  onCurateIssue={handleCurateIssue}
+                  onJumpToPage={setCurrentPage}
+                  readOnly={readOnly}
+                  onAddToDictionary={handleAddToDictionary}
+                />
+              </section>
+            )}
           </div>
         )}
 

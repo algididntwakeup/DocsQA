@@ -149,11 +149,14 @@ class BimaMasterDataAdapter:
                 raise _bad_gateway(DUPLICATE_PROJECT_IDS)
             seen.add(bima_project_id)
 
-            member_field = _first_present(row, PROJECT_MEMBER_FIELDS)
-            if member_field is None or not isinstance(member_field[1], list):
+            member_fields = [field for field in PROJECT_MEMBER_FIELDS if field in row]
+            if not member_fields:
                 raise _bad_gateway(MISSING_MEMBERSHIP)
+            if len(member_fields) != 1 or not isinstance(row[member_fields[0]], list):
+                raise _bad_gateway(INVALID_PROJECT_RECORD)
+            member_values = row[member_fields[0]]
             member_ids: set[int] = set()
-            for value in member_field[1]:
+            for value in member_values:
                 member_id = _positive_int(value)
                 if member_id is None:
                     raise _bad_gateway(INVALID_PROJECT_RECORD)
@@ -169,6 +172,8 @@ class BimaMasterDataAdapter:
             if not member_ids <= known_user_ids:
                 raise _bad_gateway(UNKNOWN_MEMBER)
 
+            if len([field for field in PROJECT_PIC_FIELDS if field in row]) > 1:
+                raise _bad_gateway(INVALID_PROJECT_RECORD)
             code = _first_text(row, PROJECT_CODE_FIELDS)
             plant_area = _first_text(row, PROJECT_PLANT_FIELDS)
             description = row.get("description")

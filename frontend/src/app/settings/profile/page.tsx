@@ -1,5 +1,6 @@
 "use client";
 
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { AlertTriangle, CheckCircle2, KeyRound, LoaderCircle, UserCircle } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
@@ -90,16 +91,12 @@ export default function ProfileSettingsPage() {
       ) : (
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Profile Details Card */}
-          <section className="rounded-xl border border-border/60 bg-card p-6 shadow-sm space-y-5">
-            <div className="flex items-center gap-3 border-b border-border/60 pb-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent text-accent-foreground">
-                <UserCircle size={22} />
-              </div>
-              <div>
-                <h2 className="text-base font-bold text-foreground">{t("personalDetails")}</h2>
-                <p className="text-xs text-muted-foreground">{t("personalDetailsHelp")}</p>
-              </div>
-            </div>
+          <Card>
+            <CardHeader className="flex-row items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent text-accent-foreground"><UserCircle size={22} /></div>
+              <div><CardTitle>{t("personalDetails")}</CardTitle><CardDescription>{t("personalDetailsHelp")}</CardDescription></div>
+            </CardHeader>
+            <CardContent>
 
             <form className="space-y-4" onSubmit={(event) => void submitProfile(event)}>
               <div>
@@ -153,19 +150,16 @@ export default function ProfileSettingsPage() {
                 <span>{savingProfile ? t("saving") : t("saveProfile")}</span>
               </button>
             </form>
-          </section>
+            </CardContent>
+          </Card>
 
           {/* Security Card */}
-          <section className="rounded-xl border border-border/60 bg-card p-6 shadow-sm space-y-5">
-            <div className="flex items-center gap-3 border-b border-border/60 pb-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent text-accent-foreground">
-                <KeyRound size={22} />
-              </div>
-              <div>
-                <h2 className="text-base font-bold text-foreground">{t("security")}</h2>
-                <p className="text-xs text-muted-foreground">{t("securityHelp")}</p>
-              </div>
-            </div>
+          <Card>
+            <CardHeader className="flex-row items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent text-accent-foreground"><KeyRound size={22} /></div>
+              <div><CardTitle>{t("security")}</CardTitle><CardDescription>{t("securityHelp")}</CardDescription></div>
+            </CardHeader>
+            <CardContent>
 
             <form className="space-y-4" onSubmit={(event) => void submitPassword(event)}>
               <div>
@@ -238,7 +232,8 @@ export default function ProfileSettingsPage() {
                 <span>{savingPassword ? t("saving") : t("changePassword")}</span>
               </button>
             </form>
-          </section>
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>

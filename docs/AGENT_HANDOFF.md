@@ -4,6 +4,15 @@ This file records implementation decisions that must not be reverted or duplicat
 
 ## Current State
 
+
+## PRISM Identity and Workspace
+
+- Browser sign-in has a single BIMA SSO action; do not add local password login or registration forms. Password endpoints exist only for managed recovery/admin workflows.
+- BIMA directory synchronization validates both `/api/projects` and `/api/users` completely before writing. Do not upsert the full BIMA directory: persist only users referenced by project membership/PIC.
+- `Project.members` uses the `project_members` association (Alembic `20260923_0015_project_members`). BIMA membership adds project/document read visibility only; never extend upload, assignment, review, or issue-curation authority from membership.
+- Browser API uses relative `/api/v1`; SSR/rewrite targets `INTERNAL_BACKEND_URL` (Compose alias default `http://backend:8000`). SSO authorization origin is configured through `NEXT_PUBLIC_BIMA_BASE_URL` and returns to `NEXT_PUBLIC_APP_URL`/current app origin.
+- PDF canvas and highlight overlay share one viewport-sized wrapper. Continuous Ctrl/Meta-wheel zoom and mouse drag pan must keep that shared coordinate space; touch panning stays native.
+
 - The product is a deterministic engineering-document review tool. Do not introduce LLM, external AI, approval, disposition, or audit-trail workflows.
 - Findings use binary report curation: `included_in_report` plus an optional `reviewer_note`.
 - The canonical pipeline stages are `EXTRACTING`, `LAYOUT_INSPECTION`, `BUDINSKI_AUDIT`, `STANDARDS_CHECK`, `LINGUISTIC_CHECK`, and `AGGREGATING`.

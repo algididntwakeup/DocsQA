@@ -156,12 +156,11 @@ async def _fetch_bima_directory(
                 f"{settings.BIMA_BASE_URL.rstrip('/')}{path}",
                 headers={"Authorization": f"Bearer {bima_token}"},
             )
-            if response.status_code == 401:
+            if response.status_code != 200:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail=unauthorized_detail,
                 )
-            response.raise_for_status()
             return _directory_rows(response.json(), keys, malformed_detail)
     except HTTPException:
         raise
@@ -186,6 +185,6 @@ async def fetch_bima_users(bima_token: str) -> list[dict[str, Any]]:
         bima_token,
         "/api/users",
         ("users", "items"),
-        "BIMA user access is unauthorized.",
+        "BIMA project access is unauthorized.",
         "BIMA user directory response is malformed.",
     )

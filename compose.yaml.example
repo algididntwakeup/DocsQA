@@ -1,14 +1,14 @@
-name: docsqa
+name: prism
 
 services:
   postgres:
     image: postgres:17-alpine
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-docqc}
-      POSTGRES_USER: ${POSTGRES_USER:-docqc}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-docqc}
+      POSTGRES_DB: ${POSTGRES_DB:-prism}
+      POSTGRES_USER: ${POSTGRES_USER:-prism}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-prism}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${POSTGRES_PORT:-5433}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -23,7 +23,7 @@ services:
     image: redis:7.4-alpine
     command: ["redis-server", "--appendonly", "yes"]
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "${REDIS_PORT:-6380}:6379"
     volumes:
       - redis-data:/data
     healthcheck:
@@ -38,7 +38,7 @@ services:
       context: ./backend
     command: ["python", "-m", "alembic", "upgrade", "head"]
     environment: &backend-environment
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-docqc}:${POSTGRES_PASSWORD:-docqc}@postgres:5432/${POSTGRES_DB:-docqc}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-prism}:${POSTGRES_PASSWORD:-prism}@postgres:5432/${POSTGRES_DB:-prism}
       APP_NAME: ${APP_NAME:-PRISM - Document Assurance Platform}
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/0
@@ -65,7 +65,7 @@ services:
         aliases:
           - backend
     ports:
-      - "${API_PORT:-8000}:8000"
+      - "${API_PORT:-8001}:8000"
     volumes:
       - app_uploads:/app/storage/uploads
     depends_on:
@@ -121,5 +121,8 @@ services:
 
 volumes:
   postgres-data:
+    name: prism_postgres-data
   redis-data:
+    name: prism_redis-data
   app_uploads:
+    name: prism_app_uploads

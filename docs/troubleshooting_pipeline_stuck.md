@@ -83,7 +83,7 @@ until terminal status, then emits `event: close`.
 **Files**: `backend/services/extract.py`, `backend/tasks/extraction.py`, `backend/core/config.py`
 
 **Root cause**:
-1. **Worker Container Down**: The `docsqa-worker-1` container had crashed or exited (`Exited (137)`), so tasks uploaded via API stayed in the Redis queue with status `QUEUED` because no worker consumer was alive.
+1. **Worker Container Down**: The `prism-worker-1` container had crashed or exited (`Exited (137)`), so tasks uploaded via API stayed in the Redis queue with status `QUEUED` because no worker consumer was alive.
 2. **PyMuPDF `find_tables()` returned `None`**: On CAD/blueprint pages with dense vector paths (> 500 drawing paths), `page.find_tables()` took > 180s. Celery triggered `SoftTimeLimitExceeded`, which PyMuPDF's C runtime caught internally, causing `page.find_tables()` to return `None`.
 3. **Unchecked `finder.tables`**: `extract.py` accessed `finder.tables` without verifying `finder is not None`, triggering `AttributeError: 'NoneType' object has no attribute 'tables'`.
 4. **Swallowed `SoftTimeLimitExceeded`**: `_run_extraction()` caught `Exception` and marked the document as `FAILED`, preventing the Celery task-level timeout handler from gracefully setting `COMPLETED_WITH_WARNINGS`.
@@ -103,9 +103,9 @@ until terminal status, then emits `event: close`.
 ```
 POST /upload
   â†’ save file, create Document(status=UPLOADING)
-  â†’ dispatch Celery task: docqc.extract
+  → dispatch Celery task: prism.extract_document
 
-[Celery Worker â€” docqc.extract]
+[Celery Worker — prism.extract_document]
   â†’ PDFExtractor.extract(file_path)
   â†’ per page (20 s budget):
       page.get_text("blocks")        â†’ text spans + bboxes
@@ -147,7 +147,7 @@ docker compose logs --tail=50 worker
 docker compose restart worker
 
 # Mark stuck document as FAILED (if it stays PROCESSING after restart)
-docker compose exec -T postgres psql -U docsqa -d docsqa -c "
+docker compose exec -T postgres psql -U prism -d prism -c "
 UPDATE documents
 SET status = 'FAILED'
 WHERE status = 'PROCESSING' AND updated_at < NOW() - INTERVAL '10 minutes';

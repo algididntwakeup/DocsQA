@@ -48,7 +48,7 @@ async def feature_not_ready_handler(request: Request, exc: Exception) -> JSONRes
     assert isinstance(exc, FeatureNotReadyError)
     return _problem_response(
         ProblemDetail(
-            type="urn:docqc:error:FEATURE_NOT_READY",
+            type="urn:prism:error:FEATURE_NOT_READY",
             title="Feature not ready",
             status=501,
             detail=str(exc),
@@ -64,7 +64,7 @@ async def upload_rejected_handler(request: Request, exc: Exception) -> JSONRespo
     assert isinstance(exc, UploadRejectedError)
     return _problem_response(
         ProblemDetail(
-            type=f"urn:docqc:error:{exc.code}",
+            type=f"urn:prism:error:{exc.code}",
             title="Upload rejected",
             status=422,
             detail=exc.detail,
@@ -88,7 +88,7 @@ async def validation_error_handler(request: Request, exc: Exception) -> JSONResp
     ]
     return _problem_response(
         ProblemDetail(
-            type="urn:docqc:error:VALIDATION_ERROR",
+            type="urn:prism:error:VALIDATION_ERROR",
             title="Request validation failed",
             status=422,
             detail="One or more request values are invalid.",
@@ -106,7 +106,7 @@ async def http_error_handler(request: Request, exc: Exception) -> JSONResponse:
     detail = exc.detail if isinstance(exc.detail, str) else "Request failed."
     return _problem_response(
         ProblemDetail(
-            type=f"urn:docqc:error:HTTP_{exc.status_code}",
+            type=f"urn:prism:error:HTTP_{exc.status_code}",
             title="HTTP request failed",
             status=exc.status_code,
             detail=detail,

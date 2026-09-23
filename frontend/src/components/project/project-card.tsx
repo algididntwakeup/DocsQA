@@ -1,6 +1,7 @@
 import { CalendarDays, CheckCircle2, ChevronRight, CircleCheck, FileText, MapPin, Trash2, UserRound } from "lucide-react";
 import Link from "next/link";
 import type { ProjectItem } from "@/lib/api";
+import { Card } from "@/components/ui/card";
 import { useLocale } from "@/components/layout/locale-provider";
 
 export function ProjectCard({
@@ -24,7 +25,7 @@ export function ProjectCard({
   );
 
   return (
-    <article className="group relative flex min-h-[220px] flex-col justify-between rounded-xl border border-border bg-card p-5 shadow-xs transition duration-200 hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md">
+    <Card className="group relative flex min-h-[220px] flex-col justify-between p-5 transition duration-200 hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md">
       <Link className="block focus:outline-none" href={`/projects/${project.id}`}>
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-2">
@@ -106,6 +107,6 @@ export function ProjectCard({
           </div>
         )}
       </div>
-    </article>
+    </Card>
   );
 }

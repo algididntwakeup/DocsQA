@@ -137,4 +137,29 @@ describe("PdfCanvasViewer", () => {
     expect(scrollArea.scrollLeft).toBe(60);
     expect(scrollArea.scrollTop).toBe(70);
   });
+
+  it("zooms with Meta+wheel and leaves touch pointer movement native", async () => {
+    renderViewer();
+    const surface = await screen.findByTestId("pdf-page-surface");
+    const scrollArea = screen.getByTestId("pdf-scroll-area");
+
+    fireEvent.wheel(scrollArea, { deltaY: -60, metaKey: true, clientX: 10, clientY: 10 });
+    await waitFor(() => expect(screen.getByText(/^[1-9]\d*%$/).textContent).not.toBe("100%"));
+    const zoom = screen.getByText(/^[1-9]\d*%$/).textContent;
+
+    const down = fireEvent.pointerDown(surface, {
+      button: 0,
+      pointerType: "touch",
+      pointerId: 2,
+      clientX: 100,
+      clientY: 100,
+    });
+    fireEvent.pointerMove(surface, { pointerId: 2, pointerType: "touch", clientX: 40, clientY: 30 });
+    fireEvent.pointerUp(surface, { pointerId: 2, pointerType: "touch", clientX: 40, clientY: 30 });
+
+    expect(down).toBe(true);
+    expect(scrollArea.scrollLeft).toBe(0);
+    expect(scrollArea.scrollTop).toBe(0);
+    expect(screen.getByText(/^[1-9]\d*%$/).textContent).toBe(zoom);
+  });
 });

@@ -3,6 +3,7 @@
 import { BriefcaseBusiness, KeyRound, Power } from "lucide-react";
 import type { ManagedUser } from "@/lib/api";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Card } from "@/components/ui/card";
 import { useLocale } from "@/components/layout/locale-provider";
 
 function formatDate(value: string) {
@@ -24,7 +25,7 @@ export function UserTable({
 }) {
   const { t } = useLocale();
   return (
-    <div className="overflow-hidden rounded-xl border border-border/60 bg-card shadow-sm">
+    <Card className="overflow-hidden">
       <Table className="text-xs border-collapse">
         <TableHeader className="bg-muted/60">
           <TableRow>
@@ -110,6 +111,6 @@ export function UserTable({
           ))}
         </TableBody>
       </Table>
-    </div>
+    </Card>
   );
 }

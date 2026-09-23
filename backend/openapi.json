@@ -1415,7 +1415,7 @@
             "instance": "/api/v1/documents/upload",
             "status": 501,
             "title": "Feature not ready",
-            "type": "urn:docqc:error:FEATURE_NOT_READY"
+            "type": "urn:prism:error:FEATURE_NOT_READY"
           }
         ],
         "properties": {

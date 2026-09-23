@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { ApiError, assignDocument, claimDocument, deleteDocument, type DocumentItem, type ManagedUser, type UserRole } from "@/lib/api";
 import { useLocale } from "@/components/layout/locale-provider";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Card } from "@/components/ui/card";
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat(typeof navigator !== "undefined" ? navigator.language : "en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
@@ -101,7 +102,7 @@ export function ProjectDocumentTable({
   }
 
   return (
-    <section className="rounded-xl border border-border bg-card shadow-xs overflow-hidden">
+    <Card className="overflow-hidden">
       {/* Table Header */}
        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border p-5 sm:px-6">
         <div>
@@ -415,6 +416,6 @@ export function ProjectDocumentTable({
           </div>
         </div>
       )}
-    </section>
+    </Card>
   );
 }

@@ -1,6 +1,6 @@
 # Official Reference Standards Library
 
-This directory stores authoritative, licensed source standard PDF documents used by DocsQA's reference-pack governance system.
+This directory stores authoritative, licensed source standard PDF documents used by PRISM's reference-pack governance system.
 
 ## Policy & Licensing Rules
 

@@ -170,22 +170,22 @@ export function TraceabilitySummaryModal({
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="px-[12px] py-[8px]">Finding Type</TableHead>
-                        <TableHead className="px-[12px] py-[8px] text-right">Count</TableHead>
+                        <TableHead className="px-3 py-2">Finding Type</TableHead>
+                        <TableHead className="px-3 py-2 text-right">Count</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {Object.keys(summary.counts_by_type).length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={2} className="px-[12px] py-[8px] text-muted-foreground text-center">
+                          <TableCell colSpan={2} className="px-3 py-2 text-center text-muted-foreground">
                             No traceability findings identified.
                           </TableCell>
                         </TableRow>
                       ) : (
                         Object.entries(summary.counts_by_type).map(([rule, count]) => (
                           <TableRow key={rule}>
-                            <TableCell className="px-[12px] py-[8px] font-mono text-sm">{rule}</TableCell>
-                            <TableCell className="px-[12px] py-[8px] text-right font-semibold">{count}</TableCell>
+                            <TableCell className="px-3 py-2 font-mono text-sm">{rule}</TableCell>
+                            <TableCell className="px-3 py-2 text-right font-semibold">{count}</TableCell>
                           </TableRow>
                         ))
                       )}
@@ -199,15 +199,15 @@ export function TraceabilitySummaryModal({
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="px-[12px] py-[8px]">Severity</TableHead>
-                        <TableHead className="px-[12px] py-[8px] text-right">Count</TableHead>
+                        <TableHead className="px-3 py-2">Severity</TableHead>
+                        <TableHead className="px-3 py-2 text-right">Count</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {Object.entries(summary.counts_by_severity).map(([sev, count]) => (
                         <TableRow key={sev}>
-                          <TableCell className="px-[12px] py-[8px]">{sev}</TableCell>
-                          <TableCell className="px-[12px] py-[8px] text-right font-semibold">{count}</TableCell>
+                          <TableCell className="px-3 py-2">{sev}</TableCell>
+                          <TableCell className="px-3 py-2 text-right font-semibold">{count}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>

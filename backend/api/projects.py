@@ -58,7 +58,7 @@ def _project_read(project: Project) -> ProjectRead:
         created_by_name=project.created_by.full_name if project.created_by else None,
         assigned_to_name=project.assigned_to.full_name if project.assigned_to else None,
         total_documents=len(project.documents),
-        # The API status remains the DocsQA lifecycle status; BIMA's raw status
+        # The API status remains the PRISM lifecycle status; BIMA's raw status
         # is persisted separately on Project for synchronization decisions.
         status=_project_status(project),
     )
@@ -140,21 +140,26 @@ async def sync_bima_projects(
             if project is None:
                 project = Project(
                     name=remote.name,
+                    code=remote.code,
+                    description=remote.description,
+                    plant_area=remote.plant_area,
+                    status=remote.status,
                     created_by_id=current_user.id,
                     bima_project_id=remote.bima_project_id,
+                    members=[user_by_bima_id[bima_id] for bima_id in remote.member_bima_ids],
                 )
                 session.add(project)
                 created += 1
             else:
                 updated += 1
+                project.members = [
+                    user_by_bima_id[bima_id] for bima_id in remote.member_bima_ids
+                ]
             project.name = remote.name
             project.code = remote.code
             project.description = remote.description
             project.plant_area = remote.plant_area
             project.status = remote.status
-            project.members = [
-                user_by_bima_id[bima_id] for bima_id in remote.member_bima_ids
-            ]
         await session.commit()
     except SQLAlchemyError as exc:
         await session.rollback()
@@ -313,7 +318,7 @@ async def list_project_documents(
         .options(
             joinedload(Document.owner),
             joinedload(Document.assigned_to),
-            joinedload(Document.project),
+            joinedload(Document.project).selectinload(Project.members),
         )
     )
     project = (

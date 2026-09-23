@@ -7,6 +7,7 @@ import { deleteDocument, type DocumentItem } from "@/lib/api";
 import { formatBytes, formatDate } from "@/lib/format";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useLocale } from "@/components/layout/locale-provider";
+import { Card } from "@/components/ui/card";
 
 const workflowStyles: Record<string, string> = {
   ANALYZING: "bg-accent text-accent-foreground ring-primary/10",
@@ -30,7 +31,7 @@ export function DocumentList({ documents, onRefresh }: { documents: DocumentItem
   if (!documents.length) return <section className="rounded-2xl border border-dashed border-border bg-card p-12 text-center shadow-sm"><FileText className="mx-auto text-accent-foreground" size={28} /><h2 className="mt-3 text-base font-bold text-foreground">{t("noDocuments")}</h2><p className="mt-1 text-xs text-muted-foreground">{t("noDocumentsDescription")}</p><Link href="/upload" className="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground hover:bg-primary/90"><Plus size={16} /> {t("newDocument")}</Link></section>;
 
   return (
-    <section className="overflow-hidden rounded-xl border border-border/60 bg-card shadow-sm" aria-labelledby="register-heading">
+    <Card className="overflow-hidden" aria-labelledby="register-heading">
       <div className="flex items-center justify-between border-b border-border px-5 py-4">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">{t("inspectionRegister")}</p>
@@ -82,6 +83,6 @@ export function DocumentList({ documents, onRefresh }: { documents: DocumentItem
           ))}
         </TableBody>
       </Table>
-    </section>
+    </Card>
   );
 }

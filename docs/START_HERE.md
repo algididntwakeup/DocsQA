@@ -1,4 +1,4 @@
-# START HERE — DocsQA Execution Index
+# START HERE — PRISM Execution Index
 
 This is the central index every new agent must read in full. Repository state always overrides stale prose.
 
@@ -33,23 +33,22 @@ This is the central index every new agent must read in full. Repository state al
   endpoints for listing accounts with owned-document counts, creating engineer/lead accounts,
   enabling/disabling accounts, and resetting passwords. Added the `/admin/users` interface with
   role guard, user table, create-user modal, status actions, and password reset flow.
-- **Latest identity/workspace checkpoint**: Added authenticated profile editing at
-  `PATCH /api/v1/auth/me` and `/settings/profile`, self-service password management, and
-  normal page scrolling in the application shell.
-- **Latest BIMA authentication checkpoint**: Added dual BIMA authentication with credential
-  login (`/api/auth/login`) and one-click SSO (`/sso/authorize` -> `/api/sso/verify`). Both flows
-  JIT-provision or synchronize PRISM users, map BIMA roles to PRISM roles, issue the internal
-  JWT cookie session, and support local-password fallback for emergency accounts. Migration
-  `20260916_0013_bima_identity` adds nullable SSO identity/profile fields. Docker verification:
-  API, worker, frontend, PostgreSQL, and Redis healthy; BIMA login flow tested successfully.
+- **Latest identity/workspace checkpoint**: Authenticated profile editing remains available at
+  `PATCH /api/v1/auth/me` and `/settings/profile`. Password-management endpoints remain internal
+  recovery/admin tools, not user-facing login or registration forms.
+- **Latest BIMA authentication checkpoint**: The frontend offers only BIMA SSO sign-in; no
+  email/password login or self-registration form appears. The SSO callback verifies BIMA identity,
+  maps roles, and provisions a PRISM session. BIMA project sync reads both project and user
+  directories; project membership grants read-only workspace/document visibility. See PRISM
+  transition checkpoint below for adapter, network, viewer, and UI details.
 - **Latest deployment/project-master checkpoint**: Browser API calls now use same-origin
   `/api/v1` through the Next.js rewrite proxy and no longer depend on a compiled public API host.
   Added environment-driven CORS and corporate-domain routing, BIMA project master synchronization
   (`POST /api/v1/projects/sync-bima`), project identity migration `20260916_0014_bima_projects`,
   and the lead/superuser `Tarik Proyek BIMA` action.
 - **PRISM deployment identity**: Production configuration uses `APP_NAME=PRISM - Document
-  Assurance Platform`, `https://prism.reksolindo.co.id`, and BIMA client ID `prism`. Compose keeps
-  its existing internal project name to preserve PostgreSQL/Redis volume continuity.
+  Assurance Platform`, `https://prism.reksolindo.co.id`, and BIMA client ID `prism`. Compose project
+  is `prism`; explicit existing volume names preserve local PostgreSQL, Redis, and uploads.
 - **Latest PRISM transition checkpoint**: Four pillars landed together — (1) BIMA master data now
   ingests `GET /api/projects` **and** `GET /api/users` through a strict adapter
   (`backend/services/bima_adapter.py`) that validates before any write and upserts matched solely
@@ -97,8 +96,8 @@ This is the central index every new agent must read in full. Repository state al
     via `RUN_REDIS_INTEGRATION=1`, not evidence that the Redis service is unavailable.
   - Backend `mypy` is clean across `api`, `services`, `core`, and `models` (51 source files).
   - Known environment-only failure: `tests/test_contract.py::test_validation_error_uses_problem_details`
-    fails when a foreign PostgreSQL occupies host port 5432 with different `docqc` credentials. It
-    passes against a disposable migrated database; it is not a code regression.
+    failed against the old database on host port 5432. PRISM now uses database `prism` on host port
+    5433; rerun the test against the migrated PRISM database to verify current state.
   - `alembic check` reports pre-existing schema drift (`issues.category`/`severity` column widths,
     a missing `ix_issues_document_id`, and the `uq_users_email` constraint) that predates the PRISM
     work. Migration `20260923_0015_project_members` itself applies and reverses cleanly.

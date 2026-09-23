@@ -18,7 +18,6 @@ function roleLabel(user: UserSession | null, t: (key: "roleEngineer" | "roleLead
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const isReviewPage = Boolean(pathname?.includes("/review"));
   const [user, setUser] = useState<UserSession | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
@@ -203,7 +202,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </nav>
       )}
       <main className="flex min-h-0 flex-1 flex-col">
-        {isReviewPage ? (
+        {pathname?.includes("/review") ? (
           children
         ) : (
           <div className="mx-auto w-full max-w-7xl space-y-8 px-4 py-8 sm:px-6 lg:px-8">{children}</div>
