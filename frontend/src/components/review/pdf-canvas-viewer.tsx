@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import * as pdfjsLib from "pdfjs-dist";
 import {
   ChevronLeft,
@@ -377,13 +377,65 @@ export function PdfCanvasViewer({
       scrollEl.removeEventListener("gesturestart", handleGesture);
       scrollEl.removeEventListener("gesturechange", handleGesture);
     };
-  }, []);
+    // The scroll container only exists after the document finishes loading, so
+    // rebind whenever the loading gate flips.
+  }, [isLoading]);
 
   const changeZoom = (multiplier: number) => {
     setZoom((z) => {
       const next = Math.min(Math.max(z * multiplier, MIN_ZOOM), MAX_ZOOM);
       return Math.round(next * 100) / 100;
     });
+  };
+
+  // Left-button drag panning: pointer deltas move the existing scroll container.
+  const dragStateRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    scrollLeft: number;
+    scrollTop: number;
+    moved: boolean;
+  } | null>(null);
+  const [isPanning, setIsPanning] = useState(false);
+
+  const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0 || event.pointerType !== "mouse") return;
+    const scrollEl = scrollRef.current;
+    if (!scrollEl) return;
+    dragStateRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      scrollLeft: scrollEl.scrollLeft,
+      scrollTop: scrollEl.scrollTop,
+      moved: false,
+    };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
+
+  const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const drag = dragStateRef.current;
+    const scrollEl = scrollRef.current;
+    if (!drag || !scrollEl || drag.pointerId !== event.pointerId) return;
+    const deltaX = event.clientX - drag.startX;
+    const deltaY = event.clientY - drag.startY;
+    if (!drag.moved && Math.abs(deltaX) < 3 && Math.abs(deltaY) < 3) return;
+    drag.moved = true;
+    setIsPanning(true);
+    scrollEl.scrollLeft = drag.scrollLeft - deltaX;
+    scrollEl.scrollTop = drag.scrollTop - deltaY;
+  };
+
+  const endPointerDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const drag = dragStateRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    dragStateRef.current = null;
+    setIsPanning(false);
+    const target = event.currentTarget;
+    if (target.hasPointerCapture?.(event.pointerId)) {
+      target.releasePointerCapture?.(event.pointerId);
+    }
   };
 
   if (loadError) {
@@ -489,7 +541,7 @@ export function PdfCanvasViewer({
           <button
             type="button"
             className={`btn btn-secondary btn-sm p-1.5 transition-colors ${
-              isFullscreen ? "bg-accent/20 text-accent border-accent/40" : ""
+              isFullscreen ? "bg-primary/20 text-primary border-primary/40" : ""
             }`}
             onClick={toggleFullscreen}
             aria-label={isFullscreen ? "Exit fullscreen" : "Full screen"}
@@ -508,7 +560,7 @@ export function PdfCanvasViewer({
       {/* Main Canvas Scroll Area */}
       {isLoading ? (
         <div className="flex flex-1 items-center justify-center bg-sunken">
-          <div className="text-center text-muted">
+          <div className="text-center text-muted-foreground">
             <div className="loading-spinner mx-auto mb-2" />
             <p className="text-xs font-mono">Rendering PDF page canvas…</p>
           </div>
@@ -521,16 +573,25 @@ export function PdfCanvasViewer({
         >
           <div className="flex min-h-full items-start justify-center">
             <div
-              className="relative shadow-2xl rounded-sm bg-white"
+              className={`relative shadow-2xl rounded-sm bg-card select-none ${
+                isPanning ? "cursor-grabbing" : "cursor-grab"
+              }`}
               style={{
                 width: `${renderedSize.width}px`,
                 height: `${renderedSize.height}px`,
               }}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={endPointerDrag}
+              onPointerCancel={endPointerDrag}
+              data-testid="pdf-page-surface"
             >
               <canvas
                 ref={canvasRef}
                 className="block w-full h-full rounded-sm"
                 data-testid="pdf-canvas"
+                draggable={false}
+                onDragStart={(event) => event.preventDefault()}
               />
 
               {/* Coordinate Highlight Overlay directly aligned to canvas dimensions */}

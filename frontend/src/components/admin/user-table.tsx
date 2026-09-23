@@ -2,6 +2,7 @@
 
 import { BriefcaseBusiness, KeyRound, Power } from "lucide-react";
 import type { ManagedUser } from "@/lib/api";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useLocale } from "@/components/layout/locale-provider";
 
 function formatDate(value: string) {
@@ -23,89 +24,92 @@ export function UserTable({
 }) {
   const { t } = useLocale();
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-xs border-collapse">
-          <thead className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-bold uppercase tracking-wider text-slate-600">
-            <tr>
-              <th className="px-6 py-3.5">{t("fullName")}</th><th className="px-6 py-3.5">{t("email")}</th><th className="px-6 py-3.5">{t("role")}</th><th className="px-6 py-3.5">{t("accountStatus")}</th><th className="px-6 py-3.5">{t("createdDate")}</th><th className="px-6 py-3.5 text-right">{t("actions")}</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {users.map((user) => (
-              <tr key={user.id} className="hover:bg-slate-50/70 transition-colors">
-                <td className="px-6 py-4">
-                  <strong className="text-xs font-bold text-slate-900 block">{user.full_name}</strong>
-                   <span className="text-[11px] text-slate-500">{user.total_documents_owned} {t("ownedDocuments")}</span>
-                </td>
-                <td className="px-6 py-4 font-mono text-xs text-slate-600">{user.email}</td>
-                <td className="px-6 py-4">
-                  {user.role === "ENGINEER" ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700 ring-1 ring-blue-600/30 shadow-2xs">
-                      <span className="h-1.5 w-1.5 rounded-full bg-blue-600" />
-                       {t("roleEngineer")}
-                    </span>
-                  ) : user.role === "SUPERUSER" ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-purple-100 px-3 py-1 text-xs font-bold text-purple-700 ring-1 ring-purple-500/30 shadow-2xs">
-                      <span className="h-1.5 w-1.5 rounded-full bg-purple-500" />
-                       {t("roleSuperuser")}
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-100 px-3 py-1 text-xs font-bold text-indigo-700 ring-1 ring-indigo-500/30 shadow-2xs">
-                      <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
-                       {t("roleLead")}
-                    </span>
-                  )}
-                </td>
-                <td className="px-6 py-4">
-                  {user.is_active ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-600/20">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                       {t("active")}
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600 ring-1 ring-slate-300">
-                      <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
-                       {t("inactive")}
-                    </span>
-                  )}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-slate-500">{formatDate(user.created_at)}</td>
-                <td className="px-6 py-4 text-right">
-                  <div className="inline-flex items-center gap-2 justify-end">
-                    <button
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition shadow-2xs"
-                      type="button"
-                      onClick={() => onViewProjects(user)}
-                    >
-                      <BriefcaseBusiness size={13} className="text-slate-500" />
-                       {t("viewProjects")}
-                    </button>
-                    <button
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition shadow-2xs disabled:opacity-50"
-                      type="button"
-                      disabled={busyUserId === user.id}
-                      onClick={() => onToggleStatus(user)}
-                    >
-                      <Power size={13} className={user.is_active ? "text-amber-500" : "text-emerald-500"} />
-                      {user.is_active ? t("disable") : t("enable")}
-                    </button>
-                    <button
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition shadow-2xs disabled:opacity-50"
-                      type="button"
-                      disabled={busyUserId === user.id}
-                      onClick={() => onResetPassword(user)}
-                    >
-                      <KeyRound size={13} className="text-slate-500" />
-                       {t("resetPassword")}
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+    <div className="overflow-hidden rounded-xl border border-border/60 bg-card shadow-sm">
+      <Table className="text-xs border-collapse">
+        <TableHeader className="bg-muted/60">
+          <TableRow>
+            <TableHead>{t("fullName")}</TableHead>
+            <TableHead>{t("email")}</TableHead>
+            <TableHead>{t("role")}</TableHead>
+            <TableHead>{t("accountStatus")}</TableHead>
+            <TableHead>{t("createdDate")}</TableHead>
+            <TableHead className="text-right">{t("actions")}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {users.map((user) => (
+            <TableRow key={user.id}>
+              <TableCell>
+                <strong className="text-xs font-bold text-foreground block">{user.full_name}</strong>
+                <span className="text-[11px] text-muted-foreground">{user.total_documents_owned} {t("ownedDocuments")}</span>
+              </TableCell>
+              <TableCell className="font-mono text-xs text-muted-foreground">{user.email}</TableCell>
+              <TableCell>
+                {user.role === "ENGINEER" ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-accent px-3 py-1 text-xs font-bold text-accent-foreground ring-1 ring-primary/20 shadow-2xs">
+                    <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                     {t("roleEngineer")}
+                  </span>
+                ) : user.role === "SUPERUSER" ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-purple-100 px-3 py-1 text-xs font-bold text-purple-700 ring-1 ring-purple-500/30 shadow-2xs">
+                    <span className="h-1.5 w-1.5 rounded-full bg-purple-500" />
+                     {t("roleSuperuser")}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-100 px-3 py-1 text-xs font-bold text-indigo-700 ring-1 ring-indigo-500/30 shadow-2xs">
+                    <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
+                     {t("roleLead")}
+                  </span>
+                )}
+              </TableCell>
+              <TableCell>
+                {user.is_active ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-600/20">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                     {t("active")}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground ring-1 ring-slate-300">
+                    <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+                     {t("inactive")}
+                  </span>
+                )}
+              </TableCell>
+              <TableCell className="whitespace-nowrap text-muted-foreground">{formatDate(user.created_at)}</TableCell>
+              <TableCell className="text-right">
+                <div className="inline-flex items-center gap-2 justify-end">
+                  <button
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-semibold text-foreground hover:bg-muted/60 transition shadow-2xs"
+                    type="button"
+                    onClick={() => onViewProjects(user)}
+                  >
+                    <BriefcaseBusiness size={13} className="text-muted-foreground" />
+                     {t("viewProjects")}
+                  </button>
+                  <button
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-semibold text-foreground hover:bg-muted/60 transition shadow-2xs disabled:opacity-50"
+                    type="button"
+                    disabled={busyUserId === user.id}
+                    onClick={() => onToggleStatus(user)}
+                  >
+                    <Power size={13} className={user.is_active ? "text-amber-500" : "text-emerald-500"} />
+                    {user.is_active ? t("disable") : t("enable")}
+                  </button>
+                  <button
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-semibold text-foreground hover:bg-muted/60 transition shadow-2xs disabled:opacity-50"
+                    type="button"
+                    disabled={busyUserId === user.id}
+                    onClick={() => onResetPassword(user)}
+                  >
+                    <KeyRound size={13} className="text-muted-foreground" />
+                     {t("resetPassword")}
+                  </button>
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </div>
   );
 }

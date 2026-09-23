@@ -34,14 +34,14 @@ export function UserProjectsModal({ user, onClose }: { user: ManagedUser | null;
       aria-modal="true"
       aria-labelledby="user-projects-title"
     >
-      <div className="w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
-        <div className="flex items-start justify-between border-b border-slate-100 pb-4">
+      <div className="w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl border border-border bg-card p-6 shadow-2xl">
+        <div className="flex items-start justify-between border-b border-border/60 pb-4">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{t("assignedWork")}</p>
-            <h2 id="user-projects-title" className="text-lg font-bold text-slate-900">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t("assignedWork")}</p>
+            <h2 id="user-projects-title" className="text-lg font-bold text-foreground">
               {t("projectsFor", { name: user.full_name })}
             </h2>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted-foreground">
               {t("assignedWorkDescription")}
             </p>
           </div>
@@ -49,7 +49,7 @@ export function UserProjectsModal({ user, onClose }: { user: ManagedUser | null;
             type="button"
              aria-label={t("close")}
             onClick={onClose}
-            className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+            className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
           >
             <X size={18} />
           </button>
@@ -57,15 +57,15 @@ export function UserProjectsModal({ user, onClose }: { user: ManagedUser | null;
 
         <div className="mt-4">
           {loading ? (
-            <div className="flex min-h-[200px] flex-col items-center justify-center gap-2 text-slate-400">
-              <LoaderCircle className="animate-spin text-blue-600" size={24} />
+            <div className="flex min-h-[200px] flex-col items-center justify-center gap-2 text-muted-foreground">
+              <LoaderCircle className="animate-spin text-accent-foreground" size={24} />
                <span className="text-xs font-semibold">{t("loadingProjects")}</span>
             </div>
           ) : error ? (
             <p className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">{error}</p>
           ) : projects.length === 0 ? (
-            <div className="flex min-h-[200px] flex-col items-center justify-center gap-2 text-center text-slate-400">
-              <FolderKanban size={32} className="text-slate-300" />
+            <div className="flex min-h-[200px] flex-col items-center justify-center gap-2 text-center text-muted-foreground">
+              <FolderKanban size={32} className="text-border" />
                <p className="text-xs font-medium">{t("noAssignedDocuments")}</p>
             </div>
           ) : (
@@ -73,17 +73,17 @@ export function UserProjectsModal({ user, onClose }: { user: ManagedUser | null;
               {projects.map((project) => (
                 <div
                   key={project.id}
-                  className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50/50 p-4 transition hover:bg-slate-50"
+                  className="flex items-center justify-between gap-4 rounded-xl border border-border bg-muted/50 p-4 transition hover:bg-muted/40"
                 >
                   <div className="min-w-0 flex-1">
-                    <strong className="block text-sm font-bold text-slate-900">{project.name}</strong>
-                    <small className="block mt-0.5 text-xs text-slate-500">
+                    <strong className="block text-sm font-bold text-foreground">{project.name}</strong>
+                    <small className="block mt-0.5 text-xs text-muted-foreground">
                       {project.plant_area ?? "Area not supplied"} · {project.total_documents ?? project.documents?.length ?? 0} documents · {project.status ?? "ACTIVE"}
                     </small>
                     {project.documents?.map((document) => (
-                      <span key={document.id} className="mt-2 flex items-center gap-2 text-xs text-slate-600">
+                      <span key={document.id} className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
                         <span className="truncate">{document.title}</span>
-                        <b className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700">
+                        <b className="rounded-full bg-accent px-2 py-0.5 text-[10px] font-bold text-accent-foreground">
                           {document.workflow_status.replaceAll("_", " ")}
                         </b>
                       </span>
@@ -92,7 +92,7 @@ export function UserProjectsModal({ user, onClose }: { user: ManagedUser | null;
                   <Link
                     href={`/projects/${project.id}`}
                     onClick={onClose}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 shrink-0"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground shadow-xs hover:bg-muted/40 shrink-0"
                   >
                      {t("open")} <ExternalLink size={13} />
                   </Link>

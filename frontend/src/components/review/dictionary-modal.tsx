@@ -131,12 +131,12 @@ export function DictionaryModal({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-line bg-sunken">
           <div className="flex items-center gap-2.5">
-            <BookOpen className="w-5 h-5 text-accent-soft" />
+            <BookOpen className="w-5 h-5 text-primary" />
             <div>
               <h2 id="dictionary-modal-title" className="text-base font-bold text-ink">
                 Governed Engineering Dictionary
               </h2>
-              <p className="text-xs text-muted">
+              <p className="text-xs text-muted-foreground">
                 Standard terminology, metallurgical grades, and project exemptions
               </p>
             </div>
@@ -144,7 +144,7 @@ export function DictionaryModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-muted hover:text-ink hover:bg-chip transition-colors"
+            className="p-1.5 rounded-lg text-muted-foreground hover:text-ink hover:bg-chip transition-colors"
             title="Close dialog"
           >
             <X className="w-5 h-5" />
@@ -159,8 +159,8 @@ export function DictionaryModal({
               onClick={() => setActiveTab("list")}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 activeTab === "list"
-                  ? "bg-chip text-accent-soft border border-accent/40 font-bold"
-                  : "text-muted hover:text-ink"
+                  ? "bg-chip text-primary border border-primary/40 font-bold"
+                  : "text-muted-foreground hover:text-ink"
               }`}
             >
               Approved & Pending Terms ({terms.length})
@@ -170,8 +170,8 @@ export function DictionaryModal({
               onClick={() => setActiveTab("create")}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 ${
                 activeTab === "create"
-                  ? "bg-chip text-accent-soft border border-accent/40 font-bold"
-                  : "text-muted hover:text-ink"
+                  ? "bg-chip text-primary border border-primary/40 font-bold"
+                  : "text-muted-foreground hover:text-ink"
               }`}
             >
               <Plus className="w-3.5 h-3.5" />
@@ -181,14 +181,14 @@ export function DictionaryModal({
 
           {activeTab === "list" && (
             <div className="flex items-center gap-2">
-              <label htmlFor="filter-status" className="text-xs text-muted">
+              <label htmlFor="filter-status" className="text-xs text-muted-foreground">
                 Status:
               </label>
               <select
                 id="filter-status"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="bg-panel border border-line rounded px-2 py-1 text-xs text-ink-soft focus:outline-none focus:border-accent"
+                className="bg-panel border border-line rounded px-2 py-1 text-xs text-ink-soft focus:outline-none focus:border-ring"
               >
                 <option value="all">All</option>
                 <option value="APPROVED">Approved</option>
@@ -231,9 +231,9 @@ export function DictionaryModal({
                   value={newTerm}
                   onChange={(e) => setNewTerm(e.target.value)}
                   placeholder="e.g. Inconel625, UNS-N06625, ASTM-A516"
-                  className="w-full bg-sunken border border-line rounded-lg px-3 py-2 text-sm text-ink placeholder-muted focus:outline-none focus:border-accent"
+                  className="w-full bg-sunken border border-line rounded-lg px-3 py-2 text-sm text-ink placeholder:text-muted-foreground focus:outline-none focus:border-ring"
                 />
-                <span className="text-[11px] text-muted mt-1 block">
+                <span className="text-[11px] text-muted-foreground mt-1 block">
                   Once approved, this token will be whitelisted across spellcheck and linguistic audits.
                 </span>
               </div>
@@ -245,7 +245,7 @@ export function DictionaryModal({
                 <select
                   value={newScope}
                   onChange={(e) => setNewScope(e.target.value)}
-                  className="w-full bg-sunken border border-line rounded-lg px-3 py-2 text-sm text-ink focus:outline-none focus:border-accent"
+                  className="w-full bg-sunken border border-line rounded-lg px-3 py-2 text-sm text-ink focus:outline-none focus:border-ring"
                 >
                   <option value="organization">Organization (Global Whitelist)</option>
                   <option value="project:default">Project Default</option>
@@ -261,7 +261,7 @@ export function DictionaryModal({
                   onChange={(e) => setNewRationale(e.target.value)}
                   placeholder="Provide engineering standard, alloy specification, or client contract reference..."
                   rows={3}
-                  className="w-full bg-sunken border border-line rounded-lg px-3 py-2 text-sm text-ink placeholder-muted focus:outline-none focus:border-accent"
+                  className="w-full bg-sunken border border-line rounded-lg px-3 py-2 text-sm text-ink placeholder:text-muted-foreground focus:outline-none focus:border-ring"
                 />
               </div>
 
@@ -269,14 +269,14 @@ export function DictionaryModal({
                 <button
                   type="button"
                   onClick={() => setActiveTab("list")}
-                  className="px-4 py-2 rounded-lg text-xs font-medium text-muted hover:text-ink transition-colors"
+                  className="px-4 py-2 rounded-lg text-xs font-medium text-muted-foreground hover:text-ink transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-2 rounded-lg text-xs font-semibold bg-accent text-white hover:bg-accent-soft transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                  className="px-4 py-2 rounded-lg text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-1.5"
                 >
                   <Plus className="w-4 h-4" />
                   {isSubmitting ? "Submitting..." : "Submit to Dictionary"}
@@ -286,9 +286,9 @@ export function DictionaryModal({
           ) : (
             <div>
               {isLoading ? (
-                <div className="py-8 text-center text-xs text-muted">Loading terms...</div>
+                <div className="py-8 text-center text-xs text-muted-foreground">Loading terms...</div>
               ) : terms.length === 0 ? (
-                <div className="py-8 text-center text-xs text-muted">
+                <div className="py-8 text-center text-xs text-muted-foreground">
                   No dictionary terms found matching filter.
                 </div>
               ) : (
@@ -312,12 +312,12 @@ export function DictionaryModal({
                           >
                             {term.status}
                           </span>
-                          <span className="text-[11px] text-muted">[{term.scope}]</span>
+                          <span className="text-[11px] text-muted-foreground">[{term.scope}]</span>
                         </div>
                         {term.rationale && (
-                          <div className="text-xs text-muted italic">{term.rationale}</div>
+                          <div className="text-xs text-muted-foreground italic">{term.rationale}</div>
                         )}
-                        <div className="text-[10px] text-muted">
+                        <div className="text-[10px] text-muted-foreground">
                           Added {new Date(term.created_at).toLocaleDateString()}
                           {term.approved_by && ` · Approved by ${term.approved_by}`}
                         </div>

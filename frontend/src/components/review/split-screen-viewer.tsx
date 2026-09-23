@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -27,6 +27,23 @@ import { ReportPreviewModal } from "./report-preview-modal";
 import { DictionaryModal } from "./dictionary-modal";
 import { ExportModal } from "./export-modal";
 import { DocumentViewer } from "./document-viewer";
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
+
+const DESKTOP_QUERY = "(min-width: 1024px)";
+
+function subscribeToDesktopBreakpoint(callback: () => void) {
+  const media = window.matchMedia(DESKTOP_QUERY);
+  media.addEventListener("change", callback);
+  return () => media.removeEventListener("change", callback);
+}
+
+function useIsDesktopLayout(): boolean {
+  return useSyncExternalStore(
+    subscribeToDesktopBreakpoint,
+    () => window.matchMedia(DESKTOP_QUERY).matches,
+    () => false,
+  );
+}
 
 interface SplitScreenViewerProps {
   document: DocumentItem;
@@ -60,6 +77,7 @@ export function SplitScreenViewer({
 
   // Mobile pane switcher: "document" or "findings"
   const [mobilePane, setMobilePane] = useState<"document" | "findings">("document");
+  const isDesktopLayout = useIsDesktopLayout();
 
   // Modals
   const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
@@ -150,28 +168,28 @@ export function SplitScreenViewer({
   const baselinePasses = budinskiIssues.filter((issue) => issue.severity !== "BLOCKER" && issue.severity !== "CRITICAL").length;
 
   return (
-    <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-slate-100 text-slate-900">
+    <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-muted/20 text-foreground">
       {/* Above Card Header: Breadcrumbs & Document Info & Status */}
-      <div className={embedded ? "hidden" : "flex items-center justify-between border-b border-slate-200 bg-white px-4 py-2.5 shrink-0"}>
+      <div className={embedded ? "hidden" : "flex items-center justify-between border-b border-border bg-card px-4 py-2.5 shrink-0"}>
         {/* Left: Return Link & Document Title */}
         <div className="flex items-center gap-2.5 min-w-0">
           <Link
             href={`/documents/${document.id}`}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 shrink-0"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-semibold text-foreground hover:bg-muted shrink-0"
             title="Back to inspection status"
           >
             <ArrowLeft size={14} />
             <span>Inspection</span>
           </Link>
-          <div className="h-4 w-[1px] bg-slate-200 shrink-0 hidden sm:block" />
-          <div className="p-1.5 rounded-lg bg-blue-50 text-blue-600 border border-blue-100 shrink-0">
+          <div className="h-4 w-[1px] bg-border shrink-0 hidden sm:block" />
+          <div className="p-1.5 rounded-lg bg-accent text-accent-foreground border border-primary/20 shrink-0">
             <FileText size={16} />
           </div>
           <div className="min-w-0">
-            <h1 className="text-sm font-semibold truncate text-slate-900 m-0 leading-snug">
+            <h1 className="text-sm font-semibold truncate text-foreground m-0 leading-snug">
               {document.filename}
             </h1>
-            <div className="flex items-center gap-2 text-[11px] text-slate-500 leading-tight">
+            <div className="flex items-center gap-2 text-[11px] text-muted-foreground leading-tight">
               <span>{document.page_count ?? "—"} pages</span>
               <span>·</span>
               <span>{issues.length} total findings</span>
@@ -183,10 +201,10 @@ export function SplitScreenViewer({
 
         {/* Right: Report Summary Pill */}
         <div className="flex items-center gap-2 shrink-0">
-          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-50 border border-slate-200 text-xs shadow-2xs">
-            <span className="font-semibold text-slate-900">{includedCount} Included</span>
-            <span className="text-slate-300">|</span>
-            <span className={blockersCount > 0 ? "font-semibold text-rose-600" : "text-slate-400"}>
+          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-muted/60 border border-border text-xs">
+            <span className="font-semibold text-foreground">{includedCount} Included</span>
+            <span className="text-border">|</span>
+            <span className={blockersCount > 0 ? "font-semibold text-rose-600" : "text-muted-foreground"}>
               {blockersCount} Blockers
             </span>
           </div>
@@ -200,7 +218,7 @@ export function SplitScreenViewer({
               ? "border-rose-200 bg-rose-50 text-rose-700"
               : document.status === "COMPLETED_WITH_WARNINGS"
                 ? "border-amber-200 bg-amber-50 text-amber-800"
-                : "border-blue-200 bg-blue-50 text-blue-800"
+                : "border-primary/20 bg-accent text-accent-foreground"
           }`}
           role="status"
           aria-live="polite"
@@ -218,39 +236,67 @@ export function SplitScreenViewer({
 
       {/* Main Review Workspace Card */}
       <div className="flex min-h-0 flex-1 w-full flex-col overflow-hidden">
+        {embedded && !isDesktopLayout && (
+          <div className="flex shrink-0 items-center justify-center gap-1 border-b border-border bg-muted/70 px-3 py-1.5">
+            <button
+              type="button"
+              className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors ${
+                mobilePane === "document"
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              onClick={() => setMobilePane("document")}
+            >
+              Document
+            </button>
+            <button
+              type="button"
+              className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors ${
+                mobilePane === "findings"
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              onClick={() => setMobilePane("findings")}
+            >
+              Findings ({issues.length})
+            </button>
+          </div>
+        )}
         {/* Card Header / Action Toolbar */}
-        <header className={`${embedded ? "hidden" : "flex"} h-12 border-b border-slate-200 bg-white items-center justify-between px-3 sm:px-4 shrink-0 gap-3`}>
+        <header className={`${embedded ? "hidden" : "flex"} h-12 border-b border-border bg-card items-center justify-between px-3 sm:px-4 shrink-0 gap-3`}>
           {/* Left: Eyebrow label & Mobile Pane Switcher */}
           <div className="flex items-center gap-3">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 hidden sm:inline m-0">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground hidden sm:inline m-0">
               Review & Curation
             </span>
 
             {/* Mobile Pane Switcher */}
-            <div className="flex lg:hidden rounded-lg border border-slate-200 bg-slate-100 p-0.5 text-xs">
-              <button
-                type="button"
-                className={`px-2 py-0.5 rounded-md font-medium transition-colors ${
-                  mobilePane === "document"
-                    ? "bg-white text-slate-900 shadow-xs"
-                    : "text-slate-500 hover:text-slate-900"
-                }`}
-                onClick={() => setMobilePane("document")}
-              >
-                Document
-              </button>
-              <button
-                type="button"
-                className={`px-2 py-0.5 rounded-md font-medium transition-colors ${
-                  mobilePane === "findings"
-                    ? "bg-white text-slate-900 shadow-xs"
-                    : "text-slate-500 hover:text-slate-900"
-                }`}
-                onClick={() => setMobilePane("findings")}
-              >
-                Findings ({issues.length})
-              </button>
-            </div>
+            {!isDesktopLayout && (
+              <div className="flex rounded-lg border border-border bg-muted p-0.5 text-xs">
+                <button
+                  type="button"
+                  className={`px-2 py-0.5 rounded-md font-medium transition-colors ${
+                    mobilePane === "document"
+                      ? "bg-card text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  onClick={() => setMobilePane("document")}
+                >
+                  Document
+                </button>
+                <button
+                  type="button"
+                  className={`px-2 py-0.5 rounded-md font-medium transition-colors ${
+                    mobilePane === "findings"
+                      ? "bg-card text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  onClick={() => setMobilePane("findings")}
+                >
+                  Findings ({issues.length})
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Right: Actions */}
@@ -258,7 +304,7 @@ export function SplitScreenViewer({
             <button
               type="button"
               onClick={() => setIsScorecardOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-xs"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-semibold text-foreground hover:bg-muted shadow-sm"
             >
               <ShieldCheck size={13} className="text-indigo-600" />
               <span className="hidden sm:inline">Budinski</span> Scorecard
@@ -267,7 +313,7 @@ export function SplitScreenViewer({
             <button
               type="button"
               onClick={() => setIsReportModalOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-xs"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-semibold text-foreground hover:bg-muted shadow-sm"
             >
               <FileSpreadsheet size={13} />
               <span>Report Preview</span>
@@ -276,7 +322,7 @@ export function SplitScreenViewer({
             <button
               type="button"
               onClick={() => setIsExportModalOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1 text-xs font-bold text-white hover:bg-blue-700 shadow-xs"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1 text-xs font-bold text-primary-foreground hover:bg-primary/90 shadow-xs"
             >
               <Download size={13} />
               <span>Export</span>
@@ -286,7 +332,7 @@ export function SplitScreenViewer({
               type="button"
               onClick={() => void handleReloadIssues()}
               disabled={isRefreshing}
-              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1.5 text-xs text-slate-600 hover:bg-slate-50 shadow-xs disabled:opacity-50"
+              className="inline-flex items-center gap-1 rounded-lg border border-border bg-card p-1.5 text-xs text-muted-foreground hover:bg-muted shadow-sm disabled:opacity-50"
               title="Refresh findings list"
             >
               <RefreshCw size={13} className={isRefreshing ? "animate-spin" : ""} />
@@ -323,48 +369,82 @@ export function SplitScreenViewer({
         )}
 
         {/* Main Workspace Split Layout */}
-        <div className="review-workspace-split flex-1 flex overflow-hidden relative min-h-0 min-w-0">
-          {/* Left / Center: PDF Document Viewer */}
-          <main
-            className={`review-document-pane flex-1 h-full min-h-0 overflow-hidden min-w-0 ${
-              mobilePane === "document" ? "block" : "hidden lg:block"
-            }`}
+        {isDesktopLayout ? (
+          <ResizablePanelGroup
+            orientation="horizontal"
+            className="flex-1 min-h-0 min-w-0"
+            id="review-split"
           >
-            <DocumentViewer
-              documentId={document.id}
-              documentTitle={document.filename}
-              activeIssue={selectedIssue}
-              currentPage={currentPage}
-              totalPages={document.page_count ?? 1}
-              onPageChange={setCurrentPage}
-              onJumpToFinding={(target) => {
-                if (target.page_number) setCurrentPage(target.page_number);
-              }}
-            />
-          </main>
+            <ResizablePanel defaultSize="60" minSize="45" id="review-document-panel">
+              <DocumentViewer
+                documentId={document.id}
+                documentTitle={document.filename}
+                activeIssue={selectedIssue}
+                currentPage={currentPage}
+                totalPages={document.page_count ?? 1}
+                onPageChange={setCurrentPage}
+                onJumpToFinding={(target) => {
+                  if (target.page_number) setCurrentPage(target.page_number);
+                }}
+              />
+            </ResizablePanel>
+            <ResizableHandle aria-label="Resize document and findings panels" />
+            <ResizablePanel defaultSize="40" minSize="25" maxSize="55" id="review-findings-panel">
+              <IssuePanel
+                issues={issues}
+                selectedIssueId={selectedIssueId}
+                onSelectIssue={handleSelectIssue}
+                onCurateIssue={handleCurateIssue}
+                onJumpToPage={setCurrentPage}
+                readOnly={readOnly}
+                onAddToDictionary={handleAddToDictionary}
+              />
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        ) : (
+          <div className="review-workspace-split flex-1 flex overflow-hidden relative min-h-0 min-w-0">
+            {/* Left / Center: PDF Document Viewer */}
+            <main
+              className={`review-document-pane flex-1 h-full min-h-0 overflow-hidden min-w-0 ${
+                mobilePane === "document" ? "block" : "hidden"
+              }`}
+            >
+              <DocumentViewer
+                documentId={document.id}
+                documentTitle={document.filename}
+                activeIssue={selectedIssue}
+                currentPage={currentPage}
+                totalPages={document.page_count ?? 1}
+                onPageChange={setCurrentPage}
+                onJumpToFinding={(target) => {
+                  if (target.page_number) setCurrentPage(target.page_number);
+                }}
+              />
+            </main>
 
-          {/* Right Pane: Findings Curation Panel */}
-          <section
-            className={`review-findings-pane w-full lg:w-[420px] xl:w-[480px] h-full min-h-0 min-w-0 shrink-0 overflow-hidden ${
-              mobilePane === "findings" ? "block" : "hidden lg:block"
-            }`}
-          >
-            <IssuePanel
-              issues={issues}
-              selectedIssueId={selectedIssueId}
-              onSelectIssue={handleSelectIssue}
-              onCurateIssue={handleCurateIssue}
-              onJumpToPage={setCurrentPage}
-              readOnly={readOnly}
-              onAddToDictionary={handleAddToDictionary}
-            />
-          </section>
-        </div>
+            {/* Right Pane: Findings Curation Panel */}
+            <section
+              className={`review-findings-pane w-full h-full min-h-0 min-w-0 shrink-0 overflow-hidden ${
+                mobilePane === "findings" ? "block" : "hidden"
+              }`}
+            >
+              <IssuePanel
+                issues={issues}
+                selectedIssueId={selectedIssueId}
+                onSelectIssue={handleSelectIssue}
+                onCurateIssue={handleCurateIssue}
+                onJumpToPage={setCurrentPage}
+                readOnly={readOnly}
+                onAddToDictionary={handleAddToDictionary}
+              />
+            </section>
+          </div>
+        )}
 
         {/* Bottom Bar: Report Deliverables Actions */}
-        <footer className={`${embedded ? "hidden" : "flex"} min-h-11 border-t border-slate-200 bg-white flex-wrap items-center justify-between px-3 sm:px-4 py-2 shrink-0 text-xs gap-2`}>
-          <div className="flex items-center gap-2 text-slate-500">
-            <span className="font-semibold text-slate-900">{includedCount}</span> findings marked for export
+        <footer className={`${embedded ? "hidden" : "flex"} min-h-11 border-t border-border bg-card flex-wrap items-center justify-between px-3 sm:px-4 py-2 shrink-0 text-xs gap-2`}>
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <span className="font-semibold text-foreground">{includedCount}</span> findings marked for export
             {blockersCount > 0 && (
               <span className="text-rose-600 font-medium">({blockersCount} blockers require correction)</span>
             )}
@@ -374,7 +454,7 @@ export function SplitScreenViewer({
             <button
               type="button"
               onClick={() => void downloadExport(document.id, "docx", false, locale)}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-700 shadow-xs"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground hover:bg-primary/90 shadow-sm"
             >
               <Download size={13} />
               <span>Export DOCX</span>
@@ -382,7 +462,7 @@ export function SplitScreenViewer({
             <button
               type="button"
               onClick={() => void downloadExport(document.id, "pdf")}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted"
             >
               <FileText size={13} />
               <span>Export Annotated PDF</span>
@@ -414,41 +494,41 @@ export function SplitScreenViewer({
 
       {isScorecardOpen && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40 p-4 backdrop-blur-xs" role="dialog" aria-modal="true" aria-labelledby="scorecard-title" onClick={() => setIsScorecardOpen(false)}>
-          <div className="w-full max-w-xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
-            <header className="flex items-start justify-between border-b border-slate-100 p-5">
+          <div className="w-full max-w-xl overflow-hidden rounded-xl border border-border bg-card shadow-2xl" onClick={(event) => event.stopPropagation()}>
+            <header className="flex items-start justify-between border-b border-border p-5">
               <div>
-                <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">Technical writing audit</p>
-                <h2 id="scorecard-title" className="text-lg font-bold text-slate-900">Budinski Scorecard</h2>
-                <p className="mt-1 text-xs text-slate-500">41 Appendix 12 items and 4 baseline measures.</p>
+                <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Technical writing audit</p>
+                <h2 id="scorecard-title" className="text-lg font-bold text-foreground">Budinski Scorecard</h2>
+                <p className="mt-1 text-xs text-muted-foreground">41 Appendix 12 items and 4 baseline measures.</p>
               </div>
-              <button type="button" className="text-slate-400 hover:text-slate-600 rounded-lg p-1" aria-label="Close scorecard" onClick={() => setIsScorecardOpen(false)}>
+              <button type="button" className="text-muted-foreground hover:text-muted-foreground rounded-lg p-1" aria-label="Close scorecard" onClick={() => setIsScorecardOpen(false)}>
                 <X size={18} />
               </button>
             </header>
             <div className="grid grid-cols-3 gap-3 p-5">
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
-                <strong className="block text-2xl font-bold text-slate-900">{budinskiIssues.length}</strong>
-                <span className="text-[11px] font-medium text-slate-500">Items flagged</span>
+              <div className="rounded-xl border border-border bg-muted/40 p-4 text-center">
+                <strong className="block text-2xl font-bold text-foreground">{budinskiIssues.length}</strong>
+                <span className="text-[11px] font-medium text-muted-foreground">Items flagged</span>
               </div>
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
+              <div className="rounded-xl border border-border bg-muted/40 p-4 text-center">
                 <strong className="block text-2xl font-bold text-emerald-600">{Math.max(0, 41 - budinskiIssues.length)}</strong>
-                <span className="text-[11px] font-medium text-slate-500">Items clear</span>
+                <span className="text-[11px] font-medium text-muted-foreground">Items clear</span>
               </div>
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
-                <strong className="block text-2xl font-bold text-blue-600">{baselinePasses}/4</strong>
-                <span className="text-[11px] font-medium text-slate-500">Baselines passing</span>
+              <div className="rounded-xl border border-border bg-muted/40 p-4 text-center">
+                <strong className="block text-2xl font-bold text-accent-foreground">{baselinePasses}/4</strong>
+                <span className="text-[11px] font-medium text-muted-foreground">Baselines passing</span>
               </div>
             </div>
             <div className="px-5 pb-5">
-              <div className="flex justify-between text-xs font-semibold text-slate-600">
+              <div className="flex justify-between text-xs font-semibold text-muted-foreground">
                 <span>Appendix 12 coverage</span>
-                <b className="text-blue-600 font-bold">{Math.round(((41 - budinskiIssues.length) / 41) * 100)}%</b>
+                <b className="text-accent-foreground font-bold">{Math.round(((41 - budinskiIssues.length) / 41) * 100)}%</b>
               </div>
               <progress className="mt-2 h-2 w-full accent-blue-600 rounded-full" value={Math.max(0, 41 - budinskiIssues.length)} max="41" />
             </div>
-            <footer className="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-5 py-3 text-xs text-slate-500">
+            <footer className="flex items-center justify-between border-t border-border bg-muted/40 px-5 py-3 text-xs text-muted-foreground">
               <span>Detailed values remain in the exported DOCX report.</span>
-              <button type="button" className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50" onClick={() => setIsScorecardOpen(false)}>
+              <button type="button" className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground shadow-sm hover:bg-muted" onClick={() => setIsScorecardOpen(false)}>
                 Close
               </button>
             </footer>

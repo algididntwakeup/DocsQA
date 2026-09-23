@@ -82,33 +82,33 @@ export function IssueCard({
     BLOCKER: "bg-rose-100 text-rose-800 border-rose-200 font-extrabold",
     CRITICAL: "bg-rose-50 text-rose-700 border-rose-200",
     MAJOR: "bg-amber-50 text-amber-700 border-amber-200",
-    MINOR: "bg-slate-100 text-slate-700 border-slate-200",
-    INFO: "bg-blue-50 text-blue-700 border-blue-200",
+    MINOR: "bg-muted text-foreground border-border",
+    INFO: "bg-accent text-accent-foreground border-primary/20",
     HIGH: "bg-amber-50 text-amber-700 border-amber-200",
-    MEDIUM: "bg-slate-100 text-slate-700 border-slate-200",
+    MEDIUM: "bg-muted text-foreground border-border",
     LOW: "bg-emerald-50 text-emerald-700 border-emerald-200",
   };
-  const badgeStyle = severityBadgeClass[issue.severity] ?? "bg-slate-100 text-slate-700 border-slate-200";
+  const badgeStyle = severityBadgeClass[issue.severity] ?? "bg-muted text-foreground border-border";
 
   return (
     <article
       data-issue-id={issue.id}
       className={`rounded-xl border transition-all duration-150 ${
         isSelected
-          ? "border-blue-600 bg-white ring-2 ring-blue-500/20 shadow-xs"
-          : "border-slate-200 bg-white hover:border-slate-300"
-      } ${!issue.included_in_report ? "opacity-75 bg-slate-50/50" : ""}`}
+          ? "border-primary bg-card ring-2 ring-ring/20 shadow-xs"
+          : "border-border bg-card hover:border-border"
+      } ${!issue.included_in_report ? "opacity-75 bg-muted/50" : ""}`}
       onClick={onSelect}
     >
       {/* Header */}
-      <header className="flex items-start justify-between gap-2 border-b border-slate-100 p-3">
+      <header className="flex items-start justify-between gap-2 border-b border-border/60 p-3">
         <div className="flex flex-wrap items-center gap-1.5 min-w-0">
           <span
             className={`text-[10px] font-bold tracking-wider px-2 py-0.5 rounded border uppercase ${badgeStyle}`}
           >
             {issue.severity}
           </span>
-          <span className="text-xs font-mono font-medium text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 truncate max-w-[200px]">
+          <span className="text-xs font-mono font-medium text-foreground bg-muted px-2 py-0.5 rounded border border-border truncate max-w-[200px]">
             {issue.type}
           </span>
 
@@ -119,7 +119,7 @@ export function IssueCard({
               <span>In Report</span>
             </span>
           ) : (
-            <span className="text-[10px] font-medium text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+            <span className="text-[10px] font-medium text-muted-foreground bg-muted border border-border px-2 py-0.5 rounded-full flex items-center gap-1">
               <XCircle size={10} />
               <span>Excluded</span>
             </span>
@@ -130,21 +130,21 @@ export function IssueCard({
           {location.page_number && onJumpToPage && (
             <button
               type="button"
-              className="text-[11px] font-semibold text-slate-600 hover:text-slate-900 px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 transition-colors flex items-center gap-1"
+              className="text-[11px] font-semibold text-muted-foreground hover:text-foreground px-2 py-0.5 rounded bg-muted hover:bg-secondary transition-colors flex items-center gap-1"
               onClick={(e) => {
                 e.stopPropagation();
                 onJumpToPage(location.page_number!);
               }}
               title={`Jump to page ${location.page_number}`}
             >
-              <MapPin size={11} className="text-blue-600" />
+              <MapPin size={11} className="text-accent-foreground" />
               <span>p. {location.page_number}</span>
             </button>
           )}
 
           <button
             type="button"
-            className="p-1 text-slate-400 hover:text-slate-600 rounded transition-colors"
+            className="p-1 text-muted-foreground hover:text-foreground rounded transition-colors"
             onClick={(e) => {
               e.stopPropagation();
               setIsExpanded(!isExpanded);
@@ -159,7 +159,7 @@ export function IssueCard({
       {/* Body */}
       <div className="p-3 space-y-2.5">
         {/* Message */}
-        <p className="text-xs text-slate-800 leading-relaxed font-medium">
+        <p className="text-xs text-foreground leading-relaxed font-medium">
           {issue.message}
         </p>
 
@@ -167,27 +167,27 @@ export function IssueCard({
           <div className="space-y-2.5 pt-1">
             {/* Table Math Evidence */}
             {evidence.kind === "TABLE_MATH" && (
-              <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 space-y-1.5 text-xs">
-                <div className="flex items-center gap-1.5 font-bold text-slate-600 text-[10px] uppercase tracking-wider">
-                  <FileSpreadsheet size={13} className="text-blue-600" />
+              <div className="p-2.5 rounded-lg bg-muted/40 border border-border space-y-1.5 text-xs">
+                <div className="flex items-center gap-1.5 font-bold text-muted-foreground text-[10px] uppercase tracking-wider">
+                  <FileSpreadsheet size={13} className="text-accent-foreground" />
                   <span>Calculation Details</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-xs font-mono pt-1">
                   <div>
-                    <span className="text-slate-400 text-[10px] block">Stated value:</span>
-                    <span className="text-slate-800 font-semibold">{String(evidence.stated_value ?? "—")}</span>
+                    <span className="text-muted-foreground text-[10px] block">Stated value:</span>
+                    <span className="text-foreground font-semibold">{String(evidence.stated_value ?? "—")}</span>
                   </div>
                   <div>
-                    <span className="text-slate-400 text-[10px] block">Computed sum:</span>
-                    <span className="text-slate-800 font-semibold">{String(evidence.computed_value ?? "—")}</span>
+                    <span className="text-muted-foreground text-[10px] block">Computed sum:</span>
+                    <span className="text-foreground font-semibold">{String(evidence.computed_value ?? "—")}</span>
                   </div>
                   <div>
-                    <span className="text-slate-400 text-[10px] block">Discrepancy (delta):</span>
+                    <span className="text-muted-foreground text-[10px] block">Discrepancy (delta):</span>
                     <span className="text-rose-600 font-semibold">{String(evidence.delta ?? "—")}</span>
                   </div>
                   <div>
-                    <span className="text-slate-400 text-[10px] block">Allowed tolerance:</span>
-                    <span className="text-slate-500">{String(evidence.tolerance ?? "0.01")}</span>
+                    <span className="text-muted-foreground text-[10px] block">Allowed tolerance:</span>
+                    <span className="text-muted-foreground">{String(evidence.tolerance ?? "0.01")}</span>
                   </div>
                 </div>
               </div>
@@ -199,14 +199,14 @@ export function IssueCard({
                   <MapPin size={13} />
                   <span>Layout Inspection</span>
                 </div>
-                <p className="text-slate-700"><span className="text-slate-500">Anomaly:</span> {String(evidence.anomaly_type ?? "—")}</p>
+                <p className="text-foreground"><span className="text-muted-foreground">Anomaly:</span> {String(evidence.anomaly_type ?? "—")}</p>
                 {Boolean(evidence.snippet) && (
-                  <p className="rounded bg-white border border-slate-200 p-2 font-mono text-[11px] text-slate-800 whitespace-pre-wrap">
+                  <p className="rounded bg-card border border-border p-2 font-mono text-[11px] text-foreground whitespace-pre-wrap">
                     {String(evidence.snippet)}
                   </p>
                 )}
                 {Boolean(evidence.suggested_fix) && (
-                  <p className="text-slate-700"><span className="text-slate-500">Suggested fix:</span> {String(evidence.suggested_fix)}</p>
+                  <p className="text-foreground"><span className="text-muted-foreground">Suggested fix:</span> {String(evidence.suggested_fix)}</p>
                 )}
               </div>
             )}
@@ -217,38 +217,38 @@ export function IssueCard({
                   <CheckCircle2 size={13} />
                   <span>Technical Writing Rule Audit {evidence.rule_number ? `· ${String(evidence.rule_number)}` : ""}</span>
                 </div>
-                {Boolean(evidence.measure) && <p className="text-slate-700"><span className="text-slate-500 font-medium">Measure:</span> {String(evidence.measure)}</p>}
-                {Boolean(evidence.where_location) && <p className="text-slate-700"><span className="text-slate-500 font-medium">Where:</span> {String(evidence.where_location)}</p>}
-                {Boolean(evidence.what_it_says) && <p className="text-slate-700"><span className="text-slate-500 font-medium">Standard says:</span> {String(evidence.what_it_says)}</p>}
-                {Boolean(evidence.what_body_has) && <p className="text-slate-700"><span className="text-slate-500 font-medium">Document has:</span> {String(evidence.what_body_has)}</p>}
-                {Boolean(evidence.what_would_fix_it) && <p className="text-slate-700"><span className="text-slate-500 font-medium">Fix:</span> {String(evidence.what_would_fix_it)}</p>}
+                {Boolean(evidence.measure) && <p className="text-foreground"><span className="text-muted-foreground font-medium">Measure:</span> {String(evidence.measure)}</p>}
+                {Boolean(evidence.where_location) && <p className="text-foreground"><span className="text-muted-foreground font-medium">Where:</span> {String(evidence.where_location)}</p>}
+                {Boolean(evidence.what_it_says) && <p className="text-foreground"><span className="text-muted-foreground font-medium">Standard says:</span> {String(evidence.what_it_says)}</p>}
+                {Boolean(evidence.what_body_has) && <p className="text-foreground"><span className="text-muted-foreground font-medium">Document has:</span> {String(evidence.what_body_has)}</p>}
+                {Boolean(evidence.what_would_fix_it) && <p className="text-foreground"><span className="text-muted-foreground font-medium">Fix:</span> {String(evidence.what_would_fix_it)}</p>}
               </div>
             )}
 
             {typeof evidence.snippet === "string" && evidence.snippet && (
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-xs">
-                <span className="block mb-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">Evidence excerpt</span>
-                <p className="text-slate-700">{evidence.snippet}</p>
+              <div className="rounded-lg border border-border bg-muted/40 p-2.5 text-xs">
+                <span className="block mb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Evidence excerpt</span>
+                <p className="text-foreground">{evidence.snippet}</p>
               </div>
             )}
             {typeof evidence.suggested_fix === "string" && evidence.suggested_fix && (
               <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-2.5 text-xs">
                 <span className="block mb-1 text-[10px] font-bold uppercase tracking-wider text-emerald-700">Recommended fix</span>
-                <p className="text-slate-800">{evidence.suggested_fix}</p>
+                <p className="text-foreground">{evidence.suggested_fix}</p>
               </div>
             )}
 
             {/* Linguistic Evidence & Dictionary Action */}
             {evidence.kind === "LINGUISTIC" && (
-              <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 space-y-1.5 text-xs">
+              <div className="p-2.5 rounded-lg bg-muted/40 border border-border space-y-1.5 text-xs">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-slate-500 text-[10px] uppercase tracking-wider font-bold">
+                  <span className="text-muted-foreground text-[10px] uppercase tracking-wider font-bold">
                     Linguistic Suggestion
                   </span>
                   {Boolean(evidence.original_text) && onAddToDictionary && !readOnly && (
                     <button
                       type="button"
-                      className="text-[11px] text-blue-600 hover:underline flex items-center gap-1 font-semibold"
+                      className="text-[11px] text-accent-foreground hover:underline flex items-center gap-1 font-semibold"
                       onClick={(e) => {
                         e.stopPropagation();
                         onAddToDictionary(String(evidence.original_text));
@@ -261,7 +261,7 @@ export function IssueCard({
                 </div>
                 {Boolean(evidence.suggestion) && (
                   <div className="flex items-center gap-2 text-xs">
-                    <span className="text-slate-500">Recommendation:</span>
+                    <span className="text-muted-foreground">Recommendation:</span>
                     <span className="text-emerald-700 font-semibold">
                       {String(evidence.suggestion)}
                     </span>
@@ -271,14 +271,14 @@ export function IssueCard({
             )}
 
             {/* Reviewer Note Display / Inline Editor */}
-            <div className="pt-2 border-t border-slate-100">
+            <div className="pt-2 border-t border-border/60">
               {isEditingNote ? (
                 <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
-                  <label className="block text-[11px] font-semibold text-slate-600">
+                  <label className="block text-[11px] font-semibold text-muted-foreground">
                     Reviewer Note:
                   </label>
                   <textarea
-                    className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-white text-slate-800 focus:outline-none focus:border-blue-500 resize-y"
+                    className="w-full text-xs p-2 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:border-ring resize-y"
                     rows={2}
                     value={noteText}
                     onChange={(e) => setNoteText(e.target.value)}
@@ -288,7 +288,7 @@ export function IssueCard({
                   <div className="flex items-center justify-end gap-2">
                     <button
                       type="button"
-                      className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                      className="rounded-lg border border-border px-2.5 py-1 text-xs font-semibold text-muted-foreground hover:bg-muted/40"
                       onClick={() => {
                         setNoteText(issue.reviewer_note ?? "");
                         setIsEditingNote(false);
@@ -299,7 +299,7 @@ export function IssueCard({
                     </button>
                     <button
                       type="button"
-                      className="rounded-lg bg-blue-600 px-3 py-1 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50"
+                      className="rounded-lg bg-primary px-3 py-1 text-xs font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                       onClick={() => void handleSaveNote()}
                       disabled={isSubmitting}
                     >
@@ -310,21 +310,21 @@ export function IssueCard({
               ) : (
                 <div className="flex items-start justify-between gap-2 text-xs">
                   <div className="min-w-0">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 block mb-0.5">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground block mb-0.5">
                       Reviewer Note:
                     </span>
                     {issue.reviewer_note ? (
-                      <p className="text-xs text-slate-800 italic bg-slate-50 p-2 rounded-lg border border-slate-200">
+                      <p className="text-xs text-foreground italic bg-muted/40 p-2 rounded-lg border border-border">
                         &quot;{issue.reviewer_note}&quot;
                       </p>
                     ) : (
-                      <span className="text-xs text-slate-400 italic">None attached.</span>
+                      <span className="text-xs text-muted-foreground italic">None attached.</span>
                     )}
                   </div>
                   {!readOnly && (
                     <button
                       type="button"
-                      className="text-[11px] font-semibold text-blue-600 hover:underline shrink-0 mt-0.5"
+                      className="text-[11px] font-semibold text-accent-foreground hover:underline shrink-0 mt-0.5"
                       onClick={(e) => {
                         e.stopPropagation();
                         setNoteText(issue.reviewer_note ?? "");
@@ -347,8 +347,8 @@ export function IssueCard({
             )}
 
             {!readOnly && (
-              <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
-                <span className="text-[11px] text-slate-500">
+              <div className="pt-2 border-t border-border/60 flex items-center justify-between gap-2">
+                <span className="text-[11px] text-muted-foreground">
                   {issue.included_in_report ? "Included in exported report" : "Excluded from exported report"}
                 </span>
                 <button
@@ -361,12 +361,12 @@ export function IssueCard({
                   aria-label={issue.included_in_report ? "Exclude from Report" : "Include in Report"}
                   className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${
                     issue.included_in_report
-                      ? "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                      : "bg-blue-600 text-white hover:bg-blue-700"
+                      ? "border border-border bg-card text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+                      : "bg-primary text-primary-foreground hover:bg-primary/90"
                   }`}
                 >
                   {issue.included_in_report ? (
-                    <><XCircle size={13} className="text-slate-400" /><span>Ignore finding</span></>
+                    <><XCircle size={13} className="text-muted-foreground" /><span>Ignore finding</span></>
                   ) : (
                     <><CheckCircle2 size={13} /><span>Accept finding</span></>
                   )}

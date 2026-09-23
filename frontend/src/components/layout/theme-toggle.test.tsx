@@ -26,4 +26,13 @@ describe("ThemeToggle", () => {
     expect(localStorage.getItem("matqc-theme")).toBe("light");
     expect(document.documentElement.getAttribute("data-theme")).toBe("light");
   });
+
+  it("restores the persisted dark theme after remount", () => {
+    localStorage.setItem("matqc-theme", "dark");
+    render(<ThemeToggle />);
+
+    expect(screen.getByLabelText("Switch to light theme")).toBeDefined();
+    expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+    expect(document.documentElement.classList.contains("dark")).toBe(true);
+  });
 });

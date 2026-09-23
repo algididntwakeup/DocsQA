@@ -95,32 +95,32 @@ export function ReviewWorkspaceView({ id }: { id: string }) {
 
   if (isLoading) {
     return (
-      <div className="fixed inset-0 flex h-screen w-screen flex-col items-center justify-center bg-slate-50 text-slate-600 gap-3" role="status">
-        <div className="h-8 w-8 animate-spin rounded-full border-3 border-blue-600 border-t-transparent" />
-        <p className="text-xs font-semibold text-slate-700">{t("loadingRegister")}</p>
+      <div className="flex h-[calc(100dvh-4rem)] w-full flex-col items-center justify-center gap-3 bg-muted/20 text-muted-foreground" role="status">
+        <div className="h-8 w-8 animate-spin rounded-full border-3 border-primary border-t-transparent" />
+        <p className="text-xs font-semibold text-foreground">{t("loadingRegister")}</p>
       </div>
     );
   }
 
   if (error || !document) {
     return (
-      <div className="fixed inset-0 flex h-screen w-screen flex-col items-center justify-center bg-slate-50 px-6 text-slate-800">
-        <div className="w-full max-w-lg rounded-2xl border border-rose-200 bg-white p-6 shadow-xl space-y-4">
-          <div className="flex items-center gap-3 text-rose-600">
+      <div className="flex h-[calc(100dvh-4rem)] w-full flex-col items-center justify-center bg-muted/20 px-6 text-foreground">
+        <div className="w-full max-w-lg space-y-4 rounded-xl border border-destructive/30 bg-card p-6 shadow-xl">
+          <div className="flex items-center gap-3 text-destructive">
             <AlertTriangle size={24} />
-            <h2 className="text-base font-bold text-slate-900">{t("couldNotLoadWorkspace")}</h2>
+            <h2 className="text-base font-bold text-foreground">{t("couldNotLoadWorkspace")}</h2>
           </div>
-          <p className="text-xs text-slate-600">{error ?? "Document not found."}</p>
-          <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+          <p className="text-xs text-muted-foreground">{error ?? "Document not found."}</p>
+          <div className="flex items-center justify-between border-t border-border pt-2">
             <Link
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:underline"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
               href={`/documents/${id}`}
             >
                <ArrowLeft size={14} /> {t("document")}
             </Link>
             <button
               type="button"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted"
               onClick={() => {
                 setIsLoading(true);
                 setReloadKey((k) => k + 1);
@@ -181,21 +181,21 @@ export function ReviewWorkspaceView({ id }: { id: string }) {
   const isLeadReviewer = userRole === "LEAD_ENGINEER" || userRole === "SUPERUSER";
 
   return (
-    <div className="fixed inset-0 h-screen w-screen overflow-hidden flex flex-col bg-slate-100 text-slate-900 font-sans">
+    <div className="flex h-[calc(100dvh-4rem)] w-full flex-col gap-4 overflow-hidden bg-muted/20 p-4 font-sans text-foreground">
       {/* Zone 1 – Top Navigation Bar */}
-      <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 shadow-2xs z-30">
+      <header className="flex h-14 shrink-0 items-center justify-between gap-3 rounded-xl border border-border/60 bg-card px-4 shadow-sm">
         <div className="flex min-w-0 items-center gap-3">
           <Link
             href={document.project_id ? `/projects/${document.project_id}` : "/projects"}
-            className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-slate-600 hover:text-slate-900"
+            className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft size={14} /> Kembali
           </Link>
-          <span className="text-slate-300">|</span>
-          <h1 className="min-w-0 truncate text-xs sm:text-sm font-bold text-slate-900" title={document.filename}>
+          <span className="text-border">|</span>
+          <h1 className="min-w-0 truncate text-xs sm:text-sm font-bold text-foreground" title={document.filename}>
             {document.filename}
           </h1>
-          <span className="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-700 ring-1 ring-blue-700/10">
+          <span className="shrink-0 rounded-full bg-accent px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-accent-foreground ring-1 ring-primary/10">
             {workflowStatus.replace("_BY_ENGINEER", "").replace("_BY_LEAD", "")}
           </span>
         </div>
@@ -203,20 +203,20 @@ export function ReviewWorkspaceView({ id }: { id: string }) {
         <div className="flex shrink-0 items-center gap-2">
           <button
             type="button"
-            className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-xs transition"
+            className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground shadow-sm transition hover:bg-muted"
             onClick={() => setIsScorecardOpen(true)}
           >
             <ShieldCheck size={14} className="text-indigo-600" /> Budinski Scorecard
           </button>
           <button
             type="button"
-            className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-700 shadow-xs transition"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground shadow-sm transition hover:bg-primary/90"
             onClick={() => setIsExportOpen(true)}
           >
             <Download size={14} /> Export DOCX
           </button>
           <a
-            className="hidden lg:inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-xs transition"
+            className="hidden lg:inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground shadow-sm transition hover:bg-muted"
             href={getPdfUrl(document.id)}
             download
           >
@@ -225,16 +225,16 @@ export function ReviewWorkspaceView({ id }: { id: string }) {
         </div>
       </header>
       {isLeadReviewer && (
-        <div className="shrink-0 border-b border-indigo-200 bg-indigo-50 px-4 py-2 text-xs font-semibold text-indigo-900" role="status">
+        <div className="shrink-0 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-xs font-semibold text-indigo-900" role="status">
           Anda sedang meninjau dokumen ini sebagai Lead Engineer / Superuser
         </div>
       )}
-      <main className="flex-1 min-h-0 flex overflow-hidden">
       {projectFinished && (
-        <div className="border-b border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-800" role="status">
+        <div className="shrink-0 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-800" role="status">
           Project finished. Review actions are disabled; exports remain available.
         </div>
       )}
+      <main className="flex min-h-0 flex-1 overflow-hidden rounded-xl border border-border/60 bg-card p-4 shadow-sm">
         <SplitScreenViewer document={document} initialIssues={issues} embedded readOnly={projectFinished} />
       </main>
 
@@ -255,22 +255,22 @@ export function ReviewWorkspaceView({ id }: { id: string }) {
           onClick={() => setIsScorecardOpen(false)}
         >
           <div
-            className="w-full max-w-xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+            className="w-full max-w-xl overflow-hidden rounded-xl border border-border bg-card shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
-            <header className="flex items-start justify-between border-b border-slate-100 p-5">
+            <header className="flex items-start justify-between border-b border-border p-5">
               <div>
-                <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                   Technical writing audit
                 </p>
-                <h2 id="workspace-scorecard-title" className="text-lg font-bold text-slate-900">
+                <h2 id="workspace-scorecard-title" className="text-lg font-bold text-foreground">
                   Budinski Scorecard
                 </h2>
-                <p className="mt-1 text-xs text-slate-500">Inspection summary for this review workspace.</p>
+                <p className="mt-1 text-xs text-muted-foreground">Inspection summary for this review workspace.</p>
               </div>
               <button
                 type="button"
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
                 aria-label="Close scorecard"
                 onClick={() => setIsScorecardOpen(false)}
               >
@@ -278,21 +278,21 @@ export function ReviewWorkspaceView({ id }: { id: string }) {
               </button>
             </header>
             <div className="grid grid-cols-3 gap-3 p-5">
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
-                <strong className="block text-2xl font-bold text-slate-900">
+              <div className="rounded-xl border border-border bg-muted/40 p-4 text-center">
+                <strong className="block text-2xl font-bold text-foreground">
                   {issues.filter((issue) => issue.category === "BUDINSKI").length}
                 </strong>
-                <span className="text-[11px] font-medium text-slate-500">Items flagged</span>
+                <span className="text-[11px] font-medium text-muted-foreground">Items flagged</span>
               </div>
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
-                <strong className="block text-2xl font-bold text-slate-900">{issues.length}</strong>
-                <span className="text-[11px] font-medium text-slate-500">Total findings</span>
+              <div className="rounded-xl border border-border bg-muted/40 p-4 text-center">
+                <strong className="block text-2xl font-bold text-foreground">{issues.length}</strong>
+                <span className="text-[11px] font-medium text-muted-foreground">Total findings</span>
               </div>
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
+              <div className="rounded-xl border border-border bg-muted/40 p-4 text-center">
                 <strong className="block text-2xl font-bold text-emerald-600">
                   {Math.max(0, 41 - issues.filter((issue) => issue.category === "BUDINSKI").length)}
                 </strong>
-                <span className="text-[11px] font-medium text-slate-500">Items clear</span>
+                <span className="text-[11px] font-medium text-muted-foreground">Items clear</span>
               </div>
             </div>
           </div>
@@ -301,15 +301,15 @@ export function ReviewWorkspaceView({ id }: { id: string }) {
 
       {/* Zone 3 – Bottom Workflow Action Footer */}
       <footer
-        className="flex h-12 shrink-0 items-center justify-between gap-4 border-t border-slate-200 bg-white px-4 shadow-2xs z-30"
+        className="flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-4 rounded-xl border border-border/60 bg-card px-4 py-2 shadow-sm"
         role="region"
         aria-label="Workflow actions"
       >
-        <div className="flex min-w-0 items-center gap-2 text-xs text-slate-600">
+        <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
           <CheckCircle2 size={16} className={workflowError ? "text-rose-500" : "text-emerald-600"} />
           <span className="truncate font-medium">
             {workflowError ?? `PIC Reviewer: ${document.assigned_to_name ?? document.owner_name ?? "Unassigned"}`}
-            <small className="ml-2 text-slate-400">
+            <small className="ml-2 text-muted-foreground/70">
               {workflowError
                 ? "Resolve the issue before submitting."
                 : `Updated ${document.reviewed_at ? new Date(document.reviewed_at).toLocaleTimeString() : "not yet"}`}
@@ -321,7 +321,7 @@ export function ReviewWorkspaceView({ id }: { id: string }) {
           {canSubmitReview && (
             <button
               aria-label="Tandai selesai di-review"
-              className="rounded-lg bg-emerald-600 px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-50 transition"
+              className="rounded-lg bg-emerald-600 px-4 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50"
               type="button"
               disabled={workflowBusy}
               onClick={() => void updateWorkflow("mark-reviewed")}
@@ -333,7 +333,7 @@ export function ReviewWorkspaceView({ id }: { id: string }) {
           {canLeadDecide && (
             <>
               <button
-                className="rounded-lg bg-emerald-600 px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-50 transition"
+                className="rounded-lg bg-emerald-600 px-4 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50"
                 type="button"
                 disabled={workflowBusy}
                 onClick={() => void updateWorkflow("verify")}
@@ -341,14 +341,14 @@ export function ReviewWorkspaceView({ id }: { id: string }) {
                 {workflowBusy ? "Saving..." : "Verifikasi & Setujui Dokumen"}
               </button>
               <input
-                className="hidden sm:block w-44 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-900 placeholder:text-slate-400 focus:border-amber-500 focus:outline-none"
+                className="hidden w-44 rounded-lg border border-input bg-card px-2.5 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:border-amber-500 focus:outline-none sm:block"
                 value={revisionNote}
                 onChange={(event) => setRevisionNote(event.target.value)}
                 placeholder="Catatan revisi..."
                 aria-label="Revision note"
               />
               <button
-                className="rounded-lg bg-amber-600 px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-amber-700 disabled:opacity-50 transition"
+                className="rounded-lg bg-amber-600 px-4 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-amber-700 disabled:opacity-50"
                 type="button"
                 disabled={workflowBusy}
                 onClick={() => void updateWorkflow("request-revision")}
@@ -359,7 +359,7 @@ export function ReviewWorkspaceView({ id }: { id: string }) {
           )}
 
           {isLeadReviewer && workflowStatus === "ANALYZING" && (
-            <span className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700">
+            <span className="rounded-lg border border-primary/20 bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground">
               Analisis masih berjalan. Pemantauan aktif.
             </span>
           )}

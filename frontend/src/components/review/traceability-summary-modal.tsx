@@ -9,6 +9,7 @@ import {
   BarChart3,
 } from "lucide-react";
 import { getTraceabilitySummary, type TraceabilitySummary } from "@/lib/api";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 interface TraceabilitySummaryModalProps {
   documentId: string;
@@ -153,7 +154,7 @@ export function TraceabilitySummaryModal({
                     <span className="kpi-card-title">Critical Severity</span>
                     <span
                       className={`kpi-card-val ${
-                        summary.critical_count > 0 ? "text-rose-500 font-bold" : "text-slate-400"
+                        summary.critical_count > 0 ? "text-rose-500 font-bold" : "text-muted-foreground"
                       }`}
                     >
                       {summary.critical_count}
@@ -166,55 +167,51 @@ export function TraceabilitySummaryModal({
                   <h3 className="section-title">
                     <BarChart3 size={16} /> Findings by Verification Type
                   </h3>
-                  <div className="summary-table-wrap">
-                    <table className="summary-table">
-                      <thead>
-                        <tr>
-                          <th>Finding Type</th>
-                          <th className="text-right">Count</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {Object.keys(summary.counts_by_type).length === 0 ? (
-                          <tr>
-                            <td colSpan={2} className="text-muted text-center">
-                              No traceability findings identified.
-                            </td>
-                          </tr>
-                        ) : (
-                          Object.entries(summary.counts_by_type).map(([rule, count]) => (
-                            <tr key={rule}>
-                              <td className="font-mono text-sm">{rule}</td>
-                              <td className="text-right font-semibold">{count}</td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="px-[12px] py-[8px]">Finding Type</TableHead>
+                        <TableHead className="px-[12px] py-[8px] text-right">Count</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {Object.keys(summary.counts_by_type).length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={2} className="px-[12px] py-[8px] text-muted-foreground text-center">
+                            No traceability findings identified.
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        Object.entries(summary.counts_by_type).map(([rule, count]) => (
+                          <TableRow key={rule}>
+                            <TableCell className="px-[12px] py-[8px] font-mono text-sm">{rule}</TableCell>
+                            <TableCell className="px-[12px] py-[8px] text-right font-semibold">{count}</TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
                 </div>
 
                 {/* Severity Breakdown */}
                 <div className="summary-section">
                   <h3 className="section-title">Findings by Severity</h3>
-                  <div className="summary-table-wrap">
-                    <table className="summary-table">
-                      <thead>
-                        <tr>
-                          <th>Severity</th>
-                          <th className="text-right">Count</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {Object.entries(summary.counts_by_severity).map(([sev, count]) => (
-                          <tr key={sev}>
-                            <td>{sev}</td>
-                            <td className="text-right font-semibold">{count}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="px-[12px] py-[8px]">Severity</TableHead>
+                        <TableHead className="px-[12px] py-[8px] text-right">Count</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {Object.entries(summary.counts_by_severity).map(([sev, count]) => (
+                        <TableRow key={sev}>
+                          <TableCell className="px-[12px] py-[8px]">{sev}</TableCell>
+                          <TableCell className="px-[12px] py-[8px] text-right font-semibold">{count}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
               </div>
             );
