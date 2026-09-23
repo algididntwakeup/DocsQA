@@ -49,8 +49,20 @@ This is the central index every new agent must read in full. Repository state al
   and the lead/superuser `Tarik Proyek BIMA` action.
 - **PRISM deployment identity**: Production configuration uses `APP_NAME=PRISM - Document
   Assurance Platform`, `https://prism.reksolindo.co.id`, and BIMA client ID `prism`. Compose keeps
-  its existing internal project name to preserve PostgreSQL/Redis volume continuity. Migration
-  `20260916_0014_bima_projects` is applied locally and is the current database head.
+  its existing internal project name to preserve PostgreSQL/Redis volume continuity.
+- **Latest PRISM transition checkpoint**: Four pillars landed together — (1) BIMA master data now
+  ingests `GET /api/projects` **and** `GET /api/users` through a strict adapter
+  (`backend/services/bima_adapter.py`) that validates before any write and upserts matched solely
+  on `projects.bima_project_id`; project membership persists in `project_members` (migration
+  `20260923_0015_project_members`, the current database head) and grants **read-only** project and
+  document visibility to member engineers. (2) Network sanitization: browser requests stay
+  same-origin `/api/v1`, the SSR/rewrite default is `http://backend:8000` with a Compose `backend`
+  network alias, corporate `CORS_ORIGIN_REGEX` and `frame-ancestors` cover `*.reksolindo.co.id`,
+  and the BIMA SSO host comes from `NEXT_PUBLIC_BIMA_BASE_URL`. (3) The PDF.js viewer keeps
+  continuous wheel/pinch zoom and gains left-button drag panning over one shared canvas/highlight
+  coordinate surface. (4) UI revamp: Plus Jakarta Sans, shadcn semantic light/dark tokens with a
+  working theme toggle, `Card`/`Table`/`Resizable` primitives, `h-16` app shell with `max-w-7xl`
+  gutters, and a resizable review workspace inside the shared shell.
 - **Latest project-assignment checkpoint**: Added nullable `projects.assigned_to_id`, migration
   `20260910_0009_project_assignment`, lead-only project assignment, user project filtering,
   engineer project creation, creator/assignee names, document counts, and assigned visibility.
@@ -64,8 +76,9 @@ This is the central index every new agent must read in full. Repository state al
 - **Latest project lifecycle checkpoint**: Lead engineers and superusers can finish a project after all documents reach terminal processing, which disables assignment, upload, claim, review workflow transitions, and finding curation while preserving workspace viewing and DOCX/PDF export. Empty projects can be deleted safely; projects containing documents are protected from deletion. Lifecycle persistence uses migration `20260914_0012_project_lifecycle`.
 - **Latest admin UI checkpoint**: Added `Lihat Projects` to `/admin/users` with a project modal and
   direct links to assigned project registers and assigned document workflow/status details.
-- **Latest review UI checkpoint**: Rebuilt `/documents/{id}/review` as an isolated three-zone
-  workspace with fixed top navigation/footer and independent PDF/issue scrolling.
+- **Latest review UI checkpoint**: Rebuilt `/documents/{id}/review` as a workspace inside the
+  shared `AppShell` (`h-[calc(100dvh-4rem)]`) with a document header card, a resizable
+  document/findings body at desktop widths, and a mobile pane switcher.
 - **Curation Workflow**:
   - Finding curation is strictly binary inclusion (`included_in_report: bool`, default `True`) and an optional engineering clarification (`reviewer_note: str | None`).
   - Completely removed: issue decisions (`ACCEPTED`/`REJECTED`), lead dispositions, audit trail events, and bulk decision workflows.
@@ -78,11 +91,19 @@ This is the central index every new agent must read in full. Repository state al
   - **Item 6 / Real-World E2E Test (Complete)**: Verified full scan and report generation for `docs/testcase/05.MEPG-Asset Life Extension 2026_Static Equipment_RevB.pdf` in `backend/tests/test_e2e_mepg_review.py`.
   - **Item 7 / Schema & Pipeline Synchronization (Complete)**: Synchronized `IssueCategory` (`LAYOUT`, `BUDINSKI`), `Severity` (`BLOCKER`), 6 canonical pipeline stages, SSE progress streaming, linguistic finding de-prioritization, OpenAPI 3.1 specification, and frontend TypeScript contracts.
 - **Quality Status**:
-  - Frontend checkpoint: **50 passed, typecheck passed, lint passed, production build passed**.
-  - Backend checkpoint: **400 passed, 1 skipped**; the skipped Redis vertical-slice test is opt-in
+  - Frontend checkpoint: **66 passed (17 test files), typecheck passed, lint passed (0 errors),
+    production build passed** with all 14 routes compiled.
+  - Backend checkpoint: **440 passed, 1 skipped**. The skipped Redis vertical-slice test is opt-in
     via `RUN_REDIS_INTEGRATION=1`, not evidence that the Redis service is unavailable.
-  - Local Docker checkpoint: PostgreSQL and Redis are both healthy. The database is currently at
-    Alembic revision `20260910_0010 (head)`.
+  - Backend `mypy` is clean across `api`, `services`, `core`, and `models` (51 source files).
+  - Known environment-only failure: `tests/test_contract.py::test_validation_error_uses_problem_details`
+    fails when a foreign PostgreSQL occupies host port 5432 with different `docqc` credentials. It
+    passes against a disposable migrated database; it is not a code regression.
+  - `alembic check` reports pre-existing schema drift (`issues.category`/`severity` column widths,
+    a missing `ix_issues_document_id`, and the `uq_users_email` constraint) that predates the PRISM
+    work. Migration `20260923_0015_project_members` itself applies and reverses cleanly.
+  - Local Docker checkpoint: PostgreSQL and Redis are both healthy. The database head is Alembic
+    revision `20260923_0015_project_members`.
   - Latest export/reference regression: **55 passed**, Ruff passed, and `git diff --check` passed.
   - Docker visual smoke: DOCX conversion passed, 16 PDF pages produced, 16 PNG pages rendered, and all pages contain text.
   - BIMA auth focused tests: **2 passed**; production frontend build and lint passed after adding
@@ -91,8 +112,10 @@ This is the central index every new agent must read in full. Repository state al
   - Add HTTP coverage for profile update, email uniqueness, project assignment, assigned visibility,
     engineer project creation, document claim, and owner-name responses.
   - Add browser/e2e coverage for `/settings/profile`, the admin project/task modal, assignment UI,
-    and the isolated review workspace.
+    and the review workspace resize/theme behavior (a Playwright spec exists at
+    `frontend/e2e/review-workspace.spec.ts` but has not been executed; it needs a running dev server).
   - Regenerate `frontend/src/lib/api-schema.d.ts` from the finalized OpenAPI contract.
+  - Resolve the pre-existing `alembic check` drift so the migration chain is authoritative.
   - Decide and enforce self-disable, lead demotion, and last-active-admin protection policies.
   - Complete manual visual inspection of the 16 rendered report PNGs, then rerun all quality gates.
 - **Never push to GitHub**; the owner pushes. Local commits are allowed only after quality gates pass.

@@ -1,5 +1,12 @@
 # Reksolindo Frontend Revamp Execution Plan
 
+> **Status: SUPERSEDED (2026-09-23).** The light-only phase described here was replaced by the
+> PRISM transition. The product now ships shadcn semantic light **and** dark tokens, Plus Jakarta
+> Sans, and a resizable review workspace inside the shared app shell. See the
+> "PRISM Membership & Workspace Contract" section of `docs/AGENT_HANDOFF.md` for the current
+> design-token, primitive, and layout contracts. Keep this file only for the historical rationale
+> behind the Reksolindo branding, bilingual navigation, and routing decisions, which still apply.
+
 > **Role**: Lead Frontend Architect (Next.js 15 / Tailwind CSS / Radix UI / TypeScript)  
 > **Brand Target**: Reksolindo – Clean Corporate White/Slate (Light Mode)  
 > **Target Form Factor**: 14-Inch Display (1366x768 / 1080p) zero-scroll split review workspace  
@@ -8,7 +15,7 @@
 
 ## 1. Executive Summary & Core Objectives
 
-1. **Strict Light Mode**:
+1. **Strict Light Mode** *(superseded — PRISM added working dark mode)*:
    - Establish a clean, professional corporate palette based on white and slate (`#ffffff`, `#f8fafc`, `#f1f5f9`, `#e2e8f0`, `#0f172a`, `#334155`, `#64748b`, `#2563eb`).
    - Purge all forced dark mode styles (`bg-slate-950`, `bg-slate-900`, `border-slate-800`, `:root[data-theme="dark"]`).
    - Deprecate legacy `.rq-*` classes in favor of modern, maintainable Tailwind utility classes.
@@ -24,13 +31,15 @@
      - "Projects" (`/projects`)
      - "Inspection Workspace" (`/documents`)
      - "Manage Users" (`/admin/users`, visible only to `LEAD_ENGINEER` / `SUPERUSER`).
-5. **Standalone 3-Zone Review Workspace (14-Inch Screen Optimization)**:
+5. **Standalone 3-Zone Review Workspace (14-Inch Screen Optimization)** *(superseded — the review
+   route now renders inside the shared `AppShell` with a `h-[calc(100dvh-4rem)]` workspace and a
+   resizable document/findings split at desktop widths)*:
    - Zero-scroll outer boundary (`fixed inset-0 h-screen w-screen overflow-hidden bg-slate-100 flex flex-col`).
    - **Zone 1 (Top Bar)**: Fixed 48px height (`h-12 shrink-0 bg-white border-b border-slate-200`).
    - **Zone 2 (Split Viewer)**: Occupies `flex-1 min-h-0 overflow-hidden flex`.
      - Left: Annotated Canvas / Native PDF viewer (`flex-1 bg-slate-200/50 border-r border-slate-200`). Coordinate math and PDF canvas rendering preserved with 100% fidelity.
      - Right: Issues and findings curation panel (`w-[440px] xl:w-[500px] bg-white border-l border-slate-200`).
-     - **Horizontally Scrollable / Draggable Issue Tabs**:
+     - **Horizontally Scrollable / Draggable Issue Tabs** *(still current)*:
        - Category tabs (`Layout & Format`, `Budinski Compliance`, `Standards Audit`, `Language & Typos`) with `shrink-0` to prevent overlapping/clipping.
        - Smooth horizontal drag-to-scroll gesture (pointer down / move / up) plus left/right navigation arrow buttons so tabs can be dragged and scrolled cleanly.
    - **Zone 3 (Action Footer)**: Fixed 48px height (`h-12 shrink-0 bg-white border-t border-slate-200`).

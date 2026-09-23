@@ -12,7 +12,16 @@ controls. The export panel offers only DOCX review report and annotated PDF.
 - `FAILED` and `COMPLETED_WITH_WARNINGS` states must be visible before export so reviewers
   understand that findings may be incomplete or require inspection.
 - The split workspace contains the PDF viewer on the left and the findings/curation panel
-  on the right. On smaller screens it uses a document/findings pane switcher.
+  on the right. At ≥1024 px the divider is draggable (`react-resizable-panels`), defaulting to
+  60/40 with 45/25 minimums and a 55 maximum on the findings panel. Below 1024 px it uses a
+  document/findings pane switcher, rendered in both the embedded and standalone headers.
+- The workspace fills `h-[calc(100dvh-4rem)]` beneath the shared `AppShell` topbar, so the
+  review route renders inside the global shell rather than replacing it.
+- The viewer supports continuous Ctrl/Meta-wheel and trackpad-pinch zoom (`0.4–10`, pointer-anchored)
+  plus left-button drag panning. Touch scrolling stays native, and the toolbar is never a drag surface.
+- Light and dark themes are both supported through shadcn semantic tokens. `ThemeToggle` appears in
+  the app shell and on login; the persisted choice lives under `localStorage["matqc-theme"]` and is
+  applied before paint to avoid a light flash.
 
 ## Findings Tabs
 

@@ -43,7 +43,7 @@ graph TD
 - [x] Backend quality suite 100% passing (`backend/scripts/quality.ps1`).
 - [x] Frontend checks 100% passing (`npm run check`: lint, typecheck, tests, production build).
 - [x] Zero uncommitted local modifications.
-- [x] Apply and verify Alembic migrations through `20260910_0010_document_assignment` locally.
+- [x] Apply and verify Alembic migrations through `20260923_0015_project_members` locally.
 - [ ] Verify profile update, project assignment visibility, and admin project modal with HTTP/browser tests.
 
 The default backend suite reports the Redis vertical-slice test as skipped because it is opt-in.
@@ -63,8 +63,9 @@ python -m alembic current
 python -m alembic heads
 ```
 
-The local Docker database is verified at revision `20260910_0010 (head)`. Do not deploy assignment
-UI until both project and per-document assignment migrations have been applied.
+The local Docker database head is `20260923_0015_project_members`. Do not deploy project
+membership or BIMA workspace sync until the identity, BIMA project, and membership migrations
+(`20260916_0013`, `20260916_0014`, `20260923_0015`) have all been applied.
 
 ### 3.2 Offline SQL Review (Recommended for Production DBA Review)
 To generate the raw SQL script without executing it:
@@ -82,8 +83,8 @@ python -m alembic upgrade head
 python -m alembic downgrade -1
 ```
 
-The current head adds `projects.assigned_to_id`. On Docker, run the migration job before recreating
-the application services:
+The current head adds `project_members` (composite-key membership table with cascading foreign
+keys). On Docker, run the migration job before recreating the application services:
 
 ```bash
 docker compose build migrate api worker frontend
@@ -92,8 +93,9 @@ docker compose up -d api worker frontend
 ```
 
 Do not delete `postgres-data` or `backend-data` during a normal release update. The migration is
-additive and preserves existing projects; existing projects remain unassigned until a lead assigns
-them through the API/UI.
+additive and preserves existing projects; membership is populated only by a subsequent
+`POST /api/v1/projects/sync-bima` as lead/superuser, and existing projects keep their current
+assignment until that sync runs.
 
 ---
 
@@ -108,7 +110,11 @@ Configure the following environment variables in `.env` or container orchestrato
 | `DOCSQA_STORAGE_ROOT` | Root filesystem path for document storage | `./storage` | Ensure disk quotas and ACLs |
 | `DOCSQA_RETENTION_DAYS` | Days before expired uploads are purged | `30` | Per PRD §4.3 ephemeral policy |
 | `CORS_ORIGINS` | Permitted browser origins | `https://prism.reksolindo.co.id` | Set to the exact PRISM production domain |
+| `CORS_ORIGIN_REGEX` | Regex for additional permitted origins | `^https://(?:[a-z0-9-]+\.)*reksolindo\.co\.id$` | Covers corporate subdomains; keep anchored |
+| `INTERNAL_BACKEND_URL` | Backend URL used by the Next.js rewrite | `http://backend:8000` | Server-side only; never expose to the browser |
 | `NEXT_PUBLIC_APP_URL` | Public PRISM application URL | `https://prism.reksolindo.co.id` | Used for BIMA SSO callback generation |
+| `NEXT_PUBLIC_BIMA_BASE_URL` | Browser-facing BIMA origin | `https://bima.reksolindo.co.id` | Compiled into the frontend image; sourced from `BIMA_BASE_URL` |
+| `BIMA_BASE_URL` | BIMA API origin (server-side) | `https://bima.reksolindo.co.id` | Also feeds `NEXT_PUBLIC_BIMA_BASE_URL` at build time |
 | `BIMA_CLIENT_ID` | Registered BIMA SSO client | `prism` | Must match the BIMA client registration |
 | `AUTH_MODE` | Authentication mode | `required` in Docker | Keep required outside local development |
 
@@ -127,7 +133,7 @@ docker compose up migrate
 docker compose up -d --force-recreate api worker frontend
 ```
 
-`postgres` and `redis` do not need rebuilding. There is no schema migration for locale/report language. `NEXT_PUBLIC_API_BASE_URL` is compiled into the frontend image, so set it before `docker compose build frontend`. PDF export remains source-faithful and does not use the language query parameter.
+`postgres` and `redis` do not need rebuilding. There is no schema migration for locale/report language. The browser no longer needs a compiled API host: requests are same-origin `/api/v1` and the Next.js rewrite resolves `INTERNAL_BACKEND_URL`, which defaults to `http://backend:8000` (the Compose `api` service publishes a `backend` network alias). `NEXT_PUBLIC_BIMA_BASE_URL` **is** compiled into the frontend image, so set it before `docker compose build frontend`. PDF export remains source-faithful and does not use the language query parameter.
 
 ### HTTP Security Headers
 Every HTTP response automatically includes enterprise security headers enforced via `backend/main.py`:
