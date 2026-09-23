@@ -63,7 +63,12 @@ class AssignedProjectDocument(BaseModel):
     workflow_status: str
 
 
-async def upsert_bima_user(session: AsyncSession, bima_user_dict: dict[str, Any]) -> User:
+async def upsert_bima_user(
+    session: AsyncSession,
+    bima_user_dict: dict[str, Any],
+    *,
+    commit: bool = True,
+) -> User:
     """Provision or synchronize a BIMA identity without creating local passwords."""
     bima_id = bima_user_dict.get("bima_id")
     email = str(bima_user_dict.get("email", "")).strip().lower()
@@ -85,8 +90,11 @@ async def upsert_bima_user(session: AsyncSession, bima_user_dict: dict[str, Any]
     user.role = bima_user_dict["role"]
     user.department = bima_user_dict.get("department")
     user.position = bima_user_dict.get("position")
-    await session.commit()
-    await session.refresh(user)
+    if commit:
+        await session.commit()
+        await session.refresh(user)
+    else:
+        await session.flush()
     return user
 
 

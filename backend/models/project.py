@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String, Table, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db.base import Base
@@ -12,6 +12,14 @@ from db.base import Base
 if TYPE_CHECKING:
     from models.document import Document
     from models.user import User
+
+project_members = Table(
+    "project_members",
+    Base.metadata,
+    Column("project_id", ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True),
+    Column("user_id", ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+    Index("ix_project_members_user_id", "user_id"),
+)
 
 
 class Project(Base):
@@ -44,3 +52,7 @@ class Project(Base):
         back_populates="assigned_projects", foreign_keys=[assigned_to_id]
     )
     documents: Mapped[list["Document"]] = relationship(back_populates="project")
+    members: Mapped[list["User"]] = relationship(
+        secondary=project_members,
+        back_populates="member_projects",
+    )

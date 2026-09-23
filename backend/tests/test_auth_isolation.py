@@ -163,6 +163,20 @@ def test_document_read_access_project_aware_for_engineers() -> None:
     # 5. Unrelated engineer is denied
     assert not check_document_read_access(doc, unrelated_engineer)
 
+    # 6. Project membership grants read access without ownership or assignment
+    member = User(
+        id=uuid4(),
+        email="member@example.test",
+        hashed_password="unused",
+        full_name="Member",
+        role=UserRole.ENGINEER,
+    )
+    project.members = [member]
+    assert check_document_read_access(doc, member)
+    # 7. Removing membership revokes that access
+    project.members = []
+    assert not check_document_read_access(doc, member)
+
 
 def _request_with_cookie(value: str | None) -> Request:
     headers = [(b"cookie", f"access_token={value}".encode())] if value else []

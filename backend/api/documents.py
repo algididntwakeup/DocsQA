@@ -364,6 +364,7 @@ async def list_documents(
             | (Document.owner_id == current_user.id)
             | (Project.assigned_to_id == current_user.id)
             | (Project.created_by_id == current_user.id)
+            | Project.members.any(User.id == current_user.id)
         )
     else:
         if project_id is not None:
