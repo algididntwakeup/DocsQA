@@ -7,13 +7,13 @@ export default defineConfig({
   retries: 0,
   reporter: "list",
   use: {
-    baseURL: "http://127.0.0.1:3000",
+    baseURL: "http://127.0.0.1:3001",
     trace: "retain-on-failure",
     ...devices["Desktop Chrome"],
   },
   webServer: {
-    command: "npm run dev -- --hostname 127.0.0.1",
-    url: "http://127.0.0.1:3000",
+    command: "npm run dev:3001 -- --hostname 127.0.0.1",
+    url: "http://127.0.0.1:3001",
     reuseExistingServer: true,
     timeout: 120_000,
   },

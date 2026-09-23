@@ -112,6 +112,7 @@ Configure the following environment variables in `.env` or container orchestrato
 | `CORS_ORIGINS` | Permitted browser origins | `https://prism.reksolindo.co.id` | Set to the exact PRISM production domain |
 | `CORS_ORIGIN_REGEX` | Regex for additional permitted origins | `^https://(?:[a-z0-9-]+\.)*reksolindo\.co\.id$` | Covers corporate subdomains; keep anchored |
 | `INTERNAL_BACKEND_URL` | Backend URL used by the Next.js rewrite | `http://backend:8000` | Server-side only; never expose to the browser |
+| `FRONTEND_PORT` | Host port published for the frontend container | `3001` | Container always listens on `3000`; `3000` is reserved for another local project |
 | `NEXT_PUBLIC_APP_URL` | Public PRISM application URL | `https://prism.reksolindo.co.id` | Used for BIMA SSO callback generation |
 | `NEXT_PUBLIC_BIMA_BASE_URL` | Browser-facing BIMA origin | `https://bima.reksolindo.co.id` | Compiled into the frontend image; sourced from `BIMA_BASE_URL` |
 | `BIMA_BASE_URL` | BIMA API origin (server-side) | `https://bima.reksolindo.co.id` | Also feeds `NEXT_PUBLIC_BIMA_BASE_URL` at build time |

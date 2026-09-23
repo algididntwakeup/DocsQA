@@ -140,7 +140,7 @@ docker compose up -d api worker frontend
 
 6. Open the application and immediately change the initial account password from `Change Password`:
 
-- Frontend: `http://localhost:3000`
+- Frontend: `http://localhost:3001`
 - API docs: `http://localhost:8000/docs`
 - Health check: `http://localhost:8000/health`
 
@@ -249,10 +249,12 @@ cd frontend
 npm install
 
 # Start Next.js development server
+# Use `npm run dev:3001` instead if port 3000 is taken by another project
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Open [http://localhost:3000](http://localhost:3000) in your browser (or
+[http://localhost:3001](http://localhost:3001) when using `npm run dev:3001`).
 
 ---
 

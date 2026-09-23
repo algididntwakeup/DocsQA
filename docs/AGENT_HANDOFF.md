@@ -84,7 +84,9 @@ This file records implementation decisions that must not be reverted or duplicat
   as a fallback for emergency local accounts. Migration `20260916_0013_bima_identity` is the
   current identity schema head.
 - BIMA SSO redirect URIs must be registered/whitelisted in BIMA. Local development uses
-  `http://localhost:3000/auth/sso/callback`; production must register the deployed HTTPS URI.
+  `http://localhost:3001/auth/sso/callback` (the Compose frontend publishes host port `3001`
+  because `3000` is reserved for another local project); production must register the deployed
+  HTTPS URI.
 - Runtime frontend API calls use same-origin `/api/v1`; `frontend/next.config.ts` rewrites them to
   `INTERNAL_BACKEND_URL`, defaulting to `http://backend:8000`. Compose keeps the service name `api`
   and publishes a `backend` network alias so that default resolves. Do not reintroduce a public API
