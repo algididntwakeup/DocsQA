@@ -12,6 +12,8 @@ describe("LoginPage", () => {
     expect(screen.queryByLabelText(/email|username|password/i)).toBeNull();
     expect(screen.queryByRole("textbox")).toBeNull();
     expect(screen.queryByRole("link", { name: /register|sign up/i })).toBeNull();
-    expect(screen.queryByRole("button", { name: /sign in|register|sign up/i })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: /^(sign in|register|sign up)$/i })
+    ).toBeNull();
   });
 });

@@ -31,7 +31,7 @@ from models.user import User
 from schemas.common import PageInfo
 from schemas.documents import DocumentListResponse, DocumentRead, DocumentUploadResponse
 from schemas.project import ProjectAssignment, ProjectCreate, ProjectRead
-from services import bima_client
+from services import bima_client as bima_client
 from services.bima_adapter import BimaMasterDataAdapter
 from services.pipeline import enqueue_extraction
 from services.uploads import UploadService
