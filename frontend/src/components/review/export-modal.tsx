@@ -88,13 +88,13 @@ export function ExportModal({ documentId, documentFilename, isOpen, onClose }: E
             <Download size={18} className="text-sky-500" />
             <h2 id="export-modal-title" className="text-base font-semibold text-ink">{t("export")} Review Deliverables</h2>
           </div>
-          <button type="button" className="icon-button text-muted" onClick={onClose} aria-label="Close export modal"><X size={16} /></button>
+          <button type="button" className="icon-button text-muted-foreground" onClick={onClose} aria-label="Close export modal"><X size={16} /></button>
         </header>
         <div className="modal-body p-5 space-y-4">
-          <p className="text-xs text-muted">
+          <p className="text-xs text-muted-foreground">
             Select an export format for document <strong className="text-ink font-semibold">{documentFilename}</strong>. Generated outputs reflect only findings marked as included in report.
           </p>
-          <fieldset className="rounded-lg border border-line bg-muted/5 p-3 text-xs text-muted">
+          <fieldset className="rounded-lg border border-line bg-muted/5 p-3 text-xs text-muted-foreground">
             <legend className="font-semibold text-ink">{t("reportLanguage")}</legend>
             <div className="flex gap-4 mt-2">
               <label className="inline-flex items-center gap-2 cursor-pointer font-medium text-ink">
@@ -120,9 +120,9 @@ export function ExportModal({ documentId, documentFilename, isOpen, onClose }: E
                 <span>Bahasa Indonesia</span>
               </label>
             </div>
-            <p className="mt-2 text-[11px] text-muted">{t("reportLanguageHelp")}</p>
+            <p className="mt-2 text-[11px] text-muted-foreground">{t("reportLanguageHelp")}</p>
           </fieldset>
-          <label className="flex items-start gap-2 rounded-lg border border-line bg-muted/5 p-3 text-xs text-muted cursor-pointer">
+          <label className="flex items-start gap-2 rounded-lg border border-line bg-muted/5 p-3 text-xs text-muted-foreground cursor-pointer">
             <input
               type="checkbox"
               checked={includeMinors}
@@ -143,13 +143,13 @@ export function ExportModal({ documentId, documentFilename, isOpen, onClose }: E
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
                         <h3 className="text-sm font-semibold text-ink truncate">{option.title}</h3>
-                        <span className="text-[10px] font-mono text-muted bg-muted/20 px-1.5 py-0.5 rounded">{option.extension}</span>
+                        <span className="text-[10px] font-mono text-muted-foreground bg-muted/20 px-1.5 py-0.5 rounded">{option.extension}</span>
                       </div>
                       <span className={`text-[10px] font-medium border px-2 py-0.5 rounded-full shrink-0 ${option.badgeClass}`}>
                         {option.badge}
                       </span>
                     </div>
-                    <p className="text-xs text-muted leading-relaxed">{option.description}</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">{option.description}</p>
                   </div>
                 </div>
                 <div className="mt-4 pt-3 border-t border-line flex justify-end">

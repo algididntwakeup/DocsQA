@@ -98,18 +98,18 @@ export default function AdminUsersPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 space-y-8 font-sans">
+    <div className="space-y-8">
       {/* Header with clear hierarchy and generous spacing */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 border-b border-slate-200 pb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 border-b border-border pb-6">
         <div className="space-y-1.5">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-blue-600">{t("adminAccessControl")}</p>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">{t("userManagement")}</h1>
-          <p className="text-sm text-slate-600 max-w-2xl">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-accent-foreground">{t("adminAccessControl")}</p>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">{t("userManagement")}</h1>
+          <p className="text-sm text-muted-foreground max-w-2xl">
             {t("userManagementDescription")}
           </p>
         </div>
         <button
-          className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs transition hover:bg-blue-700 active:scale-[0.98] self-start sm:self-auto shrink-0"
+          className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground shadow-sm transition hover:bg-primary/90 active:scale-[0.98] self-start sm:self-auto shrink-0"
           type="button"
           onClick={() => setModalOpen(true)}
         >
@@ -126,17 +126,17 @@ export default function AdminUsersPage() {
       )}
 
       {loading ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white p-12 text-sm text-slate-500 shadow-xs">
-          <LoaderCircle className="mb-3 animate-spin text-blue-600" size={28} />
+        <div className="flex flex-col items-center justify-center rounded-xl border border-border/60 bg-card p-12 text-sm text-muted-foreground shadow-sm">
+          <LoaderCircle className="mb-3 animate-spin text-accent-foreground" size={28} />
           {t("loadingUsers")}
         </div>
       ) : users.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center shadow-xs">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-50 text-blue-600 mb-3">
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 bg-card p-12 text-center shadow-sm">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent text-accent-foreground mb-3">
             <Users size={24} />
           </div>
-          <h2 className="text-base font-bold text-slate-900">{t("noUsers")}</h2>
-          <p className="mt-1 text-xs text-slate-500">{t("noUsersDescription")}</p>
+          <h2 className="text-base font-bold text-foreground">{t("noUsers")}</h2>
+          <p className="mt-1 text-xs text-muted-foreground">{t("noUsersDescription")}</p>
         </div>
       ) : (
         <UserTable

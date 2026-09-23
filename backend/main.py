@@ -26,7 +26,7 @@ from core.errors import (
 )
 
 app = FastAPI(
-    title="Document QC API",
+    title=settings.APP_NAME,
     description="Automated first-pass quality review of engineering documents (PDF/DOCX)",
     version="0.1.0",
 )
@@ -56,7 +56,7 @@ async def add_security_headers(
     # review embeds :8000 PDFs inside the :3000 app). X-Frame-Options SAMEORIGIN
     # would block that cross-origin frame; CSP frame-ancestors is the modern
     extra_origins = (
-        "https://*.ngrok-free.app https://*.ngrok.app"
+        "https://*.ngrok-free.app https://*.ngrok.app https://*.reksolindo.co.id"
     )
     frame_origins = f"{' '.join(settings.cors_origins)} {extra_origins}".strip()
     response.headers["Content-Security-Policy"] = f"frame-ancestors 'self' {frame_origins}"

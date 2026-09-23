@@ -18,17 +18,17 @@ function SsoCallbackContent() {
   }, [router, token]);
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
-      <section className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-xl shadow-slate-900/5">
+    <main className="flex min-h-screen items-center justify-center bg-muted/40 p-6">
+      <section className="w-full max-w-md rounded-3xl border border-border bg-card p-10 text-center shadow-xl shadow-slate-900/5">
         {!token || error ? (
           <div role="alert" className="space-y-4">
             <p className="text-sm font-semibold text-rose-700">{error ?? "Token sesi BIMA tidak ditemukan."}</p>
-            <button type="button" onClick={() => router.replace("/login")} className="text-xs font-bold text-blue-700 hover:underline">Kembali ke login</button>
+            <button type="button" onClick={() => router.replace("/login")} className="text-xs font-bold text-primary hover:underline">Kembali ke login</button>
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="mx-auto h-9 w-9 animate-spin rounded-full border-4 border-blue-100 border-t-blue-600" aria-label="Memuat" />
-            <p className="text-sm font-semibold text-slate-700">Memverifikasi sesi BIMA SSO...</p>
+            <div className="mx-auto h-9 w-9 animate-spin rounded-full border-4 border-border border-t-primary" aria-label="Memuat" />
+            <p className="text-sm font-semibold text-foreground">Memverifikasi sesi BIMA SSO...</p>
           </div>
         )}
       </section>
@@ -38,7 +38,7 @@ function SsoCallbackContent() {
 
 export default function SsoCallbackPage() {
   return (
-    <Suspense fallback={<main className="flex min-h-screen items-center justify-center bg-slate-50 p-6"><p className="text-sm font-semibold text-slate-700">Memverifikasi sesi BIMA SSO...</p></main>}>
+    <Suspense fallback={<main className="flex min-h-screen items-center justify-center bg-muted/40 p-6"><p className="text-sm font-semibold text-foreground">Memverifikasi sesi BIMA SSO...</p></main>}>
       <SsoCallbackContent />
     </Suspense>
   );

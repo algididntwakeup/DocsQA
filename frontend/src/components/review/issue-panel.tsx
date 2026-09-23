@@ -213,17 +213,17 @@ export function IssuePanel({
 
   return (
     <aside
-      className="flex flex-col h-full min-h-0 min-w-0 bg-white border-l border-slate-200 overflow-hidden font-sans select-none"
+      className="flex flex-col h-full min-h-0 min-w-0 bg-card border-l border-border overflow-hidden font-sans select-none"
       aria-label="Findings Panel"
     >
       {/* Draggable & Scrollable Tab Bar Header */}
-      <div className="relative group border-b border-slate-200 bg-slate-50/70 p-1 shrink-0">
+      <div className="relative group border-b border-border bg-muted/70 p-1 shrink-0">
         {/* Left scroll chevron */}
         {canScrollLeft && (
           <button
             type="button"
             onClick={() => scrollByAmount(-140)}
-            className="absolute left-1 top-1/2 -translate-y-1/2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white shadow-md text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition"
+            className="absolute left-1 top-1/2 -translate-y-1/2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-card shadow-md text-foreground hover:bg-muted/40 hover:text-foreground transition"
             aria-label="Scroll tabs left"
           >
             <ChevronLeft size={16} />
@@ -250,15 +250,15 @@ export function IssuePanel({
             onClick={() => handleTabClick("audit")}
             className={`shrink-0 whitespace-nowrap inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all duration-150 ${
               activeTab === "audit"
-                ? "bg-blue-600 text-white shadow-xs"
-                : "bg-white text-slate-600 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
+                ? "bg-primary text-primary-foreground shadow-xs"
+                : "bg-card text-muted-foreground border border-border hover:border-border hover:bg-muted/40 hover:text-foreground"
             }`}
           >
             <ShieldCheck size={13} />
             <span>Layout & Format</span>
             <span
               className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                activeTab === "audit" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
+                activeTab === "audit" ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
               }`}
             >
               {auditIncludedCount}/{auditIssues.length}
@@ -273,15 +273,15 @@ export function IssuePanel({
             onClick={() => handleTabClick("budinski")}
             className={`shrink-0 whitespace-nowrap inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all duration-150 ${
               activeTab === "budinski"
-                ? "bg-blue-600 text-white shadow-xs"
-                : "bg-white text-slate-600 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
+                ? "bg-primary text-primary-foreground shadow-xs"
+                : "bg-card text-muted-foreground border border-border hover:border-border hover:bg-muted/40 hover:text-foreground"
             }`}
           >
             <ShieldCheck size={13} className={activeTab === "budinski" ? "text-white" : "text-indigo-600"} />
             <span>Budinski Compliance</span>
             <span
               className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                activeTab === "budinski" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
+                activeTab === "budinski" ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
               }`}
             >
               {budinskiIncludedCount}/{budinskiIssues.length}
@@ -297,15 +297,15 @@ export function IssuePanel({
             onClick={() => handleTabClick("standards")}
             className={`shrink-0 whitespace-nowrap inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all duration-150 ${
               activeTab === "standards"
-                ? "bg-blue-600 text-white shadow-xs"
-                : "bg-white text-slate-600 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
+                ? "bg-primary text-primary-foreground shadow-xs"
+                : "bg-card text-muted-foreground border border-border hover:border-border hover:bg-muted/40 hover:text-foreground"
             }`}
           >
             <Layers size={13} />
             <span>Standards Audit</span>
             <span
               className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                activeTab === "standards" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
+                activeTab === "standards" ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
               }`}
             >
               {standardsIncludedCount}/{standardsIssues.length}
@@ -320,15 +320,15 @@ export function IssuePanel({
             onClick={() => handleTabClick("language")}
             className={`shrink-0 whitespace-nowrap inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all duration-150 ${
               activeTab === "language"
-                ? "bg-blue-600 text-white shadow-xs"
-                : "bg-white text-slate-600 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
+                ? "bg-primary text-primary-foreground shadow-xs"
+                : "bg-card text-muted-foreground border border-border hover:border-border hover:bg-muted/40 hover:text-foreground"
             }`}
           >
             <Sparkles size={13} />
             <span>Language & Typos</span>
             <span
               className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                activeTab === "language" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
+                activeTab === "language" ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
               }`}
             >
               {langIncludedCount}/{languageIssues.length}
@@ -341,7 +341,7 @@ export function IssuePanel({
           <button
             type="button"
             onClick={() => scrollByAmount(140)}
-            className="absolute right-1 top-1/2 -translate-y-1/2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white shadow-md text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition"
+            className="absolute right-1 top-1/2 -translate-y-1/2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-card shadow-md text-foreground hover:bg-muted/40 hover:text-foreground transition"
             aria-label="Scroll tabs right"
           >
             <ChevronRight size={16} />
@@ -350,15 +350,15 @@ export function IssuePanel({
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="p-3 border-b border-slate-200 bg-white space-y-2 shrink-0">
+      <div className="p-3 border-b border-border bg-card space-y-2 shrink-0">
         <div className="relative">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
             placeholder="Filter by rule, fact, or page number..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full text-xs pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50/50 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white transition-colors"
+            className="w-full text-xs pl-8 pr-3 py-1.5 rounded-lg border border-border bg-muted/50 text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-ring focus:bg-card transition-colors"
           />
         </div>
 
@@ -370,7 +370,7 @@ export function IssuePanel({
               id="severity-filter"
               value={severityFilter}
               onChange={(e) => setSeverityFilter(e.target.value as SeverityFilter)}
-              className="w-full text-xs py-1 px-2 rounded-lg border border-slate-200 bg-white text-slate-800 focus:outline-none focus:border-blue-500"
+              className="w-full text-xs py-1 px-2 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:border-ring"
             >
               <option value="ALL">All Severities</option>
               <option value="BLOCKER">Blocker Only</option>
@@ -391,7 +391,7 @@ export function IssuePanel({
               id="curation-filter"
               value={curationFilter}
               onChange={(e) => setCurationFilter(e.target.value as CurationFilter)}
-              className="w-full text-xs py-1 px-2 rounded-lg border border-slate-200 bg-white text-slate-800 focus:outline-none focus:border-blue-500"
+              className="w-full text-xs py-1 px-2 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:border-ring"
             >
               <option value="ALL">All Report Statuses</option>
               <option value="INCLUDED">Included in Report</option>
@@ -402,16 +402,16 @@ export function IssuePanel({
       </div>
 
       {/* Issues List */}
-      <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden p-3 space-y-3 bg-slate-50/50">
+      <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden p-3 space-y-3 bg-muted/50">
         {isLoading ? (
-          <div className="py-12 text-center text-xs text-slate-500">
-            <div className="animate-spin inline-block w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full mb-2" />
+          <div className="py-12 text-center text-xs text-muted-foreground">
+            <div className="animate-spin inline-block w-5 h-5 border-2 border-primary border-t-transparent rounded-full mb-2" />
             <p>Loading document findings...</p>
           </div>
         ) : filteredIssues.length === 0 ? (
-          <div className="py-12 text-center text-xs text-slate-500 space-y-1">
-            <Filter size={20} className="mx-auto text-slate-300 mb-2" />
-            <p className="font-semibold text-slate-800">No findings match the current filter</p>
+          <div className="py-12 text-center text-xs text-muted-foreground space-y-1">
+            <Filter size={20} className="mx-auto text-border mb-2" />
+            <p className="font-semibold text-foreground">No findings match the current filter</p>
             <p>Try clearing filters or search terms.</p>
           </div>
         ) : (
@@ -435,11 +435,11 @@ export function IssuePanel({
       </div>
 
       {/* Footer / Summary Status */}
-      <footer className="p-2.5 px-4 border-t border-slate-200 bg-white text-[11px] text-slate-500 flex items-center justify-between shrink-0">
+      <footer className="p-2.5 px-4 border-t border-border bg-card text-[11px] text-muted-foreground flex items-center justify-between shrink-0">
         <span>
           Showing {filteredIssues.length} of {currentTabIssues.length} findings
         </span>
-        <span className="font-semibold text-slate-800">
+        <span className="font-semibold text-foreground">
           {filteredIssues.filter((i) => i.included_in_report).length} included
         </span>
       </footer>

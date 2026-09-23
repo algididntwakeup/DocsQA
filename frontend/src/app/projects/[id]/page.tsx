@@ -71,9 +71,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
   if (loading && !project) {
     return (
-      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
-        <div className="flex min-h-[300px] flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-slate-200 bg-white p-12 text-slate-400">
-          <RefreshCw className="animate-spin text-blue-600" size={24} />
+      <div className="py-4">
+        <div className="flex min-h-[300px] flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border/60 bg-card p-12 text-muted-foreground">
+          <RefreshCw className="animate-spin text-accent-foreground" size={24} />
           <span className="text-xs font-semibold">{t("loadingProjects")}</span>
         </div>
       </div>
@@ -81,27 +81,27 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 space-y-6">
+    <div className="space-y-6">
       {/* Breadcrumb Navigation */}
-      <nav className="flex items-center gap-2 text-xs font-medium text-slate-500">
+      <nav className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
         <Link
           href="/projects"
-          className="inline-flex items-center gap-1 font-semibold text-blue-600 hover:text-blue-700 hover:underline"
+          className="inline-flex items-center gap-1 font-semibold text-accent-foreground hover:text-primary hover:underline"
         >
           <ArrowLeft size={13} />
             {t("projects")}
         </Link>
         <span>/</span>
-        <span className="text-slate-800 truncate font-semibold">{project?.name ?? t("project")}</span>
+        <span className="text-foreground truncate font-semibold">{project?.name ?? t("project")}</span>
       </nav>
 
       {/* Detail Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-slate-200 pb-6">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-border pb-6">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{t("inspectionRegister")}</p>
-          <h1 className="mt-1 text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">{project?.name ?? t("project")}</h1>
-          <p className="mt-1.5 inline-flex items-center gap-1.5 text-xs text-slate-500">
-            <MapPin size={14} className="text-blue-600" />
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t("inspectionRegister")}</p>
+          <h1 className="mt-1 text-2xl sm:text-3xl font-bold tracking-tight text-foreground">{project?.name ?? t("project")}</h1>
+          <p className="mt-1.5 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+            <MapPin size={14} className="text-accent-foreground" />
             {project?.plant_area ?? t("areaNotSupplied")}
             {project?.code && ` · ${project.code}`}
           </p>
@@ -109,7 +109,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         <button
           type="button"
           onClick={() => void load()}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 self-start sm:self-auto transition"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground shadow-sm hover:bg-muted/40 self-start sm:self-auto transition"
         >
           <RefreshCw size={13} />
           {t("refresh")}

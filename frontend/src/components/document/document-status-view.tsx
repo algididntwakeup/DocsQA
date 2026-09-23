@@ -215,11 +215,11 @@ export function DocumentStatusView({ id }: { id: string }) {
               </strong>
               <span className="text-xs font-semibold text-amber-600">Major</span>
             </div>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
-              <strong className="block text-2xl font-bold text-slate-700">
+            <div className="rounded-xl border border-border bg-muted/40 p-4 text-center">
+              <strong className="block text-2xl font-bold text-foreground">
                 {issues.filter((issue) => issue.severity === "MINOR" || issue.severity === "MEDIUM" || issue.severity === "LOW").length}
               </strong>
-              <span className="text-xs font-semibold text-slate-500">Minor</span>
+              <span className="text-xs font-semibold text-muted-foreground">Minor</span>
             </div>
           </section>
         )}

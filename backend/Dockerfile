@@ -22,13 +22,13 @@ RUN soffice --headless --version
 
 COPY . .
 
-RUN addgroup --system docqc \
-    && adduser --system --ingroup docqc docqc \
+RUN addgroup --system prism \
+    && adduser --system --ingroup prism prism \
     && mkdir -p /app/storage/uploads \
     && mkdir -p /tmp/.config /tmp/.cache \
-    && chown -R docqc:docqc /app /tmp/.config /tmp/.cache
+    && chown -R prism:prism /app /tmp/.config /tmp/.cache
 
-USER docqc
+USER prism
 
 EXPOSE 8000
 

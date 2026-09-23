@@ -31,6 +31,14 @@ Normalized data structures in `backend/schemas/extraction.py`:
 - `PDFPage`: Page geometry, orientation (`portrait` vs `landscape`), and control elements.
 - `LayoutAnomaly`: Normalized diagnostic findings.
 
+## Workspace Identity and Membership
+
+PRISM keeps its own project master data and treats BIMA as the upstream directory. `POST /api/v1/projects/sync-bima` (lead/superuser) fetches BIMA `GET /api/projects` and `GET /api/users`, runs both payloads through `backend/services/bima_adapter.py`, and persists the result in one transaction: referenced users are JIT-provisioned by `upsert_bima_user`, then projects are upserted and matched **solely** on the unique `projects.bima_project_id`. Any contract violation aborts with 502 before a single write, so a malformed upstream payload can never leave a half-synced workspace.
+
+Membership lives in the `project_members` association table (`project_id`, `user_id`, composite primary key, cascading deletes). It is a read-authorization concept: engineers who are project members can see the project and every document inside it, while all write operations keep their existing role- and ownership-based rules. `backend/core/dependencies.py::check_document_read_access` is the single document-level decision point, and async callers must eager-load `Project.members` because membership uses default lazy loading.
+
+Browser traffic never targets a backend host directly. The frontend issues same-origin `/api/v1` requests and `frontend/next.config.ts` rewrites them to `INTERNAL_BACKEND_URL` (default `http://backend:8000`). Server-side renders use the same default, so no API host is compiled into the browser bundle.
+
 ## Standards Reference Packs
 
 Future standards packs live outside Git in a licensed reference-library volume with manifests for edition, license, rules, chunks, and source pages. Raw standards PDFs are not ingested by v1.

@@ -97,10 +97,10 @@ export function DocumentViewer({
       <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-panel border-b border-line text-xs text-ink-soft">
         {/* Document Viewer Indicator */}
         <div className="flex items-center gap-2 truncate min-w-0">
-          <span className="font-mono text-[10px] text-muted uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-chip text-chip-ink border border-line shrink-0">
+          <span className="font-mono text-[10px] text-muted-foreground uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-chip text-chip-ink border border-line shrink-0">
             VIEWER
           </span>
-          <span className="text-xs text-muted truncate hidden sm:inline" title={effectiveTitle}>
+          <span className="text-xs text-muted-foreground truncate hidden sm:inline" title={effectiveTitle}>
             Page {currentPage} of {effectiveTotalPages}
           </span>
         </div>
@@ -113,8 +113,8 @@ export function DocumentViewer({
               onClick={() => setActiveTab("interactive")}
               className={`px-2.5 py-1 text-[11px] font-mono font-semibold rounded transition-colors ${
                 activeTab === "interactive"
-                  ? "bg-primary text-white shadow-xs"
-                  : "text-muted hover:text-ink"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-ink"
               }`}
             >
               Annotated Canvas
@@ -124,8 +124,8 @@ export function DocumentViewer({
               onClick={() => setActiveTab("embedded")}
               className={`px-2.5 py-1 text-[11px] font-mono font-semibold rounded transition-colors ${
                 activeTab === "embedded"
-                  ? "bg-primary text-white shadow-xs"
-                  : "text-muted hover:text-ink"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-ink"
               }`}
             >
               Native PDF
@@ -136,7 +136,7 @@ export function DocumentViewer({
             href={effectivePdfUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="p-1.5 rounded border border-line bg-panel hover:bg-panel-raised text-muted hover:text-ink transition-colors"
+            className="p-1.5 rounded border border-line bg-panel hover:bg-panel-raised text-muted-foreground hover:text-ink transition-colors"
             title="Open canonical PDF in new browser tab"
             aria-label="Open canonical PDF in new tab"
           >
@@ -148,7 +148,7 @@ export function DocumentViewer({
       {/* Quick Jump Bar for Multi-Location Findings */}
       {effectiveJumpTargets.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5 px-3 py-1.5 bg-selected border-b border-line text-xs">
-          <span className="font-mono text-accent-soft uppercase text-[10px] font-bold">
+          <span className="font-mono text-primary uppercase text-[10px] font-bold">
             Anchor:
           </span>
           {effectiveJumpTargets.map((t, idx) => (
@@ -161,7 +161,7 @@ export function DocumentViewer({
               }}
               className={`px-2 py-0.5 rounded text-[11px] font-medium font-mono transition-colors ${
                 currentPage === t.page
-                  ? "bg-primary text-white font-bold"
+                  ? "bg-primary text-primary-foreground font-bold"
                   : "bg-chip text-chip-ink hover:bg-panel-raised border border-line"
               }`}
             >
@@ -184,7 +184,7 @@ export function DocumentViewer({
             onJumpToFinding={onJumpToFinding}
           />
         ) : (
-          <div className="flex flex-1 items-center justify-center bg-sunken text-muted text-sm">
+          <div className="flex flex-1 items-center justify-center bg-sunken text-muted-foreground text-sm">
             No document ID available.
           </div>
         )
@@ -269,7 +269,7 @@ export function DocumentViewer({
             <iframe
               src={`${effectivePdfUrl}#page=${currentPage}`}
               title="Full PDF Rendition"
-              className="w-full h-full border-0 rounded bg-white shadow-md"
+              className="w-full h-full border-0 rounded bg-card shadow-md"
             />
           </div>
         </div>

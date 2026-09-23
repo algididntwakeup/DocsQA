@@ -804,7 +804,7 @@ async def _mark_timed_out(document_id: str) -> None:
 
 @celery_app.task(  # type: ignore[untyped-decorator]
     bind=True,
-    name="docqc.extract",
+    name="prism.extract_document",
     max_retries=2,
     default_retry_delay=5,
     # Do NOT autoretry on Exception — a stuck task would retry and hang again.

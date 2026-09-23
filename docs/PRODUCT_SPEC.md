@@ -1,8 +1,15 @@
 # Product specification
 
-DocsQA is a deterministic, on-premise engineering-document review tool. For each upload it produces a DOCX review draft and an annotated source PDF. A reviewer may include or exclude findings and add a note before export.
+PRISM is a deterministic, on-premise engineering-document review tool. For each upload it produces a DOCX review draft and an annotated source PDF. A reviewer may include or exclude findings and add a note before export.
 
 It checks technical terminology, spelling/grammar, units, table math, numerical claims, revision metadata, navigation drift, references, contradictions within the document, cross-page sentence continuity, narrative-heading style misclassifications, unintended whitespace / void pages, and document control integrity (running headers, footers, doc numbers, page numbers). It never approves engineering work, certifies safety, or validates external-standard compliance.
+
+## Sign-in and workspace access
+
+- The frontend login page has one sign-in action: BIMA SSO. No email/password login or self-registration form is available.
+- BIMA supplies authenticated identity and roles; PRISM issues its own session after validating the BIMA SSO callback.
+- Lead engineers and superusers synchronize BIMA projects and user directory data into PRISM workspaces.
+- BIMA project membership grants read access to that project and its documents only. Membership does not grant write, assignment, review, or issue-curation authority.
 
 ## Language and export preferences
 

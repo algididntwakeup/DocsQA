@@ -1,5 +1,6 @@
 "use client";
 
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { AlertTriangle, CheckCircle2, KeyRound, LoaderCircle, UserCircle } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
@@ -76,34 +77,30 @@ export default function ProfileSettingsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 space-y-6 font-sans">
-      <div className="border-b border-slate-200 pb-5">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{t("accountSettings")}</p>
-        <h1 className="mt-1 text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">{t("profile")}</h1>
-        <p className="mt-1 text-xs text-slate-600">{t("personalDetailsHelp")}</p>
+    <div className="mx-auto w-full max-w-5xl space-y-6 font-sans">
+      <div className="border-b border-border pb-5">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t("accountSettings")}</p>
+        <h1 className="mt-1 text-2xl sm:text-3xl font-bold tracking-tight text-foreground">{t("profile")}</h1>
+        <p className="mt-1 text-xs text-muted-foreground">{t("personalDetailsHelp")}</p>
       </div>
 
       {loading ? (
-        <div className="flex min-h-[260px] items-center justify-center rounded-2xl border border-slate-200 bg-white p-8 text-slate-400">
-          <LoaderCircle className="animate-spin text-blue-600" size={24} />
+        <div className="flex min-h-[260px] items-center justify-center rounded-xl border border-border/60 bg-card p-8 text-muted-foreground">
+          <LoaderCircle className="animate-spin text-accent-foreground" size={24} />
         </div>
       ) : (
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Profile Details Card */}
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs space-y-5">
-            <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-                <UserCircle size={22} />
-              </div>
-              <div>
-                <h2 className="text-base font-bold text-slate-900">{t("personalDetails")}</h2>
-                <p className="text-xs text-slate-500">{t("personalDetailsHelp")}</p>
-              </div>
-            </div>
+          <Card>
+            <CardHeader className="flex-row items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent text-accent-foreground"><UserCircle size={22} /></div>
+              <div><CardTitle>{t("personalDetails")}</CardTitle><CardDescription>{t("personalDetailsHelp")}</CardDescription></div>
+            </CardHeader>
+            <CardContent>
 
             <form className="space-y-4" onSubmit={(event) => void submitProfile(event)}>
               <div>
-                <label htmlFor="fullName" className="block text-xs font-semibold text-slate-700">
+                <label htmlFor="fullName" className="block text-xs font-semibold text-foreground">
                   {t("fullName")}
                 </label>
                 <input
@@ -112,12 +109,12 @@ export default function ProfileSettingsPage() {
                   minLength={1}
                   value={fullName}
                   onChange={(event) => setFullName(event.target.value)}
-                  className="mt-1 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-900 focus:border-blue-500 focus:outline-none"
+                  className="mt-1 h-10 w-full rounded-xl border border-border/60 bg-card px-3 text-xs text-foreground focus:border-ring focus:outline-none"
                 />
               </div>
 
               <div>
-                <label htmlFor="email" className="block text-xs font-semibold text-slate-700">
+                <label htmlFor="email" className="block text-xs font-semibold text-foreground">
                   {t("email")}
                 </label>
                 <input
@@ -126,7 +123,7 @@ export default function ProfileSettingsPage() {
                   required
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
-                  className="mt-1 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-900 focus:border-blue-500 focus:outline-none"
+                  className="mt-1 h-10 w-full rounded-xl border border-border/60 bg-card px-3 text-xs text-foreground focus:border-ring focus:outline-none"
                 />
               </div>
 
@@ -145,7 +142,7 @@ export default function ProfileSettingsPage() {
               )}
 
               <button
-                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-blue-700 disabled:opacity-50 transition"
+                className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50 transition"
                 type="submit"
                 disabled={savingProfile}
               >
@@ -153,23 +150,20 @@ export default function ProfileSettingsPage() {
                 <span>{savingProfile ? t("saving") : t("saveProfile")}</span>
               </button>
             </form>
-          </section>
+            </CardContent>
+          </Card>
 
           {/* Security Card */}
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs space-y-5">
-            <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-                <KeyRound size={22} />
-              </div>
-              <div>
-                <h2 className="text-base font-bold text-slate-900">{t("security")}</h2>
-                <p className="text-xs text-slate-500">{t("securityHelp")}</p>
-              </div>
-            </div>
+          <Card>
+            <CardHeader className="flex-row items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent text-accent-foreground"><KeyRound size={22} /></div>
+              <div><CardTitle>{t("security")}</CardTitle><CardDescription>{t("securityHelp")}</CardDescription></div>
+            </CardHeader>
+            <CardContent>
 
             <form className="space-y-4" onSubmit={(event) => void submitPassword(event)}>
               <div>
-                <label htmlFor="currentPassword" className="block text-xs font-semibold text-slate-700">
+                <label htmlFor="currentPassword" className="block text-xs font-semibold text-foreground">
                   {t("currentPassword")}
                 </label>
                 <input
@@ -179,12 +173,12 @@ export default function ProfileSettingsPage() {
                   required
                   value={currentPassword}
                   onChange={(event) => setCurrentPassword(event.target.value)}
-                  className="mt-1 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-900 focus:border-blue-500 focus:outline-none"
+                  className="mt-1 h-10 w-full rounded-xl border border-border/60 bg-card px-3 text-xs text-foreground focus:border-ring focus:outline-none"
                 />
               </div>
 
               <div>
-                <label htmlFor="newPassword" className="block text-xs font-semibold text-slate-700">
+                <label htmlFor="newPassword" className="block text-xs font-semibold text-foreground">
                   {t("newPassword")}
                 </label>
                 <input
@@ -195,12 +189,12 @@ export default function ProfileSettingsPage() {
                   required
                   value={newPassword}
                   onChange={(event) => setNewPassword(event.target.value)}
-                  className="mt-1 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-900 focus:border-blue-500 focus:outline-none"
+                  className="mt-1 h-10 w-full rounded-xl border border-border/60 bg-card px-3 text-xs text-foreground focus:border-ring focus:outline-none"
                 />
               </div>
 
               <div>
-                <label htmlFor="confirmNewPassword" className="block text-xs font-semibold text-slate-700">
+                <label htmlFor="confirmNewPassword" className="block text-xs font-semibold text-foreground">
                   {t("confirmNewPassword")}
                 </label>
                 <input
@@ -211,7 +205,7 @@ export default function ProfileSettingsPage() {
                   required
                   value={confirmation}
                   onChange={(event) => setConfirmation(event.target.value)}
-                  className="mt-1 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-900 focus:border-blue-500 focus:outline-none"
+                  className="mt-1 h-10 w-full rounded-xl border border-border/60 bg-card px-3 text-xs text-foreground focus:border-ring focus:outline-none"
                 />
               </div>
 
@@ -230,7 +224,7 @@ export default function ProfileSettingsPage() {
               )}
 
               <button
-                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-blue-700 disabled:opacity-50 transition"
+                className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50 transition"
                 type="submit"
                 disabled={savingPassword}
               >
@@ -238,7 +232,8 @@ export default function ProfileSettingsPage() {
                 <span>{savingPassword ? t("saving") : t("changePassword")}</span>
               </button>
             </form>
-          </section>
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>

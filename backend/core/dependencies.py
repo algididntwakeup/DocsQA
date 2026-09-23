@@ -15,6 +15,7 @@ from core.config import settings
 from db.session import get_session
 from domain.enums import UserRole
 from models.document import Document
+from models.project import Project
 from models.user import User
 from services.storage import LocalStorage
 from services.uploads import UploadService
@@ -128,7 +129,7 @@ def accessible_document_query(document_id: UUID, current_user: User) -> Any:
         .options(
             joinedload(Document.owner),
             joinedload(Document.assigned_to),
-            joinedload(Document.project),
+            joinedload(Document.project).selectinload(Project.members),
         )
     )
     return query

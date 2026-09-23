@@ -356,7 +356,9 @@ async def list_documents(
     """List documents visible to the current user."""
 
     query = select(Document).options(
-        joinedload(Document.owner), joinedload(Document.assigned_to), joinedload(Document.project)
+        joinedload(Document.owner),
+        joinedload(Document.assigned_to),
+        joinedload(Document.project).selectinload(Project.members),
     )
     if current_user.role == UserRole.ENGINEER:
         query = query.outerjoin(Document.project).where(
@@ -364,6 +366,7 @@ async def list_documents(
             | (Document.owner_id == current_user.id)
             | (Project.assigned_to_id == current_user.id)
             | (Project.created_by_id == current_user.id)
+            | Project.members.any(User.id == current_user.id)
         )
     else:
         if project_id is not None:

@@ -1,4 +1,4 @@
-# DocsQA Production Release & Operational Runbook
+# PRISM Production Release & Operational Runbook
 
 **Milestone**: M5 — Export, Hardening, and Production Release  
 **Version**: 1.0.0  
@@ -9,7 +9,7 @@
 
 ## 1. System Architecture & Components Overview
 
-DocsQA is an automated quality assurance and traceability platform designed for heavy-engineering design manuals, specifications, and calculation sheets.
+PRISM is an automated quality assurance and traceability platform designed for heavy-engineering design manuals, specifications, and calculation sheets.
 
 ```mermaid
 graph TD
@@ -43,7 +43,7 @@ graph TD
 - [x] Backend quality suite 100% passing (`backend/scripts/quality.ps1`).
 - [x] Frontend checks 100% passing (`npm run check`: lint, typecheck, tests, production build).
 - [x] Zero uncommitted local modifications.
-- [x] Apply and verify Alembic migrations through `20260910_0010_document_assignment` locally.
+- [x] Apply and verify Alembic migrations through `20260923_0015_project_members` locally.
 - [ ] Verify profile update, project assignment visibility, and admin project modal with HTTP/browser tests.
 
 The default backend suite reports the Redis vertical-slice test as skipped because it is opt-in.
@@ -63,8 +63,9 @@ python -m alembic current
 python -m alembic heads
 ```
 
-The local Docker database is verified at revision `20260910_0010 (head)`. Do not deploy assignment
-UI until both project and per-document assignment migrations have been applied.
+The local Docker database head is `20260923_0015_project_members`. Do not deploy project
+membership or BIMA workspace sync until the identity, BIMA project, and membership migrations
+(`20260916_0013`, `20260916_0014`, `20260923_0015`) have all been applied.
 
 ### 3.2 Offline SQL Review (Recommended for Production DBA Review)
 To generate the raw SQL script without executing it:
@@ -82,8 +83,8 @@ python -m alembic upgrade head
 python -m alembic downgrade -1
 ```
 
-The current head adds `projects.assigned_to_id`. On Docker, run the migration job before recreating
-the application services:
+The current head adds `project_members` (composite-key membership table with cascading foreign
+keys). On Docker, run the migration job before recreating the application services:
 
 ```bash
 docker compose build migrate api worker frontend
@@ -92,8 +93,9 @@ docker compose up -d api worker frontend
 ```
 
 Do not delete `postgres-data` or `backend-data` during a normal release update. The migration is
-additive and preserves existing projects; existing projects remain unassigned until a lead assigns
-them through the API/UI.
+additive and preserves existing projects; membership is populated only by a subsequent
+`POST /api/v1/projects/sync-bima` as lead/superuser, and existing projects keep their current
+assignment until that sync runs.
 
 ---
 
@@ -103,12 +105,20 @@ Configure the following environment variables in `.env` or container orchestrato
 
 | Variable | Description | Default | Security Notes |
 | :--- | :--- | :--- | :--- |
-| `DOCSQA_DATABASE_URL` | Async Postgres connection URI | `postgresql+asyncpg://postgres:postgres@localhost:5432/docsqa` | Keep in secret manager |
-| `DOCSQA_REDIS_URL` | Redis connection URI | `redis://localhost:6379/0` | Protect with Redis ACL / TLS |
-| `DOCSQA_STORAGE_ROOT` | Root filesystem path for document storage | `./storage` | Ensure disk quotas and ACLs |
-| `DOCSQA_RETENTION_DAYS` | Days before expired uploads are purged | `30` | Per PRD §4.3 ephemeral policy |
+| `DATABASE_URL` | Async Postgres connection URI | `postgresql+asyncpg://prism:prism@localhost:5433/prism` | Keep in secret manager |
+| `REDIS_URL` | Redis connection URI | `redis://localhost:6380/0` | Protect with Redis ACL / TLS |
+| `STORAGE_ROOT` | Root filesystem path for document storage | `./data` | Ensure disk quotas and ACLs |
+| `DOCUMENT_RETENTION_DAYS` | Days before expired uploads are purged | `90` | Set according to retention policy |
 | `CORS_ORIGINS` | Permitted browser origins | `https://prism.reksolindo.co.id` | Set to the exact PRISM production domain |
+| `CORS_ORIGIN_REGEX` | Regex for additional permitted origins | `^https://(?:[a-z0-9-]+\.)*reksolindo\.co\.id$` | Covers corporate subdomains; keep anchored |
+| `INTERNAL_BACKEND_URL` | Backend URL used by the Next.js rewrite | `http://backend:8000` | Server-side only; never expose to the browser |
+| `POSTGRES_PORT` | Host port published for PostgreSQL | `5433` | Container always listens on `5432`; `5432` is reserved for another local project |
+| `REDIS_PORT` | Host port published for Redis | `6380` | Container always listens on `6379`; `6379` is reserved for another local project |
+| `API_PORT` | Host port published for the API | `8001` | Container always listens on `8000`; `8000` is reserved for another local project |
+| `FRONTEND_PORT` | Host port published for the frontend container | `3001` | Container always listens on `3000`; `3000` is reserved for another local project |
 | `NEXT_PUBLIC_APP_URL` | Public PRISM application URL | `https://prism.reksolindo.co.id` | Used for BIMA SSO callback generation |
+| `NEXT_PUBLIC_BIMA_BASE_URL` | Browser-facing BIMA origin | `https://bima.reksolindo.co.id` | Compiled into the frontend image; sourced from `BIMA_BASE_URL` |
+| `BIMA_BASE_URL` | BIMA API origin (server-side) | `https://bima.reksolindo.co.id` | Also feeds `NEXT_PUBLIC_BIMA_BASE_URL` at build time |
 | `BIMA_CLIENT_ID` | Registered BIMA SSO client | `prism` | Must match the BIMA client registration |
 | `AUTH_MODE` | Authentication mode | `required` in Docker | Keep required outside local development |
 
@@ -127,7 +137,7 @@ docker compose up migrate
 docker compose up -d --force-recreate api worker frontend
 ```
 
-`postgres` and `redis` do not need rebuilding. There is no schema migration for locale/report language. `NEXT_PUBLIC_API_BASE_URL` is compiled into the frontend image, so set it before `docker compose build frontend`. PDF export remains source-faithful and does not use the language query parameter.
+`postgres` and `redis` do not need rebuilding. There is no schema migration for locale/report language. The browser no longer needs a compiled API host: requests are same-origin `/api/v1` and the Next.js rewrite resolves `INTERNAL_BACKEND_URL`, which defaults to `http://backend:8000` (the Compose `api` service publishes a `backend` network alias). `NEXT_PUBLIC_BIMA_BASE_URL` **is** compiled into the frontend image, so set it before `docker compose build frontend`. PDF export remains source-faithful and does not use the language query parameter.
 
 ### HTTP Security Headers
 Every HTTP response automatically includes enterprise security headers enforced via `backend/main.py`:
@@ -203,7 +213,7 @@ asyncio.run(run())
 1. **Pipeline Jam / Stalled Scans**:
    - Check worker logs: `celery -A core.celery_app inspect active`
    - Check Redis connectivity: `redis-cli ping`
-   - Restart worker processes: `systemctl restart docsqa-celery`
+   - Restart worker processes: `docker compose restart worker`
 2. **Database OCC Version Collision (`409 Conflict`)**:
    - Occurs when two reviewers submit simultaneous decisions for the same issue version.
    - Client automatically displays conflict banner and refreshes the finding item with latest state.
@@ -211,15 +221,15 @@ asyncio.run(run())
    - Storage service isolates uploads into safe subdirectories with SHA-256 deduplication.
    - If an upload fails validation, temporary unlinked files are cleaned up immediately via `_delete_stored_object`.
 
-## 9. Identity and Project Assignment Smoke Checklist
+## 9. BIMA Identity and Workspace Access Smoke Checklist
 
-Run this checklist after migration and before exposing the server:
+Run after migrations and before exposing the server:
 
-1. Log in as a lead or superuser and confirm `/admin/users` loads.
-2. Open `Lihat Projects` for an engineer and confirm the modal lists only projects assigned to that user.
-3. Assign an active engineer through `PATCH /api/v1/projects/{project_id}/assign` and confirm the engineer sees the project.
-4. Confirm an engineer can create a project but cannot assign a project to another user.
-5. Open `/settings/profile`, update the name, and confirm the navbar reflects it after reload.
-6. Attempt a duplicate email update and confirm the API returns `409` without changing the profile.
-7. Confirm document list responses include a real `owner_name` for owned documents.
-8. Confirm long project, admin, and settings pages scroll from top to bottom on desktop and mobile widths.
+1. Open `/login`; confirm only **Sign in with BIMA SSO** appears, with no email/password or registration form.
+2. Complete BIMA SSO and confirm PRISM returns to the configured app origin with an authenticated session.
+3. As lead/superuser, run `POST /api/v1/projects/sync-bima`; verify BIMA project and user data synchronize.
+4. Confirm an assigned engineer can list the BIMA project and read its documents/PDFs, but cannot upload, assign, review, or curate issues by membership alone.
+5. Confirm unrelated engineers cannot list the BIMA project or read its documents.
+6. Confirm lead/superuser retain global project/document visibility.
+7. Open `/settings/profile`, update the name, and confirm the navbar reflects it after reload.
+8. Confirm long project, admin, and settings pages scroll on desktop and mobile widths.

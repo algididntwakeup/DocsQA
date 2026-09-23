@@ -789,7 +789,7 @@ def test_docx_report_with_reference_rule_findings() -> None:
     assert "UNCONFIGURED" in all_table_text
 
     # Disclaimer against approval/safety certification
-    assert "DocsQA does not approve designs, verify engineering safety" in full_text
+    assert "PRISM does not approve designs, verify engineering safety" in full_text
 
     # Scorecard table
     table = word_doc.tables[0]

@@ -1,5 +1,10 @@
 # Stitch Design System Snapshot
 
+> **Note (2026-09-23):** This file is a historical snapshot of the approved Stitch project.
+> The **shipped** design tokens are now the shadcn semantic light/dark pairs defined in
+> `frontend/src/app/globals.css` and documented under "PRISM Membership & Workspace Contract" in
+> `docs/AGENT_HANDOFF.md`. Use that section, not the palette below, when styling components.
+
 **Status:** COMPLETE (2026-09-04)
 
 **Stitch project ID:** 9978725055094825738 (Material QC Document Dashboard)

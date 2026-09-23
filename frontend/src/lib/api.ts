@@ -106,7 +106,7 @@ export function getApiBaseUrl(): string {
   if (internal) {
     return `${internal.replace(/\/+$/, "")}/api/v1`;
   }
-  return "http://api:8000/api/v1";
+  return "http://backend:8000/api/v1";
 }
 
 let memoryAuthToken: string | null = null;

@@ -108,18 +108,18 @@ export default function ProjectsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 space-y-8">
+    <div className="space-y-8">
       {/* Page Heading */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-slate-200 pb-6">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-border pb-6">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{t("portfolioOverview")}</p>
-          <h1 className="mt-1 text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">{t("projectsPlants")}</h1>
-          <p className="mt-1 text-sm text-slate-600">{t("projectDescription")}</p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t("portfolioOverview")}</p>
+          <h1 className="mt-1 text-2xl sm:text-3xl font-bold tracking-tight text-foreground">{t("projectsPlants")}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t("projectDescription")}</p>
         </div>
         <div className="flex flex-wrap gap-2 self-start sm:self-auto">
           {canCreateProject && (
             <button
-              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs transition hover:bg-blue-700 disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:opacity-50"
               type="button"
               onClick={() => setModalOpen(true)}
               disabled={syncing}
@@ -130,7 +130,7 @@ export default function ProjectsPage() {
           )}
           {canCreateProject && (
             <button
-              className="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-xs font-bold text-blue-800 transition hover:bg-blue-100 disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-lg border border-primary/20 bg-accent px-4 py-2.5 text-xs font-bold text-accent-foreground transition hover:bg-accent/80 disabled:opacity-50"
               type="button"
               onClick={() => void handleBimaSync()}
               disabled={syncing}
@@ -159,17 +159,17 @@ export default function ProjectsPage() {
 
       {/* Grid Content */}
       {loading ? (
-        <div className="flex min-h-[300px] flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-slate-200 bg-white/50 p-12 text-slate-400">
-          <LoaderCircle className="animate-spin text-blue-600" size={28} />
+        <div className="flex min-h-[300px] flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border/60 bg-card/50 p-12 text-muted-foreground">
+          <LoaderCircle className="animate-spin text-accent-foreground" size={28} />
           <span className="text-sm font-medium">{t("loadingProjects")}</span>
         </div>
       ) : projects.length === 0 ? (
-        <div className="flex min-h-[300px] flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-slate-200 bg-white p-12 text-center text-slate-500 shadow-xs">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+        <div className="flex min-h-[300px] flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border/60 bg-card p-12 text-center text-muted-foreground shadow-sm">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent text-accent-foreground">
             <FolderKanban size={24} />
           </div>
-          <h2 className="text-base font-bold text-slate-900">{t("noProjects")}</h2>
-          <p className="max-w-md text-xs text-slate-500">{t("noProjectsDescription")}</p>
+          <h2 className="text-base font-bold text-foreground">{t("noProjects")}</h2>
+          <p className="max-w-md text-xs text-muted-foreground">{t("noProjectsDescription")}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -189,55 +189,55 @@ export default function ProjectsPage() {
       {/* Modal Create Project */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-xs">
-          <form className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl" onSubmit={submitProject}>
-            <div className="flex items-start justify-between border-b border-slate-100 pb-4">
+          <form className="w-full max-w-md rounded-xl border border-border/60 bg-card p-6 shadow-2xl" onSubmit={submitProject}>
+            <div className="flex items-start justify-between border-b border-border/60 pb-4">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-blue-600">{t("projectSetup")}</p>
-                <h2 className="text-lg font-bold text-slate-900">{t("newProject")}</h2>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-accent-foreground">{t("projectSetup")}</p>
+                <h2 className="text-lg font-bold text-foreground">{t("newProject")}</h2>
               </div>
               <button
                 type="button"
                  aria-label={t("close")}
                 onClick={() => setModalOpen(false)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
               >
                 <X size={18} />
               </button>
             </div>
 
             <div className="mt-4 space-y-4">
-              <label className="block text-xs font-bold text-slate-700">
+              <label className="block text-xs font-bold text-foreground">
                  {t("projectName")}
                 <input
                   required
                   value={name}
                   onChange={(event) => setName(event.target.value)}
                   placeholder="e.g. Central Gas Plant Phase II"
-                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none"
+                  className="mt-1 h-10 w-full rounded-lg border border-border px-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none"
                 />
               </label>
 
-              <label className="block text-xs font-bold text-slate-700">
+              <label className="block text-xs font-bold text-foreground">
                  {t("plantArea")}
                 <input
                   value={area}
                   onChange={(event) => setArea(event.target.value)}
                   placeholder="e.g. Compressor Station Area 3"
-                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none"
+                  className="mt-1 h-10 w-full rounded-lg border border-border px-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none"
                 />
               </label>
             </div>
 
-            <div className="mt-6 flex justify-end gap-2 border-t border-slate-100 pt-4">
+            <div className="mt-6 flex justify-end gap-2 border-t border-border/60 pt-4">
               <button
                 type="button"
-                className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                className="rounded-lg border border-border px-4 py-2 text-xs font-semibold text-foreground hover:bg-muted/40"
                 onClick={() => setModalOpen(false)}
               >
                  {t("cancel")}
               </button>
               <button
-                className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-blue-700 disabled:opacity-50"
+                className="rounded-lg bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50"
                 disabled={creating}
               >
                  {creating ? t("creating") : t("createProject")}

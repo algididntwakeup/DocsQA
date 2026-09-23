@@ -34,10 +34,10 @@ export function ReksolindoLogo({
           <div className="flex items-center gap-1.5">
             <span
               className={`text-base font-bold tracking-tight font-sans ${
-                isDark ? "text-white" : "text-slate-900"
+                isDark ? "text-white" : "text-foreground"
               }`}
             >
-              Reksolindo
+              PRISM
             </span>
             <span
               className={`rounded px-1.5 py-0.2 text-[9px] font-extrabold uppercase tracking-wider ${
@@ -46,15 +46,15 @@ export function ReksolindoLogo({
                   : "bg-blue-50 text-blue-700 ring-1 ring-blue-700/10"
               }`}
             >
-              QA
+              Document Assurance
             </span>
           </div>
           <span
             className={`text-[9px] font-medium tracking-tight -mt-0.5 ${
-              isDark ? "text-slate-300" : "text-slate-500"
+              isDark ? "text-border" : "text-muted-foreground"
             }`}
           >
-            Engineering Inspection
+            Document Assurance Platform
           </span>
         </div>
       )}

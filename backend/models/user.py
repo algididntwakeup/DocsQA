@@ -52,3 +52,7 @@ class User(Base):
     verified_documents: Mapped[list["Document"]] = relationship(
         back_populates="verified_by", foreign_keys="Document.verified_by_id"
     )
+    member_projects: Mapped[list["Project"]] = relationship(
+        secondary="project_members",
+        back_populates="members",
+    )

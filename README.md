@@ -110,11 +110,14 @@ On Windows PowerShell, use `Copy-Item .env.docker.example .env; Copy-Item compos
 ```env
 POSTGRES_PASSWORD=replace-with-a-database-password
 SECRET_KEY=replace-with-a-long-random-secret
-NEXT_PUBLIC_API_BASE_URL=http://your-server:8000/api/v1
-COOKIE_SECURE=false
+NEXT_PUBLIC_APP_URL=https://prism.example.com
+BIMA_BASE_URL=https://bima.reksolindo.co.id
+BIMA_CLIENT_ID=prism
+INTERNAL_BACKEND_URL=http://backend:8000
+COOKIE_SECURE=true
 ```
 
-Use `COOKIE_SECURE=true` when the browser reaches the application through HTTPS. If a reverse proxy exposes only the frontend and proxies `/api` internally, set `NEXT_PUBLIC_API_BASE_URL` to the public API URL expected by the browser.
+Browser requests use same-origin `/api/v1` through the frontend proxy. Set `NEXT_PUBLIC_APP_URL` to the public PRISM origin for the BIMA redirect URI; `BIMA_BASE_URL` selects BIMA host and API origin.
 
 4. Build the application images and start PostgreSQL, Redis, and the migration job:
 
@@ -124,13 +127,7 @@ docker compose up -d postgres redis
 docker compose up migrate
 ```
 
-The `migrate` command creates the schema and seeds these initial accounts:
-
-| Email                     | Initial password | Role            |
-| ------------------------- | ---------------- | --------------- |
-| `admin@localhost`         | `super123`       | `SUPERUSER`     |
-| `lead.engineer@localhost` | `super123`       | `LEAD_ENGINEER` |
-| `engineer@localhost`      | `user123`        | `ENGINEER`      |
+The migration creates the schema and bootstrap accounts used only for recovery; frontend authentication uses BIMA SSO.
 
 5. Start the API, worker, and frontend after migration succeeds:
 
@@ -138,17 +135,17 @@ The `migrate` command creates the schema and seeds these initial accounts:
 docker compose up -d api worker frontend
 ```
 
-6. Open the application and immediately change the initial account password from `Change Password`:
+6. Open the application:
 
-- Frontend: `http://localhost:3000`
-- API docs: `http://localhost:8000/docs`
-- Health check: `http://localhost:8000/health`
+- Frontend: `http://localhost:3001`
+- API docs: `http://localhost:8001/docs`
+- Health check: `http://localhost:8001/health`
 
-The initial passwords are development/bootstrap credentials. Do not keep them on an exposed server.
+Choose **Sign in with BIMA SSO**. Local password endpoints remain available for managed-account recovery but have no browser login or registration form.
 
 ### Updating an Existing Server
 
-For source changes, rebuild the application images. Do not rebuild or delete PostgreSQL and Redis volumes. From the repository directory on the server:
+For source changes, rebuild the application images. Do not rebuild or delete PostgreSQL and Redis volumes. Compose project is `prism`; existing local volumes retain explicit `docsqa_*` names to preserve data. From the repository directory on the server:
 
 ```bash
 git pull
@@ -157,7 +154,6 @@ docker compose up migrate
 docker compose up -d api worker frontend
 ```
 
-`docker compose up migrate` runs all pending Alembic migrations, including account seed changes. The migration is safe for an existing database: it updates the documented local accounts and creates `admin@localhost` if the account does not already exist. The migration is not a password rotation mechanism for accounts that have already been changed manually.
 
 If only frontend files changed, rebuilding `frontend` is sufficient. If backend Python, schema, migration, or worker code changed, rebuild `migrate`, `api`, and `worker`. If `compose.yaml`, `.env`, or Dockerfile changed, recreate the affected services after rebuilding. PostgreSQL and Redis only need to be recreated when their image or service configuration changes.
 
@@ -170,18 +166,19 @@ docker compose logs -f api worker frontend
 docker compose restart api worker frontend
 ```
 
-### Authentication and Password Management
+### Authentication and Access Management
 
-`AUTH_MODE=required` is set by the Compose file. The frontend login uses the accounts in the table above. `SUPERUSER` has the same lead workflow and user-management permissions as `LEAD_ENGINEER`.
+The frontend exposes a single **Sign in with BIMA SSO** action. BIMA authenticates users and redirects to PRISM; the API verifies the SSO token, synchronizes the identity, and issues the PRISM session cookie. There is no local password login or self-registration form.
 
-Every authenticated user can change their own password at `/settings/password`. The API endpoint is `POST /api/v1/auth/change-password` and requires the current password plus a new password of at least eight characters. A lead or superuser can reset another account's temporary password from `Manage Users`.
+Project synchronization is lead/superuser-only and uses the signed-in BIMA token to fetch project and user directories. Project membership grants engineers read access to assigned BIMA projects and their documents; it does not grant upload, assignment, review, or issue-curation rights.
+
+Managed account provisioning and password-reset endpoints remain administrative recovery tools. Configure `BIMA_BASE_URL`, `BIMA_CLIENT_ID`, `NEXT_PUBLIC_BIMA_BASE_URL`, `NEXT_PUBLIC_APP_URL`, corporate CORS origins, and a secure cookie for production HTTPS.
 
 For a production deployment:
 
 - Replace `SECRET_KEY` with a long random secret and keep it outside version control.
 - Replace `POSTGRES_PASSWORD` with a strong database password.
 - Set `COOKIE_SECURE=true` behind HTTPS.
-- Change all bootstrap passwords immediately after the first login.
 - Restrict PostgreSQL and Redis ports to the private network or bind them only to localhost.
 - Back up the `postgres-data`, `redis-data`, and `app_uploads` Docker volumes.
 
@@ -206,9 +203,10 @@ docker compose down --volumes
 
 - Python `3.13` or `3.14`
 - Node.js `20.x` or `24.x` (LTS)
-- Running PostgreSQL (`localhost:5432`) and Redis (`localhost:6379`). PostgreSQL and Redis are
-  currently healthy in the local Docker stack; Redis is not the reason the default test suite skips
-  the integration test. Enable that test explicitly with `RUN_REDIS_INTEGRATION=1`.
+- Running PostgreSQL (`localhost:5433`) and Redis (`localhost:6380`). These host ports are
+  published by the local Docker stack; PostgreSQL and Redis are healthy there. Redis is not the
+  reason the default test suite skips the integration test. Enable that test explicitly with
+  `RUN_REDIS_INTEGRATION=1`.
 
 ### 1. Backend Setup
 
@@ -229,7 +227,7 @@ pip install -r requirements.txt
 python -m alembic upgrade head
 
 # Start FastAPI server
-python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+python -m uvicorn main:app --host 0.0.0.0 --port 8001 --reload
 ```
 
 In a separate terminal, start the Celery pipeline worker:
@@ -249,10 +247,12 @@ cd frontend
 npm install
 
 # Start Next.js development server
+# Use `npm run dev:3001` instead if port 3000 is taken by another project
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Open [http://localhost:3000](http://localhost:3000) in your browser (or
+[http://localhost:3001](http://localhost:3001) when using `npm run dev:3001`).
 
 ---
 

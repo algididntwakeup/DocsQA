@@ -32,7 +32,7 @@ def test_passwords_and_tokens_round_trip() -> None:
     assert claims["exp"]
 
 
-def test_document_query_is_eager_loaded_for_access_checks() -> None:
+def test_document_query_eager_loads_project_members() -> None:
     """Document reads load ownership fields before the permission decision."""
     from core.dependencies import accessible_document_query
 
@@ -46,7 +46,7 @@ def test_document_query_is_eager_loaded_for_access_checks() -> None:
     query = accessible_document_query(uuid4(), engineer)
     compiled = str(query.compile(compile_kwargs={"literal_binds": False}))
     assert "documents.id" in compiled
-
+    assert any("Project.members" in str(option.path) for option in query._with_options)
 
 def test_lead_scope_query_does_not_add_owner_filter() -> None:
     from core.dependencies import accessible_document_query
@@ -162,6 +162,20 @@ def test_document_read_access_project_aware_for_engineers() -> None:
     assert check_document_read_access(doc, project_creator)
     # 5. Unrelated engineer is denied
     assert not check_document_read_access(doc, unrelated_engineer)
+
+    # 6. Project membership grants read access without ownership or assignment
+    member = User(
+        id=uuid4(),
+        email="member@example.test",
+        hashed_password="unused",
+        full_name="Member",
+        role=UserRole.ENGINEER,
+    )
+    project.members = [member]
+    assert check_document_read_access(doc, member)
+    # 7. Removing membership revokes that access
+    project.members = []
+    assert not check_document_read_access(doc, member)
 
 
 def _request_with_cookie(value: str | None) -> Request:

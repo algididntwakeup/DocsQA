@@ -1,12 +1,11 @@
-"""Celery application for the Document QC processing pipeline."""
+"""PRISM Celery application for document review processing."""
 
 from celery import Celery
 
 from core.config import settings
 
 celery_app = Celery(
-    "docqc",
-    broker=settings.CELERY_BROKER_URL,
+    "prism",
     backend=settings.CELERY_RESULT_BACKEND,
     include=["tasks.extraction"],
 )

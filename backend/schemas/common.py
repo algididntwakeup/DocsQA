@@ -32,7 +32,7 @@ class ProblemDetail(ApiModel):
         "json_schema_extra": {
             "examples": [
                 {
-                    "type": "urn:docqc:error:FEATURE_NOT_READY",
+                    "type": "urn:prism:error:FEATURE_NOT_READY",
                     "title": "Feature not ready",
                     "status": 501,
                     "detail": "Document upload is not implemented yet.",

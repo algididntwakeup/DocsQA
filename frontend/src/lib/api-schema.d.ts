@@ -623,7 +623,7 @@ export interface paths {
         put?: never;
         /**
          * Sync Bima Projects
-         * @description Synchronize BIMA projects into the local project master data.
+         * @description Synchronize BIMA projects and their members into the local master data.
          */
         post: operations["sync_bima_projects_api_v1_projects_sync_bima_post"];
         delete?: never;
@@ -1319,7 +1319,7 @@ export interface components {
          *       "instance": "/api/v1/documents/upload",
          *       "status": 501,
          *       "title": "Feature not ready",
-         *       "type": "urn:docqc:error:FEATURE_NOT_READY"
+         *       "type": "urn:prism:error:FEATURE_NOT_READY"
          *     }
          */
         ProblemDetail: {

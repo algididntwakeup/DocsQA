@@ -510,7 +510,7 @@ def build_review_report(
             "engineering work, certify safety, or validate design fitness or external compliance."
         )
         report.add_paragraph(
-            "DocsQA does not approve designs, verify engineering safety, or replace licensed "
+            "PRISM does not approve designs, verify engineering safety, or replace licensed "
             "professional engineering judgement."
         )
     else:
@@ -520,7 +520,7 @@ def build_review_report(
             "memvalidasi kelayakan desain maupun kepatuhan eksternal."
         )
         report.add_paragraph(
-            "DocsQA tidak menyetujui desain, memverifikasi keselamatan rekayasa, atau "
+            "PRISM tidak menyetujui desain, memverifikasi keselamatan rekayasa, atau "
             "menggantikan pertimbangan "
             "insinyur profesional berlisensi."
         )

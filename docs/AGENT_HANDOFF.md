@@ -4,6 +4,15 @@ This file records implementation decisions that must not be reverted or duplicat
 
 ## Current State
 
+
+## PRISM Identity and Workspace
+
+- Browser sign-in has a single BIMA SSO action; do not add local password login or registration forms. Password endpoints exist only for managed recovery/admin workflows.
+- BIMA directory synchronization validates both `/api/projects` and `/api/users` completely before writing. Do not upsert the full BIMA directory: persist only users referenced by project membership/PIC.
+- `Project.members` uses the `project_members` association (Alembic `20260923_0015_project_members`). BIMA membership adds project/document read visibility only; never extend upload, assignment, review, or issue-curation authority from membership.
+- Browser API uses relative `/api/v1`; SSR/rewrite targets `INTERNAL_BACKEND_URL` (Compose alias default `http://backend:8000`). SSO authorization origin is configured through `NEXT_PUBLIC_BIMA_BASE_URL` and returns to `NEXT_PUBLIC_APP_URL`/current app origin.
+- PDF canvas and highlight overlay share one viewport-sized wrapper. Continuous Ctrl/Meta-wheel zoom and mouse drag pan must keep that shared coordinate space; touch panning stays native.
+
 - The product is a deterministic engineering-document review tool. Do not introduce LLM, external AI, approval, disposition, or audit-trail workflows.
 - Findings use binary report curation: `included_in_report` plus an optional `reviewer_note`.
 - The canonical pipeline stages are `EXTRACTING`, `LAYOUT_INSPECTION`, `BUDINSKI_AUDIT`, `STANDARDS_CHECK`, `LINGUISTIC_CHECK`, and `AGGREGATING`.
@@ -62,9 +71,9 @@ This file records implementation decisions that must not be reverted or duplicat
   export modal remain protected internals.
 - Workflow actions call `/documents/{id}/mark-reviewed`, `/verify`, and `/request-revision` and
   update the document state from the response without a full-page reload.
-- `/documents/{id}/review` bypasses the global `AppShell` and uses an isolated three-zone layout.
-  Keep the PDF canvas and highlight overlay in the same positioned page wrapper so bounding-box
-  coordinates remain precise.
+- `/documents/{id}/review` renders inside the shared `AppShell` (h-16 topbar) and uses a
+  `h-[calc(100dvh-4rem)]` workspace. Keep the PDF canvas and highlight overlay in the same
+  positioned page wrapper so bounding-box coordinates remain precise.
 - Frontend authentication uses the HttpOnly `access_token` cookie with `credentials: "include"`.
   The API client redirects 401 responses to `/login`; do not reintroduce JWT storage in
   `localStorage`.
@@ -84,18 +93,26 @@ This file records implementation decisions that must not be reverted or duplicat
   as a fallback for emergency local accounts. Migration `20260916_0013_bima_identity` is the
   current identity schema head.
 - BIMA SSO redirect URIs must be registered/whitelisted in BIMA. Local development uses
-  `http://localhost:3000/auth/sso/callback`; production must register the deployed HTTPS URI.
+  `http://localhost:3001/auth/sso/callback` (the Compose frontend publishes host port `3001`
+  because `3000` is reserved for another local project); production must register the deployed
+  HTTPS URI.
 - Runtime frontend API calls use same-origin `/api/v1`; `frontend/next.config.ts` rewrites them to
-  `INTERNAL_BACKEND_URL` (Compose service `api`). Do not reintroduce a public API URL into the
-  browser bundle. Set `NEXT_PUBLIC_APP_URL` for SSO callback generation and `CORS_ORIGINS` or
-  `CORS_ORIGIN_REGEX` for deployments where the browser origin differs from the frontend proxy.
+  `INTERNAL_BACKEND_URL`, defaulting to `http://backend:8000`. Compose keeps the service name `api`
+  and publishes a `backend` network alias so that default resolves. Do not reintroduce a public API
+  URL into the browser bundle. Set `NEXT_PUBLIC_APP_URL` for SSO callback generation and
+  `CORS_ORIGINS` or `CORS_ORIGIN_REGEX` for deployments where the browser origin differs from the
+  frontend proxy. The browser-facing BIMA SSO host comes from `NEXT_PUBLIC_BIMA_BASE_URL`, sourced
+  from `BIMA_BASE_URL`; never hardcode the BIMA origin in `login/page.tsx`.
 - Production deployment identity is PRISM: set `APP_NAME=PRISM - Document Assurance Platform`,
   `NEXT_PUBLIC_APP_URL=https://prism.reksolindo.co.id`, `CORS_ORIGINS=https://prism.reksolindo.co.id`,
   and `BIMA_CLIENT_ID=prism`. Keep the Compose project name unchanged unless volumes are migrated.
 - `POST /api/v1/projects/sync-bima` is lead/superuser-only and uses the HttpOnly `bima_access_token`
-  established during BIMA credential/SSO login. It calls BIMA `GET /api/projects`, matches by BIMA
-  ID/code/name, and upserts the local project master data. Migration `20260916_0014_bima_projects`
-  adds `projects.bima_project_id` and the persisted BIMA status.
+  established during BIMA credential/SSO login. It calls BIMA `GET /api/projects` **and**
+  `GET /api/users`, validates both through `services/bima_adapter.py`, and upserts local project
+  master data **matched solely on `projects.bima_project_id`** (never by name/code — the earlier
+  OR-match could merge unrelated projects). Migration `20260916_0014_bima_projects` adds
+  `projects.bima_project_id` and the persisted BIMA status; migration `20260923_0015_project_members`
+  adds the membership table. See "PRISM Membership & Workspace Contract" below.
 
 - `POST /api/v1/auth/login` returns a bearer token and user role; `GET /api/v1/auth/me` returns
   the current user.
@@ -239,3 +256,50 @@ production endpoint: HTTP 200
   5. `current_user.role in {LEAD_ENGINEER, SUPERUSER}`
 - For DOCX uploads, the review endpoints serve the converted `preview.pdf`. If the document is still in `QUEUED` or `PROCESSING` pipeline state, an HTTP 409 is returned with a descriptive message. If completed, an on-the-fly conversion fallback via headless LibreOffice is invoked if `preview.pdf` was not yet generated.
 - `pdf-canvas-viewer.tsx` and API helpers fetch with `credentials: "include"`, pass the Bearer token via `Authorization: Bearer <token>`, and use `cache: "no-store"` to avoid browser caching of transient preview generation states.
+
+## PRISM Membership & Workspace Contract
+
+Membership is the bridge between BIMA master data and PRISM read access. Do not weaken the validation or widen membership into write authorization.
+
+### Adapter boundary
+
+- `backend/services/bima_adapter.py` owns the entire BIMA directory contract. `BimaMasterDataAdapter.adapt()` accepts the documented aliases (`bima_project_id`/`id`, `name`/`project_name`, `code`/`project_code`, `plant_area`/`plant`, `member_ids`/`members`, `pic_id`/`pic`) and rejects everything else with HTTP 502 **before any database write**.
+- Rejected input includes: non-integer or non-positive IDs, `bool` used as an ID, missing/absent member list (absent membership is never treated as "empty"), duplicate project or user IDs, member IDs missing from the fetched directory, and blank emails or names. Error strings are load-bearing — tests assert them by code, so change them deliberately.
+- Membership is `member_ids ∪ {pic_id}`. The adapter returns only directory users actually referenced by a project; never upsert the whole BIMA directory.
+- `services/bima_client._fetch_bima_directory` is shared by `fetch_bima_projects` and `fetch_bima_users`. A malformed envelope now raises 502 instead of silently returning `[]` — that silent-empty behavior previously let a bad payload look like "zero projects".
+
+### Transactional sync
+
+- `sync_bima_projects` is all-or-nothing: fetch both feeds → adapt → upsert users (`upsert_bima_user(..., commit=False)`) → upsert projects → single `session.commit()`. `SQLAlchemyError` triggers `rollback()` and a 502. Never move the commit inside the loop.
+- `upsert_bima_user(session, payload, *, commit=True)` is keyword-only on purpose. Login and SSO keep the default `True`; only sync passes `commit=False`, which flushes instead of committing.
+- Projects are matched **solely** on the unique `Project.bima_project_id`. The previous name/code OR-match could merge two unrelated projects; do not reintroduce it.
+- Sync updates `name`, `code`, `description`, `plant_area`, `status`, and the full member set. It must never touch `assigned_to_id`, `created_by_id`, `finished_at`, documents, or projects absent from the payload.
+
+### Persistence
+
+- `project_members` is a secondary table in `backend/models/project.py` with a `(project_id, user_id)` composite primary key, both FKs `ON DELETE CASCADE`, and `ix_project_members_user_id`. Migration `20260923_0015_project_members` is the current schema head; it performs no backfill.
+- `Project.members` / `User.member_projects` are bidirectional. Lazy loading stays at the default `select`, so **any async code touching `project.members` must eager-load it explicitly** — `selectinload(Project.members)` for project loads, `joinedload(Document.project).selectinload(Project.members)` in `accessible_document_query`. Lazy-loading inside async authorization raises `MissingGreenlet`.
+- `backend/tests/test_models.py` asserts the exact registered table set. Adding a table means updating that assertion.
+
+### Read-only RBAC
+
+- Membership grants **reads only**. It is applied in `list_projects`, `list_project_documents`, `list_documents`, and `check_document_read_access` (which already had a dormant `project.members` branch, now backed by real data).
+- `list_project_documents` treats BIMA-backed projects specially: a non-member engineer gets 403, a member engineer sees every document in the project. Local (non-BIMA) projects keep the legacy `assigned_to_id == me OR owner_id == me` filter.
+- Do **not** add member authorization to upload, claim, assignment, `mark-reviewed`, `verify`, request-revision, or issue curation. `PATCH /api/v1/issues/{issue_id}/curation` must still 404 for a member engineer who is neither owner nor assignee — this is asserted in tests.
+- Engineers still cannot inspect other users' projects through the `user_id` filter.
+
+### Design tokens and primitives
+
+- `frontend/src/app/globals.css` defines shadcn semantic light/dark pairs (`--background`, `--foreground`, `--card`, `--primary`, `--muted`, `--accent`, `--border`, `--ring`, …) plus legacy aliases (`--canvas`, `--panel`, `--line`, `--text`) that keep the older component CSS readable in both themes.
+- `@custom-variant dark (&:where(.dark, .dark *))` makes `dark:` utilities follow the `.dark` class rather than the OS preference. `ThemeToggle` sets `data-theme` **and** the `.dark`/`.light` classes, and `app/layout.tsx` runs a pre-paint bootstrap script so a persisted dark theme does not flash light. Keep the `matqc-theme` storage key and `matqc-theme-change` event contract.
+- Two legacy names collide with shadcn semantics and must stay separated: text `--muted` is now `--muted-foreground` (the surface value is `--muted`), and the old brand-blue `--accent`/`--accent-soft` are now `--brand`/`--brand-soft`. The brand-blue accents have since been consolidated onto `primary`, so prefer `text-primary` / `bg-primary` / `bg-accent` for new work.
+- `frontend/src/components/ui/` holds local `card.tsx`, `table.tsx`, and `resizable.tsx` built on `@/lib/utils`'s `cn`. `cn` is a plain join with **no tailwind-merge**: a `className` prop cannot reliably override a conflicting default utility (Tailwind emits `px-6` after `px-3`). Where an override must win, use arbitrary values such as `px-[12px] py-[8px]`, as `traceability-summary-modal.tsx` does.
+- `react-resizable-panels` sizing props must be percentage **strings** (`defaultSize="60"`). Bare numbers are interpreted as pixels.
+- The review workspace is `h-[calc(100dvh-4rem)]` and relies on the `h-16` app-shell topbar. At ≥1024 px `split-screen-viewer.tsx` renders a `Group`/`Panel`/`Separator` layout (60/40, mins 45/25, max 55); below that it keeps the Document/Findings pane switcher, which is rendered in both the embedded and standalone headers.
+
+### PDF pan/zoom invariants
+
+- Zoom stays continuous (exponential Ctrl/Meta-wheel, no percent snapping) within `0.4–10`, anchored to the pointer. Ordinary wheel scrolling is untouched.
+- Left-button mouse drag pans the existing scroll container via pointer capture with a 3 px threshold. Touch pointer types are ignored so native scrolling survives; the toolbar is never a drag surface.
+- The wheel listener is bound in an effect keyed on `isLoading` because the scroll container only exists after the document loads. Reverting it to `[]` silently breaks zoom.
+- The canvas and `HighlightOverlay` must keep sharing one positioned wrapper: the wrapper's CSS size comes from the same PDF.js viewport as the canvas, and overlay percentages derive from `BoundingBox.page_width/page_height`. Never scale the overlay with an independent transform.

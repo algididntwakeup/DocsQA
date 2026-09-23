@@ -10,7 +10,7 @@ from fastapi import HTTPException
 
 from api.projects import assign_project, delete_project, finish_project
 from core.dependencies import require_lead
-from domain.enums import DocumentStatus, UserRole
+from domain.enums import DocumentStatus, DocumentWorkflowStatus, UserRole
 from models.document import Document
 from models.project import Project
 from models.user import User
@@ -259,3 +259,78 @@ async def test_delete_rejects_project_with_documents() -> None:
 
     assert error.value.status_code == 409
     session.delete.assert_not_awaited()
+
+
+def _bima_project(lead: User, member: User | None) -> Project:
+    project = Project(
+        id=uuid4(),
+        name="BIMA Plant",
+        code="BIMA-1",
+        bima_project_id=77,
+        status="ACTIVE",
+        created_by_id=lead.id,
+        created_by=lead,
+        documents=[],
+        assigned_to=None,
+        created_at=datetime.now(UTC),
+    )
+    project.members = [member] if member is not None else []
+    return project
+
+
+@pytest.mark.anyio
+async def test_project_member_lists_all_project_documents() -> None:
+    from api.projects import list_project_documents
+
+    lead = _user(UserRole.LEAD_ENGINEER)
+    member = _user(UserRole.ENGINEER)
+    project = _bima_project(lead, member)
+    document = Document(
+        id=uuid4(),
+        original_filename="member-visible.pdf",
+        safe_filename="member-visible",
+        media_type="application/pdf",
+        size_bytes=1,
+        sha256="b" * 64,
+        storage_uri="local://member-visible.pdf",
+        status=DocumentStatus.COMPLETED,
+        progress_pct=100,
+        project_id=project.id,
+        workflow_status=DocumentWorkflowStatus.ANALYZING,
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+    document.project = project
+    document.owner = lead
+    document.assigned_to = None
+    session = AsyncMock()
+    session.execute.side_effect = [
+        type("Result", (), {"scalar_one_or_none": lambda self: project})(),
+        type(
+            "Result",
+            (),
+            {"scalars": lambda self: type("Scalars", (), {"all": lambda _s: [document]})()},
+        )(),
+    ]
+
+    response = await list_project_documents(project.id, session, member)
+
+    assert [item.id for item in response.documents] == [document.id]
+
+
+@pytest.mark.anyio
+async def test_non_member_engineer_cannot_list_bima_project_documents() -> None:
+    from api.projects import list_project_documents
+
+    lead = _user(UserRole.LEAD_ENGINEER)
+    outsider = _user(UserRole.ENGINEER)
+    project = _bima_project(lead, None)
+    session = AsyncMock()
+    session.execute.return_value = type(
+        "Result", (), {"scalar_one_or_none": lambda self: project}
+    )()
+
+    with pytest.raises(HTTPException) as error:
+        await list_project_documents(project.id, session, outsider)
+
+    assert error.value.status_code == 403

@@ -4,7 +4,7 @@ const documentId = "c6a4507d-bbfd-4c71-b64a-5f42f7fd1cde";
 const timestamp = "2026-09-04T08:00:00Z";
 
 test("uploads a document and reaches extracted status", async ({ page }) => {
-  await page.route("http://localhost:8000/api/v1/documents/upload", async (route) => {
+  await page.route("**/api/v1/documents/upload", async (route) => {
     await route.fulfill({
       contentType: "application/json",
       status: 201,
@@ -17,7 +17,7 @@ test("uploads a document and reaches extracted status", async ({ page }) => {
       }),
     });
   });
-  await page.route(`http://localhost:8000/api/v1/documents/${documentId}`, async (route) => {
+  await page.route(`**/api/v1/documents/${documentId}`, async (route) => {
     await route.fulfill({
       contentType: "application/json",
       body: JSON.stringify({
@@ -35,7 +35,7 @@ test("uploads a document and reaches extracted status", async ({ page }) => {
       }),
     });
   });
-  await page.route(`http://localhost:8000/api/v1/documents/${documentId}/status`, async (route) => {
+  await page.route(`**/api/v1/documents/${documentId}/status`, async (route) => {
     await route.fulfill({
       contentType: "application/json",
       body: JSON.stringify({

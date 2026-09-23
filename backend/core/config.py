@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     LOCAL_FALLBACK_EMAILS: str = ""
 
     # ── Database ─────────────────────────────────────────────────────
-    DATABASE_URL: str = "postgresql+asyncpg://docqc:docqc@postgres:5432/docqc"
+    DATABASE_URL: str = "postgresql+asyncpg://prism:prism@postgres:5432/prism"
 
     # ── Redis / Celery ───────────────────────────────────────────────
     REDIS_URL: str = "redis://redis:6379/0"

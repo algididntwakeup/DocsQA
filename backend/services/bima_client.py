@@ -122,33 +122,69 @@ async def verify_sso_token(token: str) -> dict[str, Any]:
         ) from exc
 
 
-async def fetch_bima_projects(bima_token: str) -> list[dict[str, Any]]:
-    """Fetch active/reference projects from BIMA using a user bearer token."""
+def _directory_rows(
+    payload: Any, keys: tuple[str, ...], malformed_detail: str
+) -> list[dict[str, Any]]:
+    """Unwrap a BIMA directory envelope, rejecting unrecognized shapes."""
+    data = payload.get("data", payload) if isinstance(payload, dict) else payload
+    if isinstance(data, dict):
+        for key in keys:
+            candidate = data.get(key)
+            if isinstance(candidate, list):
+                data = candidate
+                break
+        else:
+            data = None
+    if not isinstance(data, list):
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=malformed_detail,
+        )
+    return [item for item in data if isinstance(item, dict)]
+
+async def _fetch_bima_directory(
+    bima_token: str,
+    path: str,
+    keys: tuple[str, ...],
+    unauthorized_detail: str,
+    malformed_detail: str,
+) -> list[dict[str, Any]]:
+    """Fetch one BIMA directory endpoint using a user bearer token."""
     try:
         async with httpx.AsyncClient(timeout=settings.BIMA_TIMEOUT_SECONDS) as client:
             response = await client.get(
-                f"{settings.BIMA_BASE_URL.rstrip('/')}/api/projects",
+                f"{settings.BIMA_BASE_URL.rstrip('/')}{path}",
                 headers={"Authorization": f"Bearer {bima_token}"},
             )
-            if response.status_code == 401:
+            if response.status_code != 200:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="BIMA project access is unauthorized.",
+                    detail=unauthorized_detail,
                 )
-            response.raise_for_status()
-            payload = response.json()
-            data = payload.get("data", payload) if isinstance(payload, dict) else payload
-            if isinstance(data, dict):
-                data = data.get("projects", data.get("items", []))
-            if not isinstance(data, list):
-                raise HTTPException(
-                    status_code=status.HTTP_502_BAD_GATEWAY,
-                    detail="Invalid BIMA project response.",
-                )
-            return [item for item in data if isinstance(item, dict)]
+            return _directory_rows(response.json(), keys, malformed_detail)
     except HTTPException:
         raise
     except httpx.HTTPError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="BIMA is unavailable."
         ) from exc
+
+async def fetch_bima_projects(bima_token: str) -> list[dict[str, Any]]:
+    """Fetch active/reference projects from BIMA using a user bearer token."""
+    return await _fetch_bima_directory(
+        bima_token,
+        "/api/projects",
+        ("projects", "items"),
+        "BIMA project access is unauthorized.",
+        "BIMA project directory response is malformed.",
+    )
+
+async def fetch_bima_users(bima_token: str) -> list[dict[str, Any]]:
+    """Fetch the BIMA user directory using a user bearer token."""
+    return await _fetch_bima_directory(
+        bima_token,
+        "/api/users",
+        ("users", "items"),
+        "BIMA project access is unauthorized.",
+        "BIMA user directory response is malformed.",
+    )

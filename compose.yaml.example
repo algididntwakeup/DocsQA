@@ -1,14 +1,14 @@
-name: docsqa
+name: prism
 
 services:
   postgres:
     image: postgres:17-alpine
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-docqc}
-      POSTGRES_USER: ${POSTGRES_USER:-docqc}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-docqc}
+      POSTGRES_DB: ${POSTGRES_DB:-prism}
+      POSTGRES_USER: ${POSTGRES_USER:-prism}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-prism}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${POSTGRES_PORT:-5433}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -23,7 +23,7 @@ services:
     image: redis:7.4-alpine
     command: ["redis-server", "--appendonly", "yes"]
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "${REDIS_PORT:-6380}:6379"
     volumes:
       - redis-data:/data
     healthcheck:
@@ -38,12 +38,16 @@ services:
       context: ./backend
     command: ["python", "-m", "alembic", "upgrade", "head"]
     environment: &backend-environment
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-docqc}:${POSTGRES_PASSWORD:-docqc}@postgres:5432/${POSTGRES_DB:-docqc}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-prism}:${POSTGRES_PASSWORD:-prism}@postgres:5432/${POSTGRES_DB:-prism}
+      APP_NAME: ${APP_NAME:-PRISM - Document Assurance Platform}
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/1
       STORAGE_ROOT: /app/storage/uploads
       CORS_ORIGINS: ${CORS_ORIGINS:-}
+      CORS_ORIGIN_REGEX: ${CORS_ORIGIN_REGEX:-}
+      BIMA_BASE_URL: ${BIMA_BASE_URL:-https://bima.reksolindo.co.id}
+      BIMA_CLIENT_ID: ${BIMA_CLIENT_ID:-prism}
       AUTH_MODE: required
       SECRET_KEY: ${SECRET_KEY:-change-this-development-secret-key}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
@@ -56,8 +60,12 @@ services:
     build:
       context: ./backend
     environment: *backend-environment
+    networks:
+      default:
+        aliases:
+          - backend
     ports:
-      - "${API_PORT:-8000}:8000"
+      - "${API_PORT:-8001}:8000"
     volumes:
       - app_uploads:/app/storage/uploads
     depends_on:
@@ -96,11 +104,16 @@ services:
     build:
       context: ./frontend
       args:
-        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-}
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-}
+        NEXT_PUBLIC_BIMA_CLIENT_ID: ${BIMA_CLIENT_ID:-prism}
+        NEXT_PUBLIC_BIMA_BASE_URL: ${BIMA_BASE_URL:-https://bima.reksolindo.co.id}
     environment:
-      INTERNAL_API_URL: http://api:8000
+      INTERNAL_BACKEND_URL: ${INTERNAL_BACKEND_URL:-http://backend:8000}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-}
+      NEXT_PUBLIC_BIMA_CLIENT_ID: ${BIMA_CLIENT_ID:-prism}
+      NEXT_PUBLIC_BIMA_BASE_URL: ${BIMA_BASE_URL:-https://bima.reksolindo.co.id}
     ports:
-      - "${FRONTEND_PORT:-3000}:3000"
+      - "${FRONTEND_PORT:-3001}:3000"
     depends_on:
       api:
         condition: service_healthy
@@ -108,5 +121,8 @@ services:
 
 volumes:
   postgres-data:
+    name: prism_postgres-data
   redis-data:
+    name: prism_redis-data
   app_uploads:
+    name: prism_app_uploads

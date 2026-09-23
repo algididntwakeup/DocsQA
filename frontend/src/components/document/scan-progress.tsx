@@ -68,18 +68,18 @@ export function ScanProgress({ scan }: { scan: DocumentStatus }) {
             <div
               className={`flex flex-col gap-1 p-3 rounded-xl border text-xs font-semibold transition ${
                 active
-                  ? "border-blue-300 bg-blue-50 text-blue-800 shadow-xs"
+                  ? "border-primary/30 bg-accent text-accent-foreground shadow-xs"
                   : complete
                   ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                  : "border-slate-200 bg-slate-50/50 text-slate-500"
+                  : "border-border bg-muted/50 text-muted-foreground"
               }`}
               key={name}
             >
               <div className="flex items-center gap-1.5">
-                <span className={`h-2 w-2 rounded-full ${active ? "bg-blue-600 animate-pulse" : complete ? "bg-emerald-600" : "bg-slate-300"}`} />
+                <span className={`h-2 w-2 rounded-full ${active ? "bg-primary animate-pulse" : complete ? "bg-emerald-600" : "bg-slate-300"}`} />
                 <span>{name === "EXTRACTING" ? "Extracting" : name === "LAYOUT_INSPECTION" ? "Layout" : name === "BUDINSKI_AUDIT" ? "Budinski" : "Standards"}</span>
               </div>
-              <small className="text-[10px] font-medium text-slate-400">{complete ? "Complete" : active ? "Running" : "Queued"}</small>
+              <small className="text-[10px] font-medium text-muted-foreground">{complete ? "Complete" : active ? "Running" : "Queued"}</small>
             </div>
           );
         })}

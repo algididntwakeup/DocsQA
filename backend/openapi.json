@@ -1415,7 +1415,7 @@
             "instance": "/api/v1/documents/upload",
             "status": 501,
             "title": "Feature not ready",
-            "type": "urn:docqc:error:FEATURE_NOT_READY"
+            "type": "urn:prism:error:FEATURE_NOT_READY"
           }
         ],
         "properties": {
@@ -2773,7 +2773,7 @@
   },
   "info": {
     "description": "Automated first-pass quality review of engineering documents (PDF/DOCX)",
-    "title": "Document QC API",
+    "title": "PRISM - Document Assurance Platform",
     "version": "0.1.0"
   },
   "openapi": "3.1.0",
@@ -4831,7 +4831,7 @@
     },
     "/api/v1/projects/sync-bima": {
       "post": {
-        "description": "Synchronize BIMA projects into the local project master data.",
+        "description": "Synchronize BIMA projects and their members into the local master data.",
         "operationId": "sync_bima_projects_api_v1_projects_sync_bima_post",
         "parameters": [
           {

@@ -1,7 +1,7 @@
 """Project-scoped document endpoints."""
 
 from datetime import UTC, datetime
-from typing import Annotated, Any
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import (
@@ -16,9 +16,11 @@ from fastapi import (
     status,
 )
 from sqlalchemy import exists, or_, select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, selectinload
 
+from api.auth import upsert_bima_user
 from core.dependencies import get_current_user, get_upload_service, require_lead
 from db.session import get_session
 from domain.enums import DocumentStatus, Severity, UserRole
@@ -29,7 +31,8 @@ from models.user import User
 from schemas.common import PageInfo
 from schemas.documents import DocumentListResponse, DocumentRead, DocumentUploadResponse
 from schemas.project import ProjectAssignment, ProjectCreate, ProjectRead
-from services import bima_client
+from services import bima_client as bima_client
+from services.bima_adapter import BimaMasterDataAdapter
 from services.pipeline import enqueue_extraction
 from services.uploads import UploadService
 
@@ -55,7 +58,7 @@ def _project_read(project: Project) -> ProjectRead:
         created_by_name=project.created_by.full_name if project.created_by else None,
         assigned_to_name=project.assigned_to.full_name if project.assigned_to else None,
         total_documents=len(project.documents),
-        # The API status remains the DocsQA lifecycle status; BIMA's raw status
+        # The API status remains the PRISM lifecycle status; BIMA's raw status
         # is persisted separately on Project for synchronization decisions.
         status=_project_status(project),
     )
@@ -91,11 +94,6 @@ def _ensure_project_open(project: Project) -> None:
         )
 
 
-def _bima_project_id(data: dict[str, Any]) -> int | None:
-    value = data.get("bima_project_id", data.get("id"))
-    return int(value) if value is not None else None
-
-
 @router.post("/sync-bima")
 async def sync_bima_projects(
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -103,7 +101,7 @@ async def sync_bima_projects(
     bima_token: Annotated[str | None, Header(alias="X-BIMA-Token")] = None,
     bima_cookie: Annotated[str | None, Cookie(alias="bima_access_token")] = None,
 ) -> dict[str, int]:
-    """Synchronize BIMA projects into the local project master data."""
+    """Synchronize BIMA projects and their members into the local master data."""
     token = bima_token or bima_cookie
     if not token:
         raise HTTPException(
@@ -111,34 +109,65 @@ async def sync_bima_projects(
             detail="BIMA token is required to sync projects.",
         )
     remote_projects = await bima_client.fetch_bima_projects(token)
+    remote_users = await bima_client.fetch_bima_users(token)
+    master = BimaMasterDataAdapter().adapt(remote_projects, remote_users)
     created = 0
     updated = 0
-    for remote in remote_projects:
-        remote_id = _bima_project_id(remote)
-        code = remote.get("code") or remote.get("project_code")
-        name = str(remote.get("name") or remote.get("project_name") or "BIMA Project")
-        query = select(Project)
-        match_conditions = [Project.name == name]
-        if remote_id is not None:
-            match_conditions.insert(0, Project.bima_project_id == remote_id)
-        if code:
-            match_conditions.insert(0, Project.code == str(code))
-        query = query.where(or_(*match_conditions))
-        project = (await session.execute(query)).scalar_one_or_none()
-        if project is None:
-            project = Project(name=name, created_by_id=current_user.id)
-            session.add(project)
-            created += 1
-        else:
-            updated += 1
-        project.bima_project_id = remote_id
-        project.name = name
-        project.code = str(code) if code is not None else project.code
-        project.description = remote.get("description") or project.description
-        project.plant_area = remote.get("plant_area") or remote.get("plant") or project.plant_area
-        project.status = str(remote.get("status") or "ACTIVE").upper()
-    await session.commit()
-    return {"synced": len(remote_projects), "created": created, "updated": updated}
+    try:
+        user_by_bima_id: dict[int, User] = {}
+        for record in master.users:
+            user = await upsert_bima_user(
+                session,
+                {
+                    "bima_id": record.bima_id,
+                    "email": record.email,
+                    "full_name": record.full_name,
+                    "role": record.role,
+                    "department": record.department,
+                    "position": record.position,
+                },
+                commit=False,
+            )
+            user_by_bima_id[record.bima_id] = user
+        for remote in master.projects:
+            project = (
+                await session.execute(
+                    select(Project)
+                    .options(selectinload(Project.members))
+                    .where(Project.bima_project_id == remote.bima_project_id)
+                )
+            ).scalar_one_or_none()
+            if project is None:
+                project = Project(
+                    name=remote.name,
+                    code=remote.code,
+                    description=remote.description,
+                    plant_area=remote.plant_area,
+                    status=remote.status,
+                    created_by_id=current_user.id,
+                    bima_project_id=remote.bima_project_id,
+                    members=[user_by_bima_id[bima_id] for bima_id in remote.member_bima_ids],
+                )
+                session.add(project)
+                created += 1
+            else:
+                updated += 1
+                project.members = [
+                    user_by_bima_id[bima_id] for bima_id in remote.member_bima_ids
+                ]
+            project.name = remote.name
+            project.code = remote.code
+            project.description = remote.description
+            project.plant_area = remote.plant_area
+            project.status = remote.status
+        await session.commit()
+    except SQLAlchemyError as exc:
+        await session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="BIMA sync could not be applied; no changes were saved.",
+        ) from exc
+    return {"synced": len(master.projects), "created": created, "updated": updated}
 
 
 @router.post("", response_model=ProjectRead, status_code=201)
@@ -183,6 +212,7 @@ async def list_projects(
     elif current_user.role not in {UserRole.LEAD_ENGINEER, UserRole.SUPERUSER}:
         query = query.where(
             (Project.assigned_to_id == current_user.id)
+            | Project.members.any(User.id == current_user.id)
             | exists().where(
                 Document.project_id == Project.id,
                 or_(
@@ -288,13 +318,33 @@ async def list_project_documents(
         .options(
             joinedload(Document.owner),
             joinedload(Document.assigned_to),
-            joinedload(Document.project),
+            joinedload(Document.project).selectinload(Project.members),
         )
     )
-    if current_user.role == UserRole.ENGINEER:
-        query = query.where(
-            or_(Document.assigned_to_id == current_user.id, Document.owner_id == current_user.id)
+    project = (
+        await session.execute(
+            select(Project)
+            .options(selectinload(Project.members))
+            .where(Project.id == project_id)
         )
+    ).scalar_one_or_none()
+    member_ids = {member.id for member in project.members} if project is not None else set()
+    is_member = current_user.id in member_ids
+    bima_backed = project is not None and project.bima_project_id is not None
+    if current_user.role == UserRole.ENGINEER:
+        if bima_backed:
+            if not is_member:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You do not have access to this project.",
+                )
+        else:
+            query = query.where(
+                or_(
+                    Document.assigned_to_id == current_user.id,
+                    Document.owner_id == current_user.id,
+                )
+            )
     elif engineer_id is not None:
         query = query.where(Document.assigned_to_id == engineer_id)
     if workflow_status is not None:

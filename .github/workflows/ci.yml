@@ -17,16 +17,16 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: docqc
+          POSTGRES_DB: prism
         ports:
           - 5432:5432
         options: >-
-          --health-cmd="pg_isready -U postgres -d docqc"
+          --health-cmd="pg_isready -U postgres -d prism"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
     env:
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/docqc
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/prism
     defaults:
       run:
         working-directory: backend

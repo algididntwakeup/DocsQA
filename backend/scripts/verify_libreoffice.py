@@ -19,7 +19,7 @@ def main() -> int:
     if not source.is_file() or source.suffix.lower() != ".docx":
         parser.error(f"DOCX input does not exist: {source}")
 
-    output_dir = (args.output_dir or Path(tempfile.mkdtemp(prefix="docsqa-render-"))).resolve()
+    output_dir = (args.output_dir or Path(tempfile.mkdtemp(prefix="prism-render-"))).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     binary = os.environ.get("LIBREOFFICE_BIN", "soffice")
     result = subprocess.run(

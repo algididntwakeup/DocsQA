@@ -14,6 +14,7 @@ def test_foundation_tables_are_registered() -> None:
         "stage_runs",
         "issues",
         "dictionary_terms",
+        "project_members",
         "projects",
         "users",
     }
