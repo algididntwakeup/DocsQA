@@ -98,9 +98,7 @@ export interface CreateManagedUserPayload {
 }
 
 export function getApiBaseUrl(): string {
-  if (typeof window !== "undefined") {
-    return "/api/v1";
-  }
+  if (typeof window !== "undefined") return "/api/v1";
 
   const internal = process.env.INTERNAL_BACKEND_URL;
   if (internal) {
