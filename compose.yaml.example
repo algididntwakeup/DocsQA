@@ -107,11 +107,13 @@ services:
         NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-}
         NEXT_PUBLIC_BIMA_CLIENT_ID: ${BIMA_CLIENT_ID:-prism}
         NEXT_PUBLIC_BIMA_BASE_URL: ${BIMA_BASE_URL:-https://bima.reksolindo.co.id}
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-}
     environment:
       INTERNAL_BACKEND_URL: ${INTERNAL_BACKEND_URL:-http://backend:8000}
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-}
       NEXT_PUBLIC_BIMA_CLIENT_ID: ${BIMA_CLIENT_ID:-prism}
       NEXT_PUBLIC_BIMA_BASE_URL: ${BIMA_BASE_URL:-https://bima.reksolindo.co.id}
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-}
     ports:
       - "${FRONTEND_PORT:-3001}:3000"
     depends_on:
