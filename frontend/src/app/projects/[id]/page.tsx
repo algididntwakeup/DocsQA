@@ -41,6 +41,12 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       setDocuments(result.documents);
       setRole(user.role); setCurrentUserId(user.id); setEngineers(activeEngineers);
     } catch (caught) {
+      if (caught instanceof ApiError && caught.status === 401) {
+        if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+          window.location.replace("/login");
+          return;
+        }
+      }
       setError(caught instanceof ApiError ? caught.message : t("couldNotLoadProjects"));
     } finally {
       loadingRef.current = false; setLoading(false);

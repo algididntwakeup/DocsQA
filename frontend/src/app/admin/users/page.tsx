@@ -41,6 +41,12 @@ export default function AdminUsersPage() {
         const managed = await listManagedUsers();
         if (active) setUsers(managed);
       } catch (caught) {
+        if (caught instanceof ApiError && caught.status === 401) {
+          if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+            window.location.replace("/login");
+            return;
+          }
+        }
         if (active) setError(caught instanceof ApiError ? caught.message : t("couldNotLoadUsers"));
       } finally {
         if (active) setLoading(false);

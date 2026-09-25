@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowRight, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { useLocale } from "@/components/layout/locale-provider";
 import { LanguageToggle } from "@/components/layout/language-toggle";
@@ -59,7 +59,8 @@ export default function LoginPage() {
           <button
             type="button"
             onClick={handleSsoClick}
-            className="group flex min-h-14 w-full items-center justify-center gap-3 rounded-xl bg-primary px-5 py-4 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition hover:-translate-y-0.5 hover:bg-primary/90 hover:shadow-xl hover:shadow-primary/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            disabled={submitting}
+            className="group flex min-h-14 w-full items-center justify-center gap-3 rounded-xl bg-primary px-5 py-4 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition hover:-translate-y-0.5 hover:bg-primary/90 hover:shadow-xl hover:shadow-primary/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-60"
           >
             <span>{t("bimaSso")}</span>
             <ArrowRight size={17} className="transition-transform group-hover:translate-x-1" />

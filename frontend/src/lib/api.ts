@@ -148,9 +148,11 @@ export function setAuthToken(token: string | null): void {
       if (token) {
         sessionStorage.setItem("prism_auth_token", token);
         localStorage.setItem("prism_auth_token", token);
+        document.cookie = `access_token=Bearer ${encodeURIComponent(token)}; path=/; max-age=86400; SameSite=Lax`;
       } else {
         sessionStorage.removeItem("prism_auth_token");
         localStorage.removeItem("prism_auth_token");
+        document.cookie = "access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
       }
     } catch {
       // Ignore storage errors in restricted environments
@@ -177,8 +179,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     headers,
     credentials: "include",
   });
-  if (response.status === 401 && typeof window !== "undefined" && window.location.pathname !== "/login") {
-    window.location.pathname = "/login";
+  if (response.status === 401 && typeof window !== "undefined") {
+    setAuthToken(null);
+    const currentPath = window.location.pathname;
+    if (currentPath !== "/login" && !currentPath.startsWith("/auth/sso")) {
+      window.location.replace("/login");
+    }
   }
   if (!response.ok) {
     let message = `Request failed (${response.status}).`;
