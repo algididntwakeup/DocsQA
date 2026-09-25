@@ -609,7 +609,8 @@ async def list_document_issues(
     ).all()
     counts_by_severity: dict[Severity, int] = {s: 0 for s in Severity}
     for sev, count in counts_result:
-        counts_by_severity[sev] = count
+        with contextlib.suppress(ValueError):
+            counts_by_severity[Severity(sev)] = count
 
     # Filtered query for pagination
     query = select(Issue).where(Issue.document_id == document_id)
