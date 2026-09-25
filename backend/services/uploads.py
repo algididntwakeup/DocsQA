@@ -11,7 +11,7 @@ from zipfile import BadZipFile, ZipFile
 
 from fastapi import UploadFile
 from fastapi.concurrency import run_in_threadpool
-from sqlalchemy import Select, select
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -153,8 +153,8 @@ class UploadService:
         self.settings = settings
 
     @staticmethod
-    def _active_hash_query(sha256: str) -> Select[tuple[Document]]:
-        return (
+    async def _find_active_by_hash(session: AsyncSession, sha256: str) -> Document | None:
+        query = (
             select(Document)
             .where(
                 Document.sha256 == sha256,
@@ -163,6 +163,8 @@ class UploadService:
             .order_by(Document.created_at.desc())
             .limit(1)
         )
+        result = (await session.execute(query)).scalar_one_or_none()
+        return result
 
     async def _delete_stored_object(self, stored: StoredObject) -> None:
         """Clean a rejected temporary upload without masking its validation error."""
@@ -196,9 +198,7 @@ class UploadService:
                 profile,
                 self.settings,
             )
-            existing = (
-                await session.execute(self._active_hash_query(stored.sha256))
-            ).scalar_one_or_none()
+            existing = await self._find_active_by_hash(session, stored.sha256)
             if existing is not None:
                 await self._delete_stored_object(stored)
                 return UploadResult(document=existing, deduplicated=True)
@@ -217,9 +217,7 @@ class UploadService:
                 await session.commit()
             except IntegrityError:
                 await session.rollback()
-                existing = (
-                    await session.execute(self._active_hash_query(stored.sha256))
-                ).scalar_one_or_none()
+                existing = await self._find_active_by_hash(session, stored.sha256)
                 if existing is None:
                     raise
                 await self._delete_stored_object(stored)

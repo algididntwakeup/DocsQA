@@ -99,6 +99,10 @@ export interface CreateManagedUserPayload {
 
 export function getApiBaseUrl(): string {
   if (typeof window !== "undefined") {
+    const publicApiBase = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/+$/, "");
+    if (publicApiBase) {
+      return publicApiBase.endsWith("/api/v1") ? publicApiBase : `${publicApiBase}/api/v1`;
+    }
     return "/api/v1";
   }
 
