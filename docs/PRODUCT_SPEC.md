@@ -20,3 +20,11 @@ It checks technical terminology, spelling/grammar, units, table math, numerical 
 - The DOCX export language is selected independently in the export modal. A report contains one language per file, not side-by-side translations.
 - Report chrome, generated system prose, and finding-type labels are localized. Canonical analyzer type keys are rendered as readable labels in executive DOCX and compiled PDF reports. Analyzer messages, evidence, filenames, technical identifiers, source text, and reviewer notes remain verbatim for traceability.
 - Annotated PDF export remains source-faithful: source page content and stored finding/evidence annotations are preserved.
+
+## Report header and letterhead
+
+- Lead engineers and superusers can configure the default report header from a project's detail page. The settings are stored with the project and used for documents in that project.
+- The shared header editor is also available in the export dialog. Changes made there apply only to that export; they do not update the saved project default.
+- The header supports the Reksolindo and client logos, a centered title, an optional divider, and four placements: company left/client right, client left/company right, both logos left, or both logos right.
+- PDF and DOCX review reports use the same repeating page header. The annotated source PDF is unchanged.
+- Header logos are uploaded as image data and persisted in the project header configuration. The company logo defaults to the bundled Reksolindo asset when no replacement is provided.

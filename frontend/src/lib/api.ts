@@ -41,6 +41,15 @@ export type TraceabilitySummary = components["schemas"]["TraceabilitySummaryResp
 
 export type UserRole = "ENGINEER" | "LEAD_ENGINEER" | "SUPERUSER";
 export type ReportLanguage = "en" | "id";
+export type HeaderPlacement = "split_standard" | "split_inverted" | "both_left" | "both_right";
+export interface HeaderTemplateConfig {
+  enabled: boolean;
+  title: string;
+  company_logo?: string | null;
+  client_logo?: string | null;
+  placement: HeaderPlacement;
+  show_divider: boolean;
+}
 export interface UserSession {
   id: string;
   email: string;
@@ -66,6 +75,7 @@ export interface ProjectItem {
   status?: string;
   finished_at?: string | null;
   created_at: string;
+  header_config?: HeaderTemplateConfig;
 }
 export interface LoginResponse {
   access_token: string;
@@ -295,6 +305,14 @@ export function resetManagedUserPassword(userId: string, temporaryPassword: stri
 
 export function listProjects(): Promise<ProjectItem[]> {
   return request<ProjectItem[]>("/projects", { cache: "no-store" });
+}
+
+export function updateProjectHeaderConfig(projectId: string, headerConfig: HeaderTemplateConfig): Promise<ProjectItem> {
+  return request<ProjectItem>(`/projects/${encodeURIComponent(projectId)}/header-config`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ header_config: headerConfig }),
+  });
 }
 
 export function listProjectsForUser(userId: string): Promise<AssignedProject[]> {

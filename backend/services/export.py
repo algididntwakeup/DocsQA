@@ -37,7 +37,8 @@ from schemas.budinski import (
     MajorFinding,
     ScoreItem,
 )
-from services.docx_styler import apply_document_defaults
+from schemas.report import HeaderTemplateConfig
+from services.docx_styler import apply_document_defaults, apply_document_header
 from services.report_locale import (
     get_budinski_guidance_note,
     get_budinski_item_name,
@@ -752,6 +753,7 @@ def generate_ale_review_docx(
     assessment_result: AssessmentData,
     document: Any = None,
     language: ReportLanguage = ReportLanguage.ENGLISH,
+    header_config: HeaderTemplateConfig | None = None,
 ) -> bytes:
     """
     Generate a complete, professionally formatted DOCX review report from the supplied
@@ -798,6 +800,7 @@ def generate_ale_review_docx(
     if not recommendations:
         recommendations = [strings.rec_fallback_closing]
     _setup_page_header_footer(doc, assessment_result)
+    apply_document_header(doc, header_config or HeaderTemplateConfig())
 
     normal_style = doc.styles["Normal"]
     normal_style.font.name = "Arial"

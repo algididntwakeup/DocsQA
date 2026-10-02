@@ -2,15 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { Download, FileCheck2, FileText, X, ExternalLink } from "lucide-react";
-import { type ExportFormat, type ReportLanguage } from "@/lib/api";
+import { listProjects, type ExportFormat, type HeaderTemplateConfig, type ReportLanguage } from "@/lib/api";
 import { downloadExport } from "@/lib/download";
 import { useLocale } from "@/components/layout/locale-provider";
+import { HeaderTemplateConfigEditor } from "./header-template-config";
 
 interface ExportModalProps {
   documentId: string;
   documentFilename: string;
   isOpen: boolean;
   onClose: () => void;
+  projectId?: string | null;
 }
 
 interface ExportOption {
@@ -25,14 +27,29 @@ interface ExportOption {
   actionLabel: string;
 }
 
-export function ExportModal({ documentId, documentFilename, isOpen, onClose }: ExportModalProps) {
+const defaultHeaderConfig: HeaderTemplateConfig = {
+  enabled: true,
+  title: "EXECUTIVE DOCUMENT REVIEW",
+  company_logo: null,
+  client_logo: null,
+  placement: "split_standard",
+  show_divider: true,
+};
+
+export function ExportModal({ documentId, documentFilename, isOpen, onClose, projectId }: ExportModalProps) {
   const { locale, t } = useLocale();
   const [includeMinors, setIncludeMinors] = useState(false);
   const [reportLanguage, setReportLanguage] = useState<ReportLanguage>(locale);
+  const [headerConfig, setHeaderConfig] = useState<HeaderTemplateConfig>(defaultHeaderConfig);
 
   useEffect(() => {
-    if (isOpen) queueMicrotask(() => setReportLanguage(locale));
-  }, [isOpen, locale]);
+    if (!isOpen) return;
+    queueMicrotask(() => { setReportLanguage(locale); setHeaderConfig(defaultHeaderConfig); });
+    if (projectId) void listProjects().then((projects) => {
+      const saved = projects.find((project) => project.id === projectId)?.header_config;
+      if (saved) setHeaderConfig({ ...defaultHeaderConfig, ...saved });
+    }).catch(() => undefined);
+  }, [isOpen, locale, projectId]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -134,6 +151,7 @@ export function ExportModal({ documentId, documentFilename, isOpen, onClose }: E
               <span>Include spelling, grammar, and informational findings in the export. Off by default to keep the report concise.</span>
             </span>
           </label>
+          <HeaderTemplateConfigEditor value={headerConfig} onChange={setHeaderConfig} />
           <div className="grid grid-cols-1 gap-3">
             {options.map((option) => (
               <div key={option.format} className="panel p-4 flex flex-col justify-between hover:border-sky-500/50 transition-colors">
@@ -159,7 +177,7 @@ export function ExportModal({ documentId, documentFilename, isOpen, onClose }: E
                     className="button button-primary btn-sm flex items-center gap-1.5"
                     onClick={() => {
                       if (option.format === "pdf" || option.format === "docx") {
-                        void downloadExport(documentId, option.format, includeMinors, reportLanguage);
+                        void downloadExport(documentId, option.format, includeMinors, reportLanguage, headerConfig);
                       } else {
                         void downloadExport(documentId, option.format, includeMinors);
                       }

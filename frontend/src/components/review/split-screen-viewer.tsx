@@ -480,6 +480,7 @@ export function SplitScreenViewer({
       <ExportModal
         documentId={document.id}
         documentFilename={document.filename}
+        projectId={document.project_id}
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
       />

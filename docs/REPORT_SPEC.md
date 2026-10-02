@@ -13,6 +13,16 @@
 - The annotated PDF export (`format=annotated_pdf`) remains source-faithful; its language query value is ignored and persisted finding/evidence text remains unchanged.
 - Source-derived content is never machine-translated: finding messages, evidence, technical identifiers, source excerpts, and reviewer notes remain verbatim. Humanization applies to the finding-type label; the annotated PDF remains source-faithful.
 
+## Header template
+
+- Each project stores a default `header_config` JSON object. It contains `enabled`, `title`, `company_logo`, `client_logo`, `placement`, and `show_divider`.
+- Project defaults are updated with `PUT /projects/{project_id}/header-config` and loaded by the export dialog. The project-detail editor is available to lead engineers and superusers while the project is open.
+- An export may override the project default by sending `POST /documents/{document_id}/export` with a JSON body shaped as `{ "header_config": { ... } }`. A direct GET export continues to use the saved project configuration, or the built-in defaults when the document has no project configuration.
+- The schema accepts the equivalent legacy keys `header_enabled`, `title_text`, `company_logo_url`, `client_logo_url`, `logo_placement`, and `show_border_bottom`; saved values use the canonical field names.
+- Placement values are `split_standard`, `split_inverted`, `both_left`, and `both_right`. The top-level header repeats on each report page with explicit 25%/50%/25% columns, proportional logos up to 0.6 inch high, and an optional bottom divider.
+- PDF review reports are rendered from the same configured DOCX through Headless LibreOffice. The annotated source PDF does not use this template.
+- Project persistence is added by Alembic revision `20261002_0017` (`project_header_config`).
+
 The report contains document identity, summary judgement, bottom line, scorecard, blockers, next-revision findings, language findings by page, optional demonstration rewrite, positive observations, and review limits. Executive finding tables show a readable finding type, severity, page, evidence, detected fact, recommendation, and reviewer note; internal rule IDs are not rendered as finding labels.
 
 ## Budinski scoring contract

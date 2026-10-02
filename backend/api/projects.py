@@ -30,7 +30,12 @@ from models.project import Project
 from models.user import User
 from schemas.common import PageInfo
 from schemas.documents import DocumentListResponse, DocumentRead, DocumentUploadResponse
-from schemas.project import ProjectAssignment, ProjectCreate, ProjectRead
+from schemas.project import (
+    ProjectAssignment,
+    ProjectCreate,
+    ProjectHeaderConfigUpdate,
+    ProjectRead,
+)
 from services import bima_client as bima_client
 from services.bima_adapter import BimaMasterDataAdapter
 from services.pipeline import enqueue_extraction
@@ -247,6 +252,22 @@ async def assign_project(
             raise HTTPException(status_code=404, detail="Assigned user not found or inactive.")
     project.assigned_to_id = payload.assigned_to_id
     project.assigned_to = assigned if payload.assigned_to_id is not None else None
+    await session.commit()
+    await session.refresh(project, attribute_names=["created_by", "assigned_to", "documents"])
+    return _project_read(project)
+
+
+@router.put("/{project_id}/header-config", response_model=ProjectRead)
+async def update_project_header_config(
+    project_id: UUID,
+    payload: ProjectHeaderConfigUpdate,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    _: Annotated[User, Depends(require_lead)],
+) -> ProjectRead:
+    """Save the default document header template for this project."""
+    project = await _load_project_for_mutation(session, project_id)
+    _ensure_project_open(project)
+    project.header_config = payload.header_config.model_dump()
     await session.commit()
     await session.refresh(project, attribute_names=["created_by", "assigned_to", "documents"])
     return _project_read(project)

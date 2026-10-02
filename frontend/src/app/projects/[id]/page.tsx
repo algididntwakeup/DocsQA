@@ -1,13 +1,16 @@
 "use client";
 
-import { AlertTriangle, ArrowLeft, MapPin, RefreshCw } from "lucide-react";
+import { AlertTriangle, ArrowLeft, MapPin, RefreshCw, Save } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ApiError, getCurrentUser, listEngineers, listProjectDocuments, listProjects, uploadProjectDocument, type DocumentItem, type ManagedUser, type ProjectItem, type UserRole } from "@/lib/api";
+import { ApiError, getCurrentUser, listEngineers, listProjectDocuments, listProjects, updateProjectHeaderConfig, uploadProjectDocument, type DocumentItem, type HeaderTemplateConfig, type ManagedUser, type ProjectItem, type UserRole } from "@/lib/api";
 
 const isProcessingStatus = (status: string) => status === "QUEUED" || status === "PROCESSING" || status === "ANALYZING";
 import { ProjectDocumentTable } from "@/components/project/project-document-table";
 import { useLocale } from "@/components/layout/locale-provider";
+import { HeaderTemplateConfigEditor } from "@/components/review/header-template-config";
+
+const defaultHeaderConfig: HeaderTemplateConfig = { enabled: true, title: "EXECUTIVE DOCUMENT REVIEW", company_logo: null, client_logo: null, placement: "split_standard", show_divider: true };
 
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -16,10 +19,13 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [role, setRole] = useState<UserRole>("ENGINEER");
   const [currentUserId, setCurrentUserId] = useState<string>();
   const [engineers, setEngineers] = useState<ManagedUser[]>([]);
+  const [headerConfig, setHeaderConfig] = useState<HeaderTemplateConfig>(defaultHeaderConfig);
+  const [savingHeader, setSavingHeader] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<{ engineerId?: string; sortBy: "date_desc" | "date_asc"; hasBlockers?: boolean }>({ sortBy: "date_desc" });
   const loadingRef = useRef(false);
+  const loadedHeaderProjectRef = useRef<string | null>(null);
   const { t } = useLocale();
 
   useEffect(() => {
@@ -37,7 +43,12 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         listProjects(), listProjectDocuments(projectId, filters),
         user.role === "LEAD_ENGINEER" || user.role === "SUPERUSER" ? listEngineers() : Promise.resolve([]),
       ]);
-      setProject(projects.find((item) => item.id === projectId) ?? null);
+      const currentProject = projects.find((item) => item.id === projectId) ?? null;
+      setProject(currentProject);
+      if (currentProject?.header_config && loadedHeaderProjectRef.current !== projectId) {
+        setHeaderConfig({ ...defaultHeaderConfig, ...currentProject.header_config });
+        loadedHeaderProjectRef.current = projectId;
+      }
       setDocuments(result.documents);
       setRole(user.role); setCurrentUserId(user.id); setEngineers(activeEngineers);
     } catch (caught) {
@@ -72,6 +83,20 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       await load();
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : t("uploadCouldNotComplete"));
+    }
+  }
+
+  async function saveHeaderConfig() {
+    if (!projectId) return;
+    setSavingHeader(true);
+    try {
+      const updated = await updateProjectHeaderConfig(projectId, headerConfig);
+      setProject(updated);
+      setError(null);
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : "Could not save header settings.");
+    } finally {
+      setSavingHeader(false);
     }
   }
 
@@ -135,6 +160,16 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           </button>
         </div>
       )}
+
+      {(role === "LEAD_ENGINEER" || role === "SUPERUSER") && project?.status !== "FINISHED" && <section className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold text-foreground">Pengaturan header ekspor</h2>
+          <button type="button" className="button button-primary btn-sm inline-flex items-center gap-1.5" onClick={() => void saveHeaderConfig()} disabled={savingHeader}>
+            <Save size={13} />{savingHeader ? "Menyimpan…" : "Simpan default project"}
+          </button>
+        </div>
+        <HeaderTemplateConfigEditor value={headerConfig} onChange={setHeaderConfig} />
+      </section>}
 
       <ProjectDocumentTable
         projectId={projectId ?? undefined}

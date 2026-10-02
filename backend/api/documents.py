@@ -10,7 +10,17 @@ from pathlib import Path
 from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
+from fastapi import (
+    APIRouter,
+    Body,
+    Depends,
+    File,
+    HTTPException,
+    Query,
+    Response,
+    UploadFile,
+    status,
+)
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -51,6 +61,7 @@ from schemas.documents import (
     TraceabilitySummaryResponse,
 )
 from schemas.issues import IssueListResponse, IssueRead
+from schemas.report import HeaderTemplateConfig, ReportExportRequest
 from services.export import (
     LibreOfficeConversionError,
     assessment_from_document_findings,
@@ -916,6 +927,11 @@ async def get_report_preview(
         }
     },
 )
+@router.post(
+    "/{document_id}/export",
+    response_class=Response,
+    include_in_schema=False,
+)
 async def export_document(
     document_id: UUID,
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -927,6 +943,7 @@ async def export_document(
     ] = False,
     language: Annotated[ReportLanguage | None, Query()] = None,
     lang: Annotated[str | None, Query(pattern=r"^(en|id)$")] = None,
+    export_options: Annotated[ReportExportRequest | None, Body()] = None,
 ) -> Response:
     """Export the formal review report (PDF via LibreOffice or DOCX) or annotated original PDF."""
 
@@ -989,7 +1006,23 @@ async def export_document(
         include_minors=include_minors,
         language=report_lang,
     )
-    docx_bytes = generate_ale_review_docx(assessment, document, language=report_lang)
+    project_config = None
+    if document.project_id is not None:
+        project = await session.get(Project, document.project_id)
+        if project is not None and project.header_config:
+            try:
+                project_config = HeaderTemplateConfig.model_validate(project.header_config)
+            except Exception:
+                project_config = None
+    effective_header_config = (
+        export_options.header_config if export_options else project_config or HeaderTemplateConfig()
+    )
+    docx_bytes = generate_ale_review_docx(
+        assessment,
+        document,
+        language=report_lang,
+        header_config=effective_header_config,
+    )
 
     if format == "docx":
         return Response(

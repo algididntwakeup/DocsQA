@@ -74,7 +74,8 @@ describe("ExportModal", () => {
       docId,
       "pdf",
       false,
-      "en"
+      "en",
+      expect.objectContaining({ enabled: true, placement: "split_standard" })
     );
   });
 
@@ -98,7 +99,8 @@ describe("ExportModal", () => {
       docId,
       "docx",
       false,
-      "id"
+      "id",
+      expect.objectContaining({ enabled: true, placement: "split_standard" })
     );
   });
 
@@ -112,7 +114,9 @@ describe("ExportModal", () => {
       />
     );
 
-    const checkbox = screen.getByRole("checkbox");
+    const checkbox = screen.getByText("Include minor findings").closest("label")?.querySelector("input");
+    expect(checkbox).not.toBeNull();
+    if (!checkbox) throw new Error("Include-minors checkbox not found");
     fireEvent.click(checkbox);
 
     const pdfBtn = screen.getByTestId("export-pdf-btn");
@@ -122,7 +126,8 @@ describe("ExportModal", () => {
       docId,
       "pdf",
       true,
-      "en"
+      "en",
+      expect.objectContaining({ enabled: true, placement: "split_standard" })
     );
   });
 
