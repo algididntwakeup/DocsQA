@@ -620,6 +620,7 @@ async def _run_extraction(document_id: str) -> dict[str, object]:
             else:
                 stage_run.status = StageStatus.SUCCEEDED
             document.page_count = len(artifact.pages) or None
+            document.extracted_metadata = artifact.cover_metadata.model_dump(exclude_none=True)
         except SoftTimeLimitExceeded:
             stage_run.status = StageStatus.FAILED
             stage_run.error_code = "TIMED_OUT"

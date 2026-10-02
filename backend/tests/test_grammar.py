@@ -3,7 +3,7 @@
 from unittest.mock import patch
 from uuid import uuid4
 
-from schemas.extraction import CoordinateContract, ExtractionArtifact, PageMetadata, TextSpan
+from schemas.extraction import CoordinateContract, ExtractionArtifact, Heading, PageMetadata, TextSpan
 from services.grammar import GrammarAnalyzer, analyze_grammar
 
 
@@ -35,6 +35,31 @@ def test_detects_repeated_words() -> None:
     assert "the the" in repeated[0].original_text.lower()
     assert repeated[0].suggestion == "the"
     assert repeated[0].location.page_index == 0
+    assert repeated[0].type == "repeated_phrase"
+
+
+def test_mechanics_findings_use_shared_finding_keys() -> None:
+    analysis = analyze_grammar(
+        _make_artifact(
+            "The report is comprising by this note; nineteen was split as nine-teen in 202 7. "
+            "Compare the stated value 0.65 versus 0.657657658."
+        )
+    )
+    types = {finding.type for finding in analysis.findings}
+    assert "repeated_phrase" in types
+    assert "spelling_split" in types
+    assert "sigfig_inconsistency" in types
+
+
+def test_recommendation_fragment_uses_unclosed_sentence_key() -> None:
+    artifact = _make_artifact("classified as Priority by end-2027")
+    artifact.headings = [
+        Heading(text="Recommendations", level=1, bbox=artifact.spans[0].bbox)
+    ]
+
+    analysis = analyze_grammar(artifact)
+
+    assert any(finding.type == "unclosed_sentence" for finding in analysis.findings)
 
 
 def test_detects_homophone_and_contraction_errors() -> None:

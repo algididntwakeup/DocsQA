@@ -82,6 +82,17 @@ class PageMetadata(ApiModel):
     )
 
 
+class DocumentCoverMetadata(ApiModel):
+    """Identity fields extracted from the first page or source document properties."""
+
+    document_number: str | None = None
+    revision: str | None = None
+    document_date: str | None = None
+    originator: str | None = None
+    contractor: str | None = None
+    page_count: int | None = Field(default=None, ge=1)
+
+
 class PageBlock(ApiModel):
     """
     A structural block on a document page with geometry and font characteristics.
@@ -207,6 +218,7 @@ class ExtractionArtifact(ApiModel):
     schema_version: str = Field(default="1.0")
     document_id: UUID
     pages: list[PageMetadata] = Field(default_factory=list)
+    cover_metadata: DocumentCoverMetadata = Field(default_factory=DocumentCoverMetadata)
     spans: list[TextSpan] = Field(default_factory=list)
     headings: list[Heading] = Field(default_factory=list)
     tables: list[Table] = Field(default_factory=list)

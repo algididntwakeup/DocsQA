@@ -39,7 +39,7 @@ def test_detects_inconsistent_material_grades() -> None:
     )
 
     analysis = analyze_ambiguity(artifact)
-    grade_findings = [f for f in analysis.findings if f.type == "AMBIGUOUS_SPECIFICATION"]
+    grade_findings = [f for f in analysis.findings if f.type == "ambiguous_constraint"]
 
     assert len(grade_findings) == 2
     assert all(f.severity == Severity.MINOR for f in grade_findings)
@@ -60,7 +60,7 @@ def test_detects_vague_non_quantitative_directives() -> None:
     )
 
     analysis = analyze_ambiguity(artifact)
-    vague_findings = [f for f in analysis.findings if f.type == "VAGUE_DIRECTIVE"]
+    vague_findings = [f for f in analysis.findings if f.type == "ambiguous_constraint"]
 
     assert len(vague_findings) >= 3
     phrases = [f.original_text.lower() for f in vague_findings]
@@ -80,7 +80,7 @@ def test_detects_passive_voice_with_active_voice_suggestion() -> None:
     )
 
     analysis = analyze_ambiguity(artifact)
-    passive_findings = [f for f in analysis.findings if f.type == "PASSIVE_VOICE"]
+    passive_findings = [f for f in analysis.findings if f.type == "passive_voice_overuse"]
 
     assert len(passive_findings) == 1
     assert passive_findings[0].suggestion is not None

@@ -12,6 +12,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    JSON,
     String,
     Text,
     UniqueConstraint,
@@ -78,6 +79,9 @@ class Document(TimestampMixin, Base):
     )
     progress_pct: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     page_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    extracted_metadata: Mapped[dict[str, object]] = mapped_column(
+        JSON, default=dict, server_default=text("'{}'"), nullable=False
+    )
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     project_id: Mapped[UUID | None] = mapped_column(ForeignKey("projects.id"), nullable=True)
     owner_id: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"), nullable=True)

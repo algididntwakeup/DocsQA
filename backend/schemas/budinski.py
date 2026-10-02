@@ -302,6 +302,10 @@ class BudinskiScorecard(ApiModel):
     baseline_measures: BaselineMeasures | None = Field(
         default=None, description="Standing 4 baseline measures."
     )
+    demonstration_rewrite: dict[str, Any] | None = Field(
+        default=None,
+        description="Deterministic, source-grounded conclusion rewrite for failed sections.",
+    )
     blockers_count: int = Field(default=0, description="Count of blocking findings.")
     majors_count: int = Field(default=0, description="Count of major findings requiring fix.")
     minors_count: int = Field(default=0, description="Count of minor/language findings.")
@@ -403,6 +407,7 @@ class LanguageFinding(ApiModel):
     """A minor language or mechanics finding."""
 
     page: str = Field(description="Page number(s) where error occurs.")
+    finding_type: str = Field(default="Language and mechanics issue")
     as_written: str = Field(description="Text as written.")
     suggested: str = Field(description="Suggested correction.")
 
@@ -428,6 +433,11 @@ class AssessmentMetadata(ApiModel):
     """Metadata block for the document under review."""
 
     document_reviewed: str = Field(description="Full identity string of the reviewed document.")
+    document_number: str = ""
+    revision: str = ""
+    page_count: int | None = None
+    document_date: str = ""
+    originator: str = ""
     document_type: str = Field(default="", description="Normalized source document type.")
     review_date: str = Field(default="", description="Date on which the review was performed.")
     reviewer: str = Field(default="", description="PIC reviewer name.")

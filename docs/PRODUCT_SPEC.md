@@ -18,5 +18,5 @@ It checks technical terminology, spelling/grammar, units, table math, numerical 
 - An explicit frontend selection is stored in browser `localStorage` under `matqc-locale`. It is presentation state only and is not stored on users, projects, documents, or issues.
 - The language toggle is available on login, the shared application shell, and the standalone review workspace.
 - The DOCX export language is selected independently in the export modal. A report contains one language per file, not side-by-side translations.
-- Report chrome and generated system prose are localized. Analyzer findings, evidence, filenames, identifiers, technical messages, source text, and reviewer notes remain verbatim for traceability.
-- Annotated PDF export remains unchanged and retains original source annotations.
+- Report chrome, generated system prose, and finding-type labels are localized. Canonical analyzer type keys are rendered as readable labels in executive DOCX and compiled PDF reports. Analyzer messages, evidence, filenames, technical identifiers, source text, and reviewer notes remain verbatim for traceability.
+- Annotated PDF export remains source-faithful: source page content and stored finding/evidence annotations are preserved.

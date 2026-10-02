@@ -16,7 +16,12 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Inches, Pt
 
 from domain.enums import ReportLanguage, Severity
-from services.report_locale import get_report_strings
+from services.report_locale import (
+    get_report_strings,
+    humanize_finding_message,
+    humanize_finding_type,
+)
+from services.report_synthesizer import ReportSynthesizer
 
 if TYPE_CHECKING:
     from models.document import Document
@@ -455,10 +460,12 @@ def build_review_report(
             if evidence_summary != "(see finding detail)":
                 fix = f"{fix} Evidence: {evidence_summary}."
             cells = table.add_row().cells
-            cells[0].text = _severity(issue)
-            cells[1].text = issue.type
+            cells[0].text = _severity(issue).title()
+            cells[1].text = humanize_finding_type(issue.type, language=language)
             cells[2].text = location
-            cells[3].text = f"{fix} {issue.message}"
+            cells[3].text = (
+                f"{fix} {humanize_finding_message(issue.message, issue.type, language)}"
+            )
             cells[4].text = str(occurrence_count)
 
     blocker_rows = [
@@ -467,41 +474,18 @@ def build_review_report(
     next_revision_rows = [row for row in finding_rows if row not in blocker_rows]
     add_findings_table(strings.blockers, blocker_rows)
     for issue, _count, _locations in blocker_rows:
-        report.add_paragraph(f"{_severity(issue)}: {issue.type} - {issue.message}")
+        report.add_paragraph(
+            f"{_severity(issue).title()}: {humanize_finding_type(issue.type, language=language)} - "
+            f"{humanize_finding_message(issue.message, issue.type, language)}"
+        )
     add_findings_table(strings.next_revision_findings, next_revision_rows)
 
     report.add_heading(strings.language_mechanics, level=1)
     if not language_issues:
         report.add_paragraph(strings.no_language_findings)
     else:
-        grouped_language: dict[str, list[Issue]] = {}
-        for item in language_issues:
-            grouped_language.setdefault(item.type, []).append(item)
-        summary_parts = []
-        for rule, findings in sorted(grouped_language.items()):
-            pages = sorted({str(_page(item)) for item in findings})
-            if is_english:
-                summary_parts.append(
-                    f"{len(findings)} {rule.lower()} finding(s) on page(s) {', '.join(pages)}"
-                )
-            else:
-                summary_parts.append(
-                    f"{len(findings)} temuan {rule.lower()} pada halaman {', '.join(pages)}"
-                )
-        if is_english:
-            report.add_paragraph(
-                "Language and mechanics findings are consolidated by rule to keep the report "
-                "actionable without repeating every individual token: "
-                + "; ".join(summary_parts)
-                + "."
-            )
-        else:
-            report.add_paragraph(
-                "Temuan bahasa dan mekanika dikonsolidasikan menurut aturan agar laporan tetap "
-                "dapat ditindaklanjuti tanpa mengulang setiap kata: "
-                + "; ".join(summary_parts)
-                + "."
-            )
+        for narrative in ReportSynthesizer(language).synthesize_language_narrative(language_issues):
+            report.add_paragraph(narrative)
 
     report.add_heading(strings.limits_of_review, level=1)
     if is_english:

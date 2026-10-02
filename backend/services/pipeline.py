@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
@@ -34,6 +35,7 @@ from services.consistency_evaluator import (
 )
 from services.extract import extract_document
 from services.layout_inspector import DocumentLayoutInspector
+from services.report_synthesizer import ReportSynthesizer
 from services.storage import LocalStorage
 from tasks.extraction import extract_document_task
 
@@ -50,78 +52,245 @@ CANONICAL_PIPELINE_STAGES: list[PipelineStage] = [
 
 
 def _build_content_signals(artifact: ExtractionArtifact) -> dict[str, Any]:
-    """Build conservative Budinski inputs from extracted text and headings."""
+    """Build document-specific Budinski evidence from heading-bounded text."""
+    headings = sorted(
+        (heading for heading in artifact.headings if heading.text.strip()),
+        key=lambda heading: (heading.bbox.page_index, heading.bbox.y0),
+    )
+    heading_texts = [heading.text.strip() for heading in headings]
+    section_patterns = {
+        "executive_summary": re.compile(r"\b(?:executive\s+summary|abstract)\b", re.I),
+        "introduction": re.compile(r"\b(?:introduction|background|purpose\s+and\s+scope)\b", re.I),
+        "methodology": re.compile(r"\b(?:methodology|methods?|procedure|approach)\b", re.I),
+        "results": re.compile(r"\b(?:results?|findings|analysis)\b", re.I),
+        "discussion": re.compile(r"\bdiscussion\b", re.I),
+        "conclusions": re.compile(r"\bconclusions?\b", re.I),
+        "recommendations": re.compile(r"\brecommendations?\b", re.I),
+    }
+    section_lines: dict[str, list[tuple[int, str]]] = {key: [] for key in section_patterns}
+    heading_index = 0
+    active_section: str | None = None
+    for span in sorted(artifact.spans, key=lambda item: (item.bbox.page_index, item.bbox.y0)):
+        position = (span.bbox.page_index, span.bbox.y0)
+        while heading_index < len(headings) and (
+            headings[heading_index].bbox.page_index,
+            headings[heading_index].bbox.y0,
+        ) <= position:
+            heading_text = headings[heading_index].text.strip()
+            active_section = next(
+                (key for key, pattern in section_patterns.items() if pattern.search(heading_text)),
+                None,
+            )
+            heading_index += 1
+        if active_section and span.text.strip():
+            section_lines[active_section].append((span.bbox.page_index + 1, span.text.strip()))
+
+    section_text = {
+        key: "\n".join(text for _page, text in lines) for key, lines in section_lines.items()
+    }
+    section_pages = {
+        key: sorted({page for page, _text in lines}) for key, lines in section_lines.items()
+    }
+    consistency_sections = [
+        DocumentSection(
+            name=section_name.replace("_", " ").title(),
+            text=" ".join(text for line_page, text in lines if line_page == page),
+            page=page,
+        )
+        for section_name in ("executive_summary", "conclusions")
+        for page in section_pages[section_name]
+        for lines in (section_lines[section_name],)
+    ]
     text = "\n".join(span.text for span in artifact.spans)
     lowered = text.lower()
-    headings = [h.text.strip() for h in artifact.headings if h.text.strip()]
-    procedure = "\n".join(
-        s.text
-        for s in artifact.spans
-        if re.search(r"\b(method|procedure|methodology|calculation|assessment)\b", s.text, re.I)
+    procedure = section_text["methodology"]
+    conclusions = section_text["conclusions"]
+    recommendations = section_text["recommendations"]
+    introduction = section_text["introduction"]
+    rec_lines = [line for line in recommendations.splitlines() if line.strip()]
+    owner_pattern = re.compile(
+        r"\b(?:owner|responsible(?:\s+party)?|assigned\s+to)\s*[:=-]?\s*[A-Z][\w.-]+",
+        re.I,
     )
-    conclusions = "\n".join(
-        s.text for s in artifact.spans if re.search(r"\b(conclusion|conclusions)\b", s.text, re.I)
+    target_date_pattern = re.compile(
+        r"\b(?:by|before|due(?:\s+date)?|no\s+later\s+than|target(?:\s+date)?)\s+"
+        r"(?:\d{1,2}\s+[A-Z][a-z]+\s+20\d{2}|[A-Z][a-z]+\s+\d{1,2},?\s+20\d{2}|"
+        r"(?:end\s+of\s+)?20\d{2}|Q[1-4]\s+20\d{2})\b",
+        re.I,
     )
-    recommendations = "\n".join(
-        s.text
-        for s in artifact.spans
-        if re.search(r"\b(recommendation|recommended|action)\b", s.text, re.I)
+    recommendations_actionable = bool(rec_lines) and all(
+        owner_pattern.search(line) and target_date_pattern.search(line) for line in rec_lines
     )
+    procedure_repeatable = bool(
+        len(procedure) >= 120
+        and re.search(r"\b(?:step\s*\d+|\d+[.)]|first|then|finally)\b", procedure, re.I)
+        and re.search(
+            r"\b(?:calculate|measur|test|inspect|equation|formula|parameter|criteria)\w*\b",
+            procedure,
+            re.I,
+        )
+    )
+    purpose_explicit = bool(
+        re.search(r"\bpurpose\s+of\s+(?:this\s+)?(?:report|document)\b", introduction, re.I)
+    )
+    objective_explicit = bool(
+        re.search(r"\bobjective\s+of\s+(?:the\s+)?(?:work|study|project)\b", introduction, re.I)
+    )
+    section_evidence: dict[str, Any] = {}
+    section_details: dict[str, dict[str, Any] | None] = {}
+    for group, section_name in (
+        ("Report Mechanics", "introduction"),
+        ("Conclusions & Craft", "conclusions"),
+        ("Style", "executive_summary"),
+    ):
+        lines = section_lines[section_name]
+        matching_heading = next(
+            (
+                heading
+                for heading in headings
+                if section_patterns[section_name].search(heading.text)
+            ),
+            None,
+        )
+        section_evidence[group] = matching_heading
+    for section_name, lines in section_lines.items():
+        pattern = section_patterns[section_name]
+        matching_heading = next(
+            (heading for heading in headings if pattern.search(heading.text)), None
+        )
+        section_details[section_name] = (
+            {
+                "heading": matching_heading.text.strip(),
+                "page": matching_heading.bbox.page_index + 1,
+                "excerpt": lines[0][1][:240] if lines else "",
+            }
+            if matching_heading
+            else None
+        )
+    expected_order = ["executive_summary", "introduction", "methodology", "results", "discussion", "conclusions", "recommendations"]
+    detected_order: list[str] = []
+    for heading in headings:
+        section = next(
+            (key for key, pattern in section_patterns.items() if pattern.search(heading.text)),
+            None,
+        )
+        if section and (not detected_order or detected_order[-1] != section):
+            detected_order.append(section)
+    section_order_positions = [expected_order.index(key) for key in detected_order]
+    section_order_logical = bool(section_order_positions) and section_order_positions == sorted(
+        section_order_positions
+    )
+    abbreviation_section_present = any(
+        re.search(r"\b(?:abbreviations?|acronyms?|glossary)\b", heading, re.I)
+        for heading in heading_texts
+    )
+    acronym_tokens = set(re.findall(r"\b[A-Z][A-Z0-9/-]{1,}\b", text))
+    has_unexplained_jargon = len(acronym_tokens) > 12 and not abbreviation_section_present
+    summary_numbers = set(re.findall(r"\b\d+(?:\.\d+)?\b", section_text["executive_summary"]))
+    results_numbers = set(re.findall(r"\b\d+(?:\.\d+)?\b", section_text["results"]))
+    conclusion_numbers = set(re.findall(r"\b\d+(?:\.\d+)?\b", conclusions))
+    repeated_numbers = summary_numbers & results_numbers & conclusion_numbers
+    counts_repeated_thrice = len(repeated_numbers) >= 3
     return {
-        "headings": headings,
+        "headings": heading_texts,
+        "executive_summary": section_text["executive_summary"],
+        "introduction": introduction,
+        "procedure": procedure,
+        "results": section_text["results"],
+        "discussion": section_text["discussion"],
+        "conclusions": conclusions,
+        "recommendations": [
+            {
+                "text": line,
+                "owner": bool(owner_pattern.search(line)),
+                "date": bool(target_date_pattern.search(line)),
+            }
+            for line in rec_lines
+        ],
+        "recommendations_actionable": recommendations_actionable,
+        "recommendations_actionable_reason": (
+            f"{sum(bool(owner_pattern.search(line)) for line in rec_lines)} of {len(rec_lines)} "
+            "recommendation line(s) name an owner, and "
+            f"{sum(bool(target_date_pattern.search(line)) for line in rec_lines)} include a target date."
+        ),
+        "purpose_of_report_stated": purpose_explicit,
+        "purpose_distinct_from_objective": purpose_explicit and objective_explicit,
+        "purpose_distinct_reason": (
+            "Introduction states a report purpose and separately identifies the work objective."
+            if purpose_explicit and objective_explicit
+            else "Introduction does not establish both a report purpose and a distinct work objective."
+        ),
+        "section_evidence": section_evidence,
+        "section_details": section_details,
+        "section_pages": section_pages,
+        "consistency_sections": consistency_sections,
+        "section_order_logical": section_order_logical,
+        "has_unexplained_jargon": has_unexplained_jargon,
+        "abbreviation_section_present": abbreviation_section_present,
+        "counts_repeated_thrice": counts_repeated_thrice,
+        "has_tables_or_figures": bool(artifact.tables)
+        or bool(re.search(r"\b(?:table|figure)\s+\d", text, re.I)),
+        "objective_tone": not bool(
+            re.search(r"\b(?:I believe|we believe|best ever|unmatched|revolutionary)\b", text, re.I)
+        ),
         "references": bool(
             re.search(r"\b(references?|bibliography|codes? and standards?)\b", lowered)
         ),
-        "purpose_of_report_stated": bool(
-            re.search(r"\bpurpose(?: of (?:this )?(?:report|document))?\b", lowered)
-        ),
         "objective_of_work_clear": bool(
-            re.search(r"\b(objective|objectives|scope of work)\b", lowered)
+            re.search(r"\b(objective|objectives|scope of work)\b", introduction, re.I)
         ),
         "purpose_of_work_clear": bool(
-            re.search(r"\b(objective|objectives|scope of work)\b", lowered)
+            re.search(r"\b(?:purpose of (?:the )?(?:work|study|project)|objective|scope of work)\b", introduction, re.I)
         ),
         "format_stated": bool(
-            re.search(r"\b(report format|format of (?:this )?report)\b", lowered)
+            re.search(r"\b(?:report format|format of (?:this )?report|organized into|structured as)\b", introduction, re.I)
         ),
-        "scope_stated": bool(re.search(r"\bscope(?: of work)?\b", lowered)),
-        "procedure": procedure,
-        "procedure_repeatable": len(procedure) >= 120,
-        "steps_outlined": bool(re.search(r"\b(step|procedure|methodology)\b", lowered)),
-        "conclusions": conclusions,
-        "recommendations": recommendations,
-        "recommendations_has_owner_column": bool(
-            re.search(r"\b(owner|responsible|by whom)\b", lowered)
+        "scope_stated": bool(re.search(r"\bscope(?: of work)?\b", introduction, re.I)),
+        "procedure_repeatable": procedure_repeatable,
+        "procedure_repeatable_reason": (
+            "Methodology includes sequenced steps and measurable methods or criteria."
+            if procedure_repeatable
+            else "Methodology lacks extracted sequenced steps and measurable methods or criteria."
+        ),
+        "engineering_approach_logical": bool(
+            procedure_repeatable
+            and re.search(
+                r"\b(?:then|subsequently|following|step\s*\d+|\d+[.)])\b",
+                procedure,
+                re.I,
+            )
+        ),
+        "has_previous_work_baseline": bool(
+            re.search(r"\b(?:previous|prior|historical|baseline|earlier\s+study)\b", text, re.I)
+        ),
+        "has_external_benchmark": bool(
+            re.search(r"\b(?:benchmark|compared\s+with|compared\s+against)\b", text, re.I)
+            and bool(re.search(r"\b(?:reference|study|published|literature)\b", text, re.I))
+        ),
+        "sufficient_background": len(introduction.split()) >= 80,
+        "value_clearly_stated": bool(
+            section_text["executive_summary"]
+            and re.search(
+                r"\b(?:result|conclud|demonstrat|recommend|benefit|decision|can\s+operate)\w*\b",
+                section_text["executive_summary"],
+                re.I,
+            )
+        ),
+        "objectives_met": bool(
+            re.search(
+                r"\b(?:objective|objectives)\b.{0,100}\b(?:met|achieved|addressed)\b",
+                text,
+                re.I,
+            )
+        ),
+        "timely": False,
+        "steps_outlined": bool(re.search(r"\b(?:step\s*\d+|\d+[.)]|first|then|finally)\b", procedure, re.I)),
+        "recommendations_has_owner_column": all(
+            bool(owner_pattern.search(line)) for line in rec_lines
         ),
         "standards_edition_cited": bool(
             re.search(r"\b(?:ASME|API|ASTM|ISO)\b[^\n]{0,60}\b(?:19|20)\d{2}\b", text, re.I)
         ),
-        "section_evidence": {
-            "Report Mechanics": next(
-                (
-                    h
-                    for h in artifact.headings
-                    if re.search(r"introduction|method|procedure|scope", h.text, re.I)
-                ),
-                None,
-            ),
-            "Conclusions & Craft": next(
-                (
-                    h
-                    for h in artifact.headings
-                    if re.search(r"conclusion|result|discussion", h.text, re.I)
-                ),
-                None,
-            ),
-            "Style": next(
-                (
-                    h
-                    for h in artifact.headings
-                    if re.search(r"style|language|writing", h.text, re.I)
-                ),
-                None,
-            ),
-        },
     }
 
 
@@ -366,27 +535,74 @@ async def execute_document_pipeline(
     doc_sections: dict[str, Any] = {
         "filename": document.original_filename,
     }
+    consistency_findings: list[Any] = []
 
     if extracted_artifact is not None:
         doc_sections.update(_build_content_signals(extracted_artifact))
-        section_items = [
-            DocumentSection(
-                name=heading.text,
-                text=" ".join(
-                    span.text
-                    for span in extracted_artifact.spans
-                    if span.bbox.page_index == heading.bbox.page_index
-                ),
-                page=heading.bbox.page_index + 1,
-            )
-            for heading in extracted_artifact.headings
-        ]
+        cover = extracted_artifact.cover_metadata
+        doc_sections.update(
+            {
+                "doc_id": cover.document_number or document.original_filename,
+                "rev": cover.revision or "not supplied",
+                "date": cover.document_date or "not supplied",
+            }
+        )
+        section_items = doc_sections.get("consistency_sections", [])
         doc_sections["consistency_sections"] = section_items
+        ground_truth = harvest_definition_tables(extracted_artifact.tables)
+        consistency_findings = detect_category_band_contradictions(section_items, ground_truth)
+        doc_sections["has_definition_contradiction"] = bool(consistency_findings)
+        doc_sections["consistency_finding_summaries"] = [
+            {
+                "type": finding.rule,
+                "message": finding.what_it_says,
+                "page": finding.evidence.get("page"),
+            }
+            for finding in consistency_findings
+        ]
+
+    existing_issues = list(
+        (
+            await session.execute(select(Issue).where(Issue.document_id == document.id))
+        ).scalars()
+    )
+    language_issues = [
+        issue
+        for issue in existing_issues
+        if str(issue.category).upper() in {"LINGUISTIC", "ISSUECATEGORY.LINGUISTIC"}
+    ]
+    key_section_pages = {
+        page
+        for section in ("executive_summary", "conclusions", "recommendations")
+        for page in doc_sections.get("section_pages", {}).get(section, [])
+    }
+    doc_sections["language_findings"] = language_issues
+    doc_sections["language_faults_in_key_sections"] = any(
+        issue.page_number in key_section_pages for issue in language_issues
+    )
+    doc_sections["blockers_count"] = sum(str(issue.severity).upper() == "BLOCKER" for issue in existing_issues)
+    doc_sections["majors_count"] = sum(str(issue.severity).upper() == "MAJOR" for issue in existing_issues)
+    doc_sections["minors_count"] = sum(str(issue.severity).upper() == "MINOR" for issue in existing_issues)
     scorecard = evaluator.evaluate_41_checklist_items(
         doc_sections, layout_anomalies=layout_anomalies
     )
     baselines = evaluator.evaluate_four_baselines(doc_sections)
     scorecard.baseline_measures = baselines
+    conclusion_scores = [
+        scorecard.conclusions_and_craft.conclusions_clear.score
+        if scorecard.conclusions_and_craft
+        else None,
+        scorecard.technical_content.conclusions_supported.score
+        if scorecard.technical_content
+        else None,
+    ]
+    if doc_sections.get("conclusions") and (
+        not baselines.conclusions_valid
+        or any(score is not None and score <= 2 for score in conclusion_scores)
+    ):
+        scorecard.demonstration_rewrite = ReportSynthesizer().generate_demonstration_rewrite(
+            doc_sections, consistency_findings
+        )
     # Persist the complete 41-item scorecard so report generation can render
     # passing items as well as rework findings.
     scorecard_storage = LocalStorage(settings.STORAGE_ROOT)
@@ -457,10 +673,7 @@ async def execute_document_pipeline(
     new_issues: list[Issue] = []
 
     if extracted_artifact is not None:
-        ground_truth = harvest_definition_tables(extracted_artifact.tables)
-        for finding in detect_category_band_contradictions(
-            doc_sections.get("consistency_sections", []), ground_truth
-        ):
+        for finding in consistency_findings:
             evidence = CategoryBandEvidence(
                 extractor_version="1.0",
                 rule_version="category-band/1.0",
@@ -481,7 +694,11 @@ async def execute_document_pipeline(
                     severity=Severity.BLOCKER.value,
                     confidence=1.0,
                     message=finding.what_it_says,
-                    page_number=None,
+                    page_number=(
+                        finding.evidence.get("page")
+                        if isinstance(finding.evidence.get("page"), int)
+                        else None
+                    ),
                     evidence=evidence.model_dump(mode="json"),
                     included_in_report=True,
                     created_at=now,

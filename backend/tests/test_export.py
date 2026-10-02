@@ -161,7 +161,8 @@ def test_build_review_report_docx(tmp_path: Path) -> None:
     assert "Limits of this review" in full_text
 
     # Verify blocker content and reviewer note
-    assert "TABLE_MATH_MISMATCH" in all_table_text
+    assert "Arithmetic Summation Discrepancy" in all_table_text
+    assert "TABLE_MATH_MISMATCH" not in all_table_text
     assert "Reviewer note: Confirmed with Lead Welding Engineer." in all_table_text
     assert "Update stated sum in Table 2.1 to 1,350.00" in all_table_text
 

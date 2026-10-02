@@ -6,12 +6,14 @@
 - `GET /documents/{document_id}/report?language=en|id` returns counts and a localized `summary_judgement`.
 - `GET /documents/{document_id}/export?format=docx&language=en|id` localizes report labels, baseline measures, scorecard categories, actions, recommendations, and system prose in the DOCX deliverable.
 - `GET /documents/{document_id}/export?format=pdf&language=en|id` converts the localized review DOCX to a production-ready PDF via Headless LibreOffice (`soffice`), ensuring exact visual formatting and tables.
+- Executive finding types use the shared `FINDING_LABELS` dictionary in `backend/services/report_locale.py`; machine keys such as `REF_DRIFT` and `TABLE_MATH_MISMATCH` are not shown in executive finding tables. Finding tallies are written as grammatical prose with page references, and language/mechanics notes are grouped by page with a humanized category and the source phrase.
+- A placeholder traceability bottom line is synthesized as a blocker count and a clear reissue action. Existing evidence-based reviewer prose remains intact.
 - Strict language isolation ("Anti-Bahasa Belang"): Selecting English enforces 0 Indonesian words in generated prose, titles, and checklist items. Selecting Indonesian enforces 0 English boilerplate phrases.
 - The 41 Budinski checklist items in Appendix A are localized deterministically via `BUDINSKI_41_ITEMS` dictionary in `backend/services/report_locale.py`.
 - The annotated PDF export (`format=annotated_pdf`) remains source-faithful; its language query value is ignored and persisted finding/evidence text remains unchanged.
-- Source-derived content is never machine-translated: finding messages, codes, evidence, technical identifiers, source excerpts, and reviewer notes remain verbatim.
+- Source-derived content is never machine-translated: finding messages, evidence, technical identifiers, source excerpts, and reviewer notes remain verbatim. Humanization applies to the finding-type label; the annotated PDF remains source-faithful.
 
-The report contains document identity, summary judgement, bottom line, scorecard, blockers, next-revision findings, language findings by page, optional demonstration rewrite, positive observations, and review limits. Each included finding states rule ID, severity, page, evidence, detected fact, recommendation, and reviewer note.
+The report contains document identity, summary judgement, bottom line, scorecard, blockers, next-revision findings, language findings by page, optional demonstration rewrite, positive observations, and review limits. Executive finding tables show a readable finding type, severity, page, evidence, detected fact, recommendation, and reviewer note; internal rule IDs are not rendered as finding labels.
 
 ## Budinski scoring contract
 
@@ -43,5 +45,11 @@ Focused regression command:
 
 ```powershell
 python -m pytest backend/tests/test_budinski_evaluator.py backend/tests/test_report.py backend/tests/test_review_export.py -q
+```
+
+Report-label and export sanitizer verification:
+
+```powershell
+pytest backend/tests/test_report.py
 ```
 
