@@ -199,10 +199,7 @@ def apply_document_header(doc: DocxDocument, config: HeaderTemplateConfig) -> No
         table = header.add_table(rows=1, cols=3, width=Emu(int(table_width)))
         table.alignment = WD_TABLE_ALIGNMENT.CENTER
         table.autofit = False
-        widths = [
-            Emu(int(table_width * ratio))
-            for ratio in (0.25, 0.50, 0.25)
-        ]
+        widths = [Emu(int(table_width * ratio)) for ratio in (0.25, 0.50, 0.25)]
         for index, cell in enumerate(table.rows[0].cells):
             cell.width = widths[index]
             cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
@@ -210,7 +207,7 @@ def apply_document_header(doc: DocxDocument, config: HeaderTemplateConfig) -> No
         tbl_pr = table._tbl.tblPr
         tbl_pr.append(
             parse_xml(
-                f'<w:tblBorders {nsdecls("w")}>'
+                f"<w:tblBorders {nsdecls('w')}>"
                 '<w:top w:val="nil"/><w:left w:val="nil"/>'
                 '<w:bottom w:val="nil"/><w:right w:val="nil"/>'
                 '<w:insideH w:val="nil"/><w:insideV w:val="nil"/>'
@@ -230,9 +227,7 @@ def apply_document_header(doc: DocxDocument, config: HeaderTemplateConfig) -> No
         elif config.placement == "both_left":
             right_logo = None
         max_logo_width = (
-            Inches(0.72)
-            if config.placement in {"both_left", "both_right"}
-            else Inches(1.25)
+            Inches(0.72) if config.placement in {"both_left", "both_right"} else Inches(1.25)
         )
 
         left_p, center_p, right_p = [cell.paragraphs[0] for cell in table.rows[0].cells]
@@ -266,7 +261,7 @@ def apply_document_header(doc: DocxDocument, config: HeaderTemplateConfig) -> No
             for paragraph in (left_p, center_p, right_p):
                 paragraph._p.get_or_add_pPr().append(
                     parse_xml(
-                        f'<w:pBdr {nsdecls("w")}>'
+                        f"<w:pBdr {nsdecls('w')}>"
                         '<w:bottom w:val="single" w:sz="4" w:space="4" w:color="CBD5E1"/>'
                         "</w:pBdr>"
                     )

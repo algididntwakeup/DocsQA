@@ -6,7 +6,6 @@ from dataclasses import dataclass
 
 from domain.enums import ReportLanguage
 
-
 # Stable machine finding identifiers are kept in storage and used by analyzers;
 # reports render these reader-facing names instead.
 FINDING_LABELS: dict[str, str] = {
@@ -49,7 +48,6 @@ FINDING_LABELS: dict[str, str] = {
     "unclosed_sentence": "Incomplete / Truncated Sentence",
     "ambiguous_constraint": "Ambiguous Engineering Specification",
     "unexplained_abbreviation": "Undefined Technical Acronym / Jargon",
-    "unexplained_acronym": "Undefined Technical Acronym / Jargon",
     "grammar_homophone": "Incorrect Word Choice",
     "grammar_lt": "Grammar and Usage Issue",
     "passive_voice_overuse": "Excessive Passive Voice Construction",
@@ -107,7 +105,6 @@ _FINDING_LABELS_ID: dict[str, str] = {
     "grammar_agreement": "Diskrepansi Kesepakatan Subjek-Predikat",
     "unclosed_sentence": "Kalimat Tidak Lengkap / Terpotong",
     "ambiguous_constraint": "Spesifikasi Rekayasa yang Ambigu",
-    "unexplained_abbreviation": "Akronim / Jargon Teknis yang Tidak Didefinisikan",
     "passive_voice_overuse": "Penggunaan Kalimat Pasif yang Berlebihan",
     "informal_tone": "Pilihan Kata Informal / Tidak Baku",
     "homophone": "Pilihan Kata yang Keliru",
@@ -135,7 +132,11 @@ def humanize_finding_type(
 ) -> str:
     """Convert an internal finding identifier into concise report copy."""
     if not finding_type:
-        return "Temuan Tidak Ditentukan" if language == ReportLanguage.INDONESIAN else "Unspecified Finding"
+        return (
+            "Temuan Tidak Ditentukan"
+            if language == ReportLanguage.INDONESIAN
+            else "Unspecified Finding"
+        )
     key = str(finding_type).lower().strip()
     # Rule ids and analyzer namespaces are implementation details, not report labels.
     key = key.removeprefix("rule_").removeprefix("lt_")

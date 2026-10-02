@@ -4,7 +4,7 @@ import asyncio
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -450,6 +450,9 @@ def test_pipeline_stages_and_sse_events() -> None:
     doc_id = uuid.uuid4()
     doc = Document(id=doc_id, original_filename="MEPG_ALE_Test.pdf")
     session = AsyncMock(spec=AsyncSession)
+    query_result = MagicMock()
+    query_result.scalars.return_value = []
+    session.execute.return_value = query_result
 
     events: list[str] = []
 
@@ -483,6 +486,9 @@ def test_pipeline_reuses_worker_extraction_artifact() -> None:
     """The worker's review branch must not extract the document a second time."""
     doc = Document(id=uuid.uuid4(), original_filename="Report.pdf")
     session = AsyncMock(spec=AsyncSession)
+    query_result = MagicMock()
+    query_result.scalars.return_value = []
+    session.execute.return_value = query_result
     artifact = ExtractionArtifact(document_id=doc.id)
 
     with patch("services.pipeline.extract_document", side_effect=AssertionError("re-extracted")):
@@ -510,6 +516,9 @@ def test_pipeline_creates_layout_blocker_issues() -> None:
     doc_id = uuid.uuid4()
     doc = Document(id=doc_id, original_filename="MEPG_Sample.pdf")
     session = AsyncMock(spec=AsyncSession)
+    query_result = MagicMock()
+    query_result.scalars.return_value = []
+    session.execute.return_value = query_result
 
     anomalies = [
         LayoutAnomaly(

@@ -276,7 +276,8 @@ class ReportSynthesizer:
             )
             if self.is_english:
                 message = (
-                    f"The assessment identified {len(items)} {_category_phrase(category, self.language)} "
+                    f"The assessment identified {len(items)} "
+                    f"{_category_phrase(category, self.language)} "
                     f"finding{'s' if len(items) != 1 else ''} encompassing {breakdown} "
                     f"across printed page{'s' if len(pages) != 1 else ''} {page_text}.{example}"
                 )
@@ -289,7 +290,8 @@ class ReportSynthesizer:
                 )
             else:
                 message = (
-                    f"Asesmen mengidentifikasi {len(items)} temuan {_category_phrase(category, self.language)} "
+                    f"Asesmen mengidentifikasi {len(items)} temuan "
+                    f"{_category_phrase(category, self.language)} "
                     f"yang mencakup {breakdown} pada halaman cetak {page_text}.{example}"
                 )
                 suggestion = str(
@@ -455,43 +457,90 @@ class ReportSynthesizer:
             (
                 sentence
                 for sentence in conclusion_sentences
-                if not re.search(r"\b(?:table|figure)\s+\d+|\b\d+(?:\.\d+)?\s*(?:%|years?|months?)\b", sentence, re.I)
+                if not re.search(
+                    r"\b(?:table|figure)\s+\d+|\b\d+(?:\.\d+)?\s*(?:%|years?|months?)\b",
+                    sentence,
+                    re.I,
+                )
             ),
             conclusion_sentences[0] if conclusion_sentences else "",
         )
         objective = next(
-            (sentence for sentence in intro_sentences if re.search(r"\b(?:purpose|objective|scope|aim)\b", sentence, re.I)),
+            (
+                sentence
+                for sentence in intro_sentences
+                if re.search(r"\b(?:purpose|objective|scope|aim)\b", sentence, re.I)
+            ),
             "",
         )
         source_note = (
             (
-                "No result statement was available in the extracted Results or Executive Summary sections; the rewrite therefore makes no technical inference."
+                "No result statement was available in the extracted Results or Executive Summary "
+                "sections; the rewrite therefore makes no technical inference."
                 if self.is_english
-                else "Tidak ada pernyataan hasil pada bagian Hasil atau Ringkasan Eksekutif yang diekstrak; contoh ini tidak membuat inferensi teknis."
+                else (
+                    "Tidak ada pernyataan hasil pada bagian Hasil atau Ringkasan Eksekutif "
+                    "yang diekstrak; contoh ini tidak membuat inferensi teknis."
+                )
             )
             if not anchors
             else ""
         )
         rewrite_items: list[str] = []
         if self.is_english:
-            no_objective = "This conclusion summarizes only the scope and evidence stated in the reviewed document."
-            result_bridge = "These statements identify the principal results available to support the conclusion."
-            no_claim = "The conclusion should state a direct answer to the stated objective and cite its supporting result."
-            no_recommendation = "Any required follow-up should name an action, a responsible owner, and a target date."
-            no_inference = "No result, limitation, or action beyond the extracted source text is inferred in this demonstration."
-            conclusion_filler = "The conclusion should distinguish reported results from their interpretation and connect both to the stated scope."
+            no_objective = (
+                "This conclusion summarizes only the scope and evidence stated in the reviewed "
+                "document."
+            )
+            result_bridge = (
+                "These statements identify the principal results available to support the "
+                "conclusion."
+            )
+            no_claim = (
+                "The conclusion should state a direct answer to the stated objective and cite its "
+                "supporting result."
+            )
+            no_recommendation = (
+                "Any required follow-up should name an action, a responsible owner, and a target "
+                "date."
+            )
+            no_inference = (
+                "No result, limitation, or action beyond the extracted source text is inferred in "
+                "this demonstration."
+            )
+            conclusion_filler = (
+                "The conclusion should distinguish reported results from their interpretation and "
+                "connect both to the stated scope."
+            )
             scope_label = "The stated scope is: "
             result_label = "The reported evidence shows: "
             further_result_label = "A further reported result is: "
             claim_label = "The document's stated conclusion is: "
             follow_up_label = "The stated follow-up is: "
         else:
-            no_objective = "Kesimpulan ini hanya merangkum lingkup dan bukti yang dinyatakan dalam dokumen yang ditinjau."
-            result_bridge = "Pernyataan tersebut merangkum hasil utama yang tersedia sebagai dasar kesimpulan."
-            no_claim = "Kesimpulan perlu menjawab tujuan secara langsung dan mengutip hasil yang mendukungnya."
-            no_recommendation = "Tindak lanjut yang diperlukan perlu menyebutkan tindakan, penanggung jawab, dan tanggal target."
-            no_inference = "Contoh ini tidak menyimpulkan hasil, batasan, atau tindakan di luar teks sumber yang diekstrak."
-            conclusion_filler = "Kesimpulan perlu membedakan hasil yang dilaporkan dari interpretasinya serta menghubungkan keduanya dengan lingkup yang dinyatakan."
+            no_objective = (
+                "Kesimpulan ini hanya merangkum lingkup dan bukti yang dinyatakan dalam dokumen "
+                "yang ditinjau."
+            )
+            result_bridge = (
+                "Pernyataan tersebut merangkum hasil utama yang tersedia sebagai dasar kesimpulan."
+            )
+            no_claim = (
+                "Kesimpulan perlu menjawab tujuan secara langsung dan mengutip hasil yang "
+                "mendukungnya."
+            )
+            no_recommendation = (
+                "Tindak lanjut yang diperlukan perlu menyebutkan tindakan, penanggung jawab, dan "
+                "tanggal target."
+            )
+            no_inference = (
+                "Contoh ini tidak menyimpulkan hasil, batasan, atau tindakan di luar teks sumber "
+                "yang diekstrak."
+            )
+            conclusion_filler = (
+                "Kesimpulan perlu membedakan hasil yang dilaporkan dari interpretasinya serta "
+                "menghubungkan keduanya dengan lingkup yang dinyatakan."
+            )
             scope_label = "Lingkup yang dinyatakan adalah: “"
             result_label = "Bukti yang dilaporkan menunjukkan: “"
             further_result_label = "Hasil lain yang dilaporkan adalah: “"
@@ -527,35 +576,50 @@ class ReportSynthesizer:
             rewrite_items.insert(-1, conclusion_filler)
 
         issue_text = " ".join(
-            str(_value(item, "message", "")).strip()
-            for item in findings
-            if _value(item, "message")
+            str(_value(item, "message", "")).strip() for item in findings if _value(item, "message")
         )
         faults = (
             issue_text[:700]
             if issue_text
             else (
-                "The source conclusion should synthesize the evidence and answer the stated objective rather than repeat result entries."
+                "The source conclusion should synthesize the evidence and answer the stated "
+                "objective rather than repeat result entries."
                 if self.is_english
-                else "Kesimpulan sumber perlu menyintesis bukti dan menjawab tujuan yang dinyatakan, bukan mengulang entri hasil."
+                else (
+                    "Kesimpulan sumber perlu menyintesis bukti dan menjawab tujuan yang "
+                    "dinyatakan, bukan mengulang entri hasil."
+                )
             )
         )
         return {
             "section_title": "Conclusions" if self.is_english else "Kesimpulan",
             "intro_note": (
-                "Illustrative deterministic rewrite using only statements extracted from this document. Verify the technical meaning before adoption."
+                "Illustrative deterministic rewrite using only statements extracted from this "
+                "document. Verify the technical meaning before adoption."
                 if self.is_english
-                else "Contoh penulisan ulang deterministik yang hanya menggunakan pernyataan hasil ekstraksi dokumen ini. Verifikasi makna teknis sebelum digunakan."
+                else (
+                    "Contoh penulisan ulang deterministik yang hanya menggunakan pernyataan hasil "
+                    "ekstraksi dokumen ini. Verifikasi makna teknis sebelum digunakan."
+                )
             ),
-            "as_written_title": "AS WRITTEN (EXTRACTED CONCLUSION)" if self.is_english else "TEKS ASLI (KESIMPULAN HASIL EKSTRAKSI)",
+            "as_written_title": "AS WRITTEN (EXTRACTED CONCLUSION)"
+            if self.is_english
+            else "TEKS ASLI (KESIMPULAN HASIL EKSTRAKSI)",
             "as_written_text": raw or self.s.no_conclusion_text,
             "faults_summary": faults,
-            "demonstration_title": "DEMONSTRATION REWRITE (6-8 SENTENCES)" if self.is_english else "CONTOH PENULISAN ULANG (6-8 KALIMAT)",
+            "demonstration_title": "DEMONSTRATION REWRITE (6-8 SENTENCES)"
+            if self.is_english
+            else "CONTOH PENULISAN ULANG (6-8 KALIMAT)",
             "demonstration_items": rewrite_items,
             "conclusion_summary": (
-                "The example separates scope, reported evidence, conclusion, and follow-up; confirm every statement against the source before reusing it."
+                "The example separates scope, reported evidence, conclusion, and follow-up; "
+                "confirm "
+                "every statement against the source before reusing it."
                 if self.is_english
-                else "Contoh ini memisahkan lingkup, bukti yang dilaporkan, kesimpulan, dan tindak lanjut; cocokkan setiap pernyataan dengan sumber sebelum digunakan kembali."
+                else (
+                    "Contoh ini memisahkan lingkup, bukti yang dilaporkan, kesimpulan, dan tindak "
+                    "lanjut; cocokkan setiap pernyataan dengan sumber sebelum digunakan kembali."
+                )
             ),
         }
 
@@ -563,6 +627,7 @@ class ReportSynthesizer:
         self, metadata: Any, scorecard: Any, *, blockers: int, majors: int, minors: int
     ) -> str:
         """Format the report banner from current document metadata and review data."""
+
         def clean(value: Any, fallback: str = "not supplied") -> str:
             return re.sub(r"\s*\|\s*", "/", str(value or fallback)).strip()
 
@@ -655,8 +720,11 @@ class ReportSynthesizer:
             {
                 self.s.no: str(i),
                 self.s.finding.upper(): (
-                    f"{humanize_finding_type(_value(item, 'type', 'FINDING'), language=self.language)}: "
-                    f"{_display_message(item, self.language) or _value(item, 'finding', '')}"
+                    humanize_finding_type(
+                        _value(item, "type", "FINDING"), language=self.language
+                    )
+                    + ": "
+                    + f"{_display_message(item, self.language) or _value(item, 'finding', '')}"
                 ),
                 self.s.what_would_fix_it.upper(): str(
                     _value(item, "suggestion", self.s.fix_reissue_default)
@@ -690,7 +758,8 @@ class ReportSynthesizer:
 
         result = []
         for page in sorted(
-            grouped, key=lambda value: (not value.isdigit(), int(value) if value.isdigit() else value)
+            grouped,
+            key=lambda value: (not value.isdigit(), int(value) if value.isdigit() else value),
         ):
             items = _natural_list(grouped[page], "and" if self.is_english else "dan")
             result.append(
@@ -714,7 +783,9 @@ class ReportSynthesizer:
                 rows.append(
                     {
                         self.s.page.upper(): page,
-                        ("FINDING TYPE" if self.is_english else "JENIS TEMUAN"): humanize_finding_type(
+                        (
+                            "FINDING TYPE" if self.is_english else "JENIS TEMUAN"
+                        ): humanize_finding_type(
                             _value(item, "finding_type", "") or _value(item, "type", ""),
                             language=self.language,
                         ),

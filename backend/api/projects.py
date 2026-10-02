@@ -157,9 +157,7 @@ async def sync_bima_projects(
                 created += 1
             else:
                 updated += 1
-                project.members = [
-                    user_by_bima_id[bima_id] for bima_id in remote.member_bima_ids
-                ]
+                project.members = [user_by_bima_id[bima_id] for bima_id in remote.member_bima_ids]
             project.name = remote.name
             project.code = remote.code
             project.description = remote.description
@@ -344,9 +342,7 @@ async def list_project_documents(
     )
     project = (
         await session.execute(
-            select(Project)
-            .options(selectinload(Project.members))
-            .where(Project.id == project_id)
+            select(Project).options(selectinload(Project.members)).where(Project.id == project_id)
         )
     ).scalar_one_or_none()
     member_ids = {member.id for member in project.members} if project is not None else set()

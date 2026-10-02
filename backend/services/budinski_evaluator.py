@@ -540,9 +540,7 @@ class BudinskiEvaluator:
         return scorecard
 
     @staticmethod
-    def _attach_source_evidence(
-        scorecard: BudinskiScorecard, doc_sections: dict[str, Any]
-    ) -> None:
+    def _attach_source_evidence(scorecard: BudinskiScorecard, doc_sections: dict[str, Any]) -> None:
         """Replace generic/sample-like notes with current-document evidence anchors."""
         details = doc_sections.get("section_details", {})
         if not isinstance(details, dict):
@@ -600,7 +598,7 @@ class BudinskiEvaluator:
             detail = details.get(section_name) if section_name else None
             if isinstance(detail, dict) and detail.get("heading") and detail.get("page"):
                 excerpt = str(detail.get("excerpt") or "").strip()
-                excerpt_part = f' Evidence: “{excerpt[:180]}”' if excerpt else ""
+                excerpt_part = f" Evidence: “{excerpt[:180]}”" if excerpt else ""
                 finding_part = ""
                 if item_key in {
                     "conclusions_supported",
@@ -611,8 +609,8 @@ class BudinskiEvaluator:
                     if summaries:
                         first = summaries[0]
                         finding_part = (
-                            f' Finding: {str(first.get("message", ""))[:160]}'
-                            f' (PDF page {first.get("page") or "not located"}).'
+                            f" Finding: {str(first.get('message', ''))[:160]}"
+                            f" (PDF page {first.get('page') or 'not located'})."
                         )
                 elif item_key == "english_usage":
                     language_findings = doc_sections.get("language_findings", [])
@@ -620,13 +618,13 @@ class BudinskiEvaluator:
                         finding = language_findings[0]
                         page = getattr(finding, "page_number", None)
                         finding_part = (
-                            f' Finding: {str(getattr(finding, "message", ""))[:140]}'
-                            f' (PDF page {page or "not located"}; '
-                            f'{len(language_findings)} language finding(s) total).'
+                            f" Finding: {str(getattr(finding, 'message', ''))[:140]}"
+                            f" (PDF page {page or 'not located'}; "
+                            f"{len(language_findings)} language finding(s) total)."
                         )
                 item.note = (
                     f"{item.name or item_key}: {item.score}/5. Source section "
-                    f'“{detail["heading"]}”, PDF page {detail["page"]}.{excerpt_part}'
+                    f"“{detail['heading']}”, PDF page {detail['page']}.{excerpt_part}"
                     f"{finding_part}"
                 )
             elif section_name == "references" and not doc_sections.get("references"):
@@ -637,7 +635,8 @@ class BudinskiEvaluator:
             else:
                 item.note = (
                     f"{item.name or item_key}: {item.score}/5. The document did not yield a "
-                    "matching section heading and text excerpt for this item; manual review is needed."
+                    "matching section heading and text excerpt for this item; "
+                    "manual review is needed."
                 )
 
     # ── Baseline Check Helpers ──────────────────────────────────────────────
@@ -948,13 +947,19 @@ class BudinskiEvaluator:
         orig = ScoreItem(
             name="Original and free of plagiarism",
             score=3,
-            note="Originality cannot be established from document text alone; citations were checked separately.",
+            note=(
+                "Originality cannot be established from document text alone; "
+                "citations were checked separately."
+            ),
         )
 
         timely = ScoreItem(
             name="Timely",
             score=5 if doc_sections.get("timely", False) else 3,
-            note="Issue timing cannot be assessed without a verifiable study completion date and issue date.",
+            note=(
+                "Issue timing cannot be assessed without a verifiable study completion date "
+                "and issue date."
+            ),
         )
 
         return TechnicalContentGroup(
@@ -989,7 +994,10 @@ class BudinskiEvaluator:
         objective_tone = ScoreItem(
             name="Objective, neutral tone",
             score=4 if doc_sections.get("objective_tone", False) else 3,
-            note="Promotional or first-person language is assessed from extracted text; neutral tone is the default score when evidence is inconclusive.",
+            note=(
+                "Promotional or first-person language is assessed from extracted text; "
+                "neutral tone is the default score when evidence is inconclusive."
+            ),
         )
 
         sections_logical = ScoreItem(
@@ -1018,9 +1026,7 @@ class BudinskiEvaluator:
         english_score = 3
         if len(lang_findings) >= 10 or doc_sections.get("language_faults_in_key_sections", False):
             english_score = 2
-        elif lang_findings:
-            english_score = 4
-        elif "language_findings" in doc_sections:
+        elif lang_findings or "language_findings" in doc_sections:
             english_score = 4
         english_usage = ScoreItem(
             name="Use of English is satisfactory",
@@ -1042,13 +1048,19 @@ class BudinskiEvaluator:
         interesting = ScoreItem(
             name="Interesting",
             score=3,
-            note="Interest is a reviewer judgment and is not inferred without document-specific evidence.",
+            note=(
+                "Interest is a reviewer judgment and is not inferred without "
+                "document-specific evidence."
+            ),
         )
 
         free_of_personal_opinion = ScoreItem(
             name="Free of personal opinion and figures of speech",
             score=3,
-            note="Personal opinion and figures of speech require contextual review; no automatic pass is assumed.",
+            note=(
+                "Personal opinion and figures of speech require contextual review; "
+                "no automatic pass is assumed."
+            ),
         )
 
         no_over_explain = ScoreItem(
@@ -1207,7 +1219,10 @@ class BudinskiEvaluator:
         free_of_trade_names = ScoreItem(
             name="Free of unnecessary trade names and detail",
             score=3,
-            note="Commercial necessity of trade names requires context not inferred by this rule set.",
+            note=(
+                "Commercial necessity of trade names requires context not inferred by "
+                "this rule set."
+            ),
         )
 
         standards_score = (
@@ -1257,7 +1272,10 @@ class BudinskiEvaluator:
             note=(
                 "Results and Discussion headings were separately detected."
                 if doc_sections.get("discussion")
-                else "A separate Discussion section was not detected; separation of results and interpretation is uncertain."
+                else (
+                    "A separate Discussion section was not detected; separation of results "
+                    "and interpretation is uncertain."
+                )
             ),
         )
 

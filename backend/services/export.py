@@ -339,9 +339,7 @@ def assessment_from_document_findings(
     )
     demonstration_rewrite = None
     if scorecard.demonstration_rewrite:
-        demonstration_rewrite = DemonstrationRewrite.model_validate(
-            scorecard.demonstration_rewrite
-        )
+        demonstration_rewrite = DemonstrationRewrite.model_validate(scorecard.demonstration_rewrite)
     review_score_string = synthesizer.generate_review_score_string(
         metadata,
         scorecard,
@@ -1101,7 +1099,10 @@ def generate_ale_review_docx(
                 (strings.what_it_says, _humanize_report_label(blocker.what_it_says, language)),
                 (strings.what_body_has, blocker.what_body_has),
                 (strings.why_it_matters, _humanize_report_label(blocker.why_it_matters, language)),
-                (strings.what_would_fix_it, _humanize_report_label(blocker.what_would_fix_it, language)),
+                (
+                    strings.what_would_fix_it,
+                    _humanize_report_label(blocker.what_would_fix_it, language),
+                ),
             ]
             for f_idx, (fname, fval) in enumerate(fields):
                 p = cell.paragraphs[0] if f_idx == 0 else cell.add_paragraph()

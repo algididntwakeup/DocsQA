@@ -72,10 +72,14 @@ def _build_content_signals(artifact: ExtractionArtifact) -> dict[str, Any]:
     active_section: str | None = None
     for span in sorted(artifact.spans, key=lambda item: (item.bbox.page_index, item.bbox.y0)):
         position = (span.bbox.page_index, span.bbox.y0)
-        while heading_index < len(headings) and (
-            headings[heading_index].bbox.page_index,
-            headings[heading_index].bbox.y0,
-        ) <= position:
+        while (
+            heading_index < len(headings)
+            and (
+                headings[heading_index].bbox.page_index,
+                headings[heading_index].bbox.y0,
+            )
+            <= position
+        ):
             heading_text = headings[heading_index].text.strip()
             active_section = next(
                 (key for key, pattern in section_patterns.items() if pattern.search(heading_text)),
@@ -167,7 +171,15 @@ def _build_content_signals(artifact: ExtractionArtifact) -> dict[str, Any]:
             if matching_heading
             else None
         )
-    expected_order = ["executive_summary", "introduction", "methodology", "results", "discussion", "conclusions", "recommendations"]
+    expected_order = [
+        "executive_summary",
+        "introduction",
+        "methodology",
+        "results",
+        "discussion",
+        "conclusions",
+        "recommendations",
+    ]
     detected_order: list[str] = []
     for heading in headings:
         section = next(
@@ -211,14 +223,18 @@ def _build_content_signals(artifact: ExtractionArtifact) -> dict[str, Any]:
         "recommendations_actionable_reason": (
             f"{sum(bool(owner_pattern.search(line)) for line in rec_lines)} of {len(rec_lines)} "
             "recommendation line(s) name an owner, and "
-            f"{sum(bool(target_date_pattern.search(line)) for line in rec_lines)} include a target date."
+            f"{sum(bool(target_date_pattern.search(line)) for line in rec_lines)} include a "
+            "target date."
         ),
         "purpose_of_report_stated": purpose_explicit,
         "purpose_distinct_from_objective": purpose_explicit and objective_explicit,
         "purpose_distinct_reason": (
             "Introduction states a report purpose and separately identifies the work objective."
             if purpose_explicit and objective_explicit
-            else "Introduction does not establish both a report purpose and a distinct work objective."
+            else (
+                "Introduction does not establish both a report purpose and a distinct work "
+                "objective."
+            )
         ),
         "section_evidence": section_evidence,
         "section_details": section_details,
@@ -240,10 +256,18 @@ def _build_content_signals(artifact: ExtractionArtifact) -> dict[str, Any]:
             re.search(r"\b(objective|objectives|scope of work)\b", introduction, re.I)
         ),
         "purpose_of_work_clear": bool(
-            re.search(r"\b(?:purpose of (?:the )?(?:work|study|project)|objective|scope of work)\b", introduction, re.I)
+            re.search(
+                r"\b(?:purpose of (?:the )?(?:work|study|project)|objective|scope of work)\b",
+                introduction,
+                re.I,
+            )
         ),
         "format_stated": bool(
-            re.search(r"\b(?:report format|format of (?:this )?report|organized into|structured as)\b", introduction, re.I)
+            re.search(
+                r"\b(?:report format|format of (?:this )?report|organized into|structured as)\b",
+                introduction,
+                re.I,
+            )
         ),
         "scope_stated": bool(re.search(r"\bscope(?: of work)?\b", introduction, re.I)),
         "procedure_repeatable": procedure_repeatable,
@@ -284,7 +308,9 @@ def _build_content_signals(artifact: ExtractionArtifact) -> dict[str, Any]:
             )
         ),
         "timely": False,
-        "steps_outlined": bool(re.search(r"\b(?:step\s*\d+|\d+[.)]|first|then|finally)\b", procedure, re.I)),
+        "steps_outlined": bool(
+            re.search(r"\b(?:step\s*\d+|\d+[.)]|first|then|finally)\b", procedure, re.I)
+        ),
         "recommendations_has_owner_column": all(
             bool(owner_pattern.search(line)) for line in rec_lines
         ),
@@ -492,7 +518,7 @@ async def execute_document_pipeline(
     layout_anomalies: list[LayoutAnomaly] = []
     if file_path is not None and file_path.exists():
         try:
-            import fitz  # type: ignore[import-untyped]
+            import fitz
 
             doc_pdf = fitz.open(str(file_path))
             blocks = layout_inspector.extract_page_blocks_from_fitz(doc_pdf)
@@ -562,9 +588,7 @@ async def execute_document_pipeline(
         ]
 
     existing_issues = list(
-        (
-            await session.execute(select(Issue).where(Issue.document_id == document.id))
-        ).scalars()
+        (await session.execute(select(Issue).where(Issue.document_id == document.id))).scalars()
     )
     language_issues = [
         issue
@@ -580,9 +604,15 @@ async def execute_document_pipeline(
     doc_sections["language_faults_in_key_sections"] = any(
         issue.page_number in key_section_pages for issue in language_issues
     )
-    doc_sections["blockers_count"] = sum(str(issue.severity).upper() == "BLOCKER" for issue in existing_issues)
-    doc_sections["majors_count"] = sum(str(issue.severity).upper() == "MAJOR" for issue in existing_issues)
-    doc_sections["minors_count"] = sum(str(issue.severity).upper() == "MINOR" for issue in existing_issues)
+    doc_sections["blockers_count"] = sum(
+        str(issue.severity).upper() == "BLOCKER" for issue in existing_issues
+    )
+    doc_sections["majors_count"] = sum(
+        str(issue.severity).upper() == "MAJOR" for issue in existing_issues
+    )
+    doc_sections["minors_count"] = sum(
+        str(issue.severity).upper() == "MINOR" for issue in existing_issues
+    )
     scorecard = evaluator.evaluate_41_checklist_items(
         doc_sections, layout_anomalies=layout_anomalies
     )

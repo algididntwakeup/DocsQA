@@ -48,6 +48,7 @@ def test_document_query_eager_loads_project_members() -> None:
     assert "documents.id" in compiled
     assert any("Project.members" in str(option.path) for option in query._with_options)
 
+
 def test_lead_scope_query_does_not_add_owner_filter() -> None:
     from core.dependencies import accessible_document_query
 

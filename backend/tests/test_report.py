@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import re
+from typing import cast
 from uuid import uuid4
 
 import docx
@@ -13,9 +14,9 @@ from domain.enums import DocumentStatus, IssueCategory, ReportLanguage, Severity
 from models.document import Document
 from models.issue import Issue
 from schemas.budinski import MajorFinding
-from services.report_locale import humanize_finding_type
 from services.export import assessment_from_document_findings, generate_ale_review_docx
 from services.report import build_review_report
+from services.report_locale import humanize_finding_type
 from services.report_synthesizer import ReportSynthesizer
 
 
@@ -150,9 +151,7 @@ def test_finding_identifiers_are_humanized_in_executive_exports() -> None:
     )
     assert humanize_finding_type("RULE_GRAMMAR_SPLIT_WORD") == "Broken Word / Erroneous Hyphenation"
     assert (
-        humanize_finding_type(
-            "MISSING_DOCUMENT_NUMBER", language=ReportLanguage.INDONESIAN
-        )
+        humanize_finding_type("MISSING_DOCUMENT_NUMBER", language=ReportLanguage.INDONESIAN)
         == "Metadata Kendali Dokumen Tidak Lengkap"
     )
 
@@ -198,37 +197,60 @@ def test_grouped_narrative_and_low_severity_language_findings_are_explicit() -> 
     document_id = uuid4()
     findings = [
         Issue(
-            id=uuid4(), document_id=document_id, category=IssueCategory.TRACEABILITY,
-            type="MISSING_TARGET", severity=Severity.CRITICAL,
-            message="Unresolved target at page 1.", page_number=1, evidence={},
+            id=uuid4(),
+            document_id=document_id,
+            category=IssueCategory.TRACEABILITY,
+            type="MISSING_TARGET",
+            severity=Severity.CRITICAL,
+            message="Unresolved target at page 1.",
+            page_number=1,
+            evidence={},
             included_in_report=True,
         ),
         Issue(
-            id=uuid4(), document_id=document_id, category=IssueCategory.TRACEABILITY,
-            type="REF_DRIFT", severity=Severity.CRITICAL,
-            message="Reference pagination differs.", page_number=3, evidence={},
+            id=uuid4(),
+            document_id=document_id,
+            category=IssueCategory.TRACEABILITY,
+            type="REF_DRIFT",
+            severity=Severity.CRITICAL,
+            message="Reference pagination differs.",
+            page_number=3,
+            evidence={},
             included_in_report=True,
         ),
         *[
             Issue(
-                id=uuid4(), document_id=document_id, category=IssueCategory.TRACEABILITY,
-                type="TABLE_MATH_MISMATCH", severity=Severity.CRITICAL,
-                message=f"Table total {idx} does not reconcile.", page_number=page, evidence={},
+                id=uuid4(),
+                document_id=document_id,
+                category=IssueCategory.TRACEABILITY,
+                type="TABLE_MATH_MISMATCH",
+                severity=Severity.CRITICAL,
+                message=f"Table total {idx} does not reconcile.",
+                page_number=page,
+                evidence={},
                 included_in_report=True,
             )
             for idx, page in enumerate((4, 4, 11), start=1)
         ],
         Issue(
-            id=uuid4(), document_id=document_id, category=IssueCategory.LINGUISTIC,
-            type="RULE_GRAMMAR_SPLIT_WORD", severity=Severity.LOW,
-            message="Broken word detected.", page_number=22,
+            id=uuid4(),
+            document_id=document_id,
+            category=IssueCategory.LINGUISTIC,
+            type="RULE_GRAMMAR_SPLIT_WORD",
+            severity=Severity.LOW,
+            message="Broken word detected.",
+            page_number=22,
             evidence={"original_text": "nine-teen", "suggestion": "nineteen"},
             included_in_report=True,
         ),
         Issue(
-            id=uuid4(), document_id=document_id, category=IssueCategory.LINGUISTIC,
-            type="RULE_GRAMMAR_UNCLOSED_SENTENCE", severity=Severity.LOW,
-            message="Sentence is incomplete.", page_number=29,
+            id=uuid4(),
+            document_id=document_id,
+            category=IssueCategory.LINGUISTIC,
+            type="RULE_GRAMMAR_UNCLOSED_SENTENCE",
+            severity=Severity.LOW,
+            message="Sentence is incomplete.",
+            page_number=29,
             evidence={
                 "original_text": "classified as Priority by end-2027",
                 "suggestion": "Complete the sentence.",
@@ -251,9 +273,7 @@ def test_grouped_narrative_and_low_severity_language_findings_are_explicit() -> 
     ) in blocker_text
     assert len(assessment.language_findings) == 2
 
-    export_text = _docx_text(
-        docx.Document(io.BytesIO(generate_ale_review_docx(assessment)))
-    )
+    export_text = _docx_text(docx.Document(io.BytesIO(generate_ale_review_docx(assessment))))
     assert "Page 22: Broken Word / Erroneous Hyphenation" in export_text
     assert "‘nine-teen’" in export_text
     assert "Page 29: Incomplete / Truncated Sentence" in export_text
@@ -299,7 +319,9 @@ def test_bottom_line_and_visual_finding_table_humanize_raw_categories() -> None:
     ]
     report = docx.Document(io.BytesIO(generate_ale_review_docx(assessment)))
     text = _docx_text(report)
-    assert "Resolve 6 Critical Traceability and Control Discrepancies before document reissue." in text
+    assert (
+        "Resolve 6 Critical Traceability and Control Discrepancies before document reissue." in text
+    )
     assert "TRACEABILITY" not in text
     assert "TABLE_MATH_MISMATCH" not in text
 
@@ -308,14 +330,10 @@ def test_bottom_line_and_visual_finding_table_humanize_raw_categories() -> None:
         for table in report.tables
         if any(cell.text == "Finding" for cell in table.rows[0].cells)
     )
-    visual_rows = [
-        cell.text for row in finding_table.rows[1:] for cell in row.cells
-    ]
+    visual_rows = [cell.text for row in finding_table.rows[1:] for cell in row.cells]
     assert all("_" not in cell for cell in visual_rows)
     assert not re.search(r"\b[A-Z]{2,}(?:_[A-Z0-9]+)*\b", " ".join(visual_rows))
-    assert "Arithmetic Summation Discrepancy: Total does not reconcile." in " ".join(
-        visual_rows
-    )
+    assert "Arithmetic Summation Discrepancy: Total does not reconcile." in " ".join(visual_rows)
 
 
 def test_report_types_are_humanized_in_docx_and_mock_compiled_pdf() -> None:
@@ -335,22 +353,37 @@ def test_report_types_are_humanized_in_docx_and_mock_compiled_pdf() -> None:
     )
     issues = [
         Issue(
-            id=uuid4(), document_id=document_id, category=IssueCategory.TRACEABILITY,
-            type="REF_DRIFT", severity=Severity.CRITICAL,
+            id=uuid4(),
+            document_id=document_id,
+            category=IssueCategory.TRACEABILITY,
+            type="REF_DRIFT",
+            severity=Severity.CRITICAL,
             message="The cross-reference page differs from the target page.",
-            page_number=3, evidence={}, included_in_report=True,
+            page_number=3,
+            evidence={},
+            included_in_report=True,
         ),
         Issue(
-            id=uuid4(), document_id=document_id, category=IssueCategory.LAYOUT,
-            type="cross_page_break", severity=Severity.MEDIUM,
+            id=uuid4(),
+            document_id=document_id,
+            category=IssueCategory.LAYOUT,
+            type="cross_page_break",
+            severity=Severity.MEDIUM,
             message="The table is split across pages.",
-            page_number=4, evidence={}, included_in_report=True,
+            page_number=4,
+            evidence={},
+            included_in_report=True,
         ),
         Issue(
-            id=uuid4(), document_id=document_id, category=IssueCategory.BUDINSKI,
-            type="budinski_rework", severity=Severity.MEDIUM,
+            id=uuid4(),
+            document_id=document_id,
+            category=IssueCategory.BUDINSKI,
+            type="budinski_rework",
+            severity=Severity.MEDIUM,
             message="The conclusion needs synthesis.",
-            page_number=8, evidence={}, included_in_report=True,
+            page_number=8,
+            evidence={},
+            included_in_report=True,
         ),
     ]
     report_bytes = generate_ale_review_docx(assessment_from_document_findings(document, issues))
@@ -362,10 +395,8 @@ def test_report_types_are_humanized_in_docx_and_mock_compiled_pdf() -> None:
         chunks = [text[index : index + 1800] for index in range(0, len(text), 1800)]
         for chunk in chunks:
             page = pdf.new_page(width=612, height=792)
-            page.insert_textbox(
-                fitz.Rect(36, 36, 576, 756), chunk, fontname="helv", fontsize=7
-            )
-        return pdf.tobytes()
+            page.insert_textbox(fitz.Rect(36, 36, 576, 756), chunk, fontname="helv", fontsize=7)
+        return cast(bytes, pdf.tobytes())
 
     mock_pdf_bytes = mock_compile_pdf(docx_text)
     with fitz.open(stream=mock_pdf_bytes, filetype="pdf") as mock_pdf:

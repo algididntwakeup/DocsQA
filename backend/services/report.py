@@ -463,9 +463,7 @@ def build_review_report(
             cells[0].text = _severity(issue).title()
             cells[1].text = humanize_finding_type(issue.type, language=language)
             cells[2].text = location
-            cells[3].text = (
-                f"{fix} {humanize_finding_message(issue.message, issue.type, language)}"
-            )
+            cells[3].text = f"{fix} {humanize_finding_message(issue.message, issue.type, language)}"
             cells[4].text = str(occurrence_count)
 
     blocker_rows = [

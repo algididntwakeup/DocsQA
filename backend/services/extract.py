@@ -53,9 +53,7 @@ _DOCUMENT_NUMBER_PATTERN = re.compile(
     r"\b(?=[A-Z0-9-]{9,}\b)(?=[A-Z0-9-]*\d)[A-Z][A-Z0-9]*(?:-[A-Z0-9]+){2,}\b",
     re.IGNORECASE,
 )
-_REVISION_PATTERN = re.compile(
-    r"\b(?:revision|rev\.?)(?![a-z])\s*[:#-]?\s*([A-Z0-9]{1,4})\b", re.I
-)
+_REVISION_PATTERN = re.compile(r"\b(?:revision|rev\.?)(?![a-z])\s*[:#-]?\s*([A-Z0-9]{1,4})\b", re.I)
 _DATE_PATTERN = re.compile(
     r"\b(?:\d{1,2}\s+(?:January|February|March|April|May|June|July|August|"
     r"September|October|November|December)\s+\d{4}|"
@@ -114,17 +112,20 @@ def _extract_cover_metadata(text: str, page_count: int | None) -> DocumentCoverM
 
     revision_match = _REVISION_PATTERN.search(normalized_text)
     revision = revision_match.group(1).upper() if revision_match else None
-    if revision is None or revision.lower() in {"status", "issue", "date", "description"}:
-        # Common title blocks put the revision value in one column and "Rev / Status /
-        # Issue Date" in a separate header row. Resolve that row deterministically.
-        if re.search(r"(?i)\brev(?:ision)?\s+status\b", normalized_text):
-            history_row = re.search(
+    # Common title blocks put the revision value in one column and "Rev / Status /
+    # Issue Date" in a separate header row. Resolve that row deterministically.
+    if (
+        (revision is None or revision.lower() in {"status", "issue", "date", "description"})
+        and re.search(r"(?i)\brev(?:ision)?\s+status\b", normalized_text)
+        and (
+            history_row := re.search(
                 r"(?im)^\s*([A-Z0-9]{1,3})\s+(?:IFR|IFA|IFC|IFI|APPROVED|DRAFT)\s+"
                 r"\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b",
                 normalized_text,
             )
-            if history_row:
-                revision = history_row.group(1).upper()
+        )
+    ):
+        revision = history_row.group(1).upper()
     date_match = _DATE_PATTERN.search(normalized_text)
     return DocumentCoverMetadata(
         document_number=doc_number,
@@ -163,7 +164,7 @@ class PDFExtractor:
         artifact = ExtractionArtifact(document_id=document_id)
 
         try:
-            import fitz  # type: ignore[import-untyped]
+            import fitz
         except Exception as exc:  # noqa: BLE001 — fitz import failures are surface warnings
             artifact.warnings.append(f"Failed to import PyMuPDF: {exc}")
             return artifact
@@ -220,7 +221,9 @@ class PDFExtractor:
                         font_size = span.get("size", 10)
                         is_bold = "Bold" in font_name or "Black" in font_name
 
-                        if (is_bold and font_size > 12) or _SEMANTIC_SECTION_HEADING.fullmatch(text):
+                        if (is_bold and font_size > 12) or _SEMANTIC_SECTION_HEADING.fullmatch(
+                            text
+                        ):
                             artifact.headings.append(
                                 Heading(
                                     text=text,

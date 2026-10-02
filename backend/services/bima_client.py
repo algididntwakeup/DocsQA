@@ -142,6 +142,7 @@ def _directory_rows(
         )
     return [item for item in data if isinstance(item, dict)]
 
+
 async def _fetch_bima_directory(
     bima_token: str,
     path: str,
@@ -169,6 +170,7 @@ async def _fetch_bima_directory(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="BIMA is unavailable."
         ) from exc
 
+
 async def fetch_bima_projects(bima_token: str) -> list[dict[str, Any]]:
     """Fetch active/reference projects from BIMA using a user bearer token."""
     return await _fetch_bima_directory(
@@ -178,6 +180,7 @@ async def fetch_bima_projects(bima_token: str) -> list[dict[str, Any]]:
         "BIMA project access is unauthorized.",
         "BIMA project directory response is malformed.",
     )
+
 
 async def fetch_bima_users(bima_token: str) -> list[dict[str, Any]]:
     """Fetch the BIMA user directory using a user bearer token."""

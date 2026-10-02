@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 import re
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Any, Final
 
 from domain.enums import Severity
@@ -224,7 +224,10 @@ class GrammarAnalyzer:
             local_findings.append(
                 LinguisticFinding(
                     type="repeated_phrase",
-                    message="Use ‘comprising’ without ‘by’, or rewrite the phrase as ‘consisting of’.",
+                    message=(
+                        "Use ‘comprising’ without ‘by’, or rewrite the phrase as "
+                        "‘consisting of’."
+                    ),
                     severity=Severity.LOW,
                     confidence=0.98,
                     original_text=match.group(0),
@@ -453,10 +456,14 @@ def _detect_unclosed_key_section(artifact: ExtractionArtifact) -> list[Linguisti
     last_by_section: dict[int, Any] = {}
     for span in spans:
         position = (span.bbox.page_index, span.bbox.y0)
-        while heading_index < len(headings) and (
-            headings[heading_index].bbox.page_index,
-            headings[heading_index].bbox.y0,
-        ) <= position:
+        while (
+            heading_index < len(headings)
+            and (
+                headings[heading_index].bbox.page_index,
+                headings[heading_index].bbox.y0,
+            )
+            <= position
+        ):
             active_target = bool(target.search(headings[heading_index].text))
             if active_target:
                 target_section_id += 1

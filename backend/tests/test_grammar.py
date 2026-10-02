@@ -3,7 +3,13 @@
 from unittest.mock import patch
 from uuid import uuid4
 
-from schemas.extraction import CoordinateContract, ExtractionArtifact, Heading, PageMetadata, TextSpan
+from schemas.extraction import (
+    CoordinateContract,
+    ExtractionArtifact,
+    Heading,
+    PageMetadata,
+    TextSpan,
+)
 from services.grammar import GrammarAnalyzer, analyze_grammar
 
 
@@ -53,9 +59,7 @@ def test_mechanics_findings_use_shared_finding_keys() -> None:
 
 def test_recommendation_fragment_uses_unclosed_sentence_key() -> None:
     artifact = _make_artifact("classified as Priority by end-2027")
-    artifact.headings = [
-        Heading(text="Recommendations", level=1, bbox=artifact.spans[0].bbox)
-    ]
+    artifact.headings = [Heading(text="Recommendations", level=1, bbox=artifact.spans[0].bbox)]
 
     analysis = analyze_grammar(artifact)
 

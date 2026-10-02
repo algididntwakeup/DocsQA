@@ -89,6 +89,7 @@ def test_definition_extraction_handles_offset_columns_and_unicode_comparators() 
     assert findings[0].severity == "BLOCKER"
     assert findings[0].rule == "CATEGORY_BAND_CONTRADICTION"
     assert "35-V-101 Shell" in findings[0].where
+    assert findings[0].what_body_has is not None
     assert "Criticality 2" in findings[0].what_body_has
 
 

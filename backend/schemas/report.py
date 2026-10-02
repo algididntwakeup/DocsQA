@@ -10,9 +10,7 @@ from schemas.base import ApiModel
 class HeaderTemplateConfig(ApiModel):
     """Configurable two-brand page header used by generated deliverables."""
 
-    enabled: bool = Field(
-        default=True, validation_alias=AliasChoices("enabled", "header_enabled")
-    )
+    enabled: bool = Field(default=True, validation_alias=AliasChoices("enabled", "header_enabled"))
     title: str = Field(
         default="EXECUTIVE DOCUMENT REVIEW",
         max_length=180,

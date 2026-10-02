@@ -38,6 +38,12 @@ class ProjectRead(ApiModel):
     finished_at: datetime | None = None
     created_at: datetime
 
+    @field_validator("header_config", mode="before")
+    @classmethod
+    def default_missing_header_config(cls, value: object) -> object:
+        """Support projects created before the header-config migration and simple mocks."""
+        return value or {}
+
     @field_validator("status", mode="before")
     @classmethod
     def default_missing_status(cls, value: str | None) -> str:
