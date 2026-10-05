@@ -1931,6 +1931,17 @@
         "properties": {
           "header_config": {
             "$ref": "#/components/schemas/HeaderTemplateConfig"
+          },
+          "include_language_mechanics": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Include Language Mechanics"
           }
         },
         "required": [
@@ -4107,6 +4118,18 @@
             }
           },
           {
+            "description": "Include language and mechanics findings in the report.",
+            "in": "query",
+            "name": "include_language_mechanics",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Include language and mechanics findings in the report.",
+              "title": "Include Language Mechanics",
+              "type": "boolean"
+            }
+          },
+          {
             "in": "query",
             "name": "language",
             "required": false,
@@ -4850,6 +4873,38 @@
                 }
               ],
               "title": "User Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-BIMA-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Bima-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "bima_access_token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Bima Access Token"
             }
           }
         ],

@@ -226,13 +226,13 @@ async def sync_user_bima_projects(
         ) from exc
     local_projects = list(result.scalars().all())
     by_bima_id = {
-        project.bima_project_id: project
-        for project in local_projects
-        if project.bima_project_id is not None
+        local_project.bima_project_id: local_project
+        for local_project in local_projects
+        if local_project.bima_project_id is not None
     }
     by_name: dict[str, list[Project]] = {}
-    for project in local_projects:
-        by_name.setdefault(project.name.casefold(), []).append(project)
+    for local_project in local_projects:
+        by_name.setdefault(local_project.name.casefold(), []).append(local_project)
 
     created = 0
     updated = 0
