@@ -4,7 +4,19 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String, Table, Text, func
+from sqlalchemy import (
+    JSON,
+    Column,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Table,
+    Text,
+    func,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db.base import Base
@@ -31,6 +43,9 @@ class Project(Base):
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     code: Mapped[str | None] = mapped_column(String(50), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    header_config: Mapped[dict[str, object]] = mapped_column(
+        JSON, default=dict, server_default=text("'{}'"), nullable=False
+    )
     bima_project_id: Mapped[int | None] = mapped_column(
         Integer, unique=True, index=True, nullable=True
     )

@@ -241,6 +241,7 @@ export function ReviewWorkspaceView({ id }: { id: string }) {
       <ExportModal
         documentId={document.id}
         documentFilename={document.filename}
+        projectId={document.project_id}
         isOpen={isExportOpen}
         onClose={() => setIsExportOpen(false)}
       />

@@ -732,6 +732,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/header-config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update Project Header Config
+         * @description Save the default document header template for this project.
+         */
+        put: operations["update_project_header_config_api_v1_projects__project_id__header_config_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/standards-registry": {
         parameters: {
             query?: never;
@@ -1150,6 +1170,37 @@ export interface components {
             detail?: components["schemas"]["ValidationError"][];
         };
         /**
+         * HeaderTemplateConfig
+         * @description Configurable two-brand page header used by generated deliverables.
+         */
+        HeaderTemplateConfig: {
+            /** Client Logo */
+            client_logo?: string | null;
+            /** Company Logo */
+            company_logo?: string | null;
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Placement
+             * @default split_standard
+             * @enum {string}
+             */
+            placement: "split_standard" | "split_inverted" | "both_left" | "both_right";
+            /**
+             * Show Divider
+             * @default true
+             */
+            show_divider: boolean;
+            /**
+             * Title
+             * @default EXECUTIVE DOCUMENT REVIEW
+             */
+            title: string;
+        };
+        /**
          * IssueCategory
          * @description Top-level issue grouping used by API filters and the review UI.
          * @enum {string}
@@ -1370,6 +1421,10 @@ export interface components {
              */
             status: string;
         };
+        /** ProjectHeaderConfigUpdate */
+        ProjectHeaderConfigUpdate: {
+            header_config: components["schemas"]["HeaderTemplateConfig"];
+        };
         /**
          * ProjectRead
          * @description Project representation returned by the API.
@@ -1397,6 +1452,7 @@ export interface components {
             description?: string | null;
             /** Finished At */
             finished_at?: string | null;
+            header_config?: components["schemas"]["HeaderTemplateConfig"];
             /**
              * Id
              * Format: uuid
@@ -1485,6 +1541,13 @@ export interface components {
             full_name: string;
             /** Password */
             password: string;
+        };
+        /**
+         * ReportExportRequest
+         * @description Per-export settings; these override the saved project defaults.
+         */
+        ReportExportRequest: {
+            header_config: components["schemas"]["HeaderTemplateConfig"];
         };
         /**
          * ReportLanguage
@@ -2656,7 +2719,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ReportExportRequest"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -3316,6 +3383,41 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_project_header_config_api_v1_projects__project_id__header_config_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectHeaderConfigUpdate"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

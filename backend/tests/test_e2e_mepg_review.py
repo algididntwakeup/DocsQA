@@ -27,7 +27,7 @@ import io
 from pathlib import Path
 
 import docx
-import fitz  # type: ignore[import-untyped]
+import fitz
 import pytest
 from docx.document import Document as DocxDocument
 

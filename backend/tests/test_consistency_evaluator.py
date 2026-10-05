@@ -60,6 +60,39 @@ def test_matching_narrative_and_definition_has_no_blocker() -> None:
     assert findings == []
 
 
+def test_definition_extraction_handles_offset_columns_and_unicode_comparators() -> None:
+    ground_truth = harvest_definition_tables(
+        [
+            _table(
+                ["Criticality", "", "Remaining Useful Life", "Number of Components"],
+                ["", "Criticality 2", "", "0 < RUL 2026 ≤ 6 yr (to 2032)", "0"],
+                ["", "Criticality 3", "", "6 < RUL 2026 ≤ 14 yr (to 2040)", "2"],
+            )
+        ]
+    )
+
+    findings = detect_category_band_contradictions(
+        [
+            DocumentSection(
+                "Conclusions",
+                "35-V-101 Shell is Criticality 2 (6 < RUL ≤ 14 yrs), and 16 components "
+                "are Criticality 3 (6 < RUL ≤ 14 yrs).",
+                29,
+            )
+        ],
+        ground_truth,
+    )
+
+    assert ground_truth["criticality"]["2"].low == 0
+    assert ground_truth["criticality"]["2"].high == 6
+    assert len(findings) == 1
+    assert findings[0].severity == "BLOCKER"
+    assert findings[0].rule == "CATEGORY_BAND_CONTRADICTION"
+    assert "35-V-101 Shell" in findings[0].where
+    assert findings[0].what_body_has is not None
+    assert "Criticality 2" in findings[0].what_body_has
+
+
 def test_numeric_interval_parser_covers_comparator_and_word_forms() -> None:
     cases = {
         "0 < RUL <= 6": (0, 6, False, True),

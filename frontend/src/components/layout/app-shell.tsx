@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { ChevronDown, FolderKanban, KeyRound, LogOut, Menu, ShieldCheck, User, Users, X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { getCurrentUser, logout, type UserSession } from "@/lib/api";
+import { ApiError, getCurrentUser, logout, type UserSession } from "@/lib/api";
 import { useLocale } from "./locale-provider";
 import { LanguageToggle } from "./language-toggle";
 import { ThemeToggle } from "./theme-toggle";
@@ -24,9 +24,21 @@ export function AppShell({ children }: { children: ReactNode }) {
   const profileRef = useRef<HTMLDivElement>(null);
   const { t } = useLocale();
 
+  const isPublic = pathname === "/login" || pathname?.startsWith("/auth/sso");
+
   useEffect(() => {
-    if (pathname !== "/login") void getCurrentUser().then(setUser).catch(() => setUser(null));
-  }, [pathname]);
+    if (isPublic) return;
+    void getCurrentUser()
+      .then(setUser)
+      .catch((caught) => {
+        setUser(null);
+        if (caught instanceof ApiError && caught.status === 401) {
+          if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+            window.location.replace("/login");
+          }
+        }
+      });
+  }, [pathname, isPublic]);
 
   useEffect(() => {
     if (!profileOpen) return;
@@ -44,7 +56,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     };
   }, [profileOpen]);
 
-  if (pathname === "/login") return <>{children}</>;
+  if (isPublic) return <>{children}</>;
   const canManageUsers = user?.role === "LEAD_ENGINEER" || user?.role === "SUPERUSER";
   const initials = user?.full_name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase() || "RK";
   const navLinks = [

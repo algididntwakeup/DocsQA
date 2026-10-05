@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import io
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -31,15 +32,19 @@ from schemas.budinski import (
     BaselineMeasures,
     BlockerFinding,
     BudinskiScorecard,
+    DemonstrationRewrite,
     LanguageFinding,
     MajorFinding,
     ScoreItem,
 )
-from services.docx_styler import apply_document_defaults
+from schemas.report import HeaderTemplateConfig
+from services.docx_styler import apply_document_defaults, apply_document_header
 from services.report_locale import (
     get_budinski_guidance_note,
     get_budinski_item_name,
     get_report_strings,
+    humanize_finding_message,
+    humanize_finding_type,
 )
 from services.report_synthesizer import ReportSynthesizer
 
@@ -51,6 +56,35 @@ if TYPE_CHECKING:
 
 class LibreOfficeConversionError(RuntimeError):
     """Raised when headless LibreOffice conversion to PDF fails."""
+
+
+_FINDING_CODE_TOKEN = re.compile(r"\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b")
+_DISPLAY_STATUS_LABELS = {
+    "TRACEABILITY": "Document Control and Traceability",
+    "CRITICAL": "Critical",
+    "HIGH": "High",
+    "MAJOR": "Major",
+    "MEDIUM": "Medium",
+    "MINOR": "Minor",
+    "LOW": "Low",
+    "INFO": "Informational",
+}
+
+
+def _humanize_report_label(value: Any, language: ReportLanguage) -> str:
+    """Render machine finding tokens as display labels at the export boundary."""
+    text = str(value or "")
+    return _FINDING_CODE_TOKEN.sub(
+        lambda match: humanize_finding_type(match.group(0), language=language), text
+    )
+
+
+def _humanize_report_heading(value: Any, language: ReportLanguage) -> str:
+    """Humanize a finding heading and uppercase workflow/severity chips."""
+    text = _humanize_report_label(value, language)
+    for raw, display in _DISPLAY_STATUS_LABELS.items():
+        text = re.sub(rf"\b{raw}\b", display, text)
+    return text
 
 
 def convert_docx_to_pdf(docx_path: Path, output_dir: Path, timeout: int = 30) -> Path:
@@ -180,9 +214,36 @@ def assessment_from_document_findings(
         for issue in issues
         if getattr(issue, "included_in_report", True)
         and str(getattr(issue, "type", "")).upper() != "STANDARD_NOT_IN_BIBLIOGRAPHY"
-        and (include_minors or _issue_severity(issue) not in {"MINOR", "INFO", "LOW"})
+        and (
+            include_minors
+            or _issue_severity(issue) not in {"MINOR", "INFO", "LOW"}
+            or _issue_category(issue) in {"LINGUISTIC", "SPELLING", "GRAMMAR", "DICTIONARY"}
+        )
     ]
     scorecard = _load_scorecard(scorecard_data)
+    blocker_levels = {"BLOCKER", "CRITICAL", "HIGH"}
+    control_blocker_types = {
+        "UNCONTROLLED_PAGE",
+        "RUNNING_FOOTER",
+        "MISSING_DOCUMENT_NUMBER",
+        "DOCUMENT_NUMBER_MISSING",
+    }
+    blocker_count = sum(
+        _issue_severity(issue) in blocker_levels
+        or str(getattr(issue, "type", "")).upper() in control_blocker_types
+        for issue in included
+    )
+    major_count = sum(
+        _issue_severity(issue) in {"MAJOR", "MEDIUM"}
+        and _issue_category(issue) not in {"LINGUISTIC", "SPELLING", "GRAMMAR", "DICTIONARY"}
+        and _issue_severity(issue) not in blocker_levels
+        and str(getattr(issue, "type", "")).upper() not in control_blocker_types
+        for issue in included
+    )
+    minor_count = len(included) - blocker_count - major_count
+    scorecard.blockers_count = blocker_count
+    scorecard.majors_count = major_count
+    scorecard.minors_count = minor_count
     baseline = scorecard.baseline_measures or BaselineMeasures(
         purpose_distinct_from_objective=False,
         procedure_repeatable=False,
@@ -199,13 +260,6 @@ def assessment_from_document_findings(
     blockers: list[BlockerFinding] = []
     majors: list[MajorFinding] = []
     lang_findings: list[LanguageFinding] = []
-    blocker_levels = {"BLOCKER", "CRITICAL", "HIGH"}
-    control_blocker_types = {
-        "UNCONTROLLED_PAGE",
-        "RUNNING_FOOTER",
-        "MISSING_DOCUMENT_NUMBER",
-        "DOCUMENT_NUMBER_MISSING",
-    }
     blocker_candidates = [
         issue
         for issue in included
@@ -218,7 +272,7 @@ def assessment_from_document_findings(
             BlockerFinding(
                 number=len(blockers) + 1,
                 title=(
-                    f"{group.get('finding_codes', group['type'])} "
+                    f"{group.get('finding_label', group.get('finding_codes', group['type']))} "
                     f"({strings.blocker_title_instances.format(count=group['count'])})"
                 ),
                 where_location=strings.blocker_consolidated_where,
@@ -231,7 +285,6 @@ def assessment_from_document_findings(
     major_candidates: list[Any] = []
     for issue in included:
         evidence = getattr(issue, "evidence", None) or {}
-        message = str(getattr(issue, "message", ""))
         page = str(getattr(issue, "page_number", None) or evidence.get("page", strings.not_located))
         issue_type = str(getattr(issue, "type", "")).upper()
         if _issue_severity(issue) in blocker_levels or issue_type in control_blocker_types:
@@ -240,25 +293,42 @@ def assessment_from_document_findings(
             lang_findings.append(
                 LanguageFinding(
                     page=page,
-                    as_written=str(evidence.get("original_text") or message),
+                    finding_type=humanize_finding_type(issue_type, language=language),
+                    as_written=str(
+                        evidence.get("original_text")
+                        or humanize_finding_message(
+                            str(getattr(issue, "message", "")), issue_type, language
+                        )
+                    ),
                     suggested=str(evidence.get("suggestion") or strings.review_wording),
                 )
             )
         else:
             major_candidates.append(issue)
 
-    for group in synthesizer.synthesize_blocker_groups(major_candidates):
+    major_groups = synthesizer.synthesize_blocker_groups(major_candidates)
+    for group in major_groups:
         majors.append(
             MajorFinding(
                 number=len(majors) + 1,
-                finding=group.get("excerpt") or group["message"],
+                finding=group["message"],
                 what_would_fix_it=group["suggestion"],
             )
         )
 
     doc_name = getattr(document, "original_filename", "Document" if is_english else "Dokumen")
+    extracted_metadata = getattr(document, "extracted_metadata", {}) or {}
+    if not isinstance(extracted_metadata, dict):
+        extracted_metadata = {}
     metadata = AssessmentMetadata(
         document_reviewed=(f"{doc_name} | {getattr(document, 'id', '')}"),
+        document_number=str(extracted_metadata.get("document_number") or ""),
+        revision=str(extracted_metadata.get("revision") or ""),
+        page_count=extracted_metadata.get("page_count"),
+        document_date=str(extracted_metadata.get("document_date") or ""),
+        originator=str(
+            extracted_metadata.get("originator") or extracted_metadata.get("contractor") or ""
+        ),
         document_type=str(getattr(document, "document_type", "") or ""),
         reviewer=str(getattr(getattr(document, "verified_by", None), "full_name", "") or ""),
         type_of_review=strings.type_of_review,
@@ -267,6 +337,17 @@ def assessment_from_document_findings(
         note=strings.note,
         not_covered=strings.not_covered,
     )
+    demonstration_rewrite = None
+    if scorecard.demonstration_rewrite:
+        demonstration_rewrite = DemonstrationRewrite.model_validate(scorecard.demonstration_rewrite)
+    review_score_string = synthesizer.generate_review_score_string(
+        metadata,
+        scorecard,
+        blockers=blocker_count,
+        majors=major_count,
+        minors=minor_count,
+    )
+    scorecard.review_score_string = review_score_string
     title_prefix_doc = "Review of" if is_english else "Tinjauan atas"
     return AssessmentData(
         title=f"{title_prefix_doc} {doc_name}",
@@ -280,10 +361,11 @@ def assessment_from_document_findings(
         blockers=blockers,
         major_findings=majors,
         language_findings=lang_findings,
+        demonstration_rewrite=demonstration_rewrite,
         scorecard=scorecard,
         what_it_does_well=[],
         limits_of_review=[metadata.not_covered],
-        review_score_string=scorecard.review_score_string or strings.review_score_fallback,
+        review_score_string=review_score_string,
     )
 
 
@@ -669,6 +751,7 @@ def generate_ale_review_docx(
     assessment_result: AssessmentData,
     document: Any = None,
     language: ReportLanguage = ReportLanguage.ENGLISH,
+    header_config: HeaderTemplateConfig | None = None,
 ) -> bytes:
     """
     Generate a complete, professionally formatted DOCX review report from the supplied
@@ -697,7 +780,15 @@ def generate_ale_review_docx(
             assessment_result.metadata,
         )
         assessment_result.summary_judgement = summary.split("\n\n")
-    if not assessment_result.bottom_line:
+    stale_code_bottom_line = bool(
+        re.search(r"\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b", assessment_result.bottom_line)
+        or re.search(
+            r"\bTRACEABILITY\s*\(\s*\d+\s+instances?\s*\)",
+            assessment_result.bottom_line,
+            re.IGNORECASE,
+        )
+    )
+    if assessment_result.blockers and (not assessment_result.bottom_line or stale_code_bottom_line):
         assessment_result.bottom_line = synthesizer.generate_bottom_line(assessment_result.blockers)
     if not assessment_result.what_it_does_well:
         assessment_result.what_it_does_well = synthesizer.synthesize_praise({}, [])
@@ -707,6 +798,7 @@ def generate_ale_review_docx(
     if not recommendations:
         recommendations = [strings.rec_fallback_closing]
     _setup_page_header_footer(doc, assessment_result)
+    apply_document_header(doc, header_config or HeaderTemplateConfig())
 
     normal_style = doc.styles["Normal"]
     normal_style.font.name = "Arial"
@@ -745,16 +837,14 @@ def generate_ale_review_docx(
     prepared_by = getattr(owner, "full_name", strings.not_supplied)
     checked_by = getattr(verified, "full_name", strings.pending_verification)
     meta_entries = [
-        (strings.doc_no, meta.document_reviewed),
+        (strings.doc_no, meta.document_number or meta.document_reviewed),
         (
             strings.revision,
-            meta.document_reviewed.rsplit(" ", 1)[-1]
-            if meta.document_reviewed
-            else strings.not_supplied,
+            meta.revision or strings.not_supplied,
         ),
-        (strings.pages, strings.not_supplied),
-        (strings.file_date, strings.not_supplied),
-        (strings.originator, strings.not_supplied),
+        (strings.pages, str(meta.page_count) if meta.page_count else strings.not_supplied),
+        (strings.file_date, meta.document_date or strings.not_supplied),
+        (strings.originator, meta.originator or strings.not_supplied),
         (strings.document_reviewed, meta.document_reviewed),
         (strings.type_of_review, meta.type_of_review),
         (strings.basis, meta.basis),
@@ -846,13 +936,13 @@ def generate_ale_review_docx(
             run.font.color.rgb = COLOR_NAVY
     _add_heading_2(doc, strings.key_recommendations)
     for recommendation in recommendations:
-        _add_body_p(doc, f"- {recommendation}", space_after=3)
+        _add_body_p(doc, f"- {_humanize_report_label(recommendation, language)}", space_after=3)
 
     # Bagian 2: Summary Judgement & Callout Box "BOTTOM LINE"
     _add_heading_1(doc, strings.summary_judgement)
 
     for paragraph_text in assessment_result.summary_judgement:
-        _add_body_p(doc, paragraph_text, space_after=6)
+        _add_body_p(doc, _humanize_report_label(paragraph_text, language), space_after=6)
 
     # Callout Box "BOTTOM LINE"
     bottom_line_cell = _add_callout_box(
@@ -996,17 +1086,23 @@ def generate_ale_review_docx(
     else:
         for blocker in assessment_result.blockers:
             _add_heading_2(
-                doc, f"{strings.blocker} {blocker.number}: {blocker.title}", color=COLOR_FAIL
+                doc,
+                f"{strings.blocker} {blocker.number}: "
+                f"{_humanize_report_heading(blocker.title, language)}",
+                color=COLOR_FAIL,
             )
             cell = _add_callout_box(
                 doc, bg_hex=HEX_BLOCKER_BG, border_color_hex=HEX_BLOCKER_BORDER, border_sz="36"
             )
             fields = [
-                (strings.where, blocker.where_location),
-                (strings.what_it_says, blocker.what_it_says),
+                (strings.where, _humanize_report_label(blocker.where_location, language)),
+                (strings.what_it_says, _humanize_report_label(blocker.what_it_says, language)),
                 (strings.what_body_has, blocker.what_body_has),
-                (strings.why_it_matters, blocker.why_it_matters),
-                (strings.what_would_fix_it, blocker.what_would_fix_it),
+                (strings.why_it_matters, _humanize_report_label(blocker.why_it_matters, language)),
+                (
+                    strings.what_would_fix_it,
+                    _humanize_report_label(blocker.what_would_fix_it, language),
+                ),
             ]
             for f_idx, (fname, fval) in enumerate(fields):
                 p = cell.paragraphs[0] if f_idx == 0 else cell.add_paragraph()
@@ -1057,12 +1153,12 @@ def generate_ale_review_docx(
             r0.font.size = Pt(9)
             r0.font.color.rgb = COLOR_NAVY
             p1 = row.cells[1].paragraphs[0]
-            r1 = p1.add_run(finding.finding)
+            r1 = p1.add_run(_humanize_report_label(finding.finding, language))
             r1.font.name = "Arial"
             r1.font.size = Pt(9)
             r1.font.color.rgb = COLOR_TEXT
             p2 = row.cells[2].paragraphs[0]
-            r2 = p2.add_run(finding.what_would_fix_it)
+            r2 = p2.add_run(_humanize_report_label(finding.what_would_fix_it, language))
             r2.font.name = "Arial"
             r2.font.size = Pt(9)
             r2.font.color.rgb = COLOR_TEXT
@@ -1079,22 +1175,31 @@ def generate_ale_review_docx(
     if not assessment_result.language_findings:
         _add_body_p(doc, strings.no_language_findings, space_after=8)
     else:
-        lang_table = doc.add_table(rows=0, cols=3)
+        synthesizer = ReportSynthesizer(language)
+        for narrative in synthesizer.synthesize_language_narrative(
+            assessment_result.language_findings
+        ):
+            _add_body_p(doc, narrative, space_after=3)
+        lang_table = doc.add_table(rows=0, cols=4)
         lang_table.autofit = False
         lang_table.alignment = WD_TABLE_ALIGNMENT.CENTER
         _set_table_borders(lang_table, color=HEX_BORDER, sz="4")
-        lang_widths = [0.8, 3.1, 3.0]
+        lang_widths = [0.65, 1.55, 2.95, 1.65]
         l_hdr = lang_table.add_row()
         l_hdr.cells[0].paragraphs[0].add_run(strings.page)
-        l_hdr.cells[1].paragraphs[0].add_run(strings.as_written)
-        l_hdr.cells[2].paragraphs[0].add_run(strings.suggested)
+        l_hdr.cells[1].paragraphs[0].add_run(strings.finding_type)
+        l_hdr.cells[2].paragraphs[0].add_run(strings.as_written)
+        l_hdr.cells[3].paragraphs[0].add_run(strings.suggested)
         _format_table_row(l_hdr, lang_widths, bg_hex=HEX_NAVY, is_header=True)
         for idx, item in enumerate(assessment_result.language_findings):
             row = lang_table.add_row()
             bg = HEX_ZEBRA if idx % 2 == 1 else HEX_WHITE
             row.cells[0].paragraphs[0].add_run(item.page)
-            row.cells[1].paragraphs[0].add_run(item.as_written)
-            row.cells[2].paragraphs[0].add_run(item.suggested)
+            row.cells[1].paragraphs[0].add_run(
+                _humanize_report_heading(item.finding_type, language)
+            )
+            row.cells[2].paragraphs[0].add_run(item.as_written)
+            row.cells[3].paragraphs[0].add_run(item.suggested)
             _format_table_row(row, lang_widths, bg_hex=bg)
         p_l_space = doc.add_paragraph()
         p_l_space.paragraph_format.space_before = Pt(0)

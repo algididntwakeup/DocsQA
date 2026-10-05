@@ -47,7 +47,13 @@ export default function ProjectsPage() {
         )
       );
     } catch (caught) {
-       setError(caught instanceof ApiError ? caught.message : t("couldNotLoadProjects"));
+      if (caught instanceof ApiError && caught.status === 401) {
+        if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+          window.location.replace("/login");
+          return;
+        }
+      }
+      setError(caught instanceof ApiError ? caught.message : t("couldNotLoadProjects"));
     } finally {
       setLoading(false);
     }

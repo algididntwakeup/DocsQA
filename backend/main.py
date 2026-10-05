@@ -55,9 +55,7 @@ async def add_security_headers(
     # Allow the frontend origin(s) to iframe the canonical PDF (split-screen
     # review embeds :8000 PDFs inside the :3000 app). X-Frame-Options SAMEORIGIN
     # would block that cross-origin frame; CSP frame-ancestors is the modern
-    extra_origins = (
-        "https://*.ngrok-free.app https://*.ngrok.app https://*.reksolindo.co.id"
-    )
+    extra_origins = "https://*.ngrok-free.app https://*.ngrok.app https://*.reksolindo.co.id"
     frame_origins = f"{' '.join(settings.cors_origins)} {extra_origins}".strip()
     response.headers["Content-Security-Policy"] = f"frame-ancestors 'self' {frame_origins}"
     return response

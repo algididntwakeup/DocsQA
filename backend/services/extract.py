@@ -19,6 +19,7 @@ from uuid import UUID
 
 from schemas.extraction import (
     CoordinateContract,
+    DocumentCoverMetadata,
     ExtractionArtifact,
     Heading,
     PageMetadata,
@@ -48,6 +49,92 @@ _EXPLICIT_PAGE_PATTERN = re.compile(
     r"\b(?:page|pg\.?|p\.?)\s*[:.]?\s*([ivxlcdm]{1,12}|\d{1,4})\b",
     re.IGNORECASE,
 )
+_DOCUMENT_NUMBER_PATTERN = re.compile(
+    r"\b(?=[A-Z0-9-]{9,}\b)(?=[A-Z0-9-]*\d)[A-Z][A-Z0-9]*(?:-[A-Z0-9]+){2,}\b",
+    re.IGNORECASE,
+)
+_REVISION_PATTERN = re.compile(r"\b(?:revision|rev\.?)(?![a-z])\s*[:#-]?\s*([A-Z0-9]{1,4})\b", re.I)
+_DATE_PATTERN = re.compile(
+    r"\b(?:\d{1,2}\s+(?:January|February|March|April|May|June|July|August|"
+    r"September|October|November|December)\s+\d{4}|"
+    r"(?:January|February|March|April|May|June|July|August|September|October|"
+    r"November|December)\s+\d{1,2},?\s+\d{4}|"
+    r"\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{4}-\d{2}-\d{2})\b",
+    re.IGNORECASE,
+)
+_ORIGINATOR_LABEL = re.compile(r"\b(?:originator|prepared\s+by|originated\s+by)\b", re.I)
+_CONTRACTOR_LABEL = re.compile(r"\b(?:contractor|consultant|company)\b", re.I)
+_SEMANTIC_SECTION_HEADING = re.compile(
+    r"(?i)^\s*(?:\d+(?:\.\d+)*[.)]?\s+)?"
+    r"(?:executive\s+summary|abstract|introduction|background|methodology|methods?|"
+    r"procedure|approach|results?|findings|analysis|discussion|conclusions?|recommendations?)\s*$"
+)
+
+
+def _cover_value(lines: list[str], label_pattern: re.Pattern[str]) -> str | None:
+    """Return a labeled cover value, supporting title-block labels on adjacent lines."""
+    for index, line in enumerate(lines):
+        match = label_pattern.search(line)
+        if match is None:
+            continue
+        remainder = line[match.end() :].strip(" \t:.-|_")
+        if remainder:
+            return remainder[:160]
+        for candidate in lines[index + 1 : index + 3]:
+            value = candidate.strip(" \t:.-|_")
+            looks_like_label = re.search(
+                r"\b(?:doc(?:ument)?\s*(?:no|number)|rev(?:ision)?|date)\b", value, re.I
+            )
+            if value and not looks_like_label:
+                return value[:160]
+    return None
+
+
+def _extract_cover_metadata(text: str, page_count: int | None) -> DocumentCoverMetadata:
+    """Extract common title-block identity fields using deterministic label heuristics."""
+    lines = [re.sub(r"\s+", " ", line).strip() for line in text.splitlines()]
+    lines = [line for line in lines if line]
+    normalized_text = "\n".join(lines)
+
+    doc_number: str | None = None
+    labeled_number = re.search(
+        r"\b(?:document\s*(?:no\.?|number)|doc\.?\s*(?:no\.?|number)|drawing\s*no\.?)"
+        r"\s*[:#-]?\s*([A-Z0-9][A-Z0-9-]{7,})",
+        normalized_text,
+        re.I,
+    )
+    if labeled_number:
+        doc_number = labeled_number.group(1).strip("-.,;:")
+    else:
+        candidate = _DOCUMENT_NUMBER_PATTERN.search(normalized_text)
+        if candidate:
+            doc_number = candidate.group(0)
+
+    revision_match = _REVISION_PATTERN.search(normalized_text)
+    revision = revision_match.group(1).upper() if revision_match else None
+    # Common title blocks put the revision value in one column and "Rev / Status /
+    # Issue Date" in a separate header row. Resolve that row deterministically.
+    if (
+        (revision is None or revision.lower() in {"status", "issue", "date", "description"})
+        and re.search(r"(?i)\brev(?:ision)?\s+status\b", normalized_text)
+        and (
+            history_row := re.search(
+                r"(?im)^\s*([A-Z0-9]{1,3})\s+(?:IFR|IFA|IFC|IFI|APPROVED|DRAFT)\s+"
+                r"\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b",
+                normalized_text,
+            )
+        )
+    ):
+        revision = history_row.group(1).upper()
+    date_match = _DATE_PATTERN.search(normalized_text)
+    return DocumentCoverMetadata(
+        document_number=doc_number,
+        revision=f"Rev {revision}" if revision else None,
+        document_date=date_match.group(0) if date_match else None,
+        originator=_cover_value(lines, _ORIGINATOR_LABEL),
+        contractor=_cover_value(lines, _CONTRACTOR_LABEL),
+        page_count=page_count,
+    )
 
 
 def _printed_page_label(blocks: list[dict[str, Any]], page_height: float) -> str | None:
@@ -77,7 +164,7 @@ class PDFExtractor:
         artifact = ExtractionArtifact(document_id=document_id)
 
         try:
-            import fitz  # type: ignore[import-untyped]
+            import fitz
         except Exception as exc:  # noqa: BLE001 — fitz import failures are surface warnings
             artifact.warnings.append(f"Failed to import PyMuPDF: {exc}")
             return artifact
@@ -87,6 +174,15 @@ class PDFExtractor:
         except Exception as exc:  # noqa: BLE001 — malformed PDFs degrade to warnings
             artifact.warnings.append(f"Failed to open PDF: {exc}")
             return artifact
+
+        page_count = len(doc)
+        if page_count:
+            try:
+                cover_text = doc[0].get_text("text", sort=True)
+            except Exception as exc:  # noqa: BLE001 — cover metadata is best-effort
+                artifact.warnings.append(f"Failed to read cover text: {exc}")
+                cover_text = ""
+            artifact.cover_metadata = _extract_cover_metadata(cover_text, page_count)
 
         for page_index in range(len(doc)):
             page_start = time.monotonic()
@@ -125,7 +221,9 @@ class PDFExtractor:
                         font_size = span.get("size", 10)
                         is_bold = "Bold" in font_name or "Black" in font_name
 
-                        if is_bold and font_size > 12:
+                        if (is_bold and font_size > 12) or _SEMANTIC_SECTION_HEADING.fullmatch(
+                            text
+                        ):
                             artifact.headings.append(
                                 Heading(
                                     text=text,
@@ -373,6 +471,18 @@ class DOCXExtractor:
                 artifact.headings.append(Heading(text=text, level=level, bbox=dummy_bbox))
             else:
                 artifact.spans.append(TextSpan(text=text, bbox=dummy_bbox))
+
+        cover_text = "\n".join(paragraph.text for paragraph in document.paragraphs[:80])
+        properties = document.core_properties
+        if properties.created is not None:
+            artifact.cover_metadata.document_date = properties.created.date().isoformat()
+        parsed_metadata = _extract_cover_metadata(cover_text, None)
+        artifact.cover_metadata = parsed_metadata.model_copy(
+            update={
+                "document_date": parsed_metadata.document_date
+                or artifact.cover_metadata.document_date,
+            }
+        )
 
         return artifact
 

@@ -28,7 +28,10 @@ module = [
     "openpyxl",
     "openpyxl.*",
     "pypdf",
-    "pypdf.*"
+    "pypdf.*",
+    "fitz",
+    "fitz.*",
+    "passlib.context"
 ]
 ignore_missing_imports = true
 disable_error_code = ["import-untyped"]

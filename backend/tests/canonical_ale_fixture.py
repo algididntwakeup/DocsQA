@@ -1,3 +1,10 @@
+"""Legacy golden-report fixtures, for tests only.
+
+This module intentionally contains sample-specific expected output. Production
+services must never import it; runtime evaluations use BudinskiEvaluator's
+deterministic rules against extracted document content.
+"""
+
 from collections.abc import Sequence
 from typing import Any
 

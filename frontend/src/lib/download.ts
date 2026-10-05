@@ -1,11 +1,12 @@
 import { toast } from "sonner";
-import { getExportUrl, type ExportFormat, type ReportLanguage } from "./api";
+import { getExportUrl, type ExportFormat, type HeaderTemplateConfig, type ReportLanguage } from "./api";
 
 export async function downloadExport(
   documentId: string,
   format: ExportFormat,
   includeMinors = false,
   language: ReportLanguage = "en",
+  headerConfig?: HeaderTemplateConfig,
 ): Promise<void> {
   const label =
     format === "pdf"
@@ -16,7 +17,12 @@ export async function downloadExport(
   const toastId = toast.loading(`Generating ${label}...`);
   try {
     const response = await fetch(getExportUrl(documentId, format, includeMinors, language), {
+      method: headerConfig && format !== "annotated_pdf" ? "POST" : "GET",
       credentials: "include",
+      ...(headerConfig && format !== "annotated_pdf" ? {
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ header_config: headerConfig }),
+      } : {}),
     });
     if (!response.ok) {
       let detail = `Export failed (${response.status}).`;

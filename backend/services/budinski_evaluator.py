@@ -520,7 +520,7 @@ class BudinskiEvaluator:
             f"majors={majors} minors={minors}"
         )
 
-        return BudinskiScorecard(
+        scorecard = BudinskiScorecard(
             technical_content=tech_content,
             style=style,
             report_mechanics=mechanics,
@@ -536,6 +536,108 @@ class BudinskiEvaluator:
             minors_count=minors,
             review_score_string=score_string,
         )
+        self._attach_source_evidence(scorecard, doc_sections)
+        return scorecard
+
+    @staticmethod
+    def _attach_source_evidence(scorecard: BudinskiScorecard, doc_sections: dict[str, Any]) -> None:
+        """Replace generic/sample-like notes with current-document evidence anchors."""
+        details = doc_sections.get("section_details", {})
+        if not isinstance(details, dict):
+            details = {}
+        item_sections = {
+            "message_clear": "executive_summary",
+            "value_stated": "executive_summary",
+            "engineering_approach_logical": "methodology",
+            "logical_approach": "methodology",
+            "adequate_research": "introduction",
+            "adequate_comparison": "discussion",
+            "conclusions_supported": "conclusions",
+            "objective_met": "conclusions",
+            "purpose_of_report_clear": "introduction",
+            "purpose_of_work_clear": "introduction",
+            "objective_of_work_clear": "introduction",
+            "objective_of_report_clear": "introduction",
+            "format_stated": "introduction",
+            "work_referenced": "references",
+            "test_standards_cited": "references",
+            "experimental_steps_outlined": "methodology",
+            "adequate_detail_to_repeat": "methodology",
+            "results_clearly_stated": "results",
+            "results_free_of_discussion": "results",
+            "graphs_and_tables_proper": "results",
+            "sufficient_results": "results",
+            "discussion_relates_to_others": "discussion",
+            "discussion_length_appropriate": "discussion",
+            "conclusions_follow_from_results": "conclusions",
+            "conclusions_clear": "conclusions",
+            "sentence_paragraph_length": "conclusions",
+        }
+        global_keys = {
+            "objective_tone",
+            "sections_logical",
+            "readership_level",
+            "free_of_jargon",
+            "english_usage",
+            "concise",
+            "interesting",
+            "free_of_personal_opinion",
+            "no_over_explain",
+            "standard_writing_practice",
+            "layout_and_whitespace",
+            "free_of_trade_names",
+            "original_free_of_plagiarism",
+            "timely",
+        }
+        for _group_name, item_key, item in scorecard.get_all_items():
+            if item.score is None or item.status == "NOT_APPLICABLE":
+                continue
+            section_name = item_sections.get(item_key)
+            if section_name is None and item_key in global_keys:
+                section_name = "executive_summary"
+            detail = details.get(section_name) if section_name else None
+            if isinstance(detail, dict) and detail.get("heading") and detail.get("page"):
+                excerpt = str(detail.get("excerpt") or "").strip()
+                excerpt_part = f" Evidence: “{excerpt[:180]}”" if excerpt else ""
+                finding_part = ""
+                if item_key in {
+                    "conclusions_supported",
+                    "conclusions_follow_from_results",
+                    "conclusions_clear",
+                }:
+                    summaries = doc_sections.get("consistency_finding_summaries", [])
+                    if summaries:
+                        first = summaries[0]
+                        finding_part = (
+                            f" Finding: {str(first.get('message', ''))[:160]}"
+                            f" (PDF page {first.get('page') or 'not located'})."
+                        )
+                elif item_key == "english_usage":
+                    language_findings = doc_sections.get("language_findings", [])
+                    if language_findings:
+                        finding = language_findings[0]
+                        page = getattr(finding, "page_number", None)
+                        finding_part = (
+                            f" Finding: {str(getattr(finding, 'message', ''))[:140]}"
+                            f" (PDF page {page or 'not located'}; "
+                            f"{len(language_findings)} language finding(s) total)."
+                        )
+                item.note = (
+                    f"{item.name or item_key}: {item.score}/5. Source section "
+                    f"“{detail['heading']}”, PDF page {detail['page']}.{excerpt_part}"
+                    f"{finding_part}"
+                )
+            elif section_name == "references" and not doc_sections.get("references"):
+                item.note = (
+                    f"{item.name or item_key}: {item.score}/5. No references or bibliography "
+                    "section was detected in the extracted document headings/text."
+                )
+            else:
+                item.note = (
+                    f"{item.name or item_key}: {item.score}/5. The document did not yield a "
+                    "matching section heading and text excerpt for this item; "
+                    "manual review is needed."
+                )
 
     # ── Baseline Check Helpers ──────────────────────────────────────────────
 
@@ -756,7 +858,13 @@ class BudinskiEvaluator:
     def _eval_technical_content(self, doc_sections: dict[str, Any]) -> TechnicalContentGroup:
         exec_summary = doc_sections.get("executive_summary", "")
         repeats_results = doc_sections.get("exec_summary_repeats_results", False)
-        if repeats_results or (isinstance(exec_summary, str) and len(exec_summary.split()) > 1000):
+        if not isinstance(exec_summary, str) or len(exec_summary.split()) < 20:
+            message_clear = ScoreItem(
+                name="The message to the reader is clear",
+                score=2,
+                note="No substantive executive summary was extracted for evaluation.",
+            )
+        elif repeats_results or len(exec_summary.split()) > 1000:
             message_clear = ScoreItem(
                 name="The message to the reader is clear",
                 score=4,
@@ -768,11 +876,11 @@ class BudinskiEvaluator:
         else:
             message_clear = ScoreItem(
                 name="The message to the reader is clear",
-                score=5,
-                note="Executive summary clearly states findings and answers the core inquiry.",
+                score=4,
+                note="Executive summary text is present and within the length threshold.",
             )
 
-        logical = doc_sections.get("engineering_approach_logical", True)
+        logical = doc_sections.get("engineering_approach_logical", False)
         logical_approach = ScoreItem(
             name="The engineering approach is logical",
             score=5 if logical else 3,
@@ -782,7 +890,7 @@ class BudinskiEvaluator:
         )
 
         has_refs = bool(doc_sections.get("references"))
-        has_baseline = bool(doc_sections.get("has_previous_work_baseline", True))
+        has_baseline = bool(doc_sections.get("has_previous_work_baseline", False))
         if has_refs and has_baseline:
             adequate_research = ScoreItem(
                 name="Adequate research of previous work",
@@ -822,32 +930,36 @@ class BudinskiEvaluator:
 
         value_stated = ScoreItem(
             name="The value of the work is clearly stated",
-            score=5 if doc_sections.get("value_clearly_stated", True) else 3,
-            note="Extension target and business value stated early and carried throughout."
-            if doc_sections.get("value_clearly_stated", True)
-            else "Value of work is vague or unspecified.",
+            score=5 if doc_sections.get("value_clearly_stated", False) else 2,
+            note="A value or decision statement was detected in the executive summary."
+            if doc_sections.get("value_clearly_stated", False)
+            else "No explicit value or decision statement was detected in the executive summary.",
         )
 
         objective_met = ScoreItem(
             name="The work met the stated objective",
-            score=5 if doc_sections.get("objectives_met", True) else 3,
-            note="All stated objectives are addressed and evidenced."
-            if doc_sections.get("objectives_met", True)
-            else "Certain stated objectives remain unaddressed.",
+            score=5 if doc_sections.get("objectives_met", False) else 3,
+            note="The document explicitly states that its objectives were met or addressed."
+            if doc_sections.get("objectives_met", False)
+            else "The extracted text does not explicitly state that the objectives were met.",
         )
 
         orig = ScoreItem(
             name="Original and free of plagiarism",
-            score=5 if has_refs else 4,
-            note="Original work with full citations."
-            if has_refs
-            else "Formulas reproduced with code named at each one; no reference list.",
+            score=3,
+            note=(
+                "Originality cannot be established from document text alone; "
+                "citations were checked separately."
+            ),
         )
 
         timely = ScoreItem(
             name="Timely",
-            score=5 if doc_sections.get("timely", True) else 3,
-            note="Report issued promptly following study completion.",
+            score=5 if doc_sections.get("timely", False) else 3,
+            note=(
+                "Issue timing cannot be assessed without a verifiable study completion date "
+                "and issue date."
+            ),
         )
 
         return TechnicalContentGroup(
@@ -881,22 +993,25 @@ class BudinskiEvaluator:
 
         objective_tone = ScoreItem(
             name="Objective, neutral tone",
-            score=5,
-            note="Consistent throughout. No overselling of the life-extension result.",
+            score=4 if doc_sections.get("objective_tone", False) else 3,
+            note=(
+                "Promotional or first-person language is assessed from extracted text; "
+                "neutral tone is the default score when evidence is inconclusive."
+            ),
         )
 
         sections_logical = ScoreItem(
             name="Sections are logical",
-            score=5 if has_refs else 4,
-            note="All sections present in sound order."
-            if has_refs
-            else "Sound chapter sequence, but missing reference section.",
+            score=5 if doc_sections.get("section_order_logical", False) else 3,
+            note="Extracted section headings follow the expected document order."
+            if doc_sections.get("section_order_logical", False)
+            else "Heading order is inconclusive or does not follow the expected report sequence.",
         )
 
         readership_level = ScoreItem(
             name="Writing level suits the readership",
-            score=5,
-            note="Correctly pitched for technical engineering readership.",
+            score=3,
+            note="Reader expertise is not explicit in the extracted document context.",
         )
 
         unexplained_jargon = doc_sections.get("has_unexplained_jargon", False)
@@ -908,10 +1023,10 @@ class BudinskiEvaluator:
             else "Free of jargon and commercialism.",
         )
 
-        english_score = 5
+        english_score = 3
         if len(lang_findings) >= 10 or doc_sections.get("language_faults_in_key_sections", False):
             english_score = 2
-        elif len(lang_findings) > 0:
+        elif lang_findings or "language_findings" in doc_sections:
             english_score = 4
         english_usage = ScoreItem(
             name="Use of English is satisfactory",
@@ -932,14 +1047,20 @@ class BudinskiEvaluator:
 
         interesting = ScoreItem(
             name="Interesting",
-            score=4,
-            note="Includes synthesis decision matrices and clear figures.",
+            score=3,
+            note=(
+                "Interest is a reviewer judgment and is not inferred without "
+                "document-specific evidence."
+            ),
         )
 
         free_of_personal_opinion = ScoreItem(
             name="Free of personal opinion and figures of speech",
-            score=5,
-            note="No lapses found.",
+            score=3,
+            note=(
+                "Personal opinion and figures of speech require contextual review; "
+                "no automatic pass is assumed."
+            ),
         )
 
         no_over_explain = ScoreItem(
@@ -991,13 +1112,13 @@ class BudinskiEvaluator:
         has_bg = doc_sections.get("sufficient_background", True)
         sufficient_background = ScoreItem(
             name="Sufficient background information",
-            score=5 if has_bg else 3,
-            note="Commissioning, design life, previous extension, and operational context given."
+            score=5 if has_bg else 2,
+            note="Extracted introduction contains substantive background context."
             if has_bg
-            else "Background context is minimal.",
+            else "No substantive introduction/background section was extracted.",
         )
 
-        purpose_work = doc_sections.get("purpose_of_work_clear", True)
+        purpose_work = doc_sections.get("purpose_of_work_clear", False)
         purpose_of_work_clear = ScoreItem(
             name="Purpose of the work is clear",
             score=5 if purpose_work else 3,
@@ -1006,7 +1127,7 @@ class BudinskiEvaluator:
             else "Purpose of the work is unclear.",
         )
 
-        obj_work = doc_sections.get("objective_of_work_clear", True)
+        obj_work = doc_sections.get("objective_of_work_clear", False)
         objective_of_work_clear = ScoreItem(
             name="Objective of the work is clear",
             score=5 if obj_work else 3,
@@ -1066,7 +1187,7 @@ class BudinskiEvaluator:
             else "No reference section anywhere in the document.",
         )
 
-        steps_outlined = doc_sections.get("steps_outlined", True)
+        steps_outlined = doc_sections.get("steps_outlined", False)
         non_lab = _is_non_laboratory_document(doc_sections)
         experimental_steps_outlined = ScoreItem(
             name="Experimental steps clearly outlined",
@@ -1097,8 +1218,11 @@ class BudinskiEvaluator:
 
         free_of_trade_names = ScoreItem(
             name="Free of unnecessary trade names and detail",
-            score=4,
-            note="Client systems named appropriately without commercial promotion.",
+            score=3,
+            note=(
+                "Commercial necessity of trade names requires context not inferred by "
+                "this rule set."
+            ),
         )
 
         standards_score = (
@@ -1131,16 +1255,28 @@ class BudinskiEvaluator:
         doc_sections: dict[str, Any],
         anomalies: Sequence[LayoutAnomaly | dict[str, Any]],
     ) -> ConclusionsAndCraftGroup:
+        results_text = str(doc_sections.get("results", ""))
         results_clearly_stated = ScoreItem(
             name="Results clearly stated and illustrated where needed",
-            score=5,
-            note="Results presented with comprehensive tables and figures.",
+            score=4 if len(results_text.split()) >= 30 else 2,
+            note=(
+                "An extracted Results section contains substantive text."
+                if len(results_text.split()) >= 30
+                else "No substantive Results section was extracted."
+            ),
         )
 
         results_free_of_discussion = ScoreItem(
             name="Results free of procedure detail and discussion",
-            score=4,
-            note="Results section is clean with short interpretive summaries.",
+            score=4 if doc_sections.get("discussion") else 3,
+            note=(
+                "Results and Discussion headings were separately detected."
+                if doc_sections.get("discussion")
+                else (
+                    "A separate Discussion section was not detected; separation of results "
+                    "and interpretation is uncertain."
+                )
+            ),
         )
 
         def get_type(a: LayoutAnomaly | dict[str, Any]) -> str:
@@ -1151,18 +1287,24 @@ class BudinskiEvaluator:
         has_nav_drift = any(get_type(a) == "FRONT_MATTER_DRIFT" for a in anomalies)
         graphs_and_tables_proper = ScoreItem(
             name="Graphs and tables necessary and properly made",
-            score=3 if has_nav_drift else 5,
+            score=2 if has_nav_drift else 4 if doc_sections.get("has_tables_or_figures") else 3,
             note=(
-                "Numbering complete, but page references drift and captions lack source citations."
+                "Navigation drift was detected in the front matter."
                 if has_nav_drift
-                else "All graphs and tables properly numbered and captioned."
+                else "Table/figure evidence was extracted; caption quality still requires review."
+                if doc_sections.get("has_tables_or_figures")
+                else "No graph or table evidence was extracted for this item."
             ),
         )
 
         sufficient_results = ScoreItem(
             name="Sufficient results presented",
-            score=5,
-            note="Full component-level detail presented with supporting appendices.",
+            score=4 if len(results_text.split()) >= 100 else 2,
+            note=(
+                "Results section contains substantial extracted text."
+                if len(results_text.split()) >= 100
+                else "Results evidence is absent or too limited for a positive score."
+            ),
         )
 
         has_discussion = bool(doc_sections.get("discussion"))

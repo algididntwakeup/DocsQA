@@ -4,7 +4,7 @@ Unit tests for DocumentLayoutInspector (layout, typography, and page-continuity 
 
 from pathlib import Path
 
-import fitz  # type: ignore[import-untyped]
+import fitz
 import pytest
 
 from schemas.extraction import (

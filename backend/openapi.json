@@ -979,6 +979,65 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "HeaderTemplateConfig": {
+        "additionalProperties": false,
+        "description": "Configurable two-brand page header used by generated deliverables.",
+        "properties": {
+          "client_logo": {
+            "anyOf": [
+              {
+                "maxLength": 3000000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Logo"
+          },
+          "company_logo": {
+            "anyOf": [
+              {
+                "maxLength": 3000000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company Logo"
+          },
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "placement": {
+            "default": "split_standard",
+            "enum": [
+              "split_standard",
+              "split_inverted",
+              "both_left",
+              "both_right"
+            ],
+            "title": "Placement",
+            "type": "string"
+          },
+          "show_divider": {
+            "default": true,
+            "title": "Show Divider",
+            "type": "boolean"
+          },
+          "title": {
+            "default": "EXECUTIVE DOCUMENT REVIEW",
+            "maxLength": 180,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "title": "HeaderTemplateConfig",
+        "type": "object"
+      },
       "IssueCategory": {
         "description": "Top-level issue grouping used by API filters and the review UI.",
         "enum": [
@@ -1564,6 +1623,19 @@
         "title": "ProjectCreate",
         "type": "object"
       },
+      "ProjectHeaderConfigUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "header_config": {
+            "$ref": "#/components/schemas/HeaderTemplateConfig"
+          }
+        },
+        "required": [
+          "header_config"
+        ],
+        "title": "ProjectHeaderConfigUpdate",
+        "type": "object"
+      },
       "ProjectRead": {
         "additionalProperties": false,
         "description": "Project representation returned by the API.",
@@ -1645,6 +1717,9 @@
               }
             ],
             "title": "Finished At"
+          },
+          "header_config": {
+            "$ref": "#/components/schemas/HeaderTemplateConfig"
           },
           "id": {
             "format": "uuid",
@@ -1848,6 +1923,20 @@
           "full_name"
         ],
         "title": "RegisterEngineerRequest",
+        "type": "object"
+      },
+      "ReportExportRequest": {
+        "additionalProperties": false,
+        "description": "Per-export settings; these override the saved project defaults.",
+        "properties": {
+          "header_config": {
+            "$ref": "#/components/schemas/HeaderTemplateConfig"
+          }
+        },
+        "required": [
+          "header_config"
+        ],
+        "title": "ReportExportRequest",
         "type": "object"
       },
       "ReportLanguage": {
@@ -4051,6 +4140,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ReportExportRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Export Options"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response"
@@ -5217,6 +5323,65 @@
           }
         ],
         "summary": "Finish Project",
+        "tags": [
+          "projects"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/header-config": {
+      "put": {
+        "description": "Save the default document header template for this project.",
+        "operationId": "update_project_header_config_api_v1_projects__project_id__header_config_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectHeaderConfigUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Project Header Config",
         "tags": [
           "projects"
         ]

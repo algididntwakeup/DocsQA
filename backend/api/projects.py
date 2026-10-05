@@ -30,7 +30,12 @@ from models.project import Project
 from models.user import User
 from schemas.common import PageInfo
 from schemas.documents import DocumentListResponse, DocumentRead, DocumentUploadResponse
-from schemas.project import ProjectAssignment, ProjectCreate, ProjectRead
+from schemas.project import (
+    ProjectAssignment,
+    ProjectCreate,
+    ProjectHeaderConfigUpdate,
+    ProjectRead,
+)
 from services import bima_client as bima_client
 from services.bima_adapter import BimaMasterDataAdapter
 from services.pipeline import enqueue_extraction
@@ -152,9 +157,7 @@ async def sync_bima_projects(
                 created += 1
             else:
                 updated += 1
-                project.members = [
-                    user_by_bima_id[bima_id] for bima_id in remote.member_bima_ids
-                ]
+                project.members = [user_by_bima_id[bima_id] for bima_id in remote.member_bima_ids]
             project.name = remote.name
             project.code = remote.code
             project.description = remote.description
@@ -252,6 +255,22 @@ async def assign_project(
     return _project_read(project)
 
 
+@router.put("/{project_id}/header-config", response_model=ProjectRead)
+async def update_project_header_config(
+    project_id: UUID,
+    payload: ProjectHeaderConfigUpdate,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    _: Annotated[User, Depends(require_lead)],
+) -> ProjectRead:
+    """Save the default document header template for this project."""
+    project = await _load_project_for_mutation(session, project_id)
+    _ensure_project_open(project)
+    project.header_config = payload.header_config.model_dump()
+    await session.commit()
+    await session.refresh(project, attribute_names=["created_by", "assigned_to", "documents"])
+    return _project_read(project)
+
+
 @router.post("/{project_id}/finish", response_model=ProjectRead)
 async def finish_project(
     project_id: UUID,
@@ -323,9 +342,7 @@ async def list_project_documents(
     )
     project = (
         await session.execute(
-            select(Project)
-            .options(selectinload(Project.members))
-            .where(Project.id == project_id)
+            select(Project).options(selectinload(Project.members)).where(Project.id == project_id)
         )
     ).scalar_one_or_none()
     member_ids = {member.id for member in project.members} if project is not None else set()

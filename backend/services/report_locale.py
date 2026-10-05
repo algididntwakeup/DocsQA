@@ -6,6 +6,188 @@ from dataclasses import dataclass
 
 from domain.enums import ReportLanguage
 
+# Stable machine finding identifiers are kept in storage and used by analyzers;
+# reports render these reader-facing names instead.
+FINDING_LABELS: dict[str, str] = {
+    # Document control and traceability
+    "ref_drift": "Cross-Reference Pagination Drift",
+    "reference_drift": "Cross-Reference Pagination Drift",
+    "missing_target": "Unresolved Reference Target",
+    "missing_navigation_target": "Unresolved Reference Target",
+    "revision_mismatch": "Revision Index Inconsistency",
+    "uncontrolled_page": "Uncontrolled / Unindexed Sheet",
+    "missing_metadata": "Missing Document Control Metadata",
+    "missing_document_number": "Missing Document Control Metadata",
+    "document_number_missing": "Missing Document Control Metadata",
+    "outdated_standard": "Superseded Engineering Standard",
+    "standard_not_in_bibliography": "Superseded Engineering Standard",
+    "toc_drift": "Contents Pagination Drift",
+    "running_footer": "Document Header / Footer Inconsistency",
+    # Tables and mechanical integrity
+    "table_math_mismatch": "Arithmetic Summation Discrepancy",
+    "cross_page_break": "Improper Section / Table Split",
+    "duplicate_component": "Duplicate Tag / Component Record",
+    "duplicate_content": "Duplicate Tag / Component Record",
+    "sigfig_inconsistency": "Significant Figure / Rounding Discrepancy",
+    "category_band_contradiction": "Classification Band Contradiction",
+    "duplicate_category_band": "Duplicate Classification Band",
+    # Linguistics and style
+    "spelling_split": "Broken Word / Erroneous Hyphenation",
+    "spelling_error": "Spelling Error",
+    "spelling_001": "Spelling Error",
+    "repeated_phrase": "Redundant / Pleonastic Phrasing",
+    "grammar_repeated_phrase": "Redundant / Pleonastic Phrasing",
+    "grammar_repeated_word": "Repeated Word",
+    "grammar_split_year": "Broken Number / Erroneous Spacing",
+    "grammar_split_word": "Broken Word / Erroneous Hyphenation",
+    "grammar_comprising_by": "Incorrect ‘Comprising By’ Construction",
+    "grammar_unclosed_sentence": "Incomplete / Truncated Sentence",
+    "comprising_by": "Incorrect ‘Comprising By’ Construction",
+    "grammatical_agreement": "Subject-Verb Agreement Discrepancy",
+    "grammar_agreement": "Subject-Verb Agreement Discrepancy",
+    "unclosed_sentence": "Incomplete / Truncated Sentence",
+    "ambiguous_constraint": "Ambiguous Engineering Specification",
+    "unexplained_abbreviation": "Undefined Technical Acronym / Jargon",
+    "grammar_homophone": "Incorrect Word Choice",
+    "grammar_lt": "Grammar and Usage Issue",
+    "passive_voice_overuse": "Excessive Passive Voice Construction",
+    "informal_tone": "Non-Standard / Informal Phrasing",
+    "homophone": "Incorrect Word Choice",
+    "grammar_error": "Grammar and Usage Issue",
+    "typographical_error": "Typographical Error",
+    "typo": "Typographical Error",
+    "ambiguity": "Ambiguous Engineering Specification",
+    "vague_directive": "Ambiguous Engineering Specification",
+    "material_grade": "Material Grade Specification Issue",
+    # Checklist, status, and common policy findings
+    "budinski_rework": "Standard Writing Quality Deficiency",
+    "unassigned": "Unassigned Document",
+    "in_progress": "Analysis In Progress",
+    "verified": "Verified Document",
+    "reference_rule": "Engineering Standard Compliance Finding",
+    "passive_voice": "Excessive Passive Voice Construction",
+    "unexplained_acronym": "Undefined Technical Acronym / Jargon",
+}
+
+_FINDING_LABELS_ID: dict[str, str] = {
+    "ref_drift": "Pergeseran Pagination Referensi Silang",
+    "reference_drift": "Pergeseran Pagination Referensi Silang",
+    "missing_target": "Target Referensi Tidak Ditemukan",
+    "missing_navigation_target": "Target Referensi Tidak Ditemukan",
+    "revision_mismatch": "Inkonsistensi Indeks Revisi",
+    "uncontrolled_page": "Lembar Tidak Terkendali / Tidak Terindeks",
+    "missing_metadata": "Metadata Kendali Dokumen Tidak Lengkap",
+    "missing_document_number": "Metadata Kendali Dokumen Tidak Lengkap",
+    "document_number_missing": "Metadata Kendali Dokumen Tidak Lengkap",
+    "outdated_standard": "Standar Rekayasa yang Tidak Berlaku",
+    "standard_not_in_bibliography": "Standar Rekayasa yang Tidak Berlaku",
+    "toc_drift": "Pergeseran Pagination Daftar Isi",
+    "running_footer": "Inkonsistensi Header / Footer Dokumen",
+    "table_math_mismatch": "Diskrepansi Penjumlahan Aritmetika",
+    "cross_page_break": "Pemisahan Bagian / Tabel yang Tidak Tepat",
+    "duplicate_component": "Catatan Tag / Komponen Duplikat",
+    "duplicate_content": "Catatan Tag / Komponen Duplikat",
+    "sigfig_inconsistency": "Diskrepansi Angka Penting / Pembulatan",
+    "category_band_contradiction": "Kontradiksi Klasifikasi Rentang",
+    "duplicate_category_band": "Rentang Klasifikasi Duplikat",
+    "spelling_split": "Kata Terputus / Pemenggalan yang Keliru",
+    "spelling_error": "Kesalahan Ejaan",
+    "spelling_001": "Kesalahan Ejaan",
+    "repeated_phrase": "Frasa Berulang / Pleonastis",
+    "grammar_repeated_phrase": "Frasa Berulang / Pleonastis",
+    "grammar_repeated_word": "Kata Berulang",
+    "grammar_split_year": "Angka Terpisah / Jarak yang Keliru",
+    "grammar_split_word": "Kata Terputus / Pemenggalan yang Keliru",
+    "grammar_comprising_by": "Konstruksi ‘Comprising By’ yang Keliru",
+    "grammar_unclosed_sentence": "Kalimat Tidak Lengkap / Terpotong",
+    "comprising_by": "Konstruksi ‘Comprising By’ yang Keliru",
+    "grammatical_agreement": "Diskrepansi Kesepakatan Subjek-Predikat",
+    "grammar_agreement": "Diskrepansi Kesepakatan Subjek-Predikat",
+    "unclosed_sentence": "Kalimat Tidak Lengkap / Terpotong",
+    "ambiguous_constraint": "Spesifikasi Rekayasa yang Ambigu",
+    "passive_voice_overuse": "Penggunaan Kalimat Pasif yang Berlebihan",
+    "informal_tone": "Pilihan Kata Informal / Tidak Baku",
+    "homophone": "Pilihan Kata yang Keliru",
+    "grammar_error": "Masalah Tata Bahasa dan Penggunaan Kata",
+    "typographical_error": "Kesalahan Tipografi",
+    "typo": "Kesalahan Tipografi",
+    "ambiguity": "Spesifikasi Rekayasa yang Ambigu",
+    "vague_directive": "Spesifikasi Rekayasa yang Ambigu",
+    "material_grade": "Masalah Spesifikasi Kelas Material",
+    "budinski_rework": "Kekurangan Mutu Penulisan Standar",
+    "unassigned": "Dokumen Belum Ditugaskan",
+    "in_progress": "Analisis Sedang Berlangsung",
+    "verified": "Dokumen Terverifikasi",
+    "reference_rule": "Temuan Kepatuhan Standar Rekayasa",
+    "passive_voice": "Penggunaan Kalimat Pasif yang Berlebihan",
+    "unexplained_acronym": "Akronim / Jargon Teknis yang Tidak Didefinisikan",
+    "unexplained_abbreviation": "Akronim / Jargon Teknis yang Tidak Didefinisikan",
+    "grammar_homophone": "Pilihan Kata yang Keliru",
+    "grammar_lt": "Masalah Tata Bahasa dan Penggunaan Kata",
+}
+
+
+def humanize_finding_type(
+    finding_type: str, count: int = 1, language: ReportLanguage = ReportLanguage.ENGLISH
+) -> str:
+    """Convert an internal finding identifier into concise report copy."""
+    if not finding_type:
+        return (
+            "Temuan Tidak Ditentukan"
+            if language == ReportLanguage.INDONESIAN
+            else "Unspecified Finding"
+        )
+    key = str(finding_type).lower().strip()
+    # Rule ids and analyzer namespaces are implementation details, not report labels.
+    key = key.removeprefix("rule_").removeprefix("lt_")
+    labels = _FINDING_LABELS_ID if language == ReportLanguage.INDONESIAN else FINDING_LABELS
+    label = labels.get(key)
+    if label is None:
+        words = key.replace("_", " ").replace("-", " ").strip()
+        label = words.title() if words else "Unspecified Finding"
+    if count > 1:
+        if label.endswith(("Metadata", "Jargon")):
+            return label
+        irregular_plurals = {
+            "Discrepancy": "Discrepancies",
+            "Deficiency": "Deficiencies",
+            "Inconsistency": "Inconsistencies",
+            "Split": "Splits",
+            "Sheet": "Sheets",
+            "Target": "Targets",
+            "Drift": "Drifts",
+            "Sentence": "Sentences",
+            "Specification": "Specifications",
+            "Acronym": "Acronyms",
+            "Phrase": "Phrases",
+            "Record": "Records",
+        }
+        for singular, plural in irregular_plurals.items():
+            if label.endswith(singular):
+                return label[: -len(singular)] + plural
+        if not label.endswith("s"):
+            return f"{label}s"
+    return label
+
+
+def humanize_finding_message(
+    message: str, finding_type: str = "", language: ReportLanguage = ReportLanguage.ENGLISH
+) -> str:
+    """Strip analyzer identifiers from message prefixes while retaining evidence prose."""
+    import re
+
+    text = str(message or "").strip()
+    code_prefix = re.match(
+        r"^((?:RULE_|LT_)?[A-Z][A-Z0-9]*(?:_[A-Z0-9]+){1,})\s*[:—-]\s*(.*)$", text
+    )
+    if code_prefix:
+        return code_prefix.group(2).strip() or humanize_finding_type(
+            finding_type or code_prefix.group(1), language=language
+        )
+    if text and re.fullmatch(r"(?:RULE_|LT_)?[A-Z][A-Z0-9]*(?:_[A-Z0-9]+){1,}", text):
+        return humanize_finding_type(finding_type or text, language=language)
+    return text
+
 
 @dataclass(frozen=True, slots=True)
 class ReportStrings:
@@ -38,6 +220,7 @@ class ReportStrings:
     language_intro: str
     no_language_findings: str
     page: str
+    finding_type: str
     as_written: str
     suggested: str
     demonstration_rewrite: str
@@ -180,6 +363,7 @@ _EN = ReportStrings(
     language_intro="Language, phrasing, typographical, and grammatical findings by page:",
     no_language_findings="No language or mechanics findings identified.",
     page="Page",
+    finding_type="Finding type",
     as_written="As Written",
     suggested="Suggested",
     demonstration_rewrite="Demonstration rewrite",
@@ -345,6 +529,7 @@ _ID = ReportStrings(
     language_intro="Temuan bahasa, frasa, tipografi, dan tata bahasa menurut halaman:",
     no_language_findings="Tidak ada temuan bahasa atau mekanika.",
     page="Halaman",
+    finding_type="Jenis temuan",
     as_written="Teks asli",
     suggested="Saran",
     demonstration_rewrite="Contoh penulisan ulang",

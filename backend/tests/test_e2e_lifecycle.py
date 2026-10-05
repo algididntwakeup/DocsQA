@@ -202,7 +202,7 @@ async def test_full_document_lifecycle_e2e(tmp_path: Path) -> None:
             assert "ENG-SPEC-2026.pdf" in doc_text
             assert "Summary judgement" in doc_text
             assert "Scorecard" in doc_text
-            assert "TABLE_MATH_MISMATCH" in doc_text
+            assert "Arithmetic Summation Discrepancy" in doc_text
 
             # 6c: Unsupported legacy formats rejected
             export_xlsx = await client.get(f"/api/v1/documents/{doc_id}/export?format=xlsx")

@@ -29,7 +29,15 @@ export default function ProfileSettingsPage() {
         setFullName(current.full_name);
         setEmail(current.email);
       })
-      .catch((caught) => setError(caught instanceof ApiError ? caught.message : t("loadProfileError")))
+      .catch((caught) => {
+        if (caught instanceof ApiError && caught.status === 401) {
+          if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+            window.location.replace("/login");
+            return;
+          }
+        }
+        setError(caught instanceof ApiError ? caught.message : t("loadProfileError"));
+      })
       .finally(() => setLoading(false));
   }, [t]);
 

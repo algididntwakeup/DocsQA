@@ -6,6 +6,7 @@ from uuid import UUID
 from pydantic import Field, field_validator
 
 from schemas.base import ApiModel
+from schemas.report import HeaderTemplateConfig
 
 
 class ProjectCreate(ApiModel):
@@ -26,6 +27,7 @@ class ProjectRead(ApiModel):
     name: str
     code: str | None = None
     description: str | None = None
+    header_config: HeaderTemplateConfig = Field(default_factory=HeaderTemplateConfig)
     plant_area: str | None = None
     created_by_id: UUID
     created_by_name: str | None = None
@@ -35,6 +37,12 @@ class ProjectRead(ApiModel):
     status: str = "NO_DOCUMENTS"
     finished_at: datetime | None = None
     created_at: datetime
+
+    @field_validator("header_config", mode="before")
+    @classmethod
+    def default_missing_header_config(cls, value: object) -> object:
+        """Support projects created before the header-config migration and simple mocks."""
+        return value or {}
 
     @field_validator("status", mode="before")
     @classmethod
@@ -46,3 +54,7 @@ class ProjectAssignment(ApiModel):
     """Payload used by leads to assign a project to an engineer."""
 
     assigned_to_id: UUID | None = None
+
+
+class ProjectHeaderConfigUpdate(ApiModel):
+    header_config: HeaderTemplateConfig

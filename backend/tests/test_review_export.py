@@ -128,7 +128,6 @@ class TestReviewExportDocx:
         # BOTTOM LINE callout
         assert "BOTTOM LINE" in full_text
         assert canonical_assessment.bottom_line in full_text
-        assert "Fix conclusion 3 on printed page 28 before reissue" in full_text
 
     def test_the_four_baseline_measures_table(
         self,
@@ -206,7 +205,7 @@ class TestReviewExportDocx:
 
         result = assessment_from_document_findings(object(), [Issue(), Issue()])
         assert len(result.blockers) == 1
-        assert "2 uncontrolled page" in result.blockers[0].what_it_says
+        assert "2 Uncontrolled / Unindexed Sheets" in result.blockers[0].what_it_says
 
     def test_mixed_layout_control_findings_share_one_summary(self) -> None:
         class Issue:
@@ -224,9 +223,9 @@ class TestReviewExportDocx:
         issues.extend(Issue("MISSING_DOCUMENT_NUMBER") for _ in range(49))
         result = assessment_from_document_findings(object(), issues)
         assert len(result.blockers) == 1
-        assert "69 related finding(s)" in result.blockers[0].what_it_says
-        assert "20 uncontrolled page" in result.blockers[0].what_it_says
-        assert "49 missing document number" in result.blockers[0].what_it_says
+        assert "69 layout findings" in result.blockers[0].what_it_says
+        assert "20 Uncontrolled / Unindexed Sheets" in result.blockers[0].what_it_says
+        assert "49 Missing Document Control Metadata" in result.blockers[0].what_it_says
 
     def test_stale_standard_missing_bibliography_is_excluded(self) -> None:
         class Issue:

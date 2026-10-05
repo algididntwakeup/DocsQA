@@ -93,9 +93,7 @@ def _first_present(row: dict[str, Any], fields: tuple[str, ...]) -> tuple[str, A
 class BimaMasterDataAdapter:
     """Validate and normalize BIMA project and user directories."""
 
-    def adapt(
-        self, projects: list[dict[str, Any]], users: list[dict[str, Any]]
-    ) -> BimaMasterData:
+    def adapt(self, projects: list[dict[str, Any]], users: list[dict[str, Any]]) -> BimaMasterData:
         """Return validated master data, raising 502 on any contract violation."""
         user_records = self._adapt_users(users)
         project_records = self._adapt_projects(projects, user_records)

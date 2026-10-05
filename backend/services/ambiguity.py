@@ -142,7 +142,7 @@ def analyze_ambiguity(artifact: ExtractionArtifact) -> AmbiguityAnalysis:
                 bbox = _sub_bounding_box(span.bbox, text, match.start(), match.end())
                 findings.append(
                     LinguisticFinding(
-                        type="VAGUE_DIRECTIVE",
+                        type="ambiguous_constraint",
                         message=f"Ambiguous, non-quantifiable directive '{matched_str}'.",
                         severity=Severity.LOW,
                         confidence=0.88,
@@ -167,7 +167,7 @@ def analyze_ambiguity(artifact: ExtractionArtifact) -> AmbiguityAnalysis:
 
             findings.append(
                 LinguisticFinding(
-                    type="PASSIVE_VOICE",
+                    type="passive_voice_overuse",
                     message=f"Passive voice with specified agent: '{matched_str}'.",
                     severity=Severity.LOW,
                     confidence=0.85,
@@ -188,7 +188,7 @@ def analyze_ambiguity(artifact: ExtractionArtifact) -> AmbiguityAnalysis:
                 bbox = _sub_bounding_box(bbox_contract, text_span, start_ch, end_ch)
                 findings.append(
                     LinguisticFinding(
-                        type="AMBIGUOUS_SPECIFICATION",
+                        type="ambiguous_constraint",
                         message=(
                             f"Inconsistent material grade reference '{token}'. Document references "
                             f"multiple variant designations: {variants_str}."

@@ -7,21 +7,11 @@ from collections.abc import Iterable
 from typing import Any
 
 from domain.enums import ReportLanguage
-from services.report_locale import get_report_strings
-
-TYPE_TRANSLATIONS_ID: dict[str, str] = {
-    "UNCONTROLLED_PAGE": "halaman tidak terkendali",
-    "RUNNING_FOOTER": "header/footer dokumen",
-    "MISSING_DOCUMENT_NUMBER": "nomor dokumen hilang",
-    "DOCUMENT_NUMBER_MISSING": "nomor dokumen tidak tercantum",
-    "TOC_DRIFT": "pergeseran daftar isi",
-    "REFERENCE_DRIFT": "pergeseran referensi",
-    "CROSS_PAGE_BREAK": "pemotongan lintas halaman",
-    "TABLE_MATH_MISMATCH": "ketidaksesuaian hitungan tabel",
-    "SPELLING_ERROR": "kesalahan ejaan",
-    "TYPO": "salah ketik",
-    "GRAMMAR": "tata bahasa",
-}
+from services.report_locale import (
+    get_report_strings,
+    humanize_finding_message,
+    humanize_finding_type,
+)
 
 
 def _value(item: Any, key: str, default: Any = "") -> Any:
@@ -30,28 +20,62 @@ def _value(item: Any, key: str, default: Any = "") -> Any:
     return getattr(item, key, default)
 
 
-def _excerpt(item: Any) -> str:
+def _excerpt(item: Any, language: ReportLanguage = ReportLanguage.ENGLISH) -> str:
     evidence = _value(item, "evidence", {}) or {}
     if isinstance(evidence, dict):
         for key in ("original_text", "excerpt", "what_it_says", "text", "label"):
             if evidence.get(key):
                 return str(evidence[key]).strip()
-    return str(_value(item, "message", "")).strip()
+    return _display_message(item, language)
 
 
-def _page_range(pages: list[str]) -> str:
-    numbers = sorted({int(page) for page in pages if page.isdigit()})
-    if not numbers:
-        return ", ".join(pages[:12])
-    ranges: list[str] = []
-    start = previous = numbers[0]
-    for number in numbers[1:]:
-        if number != previous + 1:
-            ranges.append(str(start) if start == previous else f"{start}-{previous}")
-            start = number
-        previous = number
-    ranges.append(str(start) if start == previous else f"{start}-{previous}")
-    return ", ".join(ranges)
+def _display_message(item: Any, language: ReportLanguage) -> str:
+    """Remove machine-code prefixes without altering ordinary source evidence."""
+    return humanize_finding_message(
+        str(_value(item, "message", "") or ""),
+        str(_value(item, "type", "") or ""),
+        language,
+    )
+
+
+def _natural_list(items: list[str], conjunction: str = "and") -> str:
+    if not items:
+        return ""
+    if len(items) == 1:
+        return items[0]
+    if len(items) == 2:
+        return f"{items[0]} {conjunction} {items[1]}"
+    return f"{', '.join(items[:-1])}, {conjunction} {items[-1]}"
+
+
+def _category_phrase(category: str, language: ReportLanguage) -> str:
+    key = category.strip().upper()
+    english = {
+        "TRACEABILITY": "document-control",
+        "DOCUMENT_CONTROL": "document-control",
+        "LAYOUT": "layout",
+        "CONSISTENCY": "consistency",
+        "LINGUISTIC": "language and mechanics",
+        "SPELLING": "language and mechanics",
+        "GRAMMAR": "language and mechanics",
+        "DICTIONARY": "language and mechanics",
+        "BUDINSKI": "writing-quality",
+        "STRUCTURAL": "structural",
+    }
+    indonesian = {
+        "TRACEABILITY": "kendali dokumen",
+        "DOCUMENT_CONTROL": "kendali dokumen",
+        "LAYOUT": "tata letak",
+        "CONSISTENCY": "konsistensi",
+        "LINGUISTIC": "bahasa dan mekanika",
+        "SPELLING": "bahasa dan mekanika",
+        "GRAMMAR": "bahasa dan mekanika",
+        "DICTIONARY": "bahasa dan mekanika",
+        "BUDINSKI": "mutu penulisan",
+        "STRUCTURAL": "struktur",
+    }
+    mapping = indonesian if language == ReportLanguage.INDONESIAN else english
+    return mapping.get(key, humanize_finding_type(key, language=language).lower())
 
 
 class ReportSynthesizer:
@@ -90,7 +114,9 @@ class ReportSynthesizer:
             else str(headings)
         )
         evidence = [
-            str(_value(item, "message")) for item in findings_list if _value(item, "message")
+            _display_message(item, self.language)
+            for item in findings_list
+            if _display_message(item, self.language)
         ]
         fallback_evidence = (
             "no finding message was persisted"
@@ -104,7 +130,8 @@ class ReportSynthesizer:
             return "\n\n".join(
                 [
                     (
-                        f"The review of {title} identified {total} normalized finding(s). "
+                        f"The review of {title} identified {total} normalized "
+                        f"finding{'s' if total != 1 else ''}. "
                         f"Arithmetic and count integrity signals: {arithmetic}; the report "
                         "should preserve any reconciled totals while correcting confirmed "
                         f"exceptions.{context}"
@@ -146,8 +173,8 @@ class ReportSynthesizer:
         )
 
     def generate_bottom_line(self, blockers: Iterable[Any]) -> str:
-        first = next(iter(blockers), None)
-        if first is None:
+        blockers_list = list(blockers)
+        if not blockers_list:
             return (
                 "No blocking finding was identified; close the remaining findings in the "
                 "next controlled review."
@@ -157,19 +184,39 @@ class ReportSynthesizer:
                     "terkendali berikutnya."
                 )
             )
-        fallback_title = "the critical blocker" if self.is_english else "penghalang kritis"
-        fallback_fix = (
-            "resolve the finding and verify the evidence"
-            if self.is_english
-            else "selesaikan temuan dan verifikasi bukti"
-        )
-        title = _value(first, "title", _value(first, "finding", fallback_title))
-        fix = _value(first, "what_would_fix_it", fallback_fix)
-        return (
-            f"Resolve {title} before reissue: {fix}."
-            if self.is_english
-            else f"Selesaikan {title} sebelum penerbitan ulang: {fix}."
-        )
+        count = 0
+        descriptions: list[str] = []
+        for blocker in blockers_list:
+            title = str(_value(blocker, "title", _value(blocker, "finding", "")))
+            narrative = str(_value(blocker, "what_it_says", ""))
+            descriptions.extend((title, narrative))
+            count_match = re.search(r"\((\d+)\s+instances?\)", title, re.IGNORECASE)
+            if not count_match:
+                count_match = re.search(r"identified\s+(\d+)\b", narrative, re.IGNORECASE)
+            count += int(count_match.group(1)) if count_match else 1
+
+        description_text = " ".join(descriptions).casefold()
+        if re.search(r"traceability|document[- ]control|uncontrolled|reference", description_text):
+            issue_family = (
+                "Critical Traceability and Control Discrepancies"
+                if self.is_english
+                else "Diskrepansi Kritis Ketertelusuran dan Kendali Dokumen"
+            )
+        elif re.search(r"arithmetic|summation|table math|rounding", description_text):
+            issue_family = (
+                "Critical Table Arithmetic Discrepancies"
+                if self.is_english
+                else "Diskrepansi Aritmetika Tabel yang Kritis"
+            )
+        else:
+            issue_family = (
+                "Critical Document Quality Discrepancies"
+                if self.is_english
+                else "Diskrepansi Mutu Dokumen yang Kritis"
+            )
+        if self.is_english:
+            return f"Resolve {count} {issue_family} before document reissue."
+        return f"Selesaikan {count} {issue_family} sebelum dokumen diterbitkan ulang."
 
     def synthesize_blocker_groups(self, findings: Iterable[Any]) -> list[dict[str, str]]:
         groups: dict[str, list[Any]] = {}
@@ -184,17 +231,15 @@ class ReportSynthesizer:
                 typ = str(_value(item, "type", "FINDING")).upper()
                 types[typ] = types.get(typ, 0) + 1
 
-            if self.is_english:
-                breakdown = ", ".join(
-                    f"{n} {typ.replace('_', ' ').lower()}" for typ, n in sorted(types.items())
-                )
-            else:
-                breakdown = ", ".join(
-                    f"{n} {TYPE_TRANSLATIONS_ID.get(typ, typ.replace('_', ' ').lower())}"
-                    for typ, n in sorted(types.items())
-                )
-
-            codes = ", ".join(sorted(types))
+            tally = [
+                f"{count} {humanize_finding_type(typ, count=count, language=self.language)}"
+                for typ, count in types.items()
+            ]
+            breakdown = _natural_list(tally, "and" if self.is_english else "dan")
+            finding_labels = _natural_list(
+                [humanize_finding_type(typ, language=self.language) for typ in types],
+                "and" if self.is_english else "dan",
+            )
             pages = sorted(
                 {
                     str(_value(i, "page_number", ""))
@@ -204,7 +249,7 @@ class ReportSynthesizer:
                 key=lambda v: (not v.isdigit(), int(v) if v.isdigit() else v),
             )
             page_text = (
-                _page_range(pages)
+                _natural_list(pages)
                 if pages
                 else (
                     "the affected document locations"
@@ -223,7 +268,7 @@ class ReportSynthesizer:
                 for i in items
                 if (_value(i, "evidence", {}) or {}).get("label")
             ]
-            examples = [_excerpt(i) for i in items if _excerpt(i)]
+            examples = [_excerpt(i, self.language) for i in items if _excerpt(i, self.language)]
             example = (
                 f" Examples include {', '.join(labels[:5])}."
                 if labels and self.is_english
@@ -231,10 +276,10 @@ class ReportSynthesizer:
             )
             if self.is_english:
                 message = (
-                    f"The review identified {len(items)} related finding(s) ({breakdown}) "
-                    f"on printed page(s) {page_text}. Finding code(s): {codes}.{example} "
-                    "These findings represent one recurring control issue, not separate "
-                    "independent blockers."
+                    f"The assessment identified {len(items)} "
+                    f"{_category_phrase(category, self.language)} "
+                    f"finding{'s' if len(items) != 1 else ''} encompassing {breakdown} "
+                    f"across printed page{'s' if len(pages) != 1 else ''} {page_text}.{example}"
                 )
                 suggestion = str(
                     _value(
@@ -245,10 +290,9 @@ class ReportSynthesizer:
                 )
             else:
                 message = (
-                    f"Tinjauan mengidentifikasi {len(items)} temuan terkait ({breakdown}) "
-                    f"pada halaman cetak {page_text}. Kode temuan: {codes}.{example} "
-                    "Temuan ini merupakan satu masalah pengendalian berulang, bukan "
-                    "penghalang independen."
+                    f"Asesmen mengidentifikasi {len(items)} temuan "
+                    f"{_category_phrase(category, self.language)} "
+                    f"yang mencakup {breakdown} pada halaman cetak {page_text}.{example}"
                 )
                 suggestion = str(
                     _value(
@@ -260,7 +304,8 @@ class ReportSynthesizer:
             summaries.append(
                 {
                     "type": category or ("FINDINGS" if self.is_english else "TEMUAN"),
-                    "finding_codes": codes,
+                    "finding_codes": finding_labels,
+                    "finding_label": finding_labels,
                     "category": category,
                     "count": str(len(items)),
                     "message": message,
@@ -319,7 +364,7 @@ class ReportSynthesizer:
         rows: list[dict[str, str]] = []
         for item in findings:
             issue_type = str(_value(item, "type", "FINDING")).upper()
-            excerpt = _excerpt(item)
+            excerpt = _excerpt(item, self.language)
             suggestion = str(
                 _value(
                     item,
@@ -339,7 +384,7 @@ class ReportSynthesizer:
             rows.append(
                 {
                     "location": location,
-                    "type": issue_type,
+                    "type": humanize_finding_type(issue_type, language=self.language),
                     "excerpt": excerpt,
                     "action": suggestion,
                 }
@@ -379,18 +424,236 @@ class ReportSynthesizer:
     def generate_demonstration_rewrite(
         self, sections: Any, findings: Iterable[Any]
     ) -> dict[str, Any]:
-        raw = (
-            sections.get("conclusions", "")
-            if isinstance(sections, dict)
-            else getattr(sections, "conclusions", "")
+        data = sections if isinstance(sections, dict) else vars(sections)
+
+        def section_text(name: str) -> str:
+            value = data.get(name, "")
+            if isinstance(value, list):
+                value = " ".join(
+                    str(item.get("text", "")) if isinstance(item, dict) else str(item)
+                    for item in value
+                )
+            return re.sub(r"\s+", " ", str(value)).strip()
+
+        def sentences(name: str) -> list[str]:
+            return [
+                sentence.strip(" \t\n-•")
+                for sentence in re.split(r"(?<=[.!?])\s+", section_text(name))
+                if len(sentence.strip()) > 15
+            ]
+
+        raw = section_text("conclusions")
+        conclusion_sentences = sentences("conclusions")
+        result_sentences = sentences("results")
+        summary_sentences = sentences("executive_summary")
+        intro_sentences = sentences("introduction")
+        recommendation_sentences = sentences("recommendations")
+
+        # Use document statements as evidence anchors. The rewrite connects them
+        # into a conclusion; it never invents a value, causal explanation, owner,
+        # or commitment absent from the source.
+        anchors = result_sentences[:2] or summary_sentences[:2]
+        claim = next(
+            (
+                sentence
+                for sentence in conclusion_sentences
+                if not re.search(
+                    r"\b(?:table|figure)\s+\d+|\b\d+(?:\.\d+)?\s*(?:%|years?|months?)\b",
+                    sentence,
+                    re.I,
+                )
+            ),
+            conclusion_sentences[0] if conclusion_sentences else "",
         )
-        text = " ".join(raw) if isinstance(raw, list) else str(raw)
-        sentences = [part.strip() for part in re.split(r"(?<=[.!?])\s+", text) if part.strip()]
+        objective = next(
+            (
+                sentence
+                for sentence in intro_sentences
+                if re.search(r"\b(?:purpose|objective|scope|aim)\b", sentence, re.I)
+            ),
+            "",
+        )
+        source_note = (
+            (
+                "No result statement was available in the extracted Results or Executive Summary "
+                "sections; the rewrite therefore makes no technical inference."
+                if self.is_english
+                else (
+                    "Tidak ada pernyataan hasil pada bagian Hasil atau Ringkasan Eksekutif "
+                    "yang diekstrak; contoh ini tidak membuat inferensi teknis."
+                )
+            )
+            if not anchors
+            else ""
+        )
+        rewrite_items: list[str] = []
+        if self.is_english:
+            no_objective = (
+                "This conclusion summarizes only the scope and evidence stated in the reviewed "
+                "document."
+            )
+            result_bridge = (
+                "These statements identify the principal results available to support the "
+                "conclusion."
+            )
+            no_claim = (
+                "The conclusion should state a direct answer to the stated objective and cite its "
+                "supporting result."
+            )
+            no_recommendation = (
+                "Any required follow-up should name an action, a responsible owner, and a target "
+                "date."
+            )
+            no_inference = (
+                "No result, limitation, or action beyond the extracted source text is inferred in "
+                "this demonstration."
+            )
+            conclusion_filler = (
+                "The conclusion should distinguish reported results from their interpretation and "
+                "connect both to the stated scope."
+            )
+            scope_label = "The stated scope is: "
+            result_label = "The reported evidence shows: "
+            further_result_label = "A further reported result is: "
+            claim_label = "The document's stated conclusion is: "
+            follow_up_label = "The stated follow-up is: "
+        else:
+            no_objective = (
+                "Kesimpulan ini hanya merangkum lingkup dan bukti yang dinyatakan dalam dokumen "
+                "yang ditinjau."
+            )
+            result_bridge = (
+                "Pernyataan tersebut merangkum hasil utama yang tersedia sebagai dasar kesimpulan."
+            )
+            no_claim = (
+                "Kesimpulan perlu menjawab tujuan secara langsung dan mengutip hasil yang "
+                "mendukungnya."
+            )
+            no_recommendation = (
+                "Tindak lanjut yang diperlukan perlu menyebutkan tindakan, penanggung jawab, dan "
+                "tanggal target."
+            )
+            no_inference = (
+                "Contoh ini tidak menyimpulkan hasil, batasan, atau tindakan di luar teks sumber "
+                "yang diekstrak."
+            )
+            conclusion_filler = (
+                "Kesimpulan perlu membedakan hasil yang dilaporkan dari interpretasinya serta "
+                "menghubungkan keduanya dengan lingkup yang dinyatakan."
+            )
+            scope_label = "Lingkup yang dinyatakan adalah: “"
+            result_label = "Bukti yang dilaporkan menunjukkan: “"
+            further_result_label = "Hasil lain yang dilaporkan adalah: “"
+            claim_label = "Kesimpulan dokumen menyatakan: “"
+            follow_up_label = "Tindak lanjut yang dinyatakan adalah: “"
+        if objective:
+            sentence = f"{scope_label}{objective.rstrip('.')}"
+            rewrite_items.append(sentence + ("." if self.is_english else ".”"))
+        else:
+            rewrite_items.append(no_objective)
+        if anchors:
+            sentence = f"{result_label}{anchors[0].rstrip('.')}"
+            rewrite_items.append(sentence + ("." if self.is_english else ".”"))
+            if len(anchors) > 1:
+                sentence = f"{further_result_label}{anchors[1].rstrip('.')}"
+                rewrite_items.append(sentence + ("." if self.is_english else ".”"))
+            rewrite_items.append(result_bridge)
+        else:
+            rewrite_items.append(source_note)
+        if claim:
+            sentence = f"{claim_label}{claim.rstrip('.')}"
+            rewrite_items.append(sentence + ("." if self.is_english else ".”"))
+        else:
+            rewrite_items.append(no_claim)
+        if recommendation_sentences:
+            sentence = f"{follow_up_label}{recommendation_sentences[0].rstrip('.')}"
+            rewrite_items.append(sentence + ("." if self.is_english else ".”"))
+        else:
+            rewrite_items.append(no_recommendation)
+        rewrite_items.append(no_inference)
+        rewrite_items = rewrite_items[:8]
+        while len(rewrite_items) < 6:
+            rewrite_items.insert(-1, conclusion_filler)
+
+        issue_text = " ".join(
+            str(_value(item, "message", "")).strip() for item in findings if _value(item, "message")
+        )
+        faults = (
+            issue_text[:700]
+            if issue_text
+            else (
+                "The source conclusion should synthesize the evidence and answer the stated "
+                "objective rather than repeat result entries."
+                if self.is_english
+                else (
+                    "Kesimpulan sumber perlu menyintesis bukti dan menjawab tujuan yang "
+                    "dinyatakan, bukan mengulang entri hasil."
+                )
+            )
+        )
         return {
             "section_title": "Conclusions" if self.is_english else "Kesimpulan",
-            "as_written": text or self.s.no_conclusion_text,
-            "demonstration": [sentence.rstrip(".") + "." for sentence in sentences[:8]],
+            "intro_note": (
+                "Illustrative deterministic rewrite using only statements extracted from this "
+                "document. Verify the technical meaning before adoption."
+                if self.is_english
+                else (
+                    "Contoh penulisan ulang deterministik yang hanya menggunakan pernyataan hasil "
+                    "ekstraksi dokumen ini. Verifikasi makna teknis sebelum digunakan."
+                )
+            ),
+            "as_written_title": "AS WRITTEN (EXTRACTED CONCLUSION)"
+            if self.is_english
+            else "TEKS ASLI (KESIMPULAN HASIL EKSTRAKSI)",
+            "as_written_text": raw or self.s.no_conclusion_text,
+            "faults_summary": faults,
+            "demonstration_title": "DEMONSTRATION REWRITE (6-8 SENTENCES)"
+            if self.is_english
+            else "CONTOH PENULISAN ULANG (6-8 KALIMAT)",
+            "demonstration_items": rewrite_items,
+            "conclusion_summary": (
+                "The example separates scope, reported evidence, conclusion, and follow-up; "
+                "confirm "
+                "every statement against the source before reusing it."
+                if self.is_english
+                else (
+                    "Contoh ini memisahkan lingkup, bukti yang dilaporkan, kesimpulan, dan tindak "
+                    "lanjut; cocokkan setiap pernyataan dengan sumber sebelum digunakan kembali."
+                )
+            ),
         }
+
+    def generate_review_score_string(
+        self, metadata: Any, scorecard: Any, *, blockers: int, majors: int, minors: int
+    ) -> str:
+        """Format the report banner from current document metadata and review data."""
+
+        def clean(value: Any, fallback: str = "not supplied") -> str:
+            return re.sub(r"\s*\|\s*", "/", str(value or fallback)).strip()
+
+        def score(group: str) -> str:
+            averages = _value(scorecard, "group_averages", {}) or {}
+            value = averages.get(group) if isinstance(averages, dict) else None
+            if value is None:
+                legacy_key = {
+                    "Group I": "group_i_average",
+                    "Group II": "group_ii_average",
+                    "Group III": "group_iii_average",
+                    "Group IV": "group_iv_average",
+                }[group]
+                value = _value(scorecard, legacy_key)
+            return "N/A" if value is None else f"{float(value):.2f}"
+
+        baseline = int(float(_value(scorecard, "baseline_score", 0)))
+        doc_no = _value(metadata, "document_number") or _value(metadata, "doc_no")
+        revision = _value(metadata, "revision") or _value(metadata, "rev")
+        date = _value(metadata, "document_date") or _value(metadata, "cover_date")
+        return (
+            f"REVIEWSCORE | doc={clean(doc_no)} | rev={clean(revision)} | date={clean(date)} | "
+            f"I={score('Group I')} II={score('Group II')} III={score('Group III')} "
+            f"IV={score('Group IV')} | baseline={baseline}/4 | blockers={blockers} "
+            f"majors={majors} minors={minors}"
+        )
 
     def synthesize_baseline_measures(
         self, doc_sections: Any, findings: Iterable[Any]
@@ -456,13 +719,53 @@ class ReportSynthesizer:
         return [
             {
                 self.s.no: str(i),
-                self.s.finding.upper(): str(_value(item, "message", _value(item, "finding"))),
+                self.s.finding.upper(): (
+                    humanize_finding_type(
+                        _value(item, "type", "FINDING"), language=self.language
+                    )
+                    + ": "
+                    + f"{_display_message(item, self.language) or _value(item, 'finding', '')}"
+                ),
                 self.s.what_would_fix_it.upper(): str(
                     _value(item, "suggestion", self.s.fix_reissue_default)
                 ),
             }
             for i, item in enumerate(selected, 1)
         ]
+
+    def synthesize_language_narrative(self, findings: Iterable[Any]) -> list[str]:
+        """Group language findings by page and describe each with a readable label."""
+        grouped: dict[str, list[str]] = {}
+        for item in findings:
+            evidence = _value(item, "evidence", {}) or {}
+            page = str(
+                _value(item, "page", "")
+                or _value(item, "page_number", "")
+                or _value(evidence, "page", "—")
+            )
+            finding_type = _value(item, "finding_type", "") or _value(item, "type", "")
+            label = humanize_finding_type(finding_type, language=self.language)
+            excerpt = str(
+                _value(item, "as_written", "")
+                or _value(evidence, "original_text", "")
+                or _display_message(item, self.language)
+            ).strip()
+            if excerpt:
+                quote = f"(‘{excerpt}’)"
+                grouped.setdefault(page, []).append(f"{label} {quote}")
+            else:
+                grouped.setdefault(page, []).append(label)
+
+        result = []
+        for page in sorted(
+            grouped,
+            key=lambda value: (not value.isdigit(), int(value) if value.isdigit() else value),
+        ):
+            items = _natural_list(grouped[page], "and" if self.is_english else "dan")
+            result.append(
+                f"Page {page}: {items}." if self.is_english else f"Halaman {page}: {items}."
+            )
+        return result
 
     def synthesize_language_mechanics(self, minor_findings: Iterable[Any]) -> list[dict[str, str]]:
         rows: list[dict[str, str]] = []
@@ -480,6 +783,12 @@ class ReportSynthesizer:
                 rows.append(
                     {
                         self.s.page.upper(): page,
+                        (
+                            "FINDING TYPE" if self.is_english else "JENIS TEMUAN"
+                        ): humanize_finding_type(
+                            _value(item, "finding_type", "") or _value(item, "type", ""),
+                            language=self.language,
+                        ),
                         self.s.as_written.upper(): original,
                         self.s.suggested.upper(): suggested,
                     }

@@ -41,6 +41,15 @@ export type TraceabilitySummary = components["schemas"]["TraceabilitySummaryResp
 
 export type UserRole = "ENGINEER" | "LEAD_ENGINEER" | "SUPERUSER";
 export type ReportLanguage = "en" | "id";
+export type HeaderPlacement = "split_standard" | "split_inverted" | "both_left" | "both_right";
+export interface HeaderTemplateConfig {
+  enabled: boolean;
+  title: string;
+  company_logo?: string | null;
+  client_logo?: string | null;
+  placement: HeaderPlacement;
+  show_divider: boolean;
+}
 export interface UserSession {
   id: string;
   email: string;
@@ -66,6 +75,7 @@ export interface ProjectItem {
   status?: string;
   finished_at?: string | null;
   created_at: string;
+  header_config?: HeaderTemplateConfig;
 }
 export interface LoginResponse {
   access_token: string;
@@ -148,9 +158,11 @@ export function setAuthToken(token: string | null): void {
       if (token) {
         sessionStorage.setItem("prism_auth_token", token);
         localStorage.setItem("prism_auth_token", token);
+        document.cookie = `access_token=Bearer ${encodeURIComponent(token)}; path=/; max-age=86400; SameSite=Lax`;
       } else {
         sessionStorage.removeItem("prism_auth_token");
         localStorage.removeItem("prism_auth_token");
+        document.cookie = "access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
       }
     } catch {
       // Ignore storage errors in restricted environments
@@ -177,8 +189,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     headers,
     credentials: "include",
   });
-  if (response.status === 401 && typeof window !== "undefined" && window.location.pathname !== "/login") {
-    window.location.pathname = "/login";
+  if (response.status === 401 && typeof window !== "undefined") {
+    setAuthToken(null);
+    const currentPath = window.location.pathname;
+    if (currentPath !== "/login" && !currentPath.startsWith("/auth/sso")) {
+      window.location.replace("/login");
+    }
   }
   if (!response.ok) {
     let message = `Request failed (${response.status}).`;
@@ -289,6 +305,14 @@ export function resetManagedUserPassword(userId: string, temporaryPassword: stri
 
 export function listProjects(): Promise<ProjectItem[]> {
   return request<ProjectItem[]>("/projects", { cache: "no-store" });
+}
+
+export function updateProjectHeaderConfig(projectId: string, headerConfig: HeaderTemplateConfig): Promise<ProjectItem> {
+  return request<ProjectItem>(`/projects/${encodeURIComponent(projectId)}/header-config`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ header_config: headerConfig }),
+  });
 }
 
 export function listProjectsForUser(userId: string): Promise<AssignedProject[]> {
