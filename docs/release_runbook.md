@@ -127,7 +127,7 @@ Configure the following environment variables in `.env` or container orchestrato
 
 ### 4.1 Bilingual frontend and report export
 
-The browser UI supports English and Bahasa Indonesia. The preference is stored locally under `matqc-locale`; it is not a backend or database setting. The DOCX export language is selected independently in the export modal and is sent as `language=en` or `language=id`.
+The browser UI supports English and Bahasa Indonesia. The preference is stored locally under `matqc-locale`; it is not a backend or database setting. The DOCX/PDF review-report language is selected independently in the export modal and is sent as `language=en` or `language=id`. Language and Mechanics is a separate opt-in: the default export omits that entire section, and enabling it sends `include_language_mechanics=true`. The annotated source PDF remains source-faithful and ignores report-language options.
 
 For this feature, rebuild the frontend and backend application images:
 
@@ -137,7 +137,7 @@ docker compose up migrate
 docker compose up -d --force-recreate api worker frontend
 ```
 
-`postgres` and `redis` do not need rebuilding. There is no schema migration for locale/report language. The browser no longer needs a compiled API host: requests are same-origin `/api/v1` and the Next.js rewrite resolves `INTERNAL_BACKEND_URL`, which defaults to `http://backend:8000` (the Compose `api` service publishes a `backend` network alias). `NEXT_PUBLIC_BIMA_BASE_URL` **is** compiled into the frontend image, so set it before `docker compose build frontend`. PDF export remains source-faithful and does not use the language query parameter.
+`postgres` and `redis` do not need rebuilding. There is no schema migration for locale/report language or the Language & Mechanics export option. The backend image installs LibreOffice/Writer plus DejaVu and Liberation fonts for headless DOCX-to-PDF conversion. The browser no longer needs a compiled API host: requests are same-origin `/api/v1` and the Next.js rewrite resolves `INTERNAL_BACKEND_URL`, which defaults to `http://backend:8000` (the Compose `api` service publishes a `backend` network alias). `NEXT_PUBLIC_BIMA_BASE_URL` **is** compiled into the frontend image, so set it before `docker compose build frontend`.
 
 ### HTTP Security Headers
 Every HTTP response automatically includes enterprise security headers enforced via `backend/main.py`:
@@ -150,14 +150,15 @@ Every HTTP response automatically includes enterprise security headers enforced 
 
 ## 5. Export Services Validation
 
-Verify the 4 export formats against an audited document:
+Verify the three review export formats against an audited document. The backend container must include `libreoffice-writer`, `fonts-dejavu`, and `fonts-liberation`; PDF reports are converted from a temporary DOCX with Headless LibreOffice.
 
 | Format | Endpoint | Verification Command | Expected Output |
 | :--- | :--- | :--- | :--- |
-| **Annotated PDF** | `GET /api/v1/documents/{id}/export?format=pdf` | `curl -f -o test.pdf "$API/documents/$DOC_ID/export?format=pdf"` | Valid PDF with `/Annots` objects and color-coded bounding boxes |
-| **Excel Workbook** | `GET /api/v1/documents/{id}/export?format=xlsx` | `curl -f -o test.xlsx "$API/documents/$DOC_ID/export?format=xlsx"` | Excel workbook with `Summary`, `Traceability Issues`, `Linguistic Issues`, `Audit Trail` sheets |
-| **CSV Issues** | `GET /api/v1/documents/{id}/export?format=csv` | `curl -f -o test.csv "$API/documents/$DOC_ID/export?format=csv"` | RFC 4180 CSV with headers and finding rows |
-| **JSON Bundle** | `GET /api/v1/documents/{id}/export?format=json` | `curl -f "$API/documents/$DOC_ID/export?format=json"` | JSON package with `schema_version`, `document`, `issues`, and `audit_events` |
+| **PDF Review Report** | `GET /api/v1/documents/{id}/export?format=pdf` | `curl -f -o review.pdf "$API/documents/$DOC_ID/export?format=pdf"` | HTTP 200 and a readable PDF generated from the configured review DOCX; language/mechanics section omitted by default |
+| **DOCX Review Report** | `GET /api/v1/documents/{id}/export?format=docx` | `curl -f -o review.docx "$API/documents/$DOC_ID/export?format=docx"` | Editable report with language/mechanics section omitted by default |
+| **Annotated Source PDF** | `GET /api/v1/documents/{id}/export?format=annotated_pdf` | `curl -f -o annotated.pdf "$API/documents/$DOC_ID/export?format=annotated_pdf"` | Valid source PDF with `/Annots` objects and finding overlays |
+
+To opt into spelling/grammar/mechanics entries in the DOCX or PDF report, append `&include_language_mechanics=true` to the export URL. The section groups repeated matching findings and lists the affected pages.
 
 ---
 
@@ -228,8 +229,9 @@ Run after migrations and before exposing the server:
 1. Open `/login`; confirm only **Sign in with BIMA SSO** appears, with no email/password or registration form.
 2. Complete BIMA SSO and confirm PRISM returns to the configured app origin with an authenticated session.
 3. As lead/superuser, run `POST /api/v1/projects/sync-bima`; verify BIMA project and user data synchronize.
-4. Confirm an assigned engineer can list the BIMA project and read its documents/PDFs, but cannot upload, assign, review, or curate issues by membership alone.
-5. Confirm unrelated engineers cannot list the BIMA project or read its documents.
-6. Confirm lead/superuser retain global project/document visibility.
-7. Open `/settings/profile`, update the name, and confirm the navbar reflects it after reload.
-8. Confirm long project, admin, and settings pages scroll on desktop and mobile widths.
+4. Sign in as an engineer with BIMA-assigned work and call `GET /api/v1/projects`; confirm each accessible BIMA project appears as a PRISM folder and the engineer is a member. Project names are provisioned from BIMA, not hard-coded.
+5. Confirm the assigned engineer can read project documents/PDFs, but cannot upload, assign, review, or curate issues by membership alone.
+6. Confirm unrelated engineers cannot list the BIMA project or read its documents.
+7. Confirm lead/superuser retain global project/document visibility.
+8. Open `/settings/profile`, update the name, and confirm the navbar reflects it after reload.
+9. Confirm long project, admin, and settings pages scroll on desktop and mobile widths.

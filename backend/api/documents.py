@@ -941,6 +941,9 @@ async def export_document(
     include_minors: Annotated[
         bool, Query(description="Include minor and informational findings.")
     ] = False,
+    include_language_mechanics: Annotated[
+        bool, Query(description="Include language and mechanics findings in the report.")
+    ] = False,
     language: Annotated[ReportLanguage | None, Query()] = None,
     lang: Annotated[str | None, Query(pattern=r"^(en|id)$")] = None,
     export_options: Annotated[ReportExportRequest | None, Body()] = None,
@@ -999,12 +1002,18 @@ async def export_document(
             scorecard = json.loads(scorecard_path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             scorecard = None
+    report_include_language_mechanics = (
+        export_options.include_language_mechanics
+        if export_options and export_options.include_language_mechanics is not None
+        else include_language_mechanics
+    )
     assessment = assessment_from_document_findings(
         document,
         list(issues),
         scorecard_data=scorecard,
         include_minors=include_minors,
         language=report_lang,
+        include_language_mechanics=report_include_language_mechanics,
     )
     project_config = None
     if document.project_id is not None:
@@ -1022,6 +1031,7 @@ async def export_document(
         document,
         language=report_lang,
         header_config=effective_header_config,
+        include_language_mechanics=report_include_language_mechanics,
     )
 
     if format == "docx":
@@ -1034,9 +1044,16 @@ async def export_document(
     if format == "pdf":
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
-            tmp_docx = tmp_path / f"{safe_name}.docx"
-            tmp_docx.write_bytes(docx_bytes)
             try:
+                with tempfile.NamedTemporaryFile(
+                    mode="wb",
+                    prefix="prism-review-",
+                    suffix=".docx",
+                    dir=tmp_path,
+                    delete=False,
+                ) as tmp_docx_file:
+                    tmp_docx_file.write(docx_bytes)
+                    tmp_docx = Path(tmp_docx_file.name)
                 pdf_path = convert_docx_to_pdf(tmp_docx, tmp_path)
                 pdf_bytes = pdf_path.read_bytes()
             except LibreOfficeConversionError as exc:
@@ -1048,6 +1065,12 @@ async def export_document(
                 raise HTTPException(
                     status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                     detail=f"LibreOffice is not available on this host: {exc}",
+                ) from exc
+            except OSError as exc:
+                logger.exception("Could not write or read the temporary PDF export")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Temporary PDF export failed: {exc}",
                 ) from exc
 
         return Response(

@@ -39,6 +39,7 @@ const defaultHeaderConfig: HeaderTemplateConfig = {
 export function ExportModal({ documentId, documentFilename, isOpen, onClose, projectId }: ExportModalProps) {
   const { locale, t } = useLocale();
   const [includeMinors, setIncludeMinors] = useState(false);
+  const [includeLanguageMechanics, setIncludeLanguageMechanics] = useState(false);
   const [reportLanguage, setReportLanguage] = useState<ReportLanguage>(locale);
   const [headerConfig, setHeaderConfig] = useState<HeaderTemplateConfig>(defaultHeaderConfig);
 
@@ -148,7 +149,19 @@ export function ExportModal({ documentId, documentFilename, isOpen, onClose, pro
             />
             <span>
               <span className="block font-semibold text-ink">{t("includeMinors")}</span>
-              <span>Include spelling, grammar, and informational findings in the export. Off by default to keep the report concise.</span>
+              <span>Include other minor and informational findings in the export. Off by default to keep the report concise.</span>
+            </span>
+          </label>
+          <label className="flex items-start gap-2 rounded-lg border border-line bg-muted/5 p-3 text-xs text-muted-foreground cursor-pointer">
+            <input
+              type="checkbox"
+              checked={includeLanguageMechanics}
+              onChange={(event) => setIncludeLanguageMechanics(event.target.checked)}
+              className="mt-0.5 accent-primary"
+            />
+            <span>
+              <span className="block font-semibold text-ink">Include language and mechanics</span>
+              <span>Include spelling, grammar, and mechanics findings by page. Off by default to keep the report concise.</span>
             </span>
           </label>
           <HeaderTemplateConfigEditor value={headerConfig} onChange={setHeaderConfig} />
@@ -177,7 +190,14 @@ export function ExportModal({ documentId, documentFilename, isOpen, onClose, pro
                     className="button button-primary btn-sm flex items-center gap-1.5"
                     onClick={() => {
                       if (option.format === "pdf" || option.format === "docx") {
-                        void downloadExport(documentId, option.format, includeMinors, reportLanguage, headerConfig);
+                        void downloadExport(
+                          documentId,
+                          option.format,
+                          includeMinors,
+                          reportLanguage,
+                          headerConfig,
+                          includeLanguageMechanics,
+                        );
                       } else {
                         void downloadExport(documentId, option.format, includeMinors);
                       }

@@ -24,3 +24,18 @@ async def get_approved_dictionary_terms(
     )
     result = await session.execute(stmt)
     return {row[0] for row in result.fetchall()}
+
+
+async def get_registered_dictionary_terms(
+    session: AsyncSession,
+    project_id: UUID | None = None,
+) -> set[str]:
+    """Return every registered organization and project term for spellcheck suppression."""
+    scopes = ["organization"]
+    if project_id is not None:
+        scopes.append(f"project:{project_id}")
+
+    result = await session.execute(
+        select(DictionaryTerm.term).where(DictionaryTerm.scope.in_(scopes))
+    )
+    return {row[0] for row in result.fetchall()}

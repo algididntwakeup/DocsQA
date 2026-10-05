@@ -282,6 +282,66 @@ def test_grouped_narrative_and_low_severity_language_findings_are_explicit() -> 
     assert "MISSING_TARGET" not in export_text
     assert "RULE_GRAMMAR_UNCLOSED_SENTENCE" not in export_text
 
+    concise_assessment = assessment_from_document_findings(
+        document,
+        findings,
+        include_language_mechanics=False,
+    )
+    concise_text = _docx_text(
+        docx.Document(
+            io.BytesIO(
+                generate_ale_review_docx(
+                    concise_assessment,
+                    include_language_mechanics=False,
+                )
+            )
+        )
+    )
+    assert concise_assessment.language_findings == []
+    assert "Language and mechanics, by page" not in concise_text
+    assert "nine-teen" not in concise_text
+
+
+def test_repeated_language_findings_are_grouped_across_pages() -> None:
+    synthesizer = ReportSynthesizer()
+    findings = [
+        {
+            "page": "2",
+            "finding_type": "SPELLING_ERROR",
+            "as_written": "teh",
+            "suggested": "the",
+        },
+        {
+            "page": "8",
+            "finding_type": "SPELLING_ERROR",
+            "as_written": "teh",
+            "suggested": "the",
+        },
+        {
+            "page": "9",
+            "finding_type": "SPELLING_ERROR",
+            "as_written": "teh",
+            "suggested": "the",
+        },
+    ]
+
+    rows = synthesizer.aggregate_language_findings(findings)
+    narrative = synthesizer.synthesize_language_narrative(findings)
+
+    assert len(rows) == 1
+    assert rows[0]["page"] == "2, 8, 9"
+    assert "3 occurrences" in rows[0]["finding_type"]
+    assert len(narrative) == 1
+    assert "Pages 2, 8, 9" in narrative[0]
+    assert synthesizer.aggregate_language_findings(
+        findings,
+        include_language_mechanics=False,
+    ) == []
+    assert synthesizer.synthesize_language_mechanics(
+        findings,
+        include_language_mechanics=False,
+    ) == []
+
 
 def test_bottom_line_and_visual_finding_table_humanize_raw_categories() -> None:
     synthesizer = ReportSynthesizer()

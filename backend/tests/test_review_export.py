@@ -304,6 +304,26 @@ class TestReviewExportDocx:
         assert "nine-teen" in full_text
         assert "comprising by" in full_text
 
+    def test_unchecked_language_mechanics_is_absent_from_docx(
+        self,
+        canonical_assessment: AssessmentData,
+    ) -> None:
+        """Unchecked language mechanics emits no section heading, prose, or table."""
+        docx_bytes = generate_ale_review_docx(
+            canonical_assessment,
+            include_language_mechanics=False,
+        )
+        doc = docx.Document(io.BytesIO(docx_bytes))
+        full_text = _extract_all_doc_text(doc)
+
+        assert "Language and mechanics, by page" not in full_text
+        assert "No language or mechanics findings identified." not in full_text
+        assert not any(
+            "As Written" in " ".join(cell.text for cell in table.rows[0].cells)
+            and "Suggested" in " ".join(cell.text for cell in table.rows[0].cells)
+            for table in doc.tables
+        )
+
     def test_demonstration_rewrite_section(
         self,
         canonical_assessment: AssessmentData,
@@ -742,6 +762,7 @@ class TestLibreOfficePDFConversion:
             return subprocess.CompletedProcess(cmd, returncode=0, stdout="converted", stderr="")
 
         monkeypatch.setattr(subprocess, "run", mock_run)
+        monkeypatch.setattr("services.export.shutil.which", lambda _name: "/usr/bin/soffice")
         result_path = convert_docx_to_pdf(dummy_docx, tmp_path)
         assert result_path == out_pdf
         assert result_path.exists()
@@ -760,5 +781,16 @@ class TestLibreOfficePDFConversion:
             return subprocess.CompletedProcess(cmd, returncode=1, stdout="", stderr="crash")
 
         monkeypatch.setattr(subprocess, "run", mock_run_err)
+        monkeypatch.setattr("services.export.shutil.which", lambda _name: "/usr/bin/soffice")
         with pytest.raises(LibreOfficeConversionError):
+            convert_docx_to_pdf(dummy_docx, tmp_path)
+
+    def test_convert_docx_to_pdf_reports_missing_executable(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        dummy_docx = tmp_path / "test.docx"
+        dummy_docx.write_bytes(b"dummy")
+        monkeypatch.setattr("services.export.shutil.which", lambda _name: None)
+
+        with pytest.raises(FileNotFoundError, match="LibreOffice executable was not found"):
             convert_docx_to_pdf(dummy_docx, tmp_path)

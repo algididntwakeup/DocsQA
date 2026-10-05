@@ -75,7 +75,8 @@ describe("ExportModal", () => {
       "pdf",
       false,
       "en",
-      expect.objectContaining({ enabled: true, placement: "split_standard" })
+      expect.objectContaining({ enabled: true, placement: "split_standard" }),
+      false,
     );
   });
 
@@ -100,7 +101,8 @@ describe("ExportModal", () => {
       "docx",
       false,
       "id",
-      expect.objectContaining({ enabled: true, placement: "split_standard" })
+      expect.objectContaining({ enabled: true, placement: "split_standard" }),
+      false,
     );
   });
 
@@ -127,7 +129,37 @@ describe("ExportModal", () => {
       "pdf",
       true,
       "en",
-      expect.objectContaining({ enabled: true, placement: "split_standard" })
+      expect.objectContaining({ enabled: true, placement: "split_standard" }),
+      false,
+    );
+  });
+
+  it("passes includeLanguageMechanics=true when selected", () => {
+    render(
+      <ExportModal
+        documentId={docId}
+        documentFilename={docFilename}
+        isOpen={true}
+        onClose={vi.fn()}
+      />
+    );
+
+    const checkbox = screen
+      .getByText("Include language and mechanics")
+      .closest("label")
+      ?.querySelector("input");
+    expect(checkbox).not.toBeNull();
+    if (!checkbox) throw new Error("Language-mechanics checkbox not found");
+    fireEvent.click(checkbox);
+    fireEvent.click(screen.getByTestId("export-docx-btn"));
+
+    expect(downloadModule.downloadExport).toHaveBeenCalledWith(
+      docId,
+      "docx",
+      false,
+      "en",
+      expect.objectContaining({ enabled: true, placement: "split_standard" }),
+      true,
     );
   });
 

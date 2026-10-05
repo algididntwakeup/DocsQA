@@ -11,7 +11,7 @@ from db.session import get_session
 from main import app
 from models.dictionary import DictionaryTerm
 from schemas.dictionary import DictionaryTermStatus
-from services.dictionary import get_approved_dictionary_terms
+from services.dictionary import get_approved_dictionary_terms, get_registered_dictionary_terms
 
 client = TestClient(app)
 
@@ -216,3 +216,17 @@ async def test_get_approved_dictionary_terms_service() -> None:
 
     terms = await get_approved_dictionary_terms(mock_session, project_id=proj_id)
     assert terms == {"Austenitic", "martensitic", "Inconel"}
+
+
+@pytest.mark.anyio
+async def test_get_registered_dictionary_terms_includes_all_registered_terms() -> None:
+    """Spellcheck suppression includes project and organization registrations."""
+    mock_session = AsyncMock()
+    proj_id = uuid4()
+    mock_exec = MagicMock()
+    mock_exec.fetchall.return_value = [("ProposedTerm",), ("ApprovedTerm",), ("CompanyName",)]
+    mock_session.execute.return_value = mock_exec
+
+    terms = await get_registered_dictionary_terms(mock_session, project_id=proj_id)
+
+    assert terms == {"ProposedTerm", "ApprovedTerm", "CompanyName"}

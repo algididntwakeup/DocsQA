@@ -40,3 +40,4 @@ class ReportExportRequest(ApiModel):
     """Per-export settings; these override the saved project defaults."""
 
     header_config: HeaderTemplateConfig
+    include_language_mechanics: bool | None = None

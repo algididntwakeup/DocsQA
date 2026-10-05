@@ -10,8 +10,14 @@ from dataclasses import dataclass
 from typing import Any
 
 from fastapi import HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from domain.enums import UserRole
+from models.project import Project
+from models.user import User
 from services import bima_client
 
 PROJECT_ID_FIELDS = ("bima_project_id", "id")
@@ -196,3 +202,102 @@ def _first_value(row: dict[str, Any], fields: tuple[str, ...]) -> Any:
         if value is not None:
             return value
     return None
+
+
+async def sync_user_bima_projects(
+    db: AsyncSession,
+    current_user: User,
+    bima_token: str,
+) -> dict[str, int]:
+    """Provision projects visible to this user in BIMA into their PRISM workspace.
+
+    BIMA's authenticated project endpoint is already scoped to the caller's
+    accessible projects. The caller is therefore added to each returned
+    project's local membership without requiring a second user-directory call.
+    """
+    remote_projects = await bima_client.fetch_bima_projects(bima_token)
+    try:
+        result = await db.execute(select(Project).options(selectinload(Project.members)))
+    except SQLAlchemyError as exc:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="BIMA projects could not be loaded into the PRISM workspace.",
+        ) from exc
+    local_projects = list(result.scalars().all())
+    by_bima_id = {
+        project.bima_project_id: project
+        for project in local_projects
+        if project.bima_project_id is not None
+    }
+    by_name: dict[str, list[Project]] = {}
+    for project in local_projects:
+        by_name.setdefault(project.name.casefold(), []).append(project)
+
+    created = 0
+    updated = 0
+    try:
+        for remote in remote_projects:
+            name = _first_text(remote, PROJECT_NAME_FIELDS)
+            if name is None:
+                raise _bad_gateway(INVALID_PROJECT_RECORD)
+            raw_id = _first_value(remote, PROJECT_ID_FIELDS)
+            bima_project_id = _positive_int(raw_id)
+            if bima_project_id is None and isinstance(raw_id, str) and raw_id.isdigit():
+                parsed_id = int(raw_id)
+                bima_project_id = parsed_id if parsed_id > 0 else None
+
+            project = by_bima_id.get(bima_project_id) if bima_project_id is not None else None
+            if project is None:
+                # Adopt an existing locally-created folder by name when it has
+                # no BIMA identity yet; never overwrite a different BIMA ID.
+                project = next(
+                    (
+                        candidate
+                        for candidate in by_name.get(name.casefold(), [])
+                        if candidate.bima_project_id in {None, bima_project_id}
+                    ),
+                    None,
+                )
+
+            if project is None:
+                project = Project(
+                    name=name,
+                    code=_first_text(remote, PROJECT_CODE_FIELDS),
+                    status="ACTIVE",
+                    created_by_id=current_user.id,
+                    bima_project_id=bima_project_id,
+                    members=[current_user],
+                )
+                db.add(project)
+                local_projects.append(project)
+                by_name.setdefault(name.casefold(), []).append(project)
+                if bima_project_id is not None:
+                    by_bima_id[bima_project_id] = project
+                created += 1
+                continue
+
+            updated += 1
+            old_name = project.name.casefold()
+            project.name = name
+            project.code = _first_text(remote, PROJECT_CODE_FIELDS) or project.code
+            if project.bima_project_id is None and bima_project_id is not None:
+                project.bima_project_id = bima_project_id
+                by_bima_id[bima_project_id] = project
+            if all(member.id != current_user.id for member in project.members):
+                project.members.append(current_user)
+            if old_name != name.casefold():
+                by_name.setdefault(name.casefold(), []).append(project)
+
+        await db.commit()
+    except HTTPException:
+        await db.rollback()
+        raise
+    except SQLAlchemyError as exc:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="BIMA project sync could not be applied; no changes were saved.",
+        ) from exc
+
+    return {"synced": len(remote_projects), "created": created, "updated": updated}

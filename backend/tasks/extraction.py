@@ -44,7 +44,7 @@ from schemas.standard_traceability import StandardTraceabilityAnalysis
 from schemas.table_math import TableMathAnalysis
 from services.aggregate import aggregate_document_findings
 from services.ambiguity import analyze_ambiguity
-from services.dictionary import get_approved_dictionary_terms
+from services.dictionary import get_registered_dictionary_terms
 from services.duplicate import analyze_duplicates
 from services.extract import extract_document
 from services.grammar import analyze_grammar
@@ -289,7 +289,7 @@ async def _run_spellcheck_stage(
 
     spellcheck_failed = False
     try:
-        custom_dict = await get_approved_dictionary_terms(
+        custom_dict = await get_registered_dictionary_terms(
             session, project_id=getattr(document, "project_id", None)
         )
         analysis = analyze_spelling(artifact, custom_dictionary=custom_dict)

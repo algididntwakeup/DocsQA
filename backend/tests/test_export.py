@@ -239,7 +239,10 @@ async def test_export_endpoints(tmp_path: Path) -> None:
 
                 def fake_convert(src: Path, outdir: Path) -> Path:
                     pdf_out = outdir / f"{src.stem}.pdf"
-                    pdf_out.write_bytes(b"%PDF-1.4 mock review pdf")
+                    writer = pypdf.PdfWriter()
+                    writer.add_blank_page(width=612, height=792)
+                    with pdf_out.open("wb") as output:
+                        writer.write(output)
                     return pdf_out
 
                 mock_convert.side_effect = fake_convert
@@ -248,6 +251,7 @@ async def test_export_endpoints(tmp_path: Path) -> None:
                 assert res_pdf.headers["content-type"] == "application/pdf"
                 assert "weld_spec_001_review.pdf" in res_pdf.headers["content-disposition"]
                 assert res_pdf.content.startswith(b"%PDF-")
+                assert len(pypdf.PdfReader(io.BytesIO(res_pdf.content)).pages) == 1
 
             # 2. DOCX
             res_docx = await client.get(f"/api/v1/documents/{doc.id}/export?format=docx")
@@ -258,6 +262,35 @@ async def test_export_endpoints(tmp_path: Path) -> None:
             )
             assert "attachment" in res_docx.headers["content-disposition"]
             assert "weld_spec_001_review.docx" in res_docx.headers["content-disposition"]
+            default_report = docx.Document(io.BytesIO(res_docx.content))
+            default_report_text = "\n".join(
+                [paragraph.text for paragraph in default_report.paragraphs]
+                + [
+                    cell.text
+                    for table in default_report.tables
+                    for row in table.rows
+                    for cell in row.cells
+                ]
+            )
+            assert "Language and mechanics, by page" not in default_report_text
+            assert "temprature" not in default_report_text
+
+            res_docx_with_language = await client.get(
+                f"/api/v1/documents/{doc.id}/export?format=docx&include_language_mechanics=true"
+            )
+            assert res_docx_with_language.status_code == 200
+            language_report = docx.Document(io.BytesIO(res_docx_with_language.content))
+            language_report_text = "\n".join(
+                [paragraph.text for paragraph in language_report.paragraphs]
+                + [
+                    cell.text
+                    for table in language_report.tables
+                    for row in table.rows
+                    for cell in row.cells
+                ]
+            )
+            assert "Language and mechanics, by page" in language_report_text
+            assert "temprature" in language_report_text
 
             # 3. Legacy formats (xlsx, csv, json) rejected with 422
             res_xlsx = await client.get(f"/api/v1/documents/{doc.id}/export?format=xlsx")

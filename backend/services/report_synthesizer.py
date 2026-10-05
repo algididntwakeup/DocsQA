@@ -733,9 +733,16 @@ class ReportSynthesizer:
             for i, item in enumerate(selected, 1)
         ]
 
-    def synthesize_language_narrative(self, findings: Iterable[Any]) -> list[str]:
-        """Group language findings by page and describe each with a readable label."""
-        grouped: dict[str, list[str]] = {}
+    def aggregate_language_findings(
+        self,
+        findings: Iterable[Any],
+        include_language_mechanics: bool = True,
+    ) -> list[dict[str, str]]:
+        """Collapse repeated language findings into one row across their affected pages."""
+        if not include_language_mechanics:
+            return []
+
+        groups: dict[tuple[str, str, str], dict[str, Any]] = {}
         for item in findings:
             evidence = _value(item, "evidence", {}) or {}
             page = str(
@@ -743,54 +750,93 @@ class ReportSynthesizer:
                 or _value(item, "page_number", "")
                 or _value(evidence, "page", "—")
             )
-            finding_type = _value(item, "finding_type", "") or _value(item, "type", "")
-            label = humanize_finding_type(finding_type, language=self.language)
-            excerpt = str(
+            finding_type = str(
+                _value(item, "finding_type", "") or _value(item, "type", "")
+            )
+            original = str(
                 _value(item, "as_written", "")
                 or _value(evidence, "original_text", "")
                 or _display_message(item, self.language)
             ).strip()
-            if excerpt:
-                quote = f"(‘{excerpt}’)"
-                grouped.setdefault(page, []).append(f"{label} {quote}")
-            else:
-                grouped.setdefault(page, []).append(label)
-
-        result = []
-        for page in sorted(
-            grouped,
-            key=lambda value: (not value.isdigit(), int(value) if value.isdigit() else value),
-        ):
-            items = _natural_list(grouped[page], "and" if self.is_english else "dan")
-            result.append(
-                f"Page {page}: {items}." if self.is_english else f"Halaman {page}: {items}."
-            )
-        return result
-
-    def synthesize_language_mechanics(self, minor_findings: Iterable[Any]) -> list[dict[str, str]]:
-        rows: list[dict[str, str]] = []
-        seen: set[tuple[str, str, str]] = set()
-        for item in minor_findings:
-            evidence = _value(item, "evidence", {}) or {}
-            page = str(_value(evidence, "page", _value(item, "page", "—")))
-            original = str(_value(evidence, "original_text", _value(item, "message", "")))
             suggested = str(
-                _value(evidence, "suggestion", _value(item, "suggested", self.s.review_wording))
+                _value(item, "suggested", "")
+                or _value(evidence, "suggestion", "")
+                or self.s.review_wording
+            ).strip()
+            key = (finding_type, original, suggested)
+            group = groups.setdefault(
+                key,
+                {"pages": set(), "count": 0},
             )
-            key = (page, original, suggested)
-            if key not in seen:
-                seen.add(key)
-                rows.append(
-                    {
-                        self.s.page.upper(): page,
-                        (
-                            "FINDING TYPE" if self.is_english else "JENIS TEMUAN"
-                        ): humanize_finding_type(
-                            _value(item, "finding_type", "") or _value(item, "type", ""),
-                            language=self.language,
-                        ),
-                        self.s.as_written.upper(): original,
-                        self.s.suggested.upper(): suggested,
-                    }
+            group["pages"].add(page)
+            group["count"] += 1
+
+        rows: list[dict[str, str]] = []
+        for (finding_type, original, suggested), group in groups.items():
+            pages = sorted(
+                group["pages"],
+                key=lambda value: (not value.isdigit(), int(value) if value.isdigit() else value),
+            )
+            count = int(group["count"])
+            label = humanize_finding_type(finding_type, language=self.language)
+            if count > 1:
+                label += (
+                    f" ({count} occurrences)"
+                    if self.is_english
+                    else f" ({count} kemunculan)"
                 )
+            rows.append(
+                {
+                    "page": ", ".join(pages),
+                    "finding_type": label,
+                    "as_written": original,
+                    "suggested": suggested,
+                    "count": str(count),
+                }
+            )
         return rows
+
+    def synthesize_language_narrative(
+        self,
+        findings: Iterable[Any],
+        include_language_mechanics: bool = True,
+    ) -> list[str]:
+        """Summarize repeated language findings without repeating the same typo per page."""
+        rows = self.aggregate_language_findings(findings, include_language_mechanics)
+        if not rows:
+            return []
+
+        grouped: dict[str, list[str]] = {}
+        for row in rows:
+            excerpt = f" (‘{row['as_written']}’)" if row["as_written"] else ""
+            grouped.setdefault(row["page"], []).append(
+                f"{row['finding_type']}{excerpt}"
+            )
+        return [
+            (
+                f"{'Page' if len(page.split(', ')) == 1 else 'Pages'} {page}: "
+                f"{_natural_list(items, 'and')}."
+                if self.is_english
+                else f"Halaman {page}: {_natural_list(items, 'dan')}."
+            )
+            for page, items in grouped.items()
+        ]
+
+    def synthesize_language_mechanics(
+        self,
+        minor_findings: Iterable[Any],
+        include_language_mechanics: bool = True,
+    ) -> list[dict[str, str]]:
+        """Build concise language rows, or none when the export section is disabled."""
+        if not include_language_mechanics:
+            return []
+
+        return [
+            {
+                self.s.page.upper(): item["page"],
+                "FINDING TYPE" if self.is_english else "JENIS TEMUAN": item["finding_type"],
+                self.s.as_written.upper(): item["as_written"],
+                self.s.suggested.upper(): item["suggested"],
+            }
+            for item in self.aggregate_language_findings(minor_findings)
+        ]

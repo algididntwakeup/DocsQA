@@ -340,7 +340,7 @@ def test_spellcheck_stage_success_and_failure_isolation(tmp_path: Path) -> None:
 
     with (
         patch("tasks.extraction._latest_attempt", AsyncMock(return_value=1)),
-        patch("tasks.extraction.get_approved_dictionary_terms", AsyncMock(return_value=set())),
+        patch("tasks.extraction.get_registered_dictionary_terms", AsyncMock(return_value=set())),
     ):
         failed = asyncio.run(
             _run_spellcheck_stage(
@@ -356,7 +356,7 @@ def test_spellcheck_stage_success_and_failure_isolation(tmp_path: Path) -> None:
     with (
         patch("tasks.extraction._latest_attempt", AsyncMock(return_value=1)),
         patch(
-            "tasks.extraction.get_approved_dictionary_terms",
+            "tasks.extraction.get_registered_dictionary_terms",
             AsyncMock(side_effect=RuntimeError("db error")),
         ),
     ):
