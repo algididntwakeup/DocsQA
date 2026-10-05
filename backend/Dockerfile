@@ -10,7 +10,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get install --no-install-recommends -y libreoffice-writer fonts-dejavu-core \
+    && apt-get install --no-install-recommends -y \
+        libreoffice \
+        libreoffice-writer \
+        fonts-dejavu \
+        fonts-liberation \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt ./

@@ -7,6 +7,7 @@ Annotated PDF with visual bounding boxes and callout notes for included findings
 from __future__ import annotations
 
 import io
+import logging
 import os
 import re
 import shutil
@@ -58,6 +59,9 @@ class LibreOfficeConversionError(RuntimeError):
     """Raised when headless LibreOffice conversion to PDF fails."""
 
 
+logger = logging.getLogger(__name__)
+
+
 _FINDING_CODE_TOKEN = re.compile(r"\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b")
 _DISPLAY_STATUS_LABELS = {
     "TRACEABILITY": "Document Control and Traceability",
@@ -97,14 +101,28 @@ def convert_docx_to_pdf(docx_path: Path, output_dir: Path, timeout: int = 30) ->
         raise FileNotFoundError(f"DOCX source file not found: {docx_path}")
 
     output_dir = Path(output_dir).resolve()
-    output_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        output_dir.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        logger.exception("Could not prepare PDF export directory %s", output_dir)
+        raise LibreOfficeConversionError(
+            f"Could not prepare PDF export directory '{output_dir}': {exc}"
+        ) from exc
 
+    configured_binary = os.environ.get("LIBREOFFICE_BIN")
     binary = (
-        os.environ.get("LIBREOFFICE_BIN")
-        or shutil.which("libreoffice")
-        or shutil.which("soffice")
-        or "soffice"
+        shutil.which(configured_binary)
+        if configured_binary
+        else shutil.which("libreoffice") or shutil.which("soffice")
     )
+    if not binary:
+        message = (
+            "LibreOffice executable was not found. Install libreoffice-writer and "
+            "ensure libreoffice or soffice is available on PATH."
+        )
+        logger.error(message)
+        raise FileNotFoundError(message)
+
     cmd = [
         binary,
         "--headless",
@@ -123,24 +141,55 @@ def convert_docx_to_pdf(docx_path: Path, output_dir: Path, timeout: int = 30) ->
             check=False,
         )
     except FileNotFoundError as exc:
-        raise LibreOfficeConversionError(
-            f"LibreOffice binary '{binary}' not found on system PATH. "
-            "Please ensure libreoffice-writer or soffice is installed."
+        logger.exception("LibreOffice executable %s disappeared before PDF conversion", binary)
+        raise FileNotFoundError(
+            f"LibreOffice executable '{binary}' could not be started. "
+            "Ensure libreoffice-writer or soffice is installed."
         ) from exc
     except subprocess.TimeoutExpired as exc:
+        logger.error(
+            "LibreOffice conversion timed out after %ss for %s; stderr=%s",
+            timeout,
+            docx_path.name,
+            exc.stderr or "<empty>",
+        )
         raise LibreOfficeConversionError(
             f"LibreOffice PDF conversion timed out after {timeout}s for {docx_path.name}."
         ) from exc
+    except OSError as exc:
+        logger.exception("LibreOffice could not start for DOCX %s", docx_path.name)
+        raise LibreOfficeConversionError(
+            f"LibreOffice could not start conversion for {docx_path.name}: {exc}"
+        ) from exc
 
     if result.returncode != 0:
+        details = (
+            (result.stderr or "").strip()
+            or (result.stdout or "").strip()
+            or "<no diagnostic output>"
+        )
+        logger.error(
+            "LibreOffice conversion failed for %s (exit code %s): %s",
+            docx_path.name,
+            result.returncode,
+            details,
+        )
         raise LibreOfficeConversionError(
             "LibreOffice conversion failed "
             f"(exit code {result.returncode}): "
-            f"{result.stderr.strip() or result.stdout.strip()}"
+            f"{details}"
         )
 
     expected_pdf = output_dir / f"{docx_path.stem}.pdf"
-    if not expected_pdf.is_file() or expected_pdf.stat().st_size == 0:
+    try:
+        pdf_ready = expected_pdf.is_file() and expected_pdf.stat().st_size > 0
+    except OSError as exc:
+        logger.exception("Could not verify converted PDF %s", expected_pdf)
+        raise LibreOfficeConversionError(
+            f"Could not verify converted PDF '{expected_pdf}': {exc}"
+        ) from exc
+    if not pdf_ready:
+        logger.error("LibreOffice produced no usable PDF for %s", docx_path.name)
         raise LibreOfficeConversionError(
             "LibreOffice reported success but output PDF was not produced or is empty: "
             f"{expected_pdf}"
@@ -205,19 +254,22 @@ def assessment_from_document_findings(
     scorecard_data: dict[str, Any] | None = None,
     include_minors: bool = False,
     language: ReportLanguage = ReportLanguage.ENGLISH,
+    include_language_mechanics: bool = True,
 ) -> AssessmentData:
     """Adapt persisted pipeline artifacts into the executive report contract."""
     strings = get_report_strings(language)
     is_english = language == ReportLanguage.ENGLISH
+    language_categories = {"LINGUISTIC", "SPELLING", "GRAMMAR", "DICTIONARY"}
     included = [
         issue
         for issue in issues
         if getattr(issue, "included_in_report", True)
         and str(getattr(issue, "type", "")).upper() != "STANDARD_NOT_IN_BIBLIOGRAPHY"
+        and (include_language_mechanics or _issue_category(issue) not in language_categories)
         and (
             include_minors
             or _issue_severity(issue) not in {"MINOR", "INFO", "LOW"}
-            or _issue_category(issue) in {"LINGUISTIC", "SPELLING", "GRAMMAR", "DICTIONARY"}
+            or _issue_category(issue) in language_categories
         )
     ]
     scorecard = _load_scorecard(scorecard_data)
@@ -289,7 +341,7 @@ def assessment_from_document_findings(
         issue_type = str(getattr(issue, "type", "")).upper()
         if _issue_severity(issue) in blocker_levels or issue_type in control_blocker_types:
             continue
-        elif _issue_category(issue) in {"LINGUISTIC", "SPELLING", "GRAMMAR", "DICTIONARY"}:
+        elif _issue_category(issue) in language_categories:
             lang_findings.append(
                 LanguageFinding(
                     page=page,
@@ -752,6 +804,7 @@ def generate_ale_review_docx(
     document: Any = None,
     language: ReportLanguage = ReportLanguage.ENGLISH,
     header_config: HeaderTemplateConfig | None = None,
+    include_language_mechanics: bool = True,
 ) -> bytes:
     """
     Generate a complete, professionally formatted DOCX review report from the supplied
@@ -1170,40 +1223,46 @@ def generate_ale_review_docx(
     # -----------------------------------------------------------------------
     # Bagian 7: Tabel "Language and mechanics, by page"
     # -----------------------------------------------------------------------
-    _add_heading_1(doc, strings.language_mechanics)
-    _add_body_p(doc, strings.language_intro, space_after=6)
-    if not assessment_result.language_findings:
-        _add_body_p(doc, strings.no_language_findings, space_after=8)
-    else:
-        synthesizer = ReportSynthesizer(language)
-        for narrative in synthesizer.synthesize_language_narrative(
-            assessment_result.language_findings
-        ):
-            _add_body_p(doc, narrative, space_after=3)
-        lang_table = doc.add_table(rows=0, cols=4)
-        lang_table.autofit = False
-        lang_table.alignment = WD_TABLE_ALIGNMENT.CENTER
-        _set_table_borders(lang_table, color=HEX_BORDER, sz="4")
-        lang_widths = [0.65, 1.55, 2.95, 1.65]
-        l_hdr = lang_table.add_row()
-        l_hdr.cells[0].paragraphs[0].add_run(strings.page)
-        l_hdr.cells[1].paragraphs[0].add_run(strings.finding_type)
-        l_hdr.cells[2].paragraphs[0].add_run(strings.as_written)
-        l_hdr.cells[3].paragraphs[0].add_run(strings.suggested)
-        _format_table_row(l_hdr, lang_widths, bg_hex=HEX_NAVY, is_header=True)
-        for idx, item in enumerate(assessment_result.language_findings):
-            row = lang_table.add_row()
-            bg = HEX_ZEBRA if idx % 2 == 1 else HEX_WHITE
-            row.cells[0].paragraphs[0].add_run(item.page)
-            row.cells[1].paragraphs[0].add_run(
-                _humanize_report_heading(item.finding_type, language)
+    if include_language_mechanics:
+        _add_heading_1(doc, strings.language_mechanics)
+        _add_body_p(doc, strings.language_intro, space_after=6)
+        if not assessment_result.language_findings:
+            _add_body_p(doc, strings.no_language_findings, space_after=8)
+        else:
+            synthesizer = ReportSynthesizer(language)
+            for narrative in synthesizer.synthesize_language_narrative(
+                assessment_result.language_findings,
+                include_language_mechanics=include_language_mechanics,
+            ):
+                _add_body_p(doc, narrative, space_after=3)
+            language_rows = synthesizer.aggregate_language_findings(
+                assessment_result.language_findings,
+                include_language_mechanics=include_language_mechanics,
             )
-            row.cells[2].paragraphs[0].add_run(item.as_written)
-            row.cells[3].paragraphs[0].add_run(item.suggested)
-            _format_table_row(row, lang_widths, bg_hex=bg)
-        p_l_space = doc.add_paragraph()
-        p_l_space.paragraph_format.space_before = Pt(0)
-        p_l_space.paragraph_format.space_after = Pt(8)
+            lang_table = doc.add_table(rows=0, cols=4)
+            lang_table.autofit = False
+            lang_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+            _set_table_borders(lang_table, color=HEX_BORDER, sz="4")
+            lang_widths = [0.65, 1.55, 2.95, 1.65]
+            l_hdr = lang_table.add_row()
+            l_hdr.cells[0].paragraphs[0].add_run(strings.page)
+            l_hdr.cells[1].paragraphs[0].add_run(strings.finding_type)
+            l_hdr.cells[2].paragraphs[0].add_run(strings.as_written)
+            l_hdr.cells[3].paragraphs[0].add_run(strings.suggested)
+            _format_table_row(l_hdr, lang_widths, bg_hex=HEX_NAVY, is_header=True)
+            for idx, item in enumerate(language_rows):
+                row = lang_table.add_row()
+                bg = HEX_ZEBRA if idx % 2 == 1 else HEX_WHITE
+                row.cells[0].paragraphs[0].add_run(item["page"])
+                row.cells[1].paragraphs[0].add_run(
+                    _humanize_report_heading(item["finding_type"], language)
+                )
+                row.cells[2].paragraphs[0].add_run(item["as_written"])
+                row.cells[3].paragraphs[0].add_run(item["suggested"])
+                _format_table_row(row, lang_widths, bg_hex=bg)
+            p_l_space = doc.add_paragraph()
+            p_l_space.paragraph_format.space_before = Pt(0)
+            p_l_space.paragraph_format.space_after = Pt(8)
 
     # -----------------------------------------------------------------------
     # Bagian 8: Demonstration rewrite

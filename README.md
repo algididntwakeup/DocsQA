@@ -57,7 +57,7 @@ Unlike generative AI tools that hallucinate, PRISM runs on **100% deterministic,
 - **Headless LibreOffice PDF Deliverable**: Generates production-ready read-only PDF review reports with exact table layouts, banners, and scorecards converted directly from DOCX via Headless LibreOffice (`soffice`).
 - **Executive DOCX Review Report**: Formatted Word document for reviewers who need to add manual revisions or comments.
 - **Strict Bilingual Localization ("Anti-Bahasa Belang")**: 100% pure English (`en`) OR 100% pure Indonesian (`id`) reports with zero mixed-language boilerplate phrases and fully localized 41-item Budinski compliance checklist.
-- **Redesigned Deliverable Modal**: Format cards for PDF (Recommended), DOCX (Editable), and Annotated Source PDF (Visual Inspection), with language selector and minor findings toggle.
+- **Redesigned Deliverable Modal**: Format cards for PDF (Recommended), DOCX (Editable), and Annotated Source PDF (Visual Inspection), with language selector, minor findings toggle, and a separate opt-in Language & Mechanics section.
 - **Annotated PDF Highlights**: Injects visual highlight rectangles and callout notes directly onto original PDF pages using pure-Python `pypdf`.
 - **Multi-Sheet Excel Workbook (`.xlsx`)**: Formatted executive report with KPI Summary, Traceability Findings, Linguistic Findings, and full Audit Trail with auto-adjusted columns.
 - **Flat CSV & Cryptographic JSON**: RFC 4180 compliant tabular export and machine-readable audit package (`schema_version: 1.0`) with document SHA-256 hash.
@@ -170,7 +170,7 @@ docker compose restart api worker frontend
 
 The frontend exposes a single **Sign in with BIMA SSO** action. BIMA authenticates users and redirects to PRISM; the API verifies the SSO token, synchronizes the identity, and issues the PRISM session cookie. There is no local password login or self-registration form.
 
-Project synchronization is lead/superuser-only and uses the signed-in BIMA token to fetch project and user directories. Project membership grants engineers read access to assigned BIMA projects and their documents; it does not grant upload, assignment, review, or issue-curation rights.
+Lead/superuser project synchronization uses the signed-in BIMA token to fetch project and user directories. Engineer `GET /api/v1/projects` requests also use the engineer's BIMA session token to provision their accessible BIMA projects as PRISM project folders and add the engineer as a member. Membership grants read access to those projects and their documents; it does not grant upload, assignment, review, or issue-curation rights.
 
 Managed account provisioning and password-reset endpoints remain administrative recovery tools. Configure `BIMA_BASE_URL`, `BIMA_CLIENT_ID`, `NEXT_PUBLIC_BIMA_BASE_URL`, `NEXT_PUBLIC_APP_URL`, corporate CORS origins, and a secure cookie for production HTTPS.
 

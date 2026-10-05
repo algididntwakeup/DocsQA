@@ -1,5 +1,6 @@
 """Project-scoped document endpoints."""
 
+import logging
 from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID
@@ -37,11 +38,12 @@ from schemas.project import (
     ProjectRead,
 )
 from services import bima_client as bima_client
-from services.bima_adapter import BimaMasterDataAdapter
+from services.bima_adapter import BimaMasterDataAdapter, sync_user_bima_projects
 from services.pipeline import enqueue_extraction
 from services.uploads import UploadService
 
 router = APIRouter(prefix="/projects", tags=["projects"])
+logger = logging.getLogger(__name__)
 
 
 TERMINAL_DOCUMENT_STATUSES = {
@@ -197,9 +199,24 @@ async def create_project(
 async def list_projects(
     session: Annotated[AsyncSession, Depends(get_session)],
     current_user: Annotated[User, Depends(get_current_user)],
+    bima_token: Annotated[str | None, Header(alias="X-BIMA-Token")] = None,
+    bima_cookie: Annotated[str | None, Cookie(alias="bima_access_token")] = None,
     user_id: UUID | None = None,
 ) -> list[ProjectRead]:
     """List projects visible to the authenticated user."""
+    token = bima_token or bima_cookie
+    if current_user.role == UserRole.ENGINEER and token:
+        try:
+            await sync_user_bima_projects(session, current_user, token)
+        except HTTPException as exc:
+            # Keep the local workspace available if BIMA is temporarily
+            # unavailable or the stored BIMA token has expired.
+            logger.warning(
+                "Could not refresh BIMA projects for user %s: %s",
+                current_user.id,
+                exc.detail,
+            )
+
     query = select(Project).options(
         joinedload(Project.created_by),
         joinedload(Project.assigned_to),
@@ -214,7 +231,8 @@ async def list_projects(
             query = query.where(Project.id == UUID(int=0))
     elif current_user.role not in {UserRole.LEAD_ENGINEER, UserRole.SUPERUSER}:
         query = query.where(
-            (Project.assigned_to_id == current_user.id)
+            (Project.created_by_id == current_user.id)
+            | (Project.assigned_to_id == current_user.id)
             | Project.members.any(User.id == current_user.id)
             | exists().where(
                 Document.project_id == Project.id,

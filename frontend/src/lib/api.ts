@@ -579,9 +579,11 @@ export function getExportUrl(
   format: ExportFormat,
   includeMinors = false,
   language: ReportLanguage = "en",
+  includeLanguageMechanics = false,
 ): string {
   const params = new URLSearchParams({ format, lang: language });
   if (includeMinors) params.set("include_minors", "true");
+  params.set("include_language_mechanics", String(includeLanguageMechanics));
   params.set("language", language);
   return `${getApiBaseUrl()}/documents/${encodeURIComponent(documentId)}/export?${params.toString()}`;
 }
@@ -591,6 +593,7 @@ export async function downloadDocumentReport(
   format: ExportFormat,
   language: ReportLanguage = "en",
   includeMinors = false,
+  includeLanguageMechanics = false,
 ): Promise<void> {
   const label =
     format === "pdf"
@@ -598,7 +601,13 @@ export async function downloadDocumentReport(
       : format === "docx"
       ? "DOCX review report"
       : "annotated source PDF";
-  const url = getExportUrl(documentId, format, includeMinors, language);
+  const url = getExportUrl(
+    documentId,
+    format,
+    includeMinors,
+    language,
+    includeLanguageMechanics,
+  );
   const response = await fetch(url, {
     credentials: "include",
   });

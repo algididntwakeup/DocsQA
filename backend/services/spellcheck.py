@@ -23,6 +23,7 @@ SPELLCHECK_RULE_VERSION = "spellcheck/1.0.0"
 # Common metallurgical and engineering acronyms (never flagged as typos)
 ENGINEERING_ACRONYMS: Final[set[str]] = {
     "ASME",
+    "DNV",
     "ASTM",
     "AWS",
     "API",
@@ -105,10 +106,28 @@ ENGINEERING_ACRONYMS: Final[set[str]] = {
     "AISI316",
     "AISI304",
     "MSS-SP",
+    "RUL",
     "B31",
     "B16",
     "EN10204",
 }
+
+COMPANY_AND_INDONESIAN_TERMS: Final[set[str]] = {
+    "Reksolindo",
+    "Medco",
+    "Grissik",
+    "Pertamina",
+    "LAPI",
+    "ITB",
+}
+TECHNICAL_SYMBOLS: Final[set[str]] = {"tmin"}
+_COMPANY_AND_SYMBOL_TERMS: Final[set[str]] = {
+    term.casefold() for term in COMPANY_AND_INDONESIAN_TERMS | TECHNICAL_SYMBOLS
+}
+_EQUIPMENT_TAG_PATTERN = re.compile(r"^[0-9]+-[A-Z]+-[0-9]+(?:-[A-Z0-9]+)*$")
+_ALPHANUMERIC_CODE_PATTERN = re.compile(
+    r"^(?=.*[A-Za-z])(?=.*[0-9])[A-Za-z0-9]+(?:[-_/][A-Za-z0-9]+)*$"
+)
 
 # Chemical element symbols and compounds common in MTRs
 CHEMICAL_SYMBOLS: Final[set[str]] = {
@@ -320,9 +339,15 @@ def _is_whitelisted(
 ) -> bool:
     """Check if a word is an exempt domain token, acronym, code, or dictionary term."""
     # 1. Custom dictionary match (case-insensitive)
-    if custom_dictionary and (
-        word in custom_dictionary or word.lower() in {t.lower() for t in custom_dictionary}
-    ):
+    if custom_dictionary and word.casefold() in custom_dictionary:
+        return True
+
+    # Equipment tags and mixed letter/number identifiers are not prose words.
+    if _EQUIPMENT_TAG_PATTERN.fullmatch(word) or _ALPHANUMERIC_CODE_PATTERN.fullmatch(word):
+        return True
+
+    lower = word.casefold()
+    if lower in _COMPANY_AND_SYMBOL_TERMS:
         return True
 
     # 2. Exact acronym match (ALL CAPS, 2-8 chars)
@@ -338,7 +363,6 @@ def _is_whitelisted(
         return True
 
     # 5. Base spellchecker check
-    lower = word.lower()
     return lower in _BASE_SPELLCHECKER
 
 
@@ -373,8 +397,11 @@ def analyze_spelling(
     """Run deterministic typo detection across document text spans."""
     findings: list[LinguisticFinding] = []
     seen_locations: set[tuple[int, str, float]] = set()
+    normalized_dictionary = {term.casefold() for term in custom_dictionary or set()}
 
-    word_pattern = re.compile(r"\b[A-Za-z][A-Za-z0-9_-]*\b")
+    word_pattern = re.compile(
+        r"\b(?:[0-9]+-[A-Z]+-[0-9]+(?:-[A-Z0-9]+)*|[A-Za-z][A-Za-z0-9_-]*)\b"
+    )
 
     for span in artifact.spans:
         text = span.text
@@ -389,7 +416,7 @@ def analyze_spelling(
                 continue
 
             # Check if exempt or valid
-            if _is_whitelisted(word, custom_dictionary):
+            if _is_whitelisted(word, normalized_dictionary):
                 continue
 
             suggestion = _find_suggestion(word)

@@ -7,6 +7,7 @@ export async function downloadExport(
   includeMinors = false,
   language: ReportLanguage = "en",
   headerConfig?: HeaderTemplateConfig,
+  includeLanguageMechanics = false,
 ): Promise<void> {
   const label =
     format === "pdf"
@@ -16,14 +17,22 @@ export async function downloadExport(
       : "annotated PDF";
   const toastId = toast.loading(`Generating ${label}...`);
   try {
-    const response = await fetch(getExportUrl(documentId, format, includeMinors, language), {
-      method: headerConfig && format !== "annotated_pdf" ? "POST" : "GET",
-      credentials: "include",
-      ...(headerConfig && format !== "annotated_pdf" ? {
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ header_config: headerConfig }),
-      } : {}),
-    });
+    const response = await fetch(
+      getExportUrl(documentId, format, includeMinors, language, includeLanguageMechanics),
+      {
+        method: headerConfig && format !== "annotated_pdf" ? "POST" : "GET",
+        credentials: "include",
+        ...(headerConfig && format !== "annotated_pdf"
+          ? {
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                header_config: headerConfig,
+                include_language_mechanics: includeLanguageMechanics,
+              }),
+            }
+          : {}),
+      },
+    );
     if (!response.ok) {
       let detail = `Export failed (${response.status}).`;
       try {

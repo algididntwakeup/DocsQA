@@ -76,6 +76,18 @@ def test_whitelists_specifications_with_hyphens_and_numbers() -> None:
     assert len(analysis.findings) == 0
 
 
+def test_whitelists_equipment_tags_project_codes_and_company_terms() -> None:
+    """Valid plant tags, engineering identifiers, and Indonesian company terms are exempt."""
+    artifact = _make_artifact(
+        "35-V-101 AB1234 tmin RUL API ASME DNV Reksolindo Medco Grissik "
+        "Pertamina LAPI ITB"
+    )
+
+    analysis = analyze_spelling(artifact)
+
+    assert analysis.findings == []
+
+
 def test_clean_technical_text_yields_zero_findings() -> None:
     """Clean technical specification text produces zero false positives (< 5% FP goal)."""
     text = (

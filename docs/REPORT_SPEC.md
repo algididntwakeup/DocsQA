@@ -6,7 +6,9 @@
 - `GET /documents/{document_id}/report?language=en|id` returns counts and a localized `summary_judgement`.
 - `GET /documents/{document_id}/export?format=docx&language=en|id` localizes report labels, baseline measures, scorecard categories, actions, recommendations, and system prose in the DOCX deliverable.
 - `GET /documents/{document_id}/export?format=pdf&language=en|id` converts the localized review DOCX to a production-ready PDF via Headless LibreOffice (`soffice`), ensuring exact visual formatting and tables.
-- Executive finding types use the shared `FINDING_LABELS` dictionary in `backend/services/report_locale.py`; machine keys such as `REF_DRIFT` and `TABLE_MATH_MISMATCH` are not shown in executive finding tables. Finding tallies are written as grammatical prose with page references, and language/mechanics notes are grouped by page with a humanized category and the source phrase.
+- Executive finding types use the shared `FINDING_LABELS` dictionary in `backend/services/report_locale.py`; machine keys such as `REF_DRIFT` and `TABLE_MATH_MISMATCH` are not shown in executive finding tables. Finding tallies are written as grammatical prose with page references. Repeated language/mechanics findings with the same type, source phrase, and suggestion are grouped across pages and show their occurrence count.
+- Language and mechanics findings are excluded by default. Set `include_language_mechanics=true` on the export query, or include that boolean in the export-options JSON body, to include the section. When false, the DOCX/PDF contains no section heading, explanatory text, table header, or language/mechanics rows; these findings are also excluded from the report's included-finding totals.
+- Spellcheck suppresses engineering equipment tags, alphanumeric codes, common engineering symbols/acronyms, standard Indonesian and company terms, and all words registered in the organization or current project's dictionary terms.
 - A placeholder traceability bottom line is synthesized as a blocker count and a clear reissue action. Existing evidence-based reviewer prose remains intact.
 - Strict language isolation ("Anti-Bahasa Belang"): Selecting English enforces 0 Indonesian words in generated prose, titles, and checklist items. Selecting Indonesian enforces 0 English boilerplate phrases.
 - The 41 Budinski checklist items in Appendix A are localized deterministically via `BUDINSKI_41_ITEMS` dictionary in `backend/services/report_locale.py`.
@@ -23,7 +25,7 @@
 - PDF review reports are rendered from the same configured DOCX through Headless LibreOffice. The annotated source PDF does not use this template.
 - Project persistence is added by Alembic revision `20261002_0017` (`project_header_config`).
 
-The report contains document identity, summary judgement, bottom line, scorecard, blockers, next-revision findings, language findings by page, optional demonstration rewrite, positive observations, and review limits. Executive finding tables show a readable finding type, severity, page, evidence, detected fact, recommendation, and reviewer note; internal rule IDs are not rendered as finding labels.
+The report contains document identity, summary judgement, bottom line, scorecard, blockers, next-revision findings, an optional language/mechanics section, optional demonstration rewrite, positive observations, and review limits. Executive finding tables show a readable finding type, severity, page, evidence, detected fact, recommendation, and reviewer note; internal rule IDs are not rendered as finding labels.
 
 ## Budinski scoring contract
 

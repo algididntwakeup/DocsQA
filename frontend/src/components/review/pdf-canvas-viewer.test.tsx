@@ -145,7 +145,10 @@ describe("PdfCanvasViewer", () => {
 
     fireEvent.wheel(scrollArea, { deltaY: -60, metaKey: true, clientX: 10, clientY: 10 });
     await waitFor(() => expect(screen.getByText(/^[1-9]\d*%$/).textContent).not.toBe("100%"));
+    await waitFor(() => expect(scrollArea.scrollLeft).not.toBe(0));
     const zoom = screen.getByText(/^[1-9]\d*%$/).textContent;
+    const scrollLeftBeforeTouch = scrollArea.scrollLeft;
+    const scrollTopBeforeTouch = scrollArea.scrollTop;
 
     const down = fireEvent.pointerDown(surface, {
       button: 0,
@@ -158,8 +161,8 @@ describe("PdfCanvasViewer", () => {
     fireEvent.pointerUp(surface, { pointerId: 2, pointerType: "touch", clientX: 40, clientY: 30 });
 
     expect(down).toBe(true);
-    expect(scrollArea.scrollLeft).toBe(0);
-    expect(scrollArea.scrollTop).toBe(0);
+    expect(scrollArea.scrollLeft).toBe(scrollLeftBeforeTouch);
+    expect(scrollArea.scrollTop).toBe(scrollTopBeforeTouch);
     expect(screen.getByText(/^[1-9]\d*%$/).textContent).toBe(zoom);
   });
 });
