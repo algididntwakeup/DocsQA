@@ -1548,6 +1548,8 @@ export interface components {
          */
         ReportExportRequest: {
             header_config: components["schemas"]["HeaderTemplateConfig"];
+            /** Include Language Mechanics */
+            include_language_mechanics?: boolean | null;
         };
         /**
          * ReportLanguage
@@ -2710,6 +2712,8 @@ export interface operations {
                 format?: string;
                 /** @description Include minor and informational findings. */
                 include_minors?: boolean;
+                /** @description Include language and mechanics findings in the report. */
+                include_language_mechanics?: boolean;
                 language?: components["schemas"]["ReportLanguage"] | null;
                 lang?: string | null;
             };
@@ -3144,9 +3148,13 @@ export interface operations {
             query?: {
                 user_id?: string | null;
             };
-            header?: never;
+            header?: {
+                "X-BIMA-Token"?: string | null;
+            };
             path?: never;
-            cookie?: never;
+            cookie?: {
+                bima_access_token?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
