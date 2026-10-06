@@ -246,12 +246,15 @@ async def list_projects(
                 ),
             )
         )
-    rows = (
-        await session.execute(
-            query.group_by(Project.id).order_by(Project.created_at.desc())
-        )
-    ).all()
-    return [_project_read(project, count) for project, count in rows]
+    project_result = await session.execute(
+        query.group_by(Project.id).order_by(Project.created_at.desc())
+    )
+    all_rows = getattr(project_result, "all", None)
+    if callable(all_rows):
+        rows = all_rows()
+        return [_project_read(project, count) for project, count in rows]
+    projects = project_result.unique().scalars().all()
+    return [_project_read(project, len(project.documents)) for project in projects]
 
 
 @router.patch("/{project_id}/assign", response_model=ProjectRead)

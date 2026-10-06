@@ -726,8 +726,9 @@ async def _run_extraction(document_id: str) -> dict[str, object]:
                 dictionary_error = exc
 
             loop = asyncio.get_running_loop()
+            analyzer_futures: list[asyncio.Future[Any]] = []
             with ThreadPoolExecutor(max_workers=4) as executor:
-                futures = [
+                analyzer_futures = [
                     loop.run_in_executor(
                         executor, analyze_revision, document.original_filename, artifact
                     ),
@@ -739,18 +740,20 @@ async def _run_extraction(document_id: str) -> dict[str, object]:
                             artifact, include_missing_bibliography=False
                         ),
                     ),
-                    loop.run_in_executor(
-                        executor, analyze_spelling, artifact, custom_dict
-                    ) if dictionary_error is None else None,
                     loop.run_in_executor(executor, analyze_grammar, artifact),
                     loop.run_in_executor(executor, analyze_duplicates, artifact),
                     loop.run_in_executor(executor, analyze_ambiguity, artifact),
                 ]
-                computed = await asyncio.gather(
-                    *(future for future in futures if future is not None),
-                    return_exceptions=True,
+                if dictionary_error is None:
+                    analyzer_futures.append(
+                        loop.run_in_executor(executor, analyze_spelling, artifact, custom_dict)
+                    )
+                computed: list[Any] = list(
+                    await asyncio.gather(*analyzer_futures, return_exceptions=True)
                 )
-            if dictionary_error is not None:
+            if dictionary_error is None:
+                computed.insert(4, computed.pop())
+            else:
                 computed.insert(4, dictionary_error)
 
             def precomputed_args(value: Any) -> dict[str, Any]:

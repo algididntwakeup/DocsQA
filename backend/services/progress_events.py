@@ -4,10 +4,12 @@ import asyncio
 import logging
 import time
 from contextlib import suppress
-from typing import Any
+from typing import Any, cast
 from uuid import UUID
 
 from redis import Redis
+from redis.asyncio import Redis as AsyncRedis
+from redis.asyncio.client import PubSub
 from redis.exceptions import RedisError
 
 from core.config import settings
@@ -50,9 +52,9 @@ async def publish_document_progress(document_id: UUID | str) -> None:
         _publisher = None
 
 
-async def open_document_progress_subscription(document_id: UUID | str) -> tuple[Any, Any]:
+async def open_document_progress_subscription(document_id: UUID | str) -> tuple[AsyncRedis, PubSub]:
     """Open one Redis pub/sub subscription for an SSE document stream."""
-    client = Redis.from_url(
+    client: AsyncRedis = AsyncRedis.from_url(
         settings.REDIS_URL,
         socket_connect_timeout=0.5,
         socket_timeout=2.5,
@@ -62,7 +64,9 @@ async def open_document_progress_subscription(document_id: UUID | str) -> tuple[
     try:
         await pubsub.subscribe(document_progress_channel(document_id))
     except (RedisError, OSError):
-        await pubsub.aclose()
-        await client.aclose()
+        with suppress(Exception):
+            await cast(Any, pubsub).aclose()
+        with suppress(RedisError, OSError):
+            await client.aclose()
         raise
     return client, pubsub

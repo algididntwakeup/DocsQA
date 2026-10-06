@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -74,8 +74,6 @@ export function SplitScreenViewer({
     setIssuesSnapshot(initialIssues);
     setIssues(initialIssues);
   }
-  const issuesRef = useRef(issues);
-  issuesRef.current = issues;
   const selectedIssue = useMemo(
     () => issues.find((i) => i.id === selectedIssueId) ?? null,
     [issues, selectedIssueId]
@@ -105,7 +103,7 @@ export function SplitScreenViewer({
     try {
       const pageSize = 50;
       const first = await listDocumentIssues(document.id, undefined, 1, pageSize);
-      const loadedPageCount = Math.max(1, Math.ceil(issuesRef.current.length / pageSize));
+      const loadedPageCount = Math.max(1, Math.ceil(issues.length / pageSize));
       const rest = await Promise.all(
         Array.from(
           { length: loadedPageCount - 1 },
@@ -120,7 +118,7 @@ export function SplitScreenViewer({
     } finally {
       setIsRefreshing(false);
     }
-  }, [document.id]);
+  }, [document.id, issues.length]);
 
   const handleSelectIssue = (issueId: string) => {
     setSelectedIssueId(issueId);
