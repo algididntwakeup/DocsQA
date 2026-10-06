@@ -2,7 +2,7 @@
 
 import { AlertTriangle, CheckCircle2, Clock3, FileSearch, Plus } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ApiError,
   getCurrentUser,
@@ -22,6 +22,10 @@ const leadRoles: UserRole[] = ["LEAD_ENGINEER", "SUPERUSER"];
 
 export function Dashboard() {
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
+  const [documentTotal, setDocumentTotal] = useState(0);
+  const [documentPage, setDocumentPage] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const loadingMoreRef = useRef(false);
   const [role, setRole] = useState<UserRole | null>(null);
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [engineers, setEngineers] = useState<ManagedUser[]>([]);
@@ -32,19 +36,53 @@ export function Dashboard() {
 
   const isLead = role !== null && leadRoles.includes(role);
 
-  async function load(nextFilters = filters) {
+  async function load(nextFilters = filters, preservePages = false) {
     try {
       setError(null);
-      const result = await listDocuments({
-        projectId: isLead ? nextFilters.projectId || undefined : undefined,
-        assignedToId: isLead ? nextFilters.engineerId || undefined : undefined,
-        workflowStatus: isLead ? nextFilters.status || undefined : undefined,
-      });
-      setDocuments(result.documents);
+      const pageCount = preservePages ? documentPage : 1;
+      const pages = await Promise.all(
+        Array.from({ length: pageCount }, (_, index) =>
+          listDocuments({
+            projectId: isLead ? nextFilters.projectId || undefined : undefined,
+            assignedToId: isLead ? nextFilters.engineerId || undefined : undefined,
+            workflowStatus: isLead ? nextFilters.status || undefined : undefined,
+            page: index + 1,
+            pageSize: 20,
+          })
+        )
+      );
+      const result = pages[0];
+      setDocuments(pages.flatMap((page) => page.documents));
+      setDocumentTotal(result.pagination.total);
+      if (!preservePages) setDocumentPage(1);
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : t("couldNotReachApi"));
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadMoreDocuments() {
+    if (loadingMoreRef.current || documents.length >= documentTotal) return;
+    loadingMoreRef.current = true;
+    setLoadingMore(true);
+    try {
+      const nextPage = documentPage + 1;
+      const result = await listDocuments({
+        projectId: isLead ? filters.projectId || undefined : undefined,
+        assignedToId: isLead ? filters.engineerId || undefined : undefined,
+        workflowStatus: isLead ? filters.status || undefined : undefined,
+        page: nextPage,
+        pageSize: 20,
+      });
+      setDocuments((current) => [...current, ...result.documents]);
+      setDocumentTotal(result.pagination.total);
+      setDocumentPage(nextPage);
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : t("couldNotReachApi"));
+    } finally {
+      loadingMoreRef.current = false;
+      setLoadingMore(false);
     }
   }
 
@@ -82,12 +120,13 @@ export function Dashboard() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [role]);
 
+  const activeDocumentIds = documents
+    .filter((item) => item.status === "QUEUED" || item.status === "PROCESSING")
+    .map((item) => item.id)
+    .sort();
+  const activeDocumentKey = activeDocumentIds.join(",");
   useEffect(() => {
-    const activeIds = documents
-      .filter((item) => item.status === "QUEUED" || item.status === "PROCESSING")
-      .map((item) => item.id);
-    if (!activeIds.length) return;
-    const unsubscribers = activeIds.map((id) => subscribeDocumentEvents(id, (event) => {
+    const unsubscribers = activeDocumentIds.map((id) => subscribeDocumentEvents(id, (event) => {
       setDocuments((current) => current.map((item) => item.id === id ? {
         ...item,
         status: event.status as DocumentItem["status"],
@@ -96,7 +135,9 @@ export function Dashboard() {
       } : item));
     }));
     return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
-  }, [documents]);
+  // Progress updates do not change this key, so existing streams stay open.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeDocumentKey]);
 
   const visibleDocuments = documents.filter((document) =>
     document.filename.toLowerCase().includes(filters.search.toLowerCase().trim())
@@ -148,7 +189,14 @@ export function Dashboard() {
         </form>}
 
         {error && <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800" role="alert">{error}</div>}
-        {loading ? <div className="rounded-xl border border-border/60 bg-card p-12 text-center text-sm text-muted-foreground">{t("loadingRegister")}</div> : <DocumentList documents={visibleDocuments} onRefresh={() => void load()} />}
+        {loading ? <div className="rounded-xl border border-border/60 bg-card p-12 text-center text-sm text-muted-foreground">{t("loadingRegister")}</div> : <>
+          <DocumentList documents={visibleDocuments} onRefresh={() => void load(filters, true)} />
+          {documents.length < documentTotal && <div className="flex justify-center">
+            <button type="button" disabled={loadingMore} onClick={() => void loadMoreDocuments()} className="rounded-lg border border-border bg-card px-4 py-2 text-xs font-semibold text-foreground disabled:opacity-50">
+              {loadingMore ? "Loading…" : `Load more documents (${documents.length} of ${documentTotal})`}
+            </button>
+          </div>}
+        </>}
       </div>
     </main>
   );

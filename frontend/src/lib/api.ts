@@ -368,20 +368,26 @@ export function deleteProject(projectId: string): Promise<void> {
 
 export function listProjectDocuments(
   projectId: string,
-  options: { engineerId?: string; sortBy?: "date_desc" | "date_asc"; hasBlockers?: boolean } = {},
+  options: {
+    engineerId?: string;
+    sortBy?: "date_desc" | "date_asc";
+    hasBlockers?: boolean;
+    page?: number;
+    pageSize?: number;
+  } = {},
 ): Promise<DocumentList> {
   const params = new URLSearchParams({
     sort_by: options.sortBy ?? "date_desc",
-    page: "1",
-    page_size: "100",
+    page: String(options.page ?? 1),
+    page_size: String(options.pageSize ?? 20),
   });
   if (options.engineerId) params.set("engineer_id", options.engineerId);
   if (options.hasBlockers !== undefined) params.set("has_blockers", String(options.hasBlockers));
   return request<DocumentList>(`/projects/${encodeURIComponent(projectId)}/documents?${params}`, {
     cache: "no-store",
   });
-}
 
+}
 export function uploadProjectDocument(projectId: string, file: File): Promise<DocumentUpload> {
   const body = new FormData();
   body.append("file", file);
@@ -395,10 +401,15 @@ export interface DocumentListFilters {
   projectId?: string;
   assignedToId?: string;
   workflowStatus?: string;
+  page?: number;
+  pageSize?: number;
 }
 
 export function listDocuments(filters: DocumentListFilters = {}): Promise<DocumentList> {
-  const params = new URLSearchParams({ page: "1", page_size: "100" });
+  const params = new URLSearchParams({
+    page: String(filters.page ?? 1),
+    page_size: String(filters.pageSize ?? 20),
+  });
   if (filters.projectId) params.set("project_id", filters.projectId);
   if (filters.assignedToId) params.set("assigned_to_id", filters.assignedToId);
   if (filters.workflowStatus) params.set("workflow_status", filters.workflowStatus);
@@ -446,17 +457,6 @@ export function listDocumentIssues(
   );
 }
 
-export async function listAllDocumentIssues(id: string): Promise<IssueItem[]> {
-  const first = await listDocumentIssues(id, undefined, 1, 100);
-  if (first.pagination.total <= first.issues.length) return first.issues;
-  const pageCount = Math.ceil(first.pagination.total / 100);
-  const rest = await Promise.all(
-    Array.from({ length: pageCount - 1 }, (_, index) =>
-      listDocumentIssues(id, undefined, index + 2, 100)
-    )
-  );
-  return [first.issues, ...rest.map((page) => page.issues)].flat();
-}
 
 export function curateIssue(issueId: string, payload: IssueCuration): Promise<IssueItem> {
   return request<IssueItem>(`/issues/${encodeURIComponent(issueId)}/curation`, {
@@ -649,27 +649,36 @@ export function subscribeDocumentEvents(
   onError?: (err: Event) => void
 ): () => void {
   const url = `${getApiBaseUrl()}/documents/${encodeURIComponent(documentId)}/events`;
-  const eventSource = new EventSource(url, { withCredentials: true });
+  let stopped = false;
+  let eventSource: EventSource | undefined;
+  let reconnectTimer: number | undefined;
+  let attempts = 0;
 
-  eventSource.addEventListener("progress", (e) => {
-    try {
-      const data = JSON.parse(e.data) as DocumentProgressEvent;
-      onProgress(data);
-    } catch {
-      // Ignore malformed progress message
-    }
-  });
-
-  eventSource.addEventListener("close", () => {
-    eventSource.close();
-    onClose?.();
-  });
-
-  eventSource.onerror = (err) => {
-    onError?.(err);
+  const connect = () => {
+    if (stopped) return;
+    eventSource = new EventSource(url, { withCredentials: true });
+    eventSource.addEventListener("progress", (e) => {
+      try { onProgress(JSON.parse(e.data) as DocumentProgressEvent); } catch { /* Ignore malformed progress message */ }
+    });
+    eventSource.addEventListener("close", () => {
+      eventSource?.close();
+      onClose?.();
+    });
+    eventSource.onerror = (err) => {
+      onError?.(err);
+      eventSource?.close();
+      if (stopped || attempts >= 5) {
+        onClose?.();
+        return;
+      }
+      const delay = Math.min(30_000, 1_000 * 2 ** attempts++);
+      reconnectTimer = window.setTimeout(connect, delay);
+    };
   };
-
+  connect();
   return () => {
-    eventSource.close();
+    stopped = true;
+    if (reconnectTimer !== undefined) window.clearTimeout(reconnectTimer);
+    eventSource?.close();
   };
 }

@@ -25,6 +25,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
+from starlette.concurrency import run_in_threadpool
 
 from core.dependencies import (
     get_accessible_document,
@@ -70,6 +71,7 @@ from services.export import (
     generate_ale_review_docx,
 )
 from services.pipeline import enqueue_extraction
+from services.progress_events import open_document_progress_subscription
 from services.storage.local import LocalStorage
 from services.uploads import UploadService
 
@@ -732,7 +734,9 @@ async def get_document_file(
                     logger.info(
                         "Attempting on-the-fly DOCX to PDF conversion for document %s", document.id
                     )
-                    pdf_path = convert_docx_to_pdf(source_path, source_path.parent)
+                    pdf_path = await run_in_threadpool(
+                        convert_docx_to_pdf, source_path, source_path.parent
+                    )
                     document.canonical_pdf_uri = f"local://documents/{document.id}/preview.pdf"
                     await session.commit()
             except Exception as exc:
@@ -1054,7 +1058,7 @@ async def export_document(
                 ) as tmp_docx_file:
                     tmp_docx_file.write(docx_bytes)
                     tmp_docx = Path(tmp_docx_file.name)
-                pdf_path = convert_docx_to_pdf(tmp_docx, tmp_path)
+                pdf_path = await run_in_threadpool(convert_docx_to_pdf, tmp_docx, tmp_path)
                 pdf_bytes = pdf_path.read_bytes()
             except LibreOfficeConversionError as exc:
                 raise HTTPException(
@@ -1104,88 +1108,134 @@ async def stream_document_events(
         DocumentStatus.COMPLETED_WITH_WARNINGS,
         DocumentStatus.FAILED,
     }
-    POLL_INTERVAL = 2.0  # seconds between DB polls
+    REDIS_WAIT_SECONDS = 2.0
+    FALLBACK_POLL_SECONDS = 10.0
     MAX_POLL_DURATION = 600  # 10 minutes max SSE lifetime
 
     async def event_generator() -> AsyncIterator[str]:
-        elapsed = 0.0
-        while elapsed < MAX_POLL_DURATION:
-            async with async_session_factory() as poll_session:
-                doc = (
-                    await poll_session.execute(select(Document).where(Document.id == document_id))
-                ).scalar_one_or_none()
-                if doc is None:
+        started_at = asyncio.get_running_loop().time()
+        last_db_poll = started_at - FALLBACK_POLL_SECONDS
+        refresh = True
+        redis_client: Any = None
+        pubsub: Any = None
+        try:
+            try:
+                redis_client, pubsub = await open_document_progress_subscription(document_id)
+            except Exception:  # noqa: BLE001 — PostgreSQL polling is the fallback
+                logger.debug("Redis progress subscription unavailable for %s", document_id)
+
+            while asyncio.get_running_loop().time() - started_at < MAX_POLL_DURATION:
+                now = asyncio.get_running_loop().time()
+                if pubsub is not None and not refresh:
+                    try:
+                        message = await pubsub.get_message(
+                            ignore_subscribe_messages=True,
+                            timeout=REDIS_WAIT_SECONDS,
+                        )
+                        now = asyncio.get_running_loop().time()
+                        refresh = bool(message) or now - last_db_poll >= FALLBACK_POLL_SECONDS
+                    except Exception:  # noqa: BLE001 — fall back to bounded DB polling
+                        logger.debug("Redis progress subscription lost for %s", document_id)
+                        with contextlib.suppress(Exception):
+                            await pubsub.aclose()
+                        with contextlib.suppress(Exception):
+                            if redis_client is not None:
+                                await redis_client.aclose()
+                        pubsub = None
+                        redis_client = None
+                        refresh = True
+                elif pubsub is None and not refresh:
+                    await asyncio.sleep(FALLBACK_POLL_SECONDS)
+                    refresh = True
+
+                if not refresh:
+                    continue
+
+                async with async_session_factory() as poll_session:
+                    doc = (
+                        await poll_session.execute(
+                            select(Document).where(Document.id == document_id)
+                        )
+                    ).scalar_one_or_none()
+                    if doc is None:
+                        yield "event: close\ndata: {}\n\n"
+                        return
+
+                    stages_res = (
+                        (
+                            await poll_session.execute(
+                                select(StageRun)
+                                .where(StageRun.document_id == document_id)
+                                .order_by(StageRun.created_at.asc())
+                            )
+                        )
+                        .scalars()
+                        .all()
+                    )
+
+                last_db_poll = asyncio.get_running_loop().time()
+                refresh = False
+                latest_stages: dict[str, StageRun] = {}
+                for stage_run in stages_res:
+                    stage_name = (
+                        PipelineStage.EXTRACTING.value
+                        if stage_run.stage_name == "extraction"
+                        else stage_run.stage_name
+                    )
+                    latest_stages[stage_name] = stage_run
+                ordered_stages = [
+                    latest_stages[stage.value]
+                    for stage in PipelineStage
+                    if stage.value in latest_stages
+                ]
+                ordered_stages.extend(
+                    stage_run
+                    for stage_name, stage_run in latest_stages.items()
+                    if stage_name not in {stage.value for stage in PipelineStage}
+                )
+                completed_stages = sum(
+                    1
+                    for stage_run in ordered_stages
+                    if stage_run.status
+                    in (StageStatus.SUCCEEDED, StageStatus.SUCCEEDED_WITH_WARNINGS)
+                )
+                pct = (
+                    100
+                    if doc.status in TERMINAL_STATUSES
+                    else min(95, int((completed_stages / 6) * 100))
+                )
+                payload = {
+                    "document_id": str(doc.id),
+                    "status": doc.status.value,
+                    "progress_pct": pct,
+                    "stages": [
+                        {
+                            "name": PipelineStage.EXTRACTING.value
+                            if stage_run.stage_name == "extraction"
+                            else stage_run.stage_name,
+                            "status": stage_run.status.value,
+                            "progress_pct": stage_run.progress_pct,
+                        }
+                        for stage_run in ordered_stages
+                    ],
+                }
+                yield f"event: progress\ndata: {json.dumps(payload)}\n\n"
+                if doc.status in TERMINAL_STATUSES:
                     yield "event: close\ndata: {}\n\n"
                     return
 
-                stages_res = (
-                    (
-                        await poll_session.execute(
-                            select(StageRun)
-                            .where(StageRun.document_id == document_id)
-                            .order_by(StageRun.created_at.asc())
-                        )
-                    )
-                    .scalars()
-                    .all()
-                )
-
-            latest_stages: dict[str, StageRun] = {}
-            for stage_run in stages_res:
-                stage_name = (
-                    PipelineStage.EXTRACTING.value
-                    if stage_run.stage_name == "extraction"
-                    else stage_run.stage_name
-                )
-                latest_stages[stage_name] = stage_run
-            ordered_stages = [
-                latest_stages[stage.value]
-                for stage in PipelineStage
-                if stage.value in latest_stages
-            ]
-            ordered_stages.extend(
-                stage_run
-                for stage_name, stage_run in latest_stages.items()
-                if stage_name not in {stage.value for stage in PipelineStage}
-            )
-            completed_stages = sum(
-                1
-                for s in ordered_stages
-                if s.status in (StageStatus.SUCCEEDED, StageStatus.SUCCEEDED_WITH_WARNINGS)
-            )
-            total_pipeline_stages = 6
-            pct = (
-                100
-                if doc.status in TERMINAL_STATUSES
-                else min(95, int((completed_stages / total_pipeline_stages) * 100))
-            )
-
-            payload = {
-                "document_id": str(doc.id),
-                "status": doc.status.value,
-                "progress_pct": pct,
-                "stages": [
-                    {
-                        "name": PipelineStage.EXTRACTING.value
-                        if s.stage_name == "extraction"
-                        else s.stage_name,
-                        "status": s.status.value,
-                        "progress_pct": s.progress_pct,
-                    }
-                    for s in ordered_stages
-                ],
-            }
-            yield f"event: progress\ndata: {json.dumps(payload)}\n\n"
-
-            if doc.status in TERMINAL_STATUSES:
-                yield "event: close\ndata: {}\n\n"
-                return
-
-            await asyncio.sleep(POLL_INTERVAL)
-            elapsed += POLL_INTERVAL
-
-        # Timeout — close the SSE stream gracefully
-        yield "event: close\ndata: {}\n\n"
+            yield "event: close\ndata: {}\n\n"
+        finally:
+            if pubsub is not None:
+                try:
+                    await pubsub.aclose()
+                except Exception:
+                    logger.debug("Redis progress pubsub close failed", exc_info=True)
+            if redis_client is not None:
+                try:
+                    await redis_client.aclose()
+                except Exception:
+                    logger.debug("Redis progress client close failed", exc_info=True)
 
     return StreamingResponse(
         event_generator(),

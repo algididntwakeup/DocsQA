@@ -14,7 +14,7 @@ vi.mock("@/lib/api", async () => {
   return {
     ...actual,
     getDocument: vi.fn(),
-    listAllDocumentIssues: vi.fn().mockResolvedValue([]),
+    listDocumentIssues: vi.fn().mockResolvedValue({ issues: [], pagination: { page: 1, page_size: 50, total: 0 }, counts_by_severity: {} }),
     getCurrentUser: vi.fn(),
     subscribeDocumentEvents: vi.fn().mockReturnValue(() => undefined),
   };

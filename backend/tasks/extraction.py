@@ -3,6 +3,7 @@
 import asyncio
 import contextlib
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from io import BytesIO
 from pathlib import Path
@@ -48,6 +49,7 @@ from services.dictionary import get_registered_dictionary_terms
 from services.duplicate import analyze_duplicates
 from services.extract import extract_document
 from services.grammar import analyze_grammar
+from services.progress_events import publish_document_progress
 from services.ref_drift import analyze_ref_drift
 from services.revision_sync import analyze_revision
 from services.spellcheck import analyze_spelling
@@ -56,6 +58,14 @@ from services.storage import LocalStorage
 from services.trace_numbers import analyze_table_math
 
 logger = get_task_logger(__name__)
+
+_UNSET = object()
+
+
+def _precomputed_or_compute(precomputed: Any, error: Exception | None, compute: Any) -> Any:
+    if error is not None:
+        raise error
+    return precomputed if precomputed is not _UNSET else compute()
 
 EXTRACTION_STAGE = "extraction"
 REVISION_STAGE = "revision_sync"
@@ -101,6 +111,8 @@ async def _run_revision_stage(
     storage: LocalStorage,
     document: Document,
     artifact: ExtractionArtifact,
+    precomputed: Any = _UNSET,
+    precompute_error: Exception | None = None,
 ) -> bool:
     """Persist revision evidence while isolating analyzer failures."""
 
@@ -114,10 +126,15 @@ async def _run_revision_stage(
     )
     session.add(stage_run)
     await session.commit()
+    await publish_document_progress(document.id)
 
     revision_failed = False
     try:
-        analysis = analyze_revision(document.original_filename, artifact)
+        analysis = _precomputed_or_compute(
+            precomputed,
+            precompute_error,
+            lambda: analyze_revision(document.original_filename, artifact),
+        )
         stage_run.artifact_uri = _persist_artifact(
             storage,
             document.id,
@@ -144,6 +161,8 @@ async def _run_table_math_stage(
     storage: LocalStorage,
     document: Document,
     artifact: ExtractionArtifact,
+    precomputed: Any = _UNSET,
+    precompute_error: Exception | None = None,
 ) -> bool:
     """Persist table math evidence while isolating analyzer failures."""
 
@@ -157,10 +176,14 @@ async def _run_table_math_stage(
     )
     session.add(stage_run)
     await session.commit()
+    await publish_document_progress(document.id)
 
     table_math_failed = False
     try:
-        analysis = analyze_table_math(artifact)
+        analysis = _precomputed_or_compute(
+            precomputed, precompute_error, lambda: analyze_table_math(artifact)
+        )
+
         stage_run.artifact_uri = _persist_artifact(
             storage,
             document.id,
@@ -187,6 +210,8 @@ async def _run_ref_drift_stage(
     storage: LocalStorage,
     document: Document,
     artifact: ExtractionArtifact,
+    precomputed: Any = _UNSET,
+    precompute_error: Exception | None = None,
 ) -> bool:
     """Persist reference drift evidence while isolating analyzer failures."""
 
@@ -200,10 +225,13 @@ async def _run_ref_drift_stage(
     )
     session.add(stage_run)
     await session.commit()
+    await publish_document_progress(document.id)
 
     ref_drift_failed = False
     try:
-        analysis = analyze_ref_drift(artifact)
+        analysis = _precomputed_or_compute(
+            precomputed, precompute_error, lambda: analyze_ref_drift(artifact)
+        )
         stage_run.artifact_uri = _persist_artifact(
             storage,
             document.id,
@@ -231,7 +259,10 @@ async def _run_standard_stage(
     document: Document,
     artifact: ExtractionArtifact,
     prior_degraded: bool,
+    precomputed: Any = _UNSET,
+    precompute_error: Exception | None = None,
 ) -> bool:
+
     """Persist standard-traceability evidence and finalize visible status."""
 
     stage_run = StageRun(
@@ -244,10 +275,15 @@ async def _run_standard_stage(
     )
     session.add(stage_run)
     await session.commit()
+    await publish_document_progress(document.id)
 
     standard_failed = False
     try:
-        analysis = analyze_standard_traceability(artifact, include_missing_bibliography=False)
+        analysis = _precomputed_or_compute(
+            precomputed, precompute_error,
+            lambda: analyze_standard_traceability(artifact, include_missing_bibliography=False),
+        )
+
         stage_run.artifact_uri = _persist_artifact(
             storage,
             document.id,
@@ -274,6 +310,8 @@ async def _run_spellcheck_stage(
     storage: LocalStorage,
     document: Document,
     artifact: ExtractionArtifact,
+    precomputed: Any = _UNSET,
+    precompute_error: Exception | None = None,
 ) -> bool:
     """Persist spellcheck findings while isolating analyzer failures."""
     stage_run = StageRun(
@@ -286,13 +324,21 @@ async def _run_spellcheck_stage(
     )
     session.add(stage_run)
     await session.commit()
+    await publish_document_progress(document.id)
 
     spellcheck_failed = False
     try:
-        custom_dict = await get_registered_dictionary_terms(
-            session, project_id=getattr(document, "project_id", None)
+        custom_dict = (
+            await get_registered_dictionary_terms(
+                session, project_id=getattr(document, "project_id", None)
+            )
+            if precomputed is _UNSET and precompute_error is None
+            else None
         )
-        analysis = analyze_spelling(artifact, custom_dictionary=custom_dict)
+        analysis = _precomputed_or_compute(
+            precomputed, precompute_error,
+            lambda: analyze_spelling(artifact, custom_dictionary=custom_dict),
+        )
         stage_run.artifact_uri = _persist_artifact(
             storage,
             document.id,
@@ -319,6 +365,8 @@ async def _run_grammar_stage(
     storage: LocalStorage,
     document: Document,
     artifact: ExtractionArtifact,
+    precomputed: Any = _UNSET,
+    precompute_error: Exception | None = None,
 ) -> bool:
     """Persist grammar findings while isolating analyzer failures."""
     stage_run = StageRun(
@@ -331,10 +379,13 @@ async def _run_grammar_stage(
     )
     session.add(stage_run)
     await session.commit()
+    await publish_document_progress(document.id)
 
     grammar_failed = False
     try:
-        analysis = analyze_grammar(artifact)
+        analysis = _precomputed_or_compute(
+            precomputed, precompute_error, lambda: analyze_grammar(artifact)
+        )
         stage_run.artifact_uri = _persist_artifact(
             storage,
             document.id,
@@ -361,6 +412,8 @@ async def _run_duplicate_stage(
     storage: LocalStorage,
     document: Document,
     artifact: ExtractionArtifact,
+    precomputed: Any = _UNSET,
+    precompute_error: Exception | None = None,
 ) -> bool:
     """Persist duplicate findings while isolating analyzer failures."""
     stage_run = StageRun(
@@ -373,10 +426,13 @@ async def _run_duplicate_stage(
     )
     session.add(stage_run)
     await session.commit()
+    await publish_document_progress(document.id)
 
     duplicate_failed = False
     try:
-        analysis = analyze_duplicates(artifact)
+        analysis = _precomputed_or_compute(
+            precomputed, precompute_error, lambda: analyze_duplicates(artifact)
+        )
         stage_run.artifact_uri = _persist_artifact(
             storage,
             document.id,
@@ -403,6 +459,8 @@ async def _run_ambiguity_stage(
     storage: LocalStorage,
     document: Document,
     artifact: ExtractionArtifact,
+    precomputed: Any = _UNSET,
+    precompute_error: Exception | None = None,
 ) -> bool:
     """Persist ambiguity findings while isolating analyzer failures."""
     stage_run = StageRun(
@@ -415,10 +473,13 @@ async def _run_ambiguity_stage(
     )
     session.add(stage_run)
     await session.commit()
+    await publish_document_progress(document.id)
 
     ambiguity_failed = False
     try:
-        analysis = analyze_ambiguity(artifact)
+        analysis = _precomputed_or_compute(
+            precomputed, precompute_error, lambda: analyze_ambiguity(artifact)
+        )
         stage_run.artifact_uri = _persist_artifact(
             storage,
             document.id,
@@ -493,6 +554,7 @@ async def _run_aggregation_stage(
     )
     session.add(stage_run)
     await session.commit()
+    await publish_document_progress(document.id)
 
     aggregation_failed = False
     try:
@@ -597,6 +659,7 @@ async def _run_extraction(document_id: str) -> dict[str, object]:
         session.add(stage_run)
         document.status = DocumentStatus.PROCESSING
         await session.commit()
+        await publish_document_progress(document.id)
         await session.refresh(stage_run)
 
         storage = LocalStorage(settings.STORAGE_ROOT)
@@ -637,11 +700,14 @@ async def _run_extraction(document_id: str) -> dict[str, object]:
             stage_run.finished_at = datetime.now(UTC)
             await session.commit()
 
+        await publish_document_progress(document.id)
+
         if artifact is not None:
 
             async def run_stage(name: str, operation: Any) -> Any:
                 started = time.monotonic()
                 result = await operation()
+                await publish_document_progress(document.id)
                 logger.info(
                     "Document %s stage %s finished in %.2fs",
                     document.id,
@@ -650,17 +716,66 @@ async def _run_extraction(document_id: str) -> dict[str, object]:
                 )
                 return result
 
+            try:
+                custom_dict = await get_registered_dictionary_terms(
+                    session, project_id=getattr(document, "project_id", None)
+                )
+                dictionary_error = None
+            except Exception as exc:  # preserve spellcheck failure isolation
+                custom_dict = None
+                dictionary_error = exc
+
+            loop = asyncio.get_running_loop()
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                futures = [
+                    loop.run_in_executor(
+                        executor, analyze_revision, document.original_filename, artifact
+                    ),
+                    loop.run_in_executor(executor, analyze_table_math, artifact),
+                    loop.run_in_executor(executor, analyze_ref_drift, artifact),
+                    loop.run_in_executor(
+                        executor,
+                        lambda: analyze_standard_traceability(
+                            artifact, include_missing_bibliography=False
+                        ),
+                    ),
+                    loop.run_in_executor(
+                        executor, analyze_spelling, artifact, custom_dict
+                    ) if dictionary_error is None else None,
+                    loop.run_in_executor(executor, analyze_grammar, artifact),
+                    loop.run_in_executor(executor, analyze_duplicates, artifact),
+                    loop.run_in_executor(executor, analyze_ambiguity, artifact),
+                ]
+                computed = await asyncio.gather(
+                    *(future for future in futures if future is not None),
+                    return_exceptions=True,
+                )
+            if dictionary_error is not None:
+                computed.insert(4, dictionary_error)
+
+            def precomputed_args(value: Any) -> dict[str, Any]:
+                return {
+                    "precomputed": _UNSET if isinstance(value, Exception) else value,
+                    "precompute_error": value if isinstance(value, Exception) else None,
+                }
+
             revision_failed = await run_stage(
                 REVISION_STAGE,
-                lambda: _run_revision_stage(session, storage, document, artifact),
+                lambda: _run_revision_stage(
+                    session, storage, document, artifact, **precomputed_args(computed[0])
+                ),
             )
             table_math_failed = await run_stage(
                 TABLE_MATH_STAGE,
-                lambda: _run_table_math_stage(session, storage, document, artifact),
+                lambda: _run_table_math_stage(
+                    session, storage, document, artifact, **precomputed_args(computed[1])
+                ),
             )
             ref_drift_failed = await run_stage(
                 REF_DRIFT_STAGE,
-                lambda: _run_ref_drift_stage(session, storage, document, artifact),
+                lambda: _run_ref_drift_stage(
+                    session, storage, document, artifact, **precomputed_args(computed[2])
+                ),
             )
             standard_failed = await run_stage(
                 STANDARD_STAGE,
@@ -675,23 +790,32 @@ async def _run_extraction(document_id: str) -> dict[str, object]:
                         or table_math_failed
                         or ref_drift_failed
                     ),
+                    **precomputed_args(computed[3]),
                 ),
             )
             spellcheck_failed = await run_stage(
                 SPELLCHECK_STAGE,
-                lambda: _run_spellcheck_stage(session, storage, document, artifact),
+                lambda: _run_spellcheck_stage(
+                    session, storage, document, artifact, **precomputed_args(computed[4])
+                ),
             )
             grammar_failed = await run_stage(
                 GRAMMAR_STAGE,
-                lambda: _run_grammar_stage(session, storage, document, artifact),
+                lambda: _run_grammar_stage(
+                    session, storage, document, artifact, **precomputed_args(computed[5])
+                ),
             )
             duplicate_failed = await run_stage(
                 DUPLICATE_STAGE,
-                lambda: _run_duplicate_stage(session, storage, document, artifact),
+                lambda: _run_duplicate_stage(
+                    session, storage, document, artifact, **precomputed_args(computed[6])
+                ),
             )
             ambiguity_failed = await run_stage(
                 AMBIGUITY_STAGE,
-                lambda: _run_ambiguity_stage(session, storage, document, artifact),
+                lambda: _run_ambiguity_stage(
+                    session, storage, document, artifact, **precomputed_args(computed[7])
+                ),
             )
 
             failed_stages: list[tuple[str, str, bool]] = []
@@ -731,8 +855,7 @@ async def _run_extraction(document_id: str) -> dict[str, object]:
                 finalize_document_status=False,
             )
 
-            # The production Celery worker is the single execution path. Run the
-            # document-review stages in this same transaction/session so layout
+            await publish_document_progress(document.id)
             # and Budinski findings reach the same issues endpoint as the core
             # analyzers. The review pipeline is additive and does not erase the
             # findings just aggregated above.
@@ -757,6 +880,7 @@ async def _run_extraction(document_id: str) -> dict[str, object]:
                     document.status = DocumentStatus.COMPLETED_WITH_WARNINGS
                 document.progress_pct = 100
                 await session.commit()
+                await publish_document_progress(document.id)
             except Exception as exc:  # noqa: BLE001 — preserve core findings
                 logger.exception(
                     "Layout/Budinski review stages failed for document %s: %s",
@@ -766,6 +890,7 @@ async def _run_extraction(document_id: str) -> dict[str, object]:
                 document.status = DocumentStatus.COMPLETED_WITH_WARNINGS
                 document.progress_pct = 100
                 await session.commit()
+                await publish_document_progress(document.id)
 
     return {"document_id": document_id, "stage": EXTRACTION_STAGE}
 
@@ -801,7 +926,7 @@ async def _mark_timed_out(document_id: str) -> None:
             sr.finished_at = datetime.now(UTC)
 
         await session.commit()
-
+        await publish_document_progress(doc_id)
 
 @celery_app.task(  # type: ignore[untyped-decorator]
     bind=True,

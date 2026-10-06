@@ -9,11 +9,10 @@ import {
   deleteDocument,
   getDocument,
   getDocumentStatus,
-  listAllDocumentIssues,
+  listDocumentIssues,
   subscribeDocumentEvents,
   type DocumentItem,
   type DocumentStatus,
-  type IssueItem,
 } from "@/lib/api";
 import { formatBytes, formatDate } from "@/lib/format";
 import { ScanProgress } from "./scan-progress";
@@ -27,7 +26,7 @@ export function DocumentStatusView({ id }: { id: string }) {
   const router = useRouter();
   const [document, setDocument] = useState<DocumentItem | null>(null);
   const [scan, setScan] = useState<DocumentStatus | null>(null);
-  const [issues, setIssues] = useState<IssueItem[]>([]);
+  const [issueCounts, setIssueCounts] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const retryRef = useRef(1000);
@@ -53,11 +52,15 @@ export function DocumentStatusView({ id }: { id: string }) {
 
   const load = useCallback(async () => {
     try {
-      const [nextDocument, nextScan, nextIssues] = await Promise.all([getDocument(id), getDocumentStatus(id), listAllDocumentIssues(id)]);
+      const [nextDocument, nextScan, nextIssues] = await Promise.all([
+        getDocument(id),
+        getDocumentStatus(id),
+        listDocumentIssues(id, undefined, 1, 1),
+      ]);
       setError(null);
       setDocument(nextDocument);
       setScan(nextScan);
-      setIssues(nextIssues);
+      setIssueCounts(nextIssues.counts_by_severity);
       retryRef.current = 1000;
       return nextScan;
     } catch (caught) {
@@ -205,19 +208,19 @@ export function DocumentStatusView({ id }: { id: string }) {
           <section className="grid grid-cols-3 gap-3 my-4" aria-label="Finding metrics">
             <div className="rounded-xl border border-rose-200 bg-rose-50/50 p-4 text-center">
               <strong className="block text-2xl font-bold text-rose-700">
-                {issues.filter((issue) => issue.severity === "BLOCKER" || issue.severity === "CRITICAL").length}
+                {(issueCounts.BLOCKER ?? 0) + (issueCounts.CRITICAL ?? 0)}
               </strong>
               <span className="text-xs font-semibold text-rose-600">Blocker</span>
             </div>
             <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-4 text-center">
               <strong className="block text-2xl font-bold text-amber-700">
-                {issues.filter((issue) => issue.severity === "MAJOR" || issue.severity === "HIGH").length}
+                {(issueCounts.MAJOR ?? 0) + (issueCounts.HIGH ?? 0)}
               </strong>
               <span className="text-xs font-semibold text-amber-600">Major</span>
             </div>
             <div className="rounded-xl border border-border bg-muted/40 p-4 text-center">
               <strong className="block text-2xl font-bold text-foreground">
-                {issues.filter((issue) => issue.severity === "MINOR" || issue.severity === "MEDIUM" || issue.severity === "LOW").length}
+                {(issueCounts.MINOR ?? 0) + (issueCounts.MEDIUM ?? 0) + (issueCounts.LOW ?? 0)}
               </strong>
               <span className="text-xs font-semibold text-muted-foreground">Minor</span>
             </div>

@@ -124,16 +124,19 @@ def _not_applicable(item_id: str, group: str, context: EvaluationContext) -> Sco
 
 
 def _context_text(context: EvaluationContext) -> str:
-    sections = context.sections
-    values = [
-        *sections.headings,
-        *sections.introduction,
-        *sections.procedures,
-        *sections.conclusions,
-        *sections.recommendations,
-    ]
-    return "\n".join(str(value) for value in values if str(value).strip())
-
+    cached = getattr(context, "_cached_context_text", None)
+    if cached is None:
+        sections = context.sections
+        values = [
+            *sections.headings,
+            *sections.introduction,
+            *sections.procedures,
+            *sections.conclusions,
+            *sections.recommendations,
+        ]
+        cached = "\n".join(str(value) for value in values if str(value).strip())
+        object.__setattr__(context, "_cached_context_text", cached)
+    return cached
 
 def _finding_value(finding: Any, key: str, default: Any = None) -> Any:
     if isinstance(finding, dict):

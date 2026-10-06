@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     from models.document import Document
     from models.user import User
 
-project_members = Table(
+project_members = Base.metadata.tables.get("project_members") or Table(
     "project_members",
     Base.metadata,
     Column("project_id", ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True),
@@ -38,7 +38,7 @@ class Project(Base):
     """Project hierarchy node that groups related documents."""
 
     __tablename__ = "projects"
-
+    __table_args__ = (Index("ix_projects_created_by_id", "created_by_id"),)
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     code: Mapped[str | None] = mapped_column(String(50), nullable=True)

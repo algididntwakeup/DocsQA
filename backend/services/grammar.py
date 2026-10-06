@@ -41,6 +41,10 @@ REPEATED_PHRASE_PATTERN = re.compile(
 )
 SPLIT_YEAR_PATTERN = re.compile(r"\b(20\d)\s+(\d)\b")
 SPLIT_WORD_CORRECTIONS: Final[dict[str, str]] = {"nine-teen": "nineteen"}
+SPLIT_WORD_PATTERNS: Final[tuple[tuple[re.Pattern[str], str], ...]] = tuple(
+    (re.compile(rf"\b{re.escape(misspelling)}\b", re.IGNORECASE), correction)
+    for misspelling, correction in SPLIT_WORD_CORRECTIONS.items()
+)
 COMPOSING_BY_PATTERN = re.compile(r"\bcomprising\s+by\b", re.IGNORECASE)
 PRECISION_PAIR_PATTERN = re.compile(
     r"(?P<first>\d+\.\d+)\s*(?:vs\.?|versus|compared\s+(?:with|to))\s*"
@@ -270,8 +274,7 @@ class GrammarAnalyzer:
                 )
             )
 
-        for misspelling, correction in SPLIT_WORD_CORRECTIONS.items():
-            pattern = re.compile(rf"\b{re.escape(misspelling)}\b", re.IGNORECASE)
+        for pattern, correction in SPLIT_WORD_PATTERNS:
             for match in pattern.finditer(text):
                 bbox = _sub_bounding_box(span_bbox, text, match.start(), match.end())
                 local_findings.append(

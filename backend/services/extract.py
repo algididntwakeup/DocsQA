@@ -175,7 +175,18 @@ class PDFExtractor:
             artifact.warnings.append(f"Failed to open PDF: {exc}")
             return artifact
 
-        page_count = len(doc)
+        try:
+            page_count = len(doc)
+            return self._extract_open_document(doc, artifact, page_count)
+        except Exception:
+            doc.close()
+            raise
+
+    @staticmethod
+    def _extract_open_document(
+        doc: Any, artifact: ExtractionArtifact, page_count: int
+    ) -> ExtractionArtifact:
+        """Extract from an already-open document; caller owns deterministic cleanup."""
         if page_count:
             try:
                 cover_text = doc[0].get_text("text", sort=True)

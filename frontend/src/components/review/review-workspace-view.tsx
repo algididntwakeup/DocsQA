@@ -8,7 +8,7 @@ import {
   getApiBaseUrl,
   getPdfUrl,
   getCurrentUser,
-  listAllDocumentIssues,
+  listDocumentIssues,
   subscribeDocumentEvents,
   ApiError,
   type DocumentItem,
@@ -23,9 +23,12 @@ export function ReviewWorkspaceView({ id }: { id: string }) {
   const { t } = useLocale();
   const [document, setDocument] = useState<DocumentItem | null>(null);
   const [issues, setIssues] = useState<IssueItem[]>([]);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [issuePage, setIssuePage] = useState(1);
+  const [issueRevision, setIssueRevision] = useState(0);
+  const [issueTotal, setIssueTotal] = useState(0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [reloadKey, setReloadKey] = useState<number>(0);
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [workflowBusy, setWorkflowBusy] = useState(false);
   const [workflowError, setWorkflowError] = useState<string | null>(null);
@@ -40,16 +43,18 @@ export function ReviewWorkspaceView({ id }: { id: string }) {
       try {
         const [docData, issuesData, userData] = await Promise.all([
           getDocument(id),
-          listAllDocumentIssues(id),
+          listDocumentIssues(id, undefined, 1, 50),
           getCurrentUser(),
         ]);
         if (active) {
           setDocument(docData);
-          setIssues(issuesData);
+          setIssues(issuesData.issues);
+          setIssueRevision((revision) => revision + 1);
+          setIssuePage(1);
+          setIssueTotal(issuesData.pagination.total);
           setUserRole(userData.role);
           setError(null);
           setIsLoading(false);
-
           // Findings are written asynchronously. Keep the workspace in sync when
           // it was opened before the worker finished its audit stages.
           if (docData.status === "QUEUED" || docData.status === "PROCESSING") {
@@ -170,6 +175,15 @@ export function ReviewWorkspaceView({ id }: { id: string }) {
       setWorkflowBusy(false);
     }
   }
+  async function loadMoreIssues() {
+    const nextPage = issuePage + 1;
+    const response = await listDocumentIssues(id, undefined, nextPage, 50);
+    setIssues((current) => [...current, ...response.issues]);
+    setIssuePage(nextPage);
+    setIssueTotal(response.pagination.total);
+    setIssueRevision((revision) => revision + 1);
+  }
+
 
   const projectFinished = Boolean(document.project_finished);
   const workflowStatus = document.workflow_status ?? "ANALYZING";
@@ -234,8 +248,19 @@ export function ReviewWorkspaceView({ id }: { id: string }) {
           Project finished. Review actions are disabled; exports remain available.
         </div>
       )}
+      {issues.length < issueTotal && (
+        <div className="flex shrink-0 justify-center border-x border-border/60 bg-card py-2">
+          <button
+            type="button"
+            className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold hover:bg-muted"
+            onClick={() => void loadMoreIssues()}
+          >
+            Load more findings ({issues.length} of {issueTotal})
+          </button>
+        </div>
+      )}
       <main className="flex min-h-0 flex-1 overflow-hidden rounded-xl border border-border/60 bg-card p-4 shadow-sm">
-        <SplitScreenViewer document={document} initialIssues={issues} embedded readOnly={projectFinished} />
+        <SplitScreenViewer key={issueRevision} document={document} initialIssues={issues} embedded readOnly={projectFinished} />
       </main>
 
       <ExportModal

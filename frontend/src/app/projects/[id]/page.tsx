@@ -16,15 +16,19 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [projectId, setProjectId] = useState<string | null>(null);
   const [project, setProject] = useState<ProjectItem | null>(null);
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
+  const [documentTotal, setDocumentTotal] = useState(0);
+  const [documentPage, setDocumentPage] = useState(1);
   const [role, setRole] = useState<UserRole>("ENGINEER");
   const [currentUserId, setCurrentUserId] = useState<string>();
   const [engineers, setEngineers] = useState<ManagedUser[]>([]);
   const [headerConfig, setHeaderConfig] = useState<HeaderTemplateConfig>(defaultHeaderConfig);
   const [savingHeader, setSavingHeader] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<{ engineerId?: string; sortBy: "date_desc" | "date_asc"; hasBlockers?: boolean }>({ sortBy: "date_desc" });
   const loadingRef = useRef(false);
+  const loadedDocumentPagesRef = useRef(1);
   const loadedHeaderProjectRef = useRef<string | null>(null);
   const { t } = useLocale();
 
@@ -32,25 +36,42 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     const timer = window.setTimeout(() => void params.then(({ id }) => setProjectId(id)), 0);
     return () => window.clearTimeout(timer);
   }, [params]);
-
-  const load = useCallback(async () => {
+  const load = useCallback(async (preservePages = false) => {
     if (!projectId || loadingRef.current) return;
+    if (!preservePages) loadedDocumentPagesRef.current = 1;
     loadingRef.current = true;
     try {
       setError(null);
       const user = await getCurrentUser();
-      const [projects, result, activeEngineers] = await Promise.all([
-        listProjects(), listProjectDocuments(projectId, filters),
-        user.role === "LEAD_ENGINEER" || user.role === "SUPERUSER" ? listEngineers() : Promise.resolve([]),
+      const pageCount = loadedDocumentPagesRef.current;
+      const [projects, documentPages, activeEngineers] = await Promise.all([
+        listProjects(),
+        Promise.all(
+          Array.from({ length: pageCount }, (_, index) =>
+            listProjectDocuments(projectId, {
+              ...filters,
+              page: index + 1,
+              pageSize: 20,
+            })
+          )
+        ),
+        user.role === "LEAD_ENGINEER" || user.role === "SUPERUSER"
+          ? listEngineers()
+          : Promise.resolve([]),
       ]);
+      const result = documentPages[0];
       const currentProject = projects.find((item) => item.id === projectId) ?? null;
       setProject(currentProject);
       if (currentProject?.header_config && loadedHeaderProjectRef.current !== projectId) {
         setHeaderConfig({ ...defaultHeaderConfig, ...currentProject.header_config });
         loadedHeaderProjectRef.current = projectId;
       }
-      setDocuments(result.documents);
-      setRole(user.role); setCurrentUserId(user.id); setEngineers(activeEngineers);
+      setDocuments(documentPages.flatMap((page) => page.documents));
+      setDocumentTotal(result.pagination.total);
+      setDocumentPage(pageCount);
+      setRole(user.role);
+      setCurrentUserId(user.id);
+      setEngineers(activeEngineers);
     } catch (caught) {
       if (caught instanceof ApiError && caught.status === 401) {
         if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
@@ -60,9 +81,33 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       }
       setError(caught instanceof ApiError ? caught.message : t("couldNotLoadProjects"));
     } finally {
-      loadingRef.current = false; setLoading(false);
+      loadingRef.current = false;
+      setLoading(false);
     }
   }, [filters, projectId, t]);
+  const loadMoreDocuments = useCallback(async () => {
+    if (!projectId || loadingRef.current || documents.length >= documentTotal) return;
+    loadingRef.current = true;
+    setLoadingMore(true);
+    try {
+      const nextPage = documentPage + 1;
+      const result = await listProjectDocuments(projectId, {
+        ...filters,
+        page: nextPage,
+        pageSize: 20,
+      });
+      setDocuments((current) => [...current, ...result.documents]);
+      loadedDocumentPagesRef.current = nextPage;
+      setDocumentPage(nextPage);
+      setDocumentTotal(result.pagination.total);
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : t("couldNotLoadProjects"));
+    } finally {
+      loadingRef.current = false;
+      setLoadingMore(false);
+    }
+  }, [documentPage, documentTotal, documents.length, filters, projectId, t]);
+
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
@@ -71,7 +116,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
   useEffect(() => {
     if (!documents.some((document) => isProcessingStatus(String(document.status)))) return;
-    const timer = window.setInterval(() => void load(), 3000);
+    const timer = window.setInterval(() => void load(true), 3000);
     return () => window.clearInterval(timer);
   }, [documents, load]);
 
@@ -182,6 +227,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         onUpload={upload}
         onFiltersChange={setFilters}
         onChanged={load}
+        onLoadMore={loadMoreDocuments}
+        hasMore={documents.length < documentTotal}
+        loadingMore={loadingMore}
       />
     </div>
   );
