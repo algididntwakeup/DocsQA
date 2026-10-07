@@ -57,15 +57,13 @@ async def test_list_users_includes_owned_document_count() -> None:
     lead = _user(UserRole.LEAD_ENGINEER)
     engineer = _user(UserRole.ENGINEER)
     session = AsyncMock()
-    session.execute.return_value = _result([lead, engineer])
-    session.scalar.return_value = 4
-
+    count_result = type("Result", (), {"all": lambda self: [(lead, 4), (engineer, 0)]})()
+    session.execute.return_value = count_result
     result = await list_users(session, lead)
 
     assert [item.email for item in result] == [lead.email, engineer.email]
     assert result[0].total_documents_owned == 4
-    session.scalar.assert_awaited()
-
+    assert result[1].total_documents_owned == 0
 
 @pytest.mark.anyio
 async def test_create_user_hashes_temporary_password() -> None:
