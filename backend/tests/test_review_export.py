@@ -768,6 +768,38 @@ class TestLibreOfficePDFConversion:
         assert result_path.exists()
         assert result_path.read_bytes().startswith(b"%PDF-")
 
+    def test_convert_docx_to_pdf_uses_isolated_profile_and_export_timeout(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Repeated exports get distinct LibreOffice profiles and enough time to finish."""
+        import subprocess
+
+        source = tmp_path / "review.docx"
+        output_dir = tmp_path / "output"
+        source.write_bytes(b"dummy docx content")
+        profiles: list[str] = []
+
+        def mock_run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+            profile_option = next(
+                arg for arg in cmd if arg.startswith("-env:UserInstallation=")
+            )
+            profiles.append(profile_option)
+            assert "--headless" in cmd
+            assert "--nolockcheck" in cmd
+            assert kwargs["timeout"] == 120
+            output = Path(cmd[cmd.index("--outdir") + 1]) / "review.pdf"
+            output.write_bytes(b"%PDF-1.4 mock pdf content")
+            return subprocess.CompletedProcess(cmd, returncode=0, stdout="converted", stderr="")
+
+        monkeypatch.setattr(subprocess, "run", mock_run)
+        monkeypatch.setattr("services.export.shutil.which", lambda _name: "/usr/bin/soffice")
+
+        convert_docx_to_pdf(source, output_dir)
+        convert_docx_to_pdf(source, output_dir)
+
+        assert len(profiles) == 2
+        assert len(set(profiles)) == 2
+
     def test_convert_docx_to_pdf_error_handling(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:

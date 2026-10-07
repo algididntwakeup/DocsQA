@@ -32,6 +32,7 @@ describe("Home", () => {
           id: "c6a4507d-bbfd-4c71-b64a-5f42f7fd1cde",
           status: "PROCESSING",
           progress_pct: 42,
+          current_stage: "Text extraction",
           updated_at: "2026-09-04T00:00:00Z",
           stages: [
             {
@@ -56,6 +57,7 @@ describe("Home", () => {
           id: "c6a4507d-bbfd-4c71-b64a-5f42f7fd1cde",
           status: "PROCESSING",
           progress_pct: 90,
+          current_stage: "Report synthesis",
           updated_at: "2026-09-04T00:00:00Z",
           stages: [
             {

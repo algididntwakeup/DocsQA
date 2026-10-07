@@ -253,6 +253,29 @@ async def test_export_endpoints(tmp_path: Path) -> None:
                 assert res_pdf.content.startswith(b"%PDF-")
                 assert len(pypdf.PdfReader(io.BytesIO(res_pdf.content)).pages) == 1
 
+            # Simulate an old persisted spelling finding whose category was
+            # incorrect. The finding type must still honor the opt-in toggle.
+            now = datetime.now(UTC)
+            issues.append(
+                Issue(
+                    id=uuid4(),
+                    document_id=doc.id,
+                    category=IssueCategory.BUDINSKI,
+                    type="SPELLING_ERROR",
+                    severity=Severity.LOW,
+                    confidence=0.9,
+                    message="Possible spelling error 'zzlegacytypozz'.",
+                    evidence={
+                        "kind": "LINGUISTIC",
+                        "original_text": "zzlegacytypozz",
+                        "suggestion": "legacy typo",
+                    },
+                    included_in_report=True,
+                    created_at=now,
+                    updated_at=now,
+                )
+            )
+
             # 2. DOCX
             res_docx = await client.get(f"/api/v1/documents/{doc.id}/export?format=docx")
             assert res_docx.status_code == 200
@@ -274,6 +297,7 @@ async def test_export_endpoints(tmp_path: Path) -> None:
             )
             assert "Language and mechanics, by page" not in default_report_text
             assert "temprature" not in default_report_text
+            assert "zzlegacytypozz" not in default_report_text
 
             res_docx_with_language = await client.get(
                 f"/api/v1/documents/{doc.id}/export?format=docx&include_language_mechanics=true"
@@ -291,6 +315,7 @@ async def test_export_endpoints(tmp_path: Path) -> None:
             )
             assert "Language and mechanics, by page" in language_report_text
             assert "temprature" in language_report_text
+            assert "zzlegacytypozz" in language_report_text
 
             # 3. Legacy formats (xlsx, csv, json) rejected with 422
             res_xlsx = await client.get(f"/api/v1/documents/{doc.id}/export?format=xlsx")

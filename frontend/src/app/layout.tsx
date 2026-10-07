@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import { LocaleProvider } from "@/components/layout/locale-provider";
 import { AppShell } from "@/components/layout/app-shell";
+import { QueryProvider } from "@/components/providers/query-provider";
 import { Toaster } from "sonner";
 import "./globals.css";
 
@@ -53,9 +54,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
       </head>
       <body className="min-h-screen bg-background text-foreground antialiased font-sans">
-        <LocaleProvider>
-          <AppShell>{children}</AppShell>
-        </LocaleProvider>
+        <QueryProvider>
+          <LocaleProvider>
+            <AppShell>{children}</AppShell>
+          </LocaleProvider>
+        </QueryProvider>
         <Toaster position="bottom-right" richColors closeButton />
       </body>
     </html>

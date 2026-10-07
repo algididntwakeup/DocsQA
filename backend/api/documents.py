@@ -84,6 +84,36 @@ WIP_ERROR = (
     "Selesaikan review (Mark Reviewed) terlebih dahulu."
 )
 
+_PROGRESS_PHASES: dict[str, tuple[str, int, int]] = {
+    "extraction": ("Text extraction", 10, 25),
+    PipelineStage.EXTRACTING.value: ("Text extraction", 10, 25),
+    "revision_sync": ("Document checks", 25, 30),
+    PipelineStage.BUDINSKI_AUDIT.value: ("Budinski checks", 30, 55),
+    "table_math": ("Table/reference checks", 60, 80),
+    "ref_drift": ("Table/reference checks", 60, 80),
+    "standard_traceability": ("Table/reference checks", 60, 80),
+    PipelineStage.LAYOUT_INSPECTION.value: ("Table/reference checks", 60, 80),
+    PipelineStage.STANDARDS_CHECK.value: ("Table/reference checks", 60, 80),
+    "spellcheck": ("Document checks", 80, 84),
+    "grammar": ("Document checks", 80, 84),
+    "duplicate_content": ("Document checks", 80, 84),
+    "ambiguity": ("Document checks", 80, 84),
+    "aggregation": ("Report synthesis", 85, 99),
+    PipelineStage.AGGREGATING.value: ("Report synthesis", 85, 99),
+}
+
+
+def _stage_progress(stage_name: str, progress_pct: int) -> tuple[str, int]:
+    """Map a pipeline stage's local progress onto the workspace progress scale."""
+    name = (
+        PipelineStage.EXTRACTING.value
+        if stage_name == "extraction"
+        else stage_name
+    )
+    label, start, end = _PROGRESS_PHASES.get(name, ("Document analysis", 10, 99))
+    progress = start + round((end - start) * progress_pct / 100)
+    return label, min(end, max(start, progress))
+
 
 async def check_engineer_wip_available(
     session: AsyncSession, engineer_id: UUID, project_id: UUID | None
@@ -536,7 +566,7 @@ async def get_document_status(
     session: Annotated[AsyncSession, Depends(get_session)],
     document: Annotated[Document, Depends(get_accessible_document)],
 ) -> DocumentStatusResponse:
-    """Return processing progress and latest stage states."""
+    """Return the current processing phase, percentage, and useful error context."""
 
     stage_runs = (
         (
@@ -565,25 +595,51 @@ async def get_document_status(
         for stage_name, stage_run in latest_by_stage.items()
         if stage_name not in {stage.value for stage in PipelineStage}
     )
-    completed = sum(
-        1
-        for stage_run in ordered_stage_runs
-        if stage_run.status in (StageStatus.SUCCEEDED, StageStatus.SUCCEEDED_WITH_WARNINGS)
+    latest_runs_by_time = sorted(
+        latest_by_stage.values(), key=lambda stage_run: stage_run.created_at
     )
-    running_progress = max(
+    current_stage_run = next(
         (
-            stage_run.progress_pct
-            for stage_run in ordered_stage_runs
+            stage_run
+            for stage_run in reversed(latest_runs_by_time)
             if stage_run.status == StageStatus.RUNNING
         ),
-        default=0,
+        latest_runs_by_time[-1] if latest_runs_by_time else None,
     )
-    calculated_progress = (
-        100
-        if document.status
-        in {DocumentStatus.COMPLETED, DocumentStatus.COMPLETED_WITH_WARNINGS, DocumentStatus.FAILED}
-        else min(99, int(((completed * 100) + running_progress) / len(PipelineStage)))
+    failed_stage_run = next(
+        (
+            stage_run
+            for stage_run in reversed(latest_runs_by_time)
+            if stage_run.status == StageStatus.FAILED
+        ),
+        None,
     )
+    if document.status == DocumentStatus.FAILED:
+        current_stage = (
+            _stage_progress(failed_stage_run.stage_name, failed_stage_run.progress_pct)[0]
+            if failed_stage_run
+            else "Analysis failed"
+        )
+        error_message = (
+            failed_stage_run.error_message
+            if failed_stage_run and failed_stage_run.error_message
+            else "Document analysis failed. Retry the analysis or contact support."
+        )
+        calculated_progress = document.progress_pct
+    elif document.status in {DocumentStatus.COMPLETED, DocumentStatus.COMPLETED_WITH_WARNINGS}:
+        current_stage = "Analysis complete"
+        error_message = None
+        calculated_progress = 100
+    elif current_stage_run is None:
+        current_stage = "Queued for processing"
+        error_message = None
+        calculated_progress = document.progress_pct
+    else:
+        current_stage, calculated_progress = _stage_progress(
+            current_stage_run.stage_name, current_stage_run.progress_pct
+        )
+        error_message = current_stage_run.error_message
+
     stage_reads = [StageRunRead.model_validate(r) for r in ordered_stage_runs]
     for stage_read in stage_reads:
         if stage_read.name == "extraction":
@@ -592,9 +648,40 @@ async def get_document_status(
         id=document.id,
         status=document.status,
         progress_pct=max(document.progress_pct, calculated_progress),
+        current_stage=current_stage,
+        error_message=error_message,
         stages=stage_reads,
         updated_at=document.updated_at,
     )
+
+
+@router.post("/{document_id}/retry", response_model=DocumentRead)
+async def retry_document_analysis(
+    document_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    document: Annotated[Document, Depends(get_accessible_document)],
+) -> DocumentRead:
+    """Re-enqueue a failed document for its owner, assignee, or a lead reviewer."""
+    is_lead = current_user.role in {UserRole.LEAD_ENGINEER, UserRole.SUPERUSER}
+    can_retry = current_user.id in {document.owner_id, document.assigned_to_id}
+    if not is_lead and not can_retry:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the document owner, assignee, or a lead engineer can retry analysis.",
+        )
+    if document.status != DocumentStatus.FAILED:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Only failed documents can be retried.",
+        )
+
+    document.status = DocumentStatus.QUEUED
+    document.progress_pct = 0
+    await session.commit()
+    await enqueue_extraction(document, session)
+    await session.refresh(document, attribute_names=["owner", "assigned_to", "project"])
+    return _document_read(document)
 
 
 @router.get(

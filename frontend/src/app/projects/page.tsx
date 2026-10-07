@@ -11,6 +11,7 @@ import { ProjectGridSkeleton, ProjectGridView } from "@/components/projects/proj
 import { ProjectTableSkeleton, ProjectTableView, useProjectTable } from "@/components/projects/project-table-view";
 import { useViewMode } from "@/hooks/use-view-mode";
 import type { Project, ProjectSortField } from "@/types/project";
+import { ImportBimaModal } from "@/components/projects/import-bima-modal";
 
 export default function ProjectsPage() {
   const router = useRouter();
@@ -155,6 +156,7 @@ export default function ProjectsPage() {
           <p className="mt-1 text-sm text-muted-foreground">{t("projectDescription")}</p>
         </div>
         <div className="flex flex-wrap gap-2 self-start sm:self-auto">
+          <ImportBimaModal onImported={() => void load()} />
           {canCreateProject && (
             <button
               className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:opacity-50"
@@ -178,17 +180,22 @@ export default function ProjectsPage() {
         onToggleSortDirection={toggleSortDirection}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
-        rightSlot={canCreateProject ? (
-          <button
-            className="inline-flex items-center gap-2 rounded-lg border border-primary/20 bg-accent px-4 py-2.5 text-xs font-bold text-accent-foreground transition hover:bg-accent/80 disabled:opacity-50"
-            type="button"
-            onClick={() => void handleBimaSync()}
-            disabled={syncing}
-          >
-            <CloudDownload size={16} />
-            {syncing ? t("syncing") : t("syncProjects")}
-          </button>
-        ) : undefined}
+        rightSlot={(
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <ImportBimaModal onImported={() => void load()} />
+            {canCreateProject && (
+              <button
+                className="inline-flex items-center gap-2 rounded-lg border border-primary/20 bg-accent px-4 py-2.5 text-xs font-bold text-accent-foreground transition hover:bg-accent/80 disabled:opacity-50"
+                type="button"
+                onClick={() => void handleBimaSync()}
+                disabled={syncing}
+              >
+                <CloudDownload size={16} />
+                {syncing ? t("syncing") : t("syncProjects")}
+              </button>
+            )}
+          </div>
+        )}
       />
 
       {/* Error Alert */}
