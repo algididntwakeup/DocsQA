@@ -53,6 +53,7 @@ def test_openapi_contains_required_contract_paths() -> None:
         "/api/v1/documents/upload",
         "/api/v1/documents/{document_id}",
         "/api/v1/documents/{document_id}/status",
+        "/api/v1/documents/{document_id}/retry",
         "/api/v1/documents/{document_id}/issues",
         "/api/v1/documents/{document_id}/export",
         "/api/v1/documents/{document_id}/report",
@@ -60,6 +61,17 @@ def test_openapi_contains_required_contract_paths() -> None:
         "/api/v1/dictionary/terms",
         "/api/v1/standards-registry",
     }.issubset(paths)
+
+    status_schema = app.openapi()["components"]["schemas"]["DocumentStatusResponse"]
+    assert {
+        "id",
+        "status",
+        "progress_pct",
+        "current_stage",
+        "stages",
+        "updated_at",
+    }.issubset(status_schema["required"])
+    assert "error_message" in status_schema["properties"]
 
 
 def test_issue_evidence_is_discriminated_and_decimal_safe() -> None:

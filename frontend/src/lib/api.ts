@@ -427,7 +427,15 @@ export function deleteDocument(id: string): Promise<void> {
 }
 
 export function getDocumentStatus(id: string): Promise<DocumentStatus> {
-  return request<DocumentStatus>(`/documents/${encodeURIComponent(id)}/status`, { cache: "no-store" });
+  return request<DocumentStatus>(`/documents/${encodeURIComponent(id)}/status`, {
+    cache: "no-store",
+  });
+}
+
+export function retryDocumentAnalysis(id: string): Promise<DocumentItem> {
+  return request<DocumentItem>(`/documents/${encodeURIComponent(id)}/retry`, {
+    method: "POST",
+  });
 }
 
 export function uploadDocument(file: File): Promise<DocumentUpload> {

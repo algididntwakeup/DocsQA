@@ -511,6 +511,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/documents/{document_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry Document Analysis
+         * @description Re-enqueue a failed document for its owner, assignee, or a lead reviewer.
+         */
+        post: operations["retry_document_analysis_api_v1_documents__document_id__retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/documents/{document_id}/status": {
         parameters: {
             query?: never;
@@ -520,7 +540,7 @@ export interface paths {
         };
         /**
          * Get Document Status
-         * @description Return processing progress and latest stage states.
+         * @description Return the current processing phase, percentage, and useful error context.
          */
         get: operations["get_document_status_api_v1_documents__document_id__status_get"];
         put?: never;
@@ -1084,6 +1104,10 @@ export interface components {
          * @description Processing and stage status used for polling.
          */
         DocumentStatusResponse: {
+            /** Current Stage */
+            current_stage: string;
+            /** Error Message */
+            error_message?: string | null;
             /**
              * Id
              * Format: uuid
@@ -2972,6 +2996,37 @@ export interface operations {
                 "application/json": components["schemas"]["DocumentWorkflowUpdate"] | null;
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    retry_document_analysis_api_v1_documents__document_id__retry_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
