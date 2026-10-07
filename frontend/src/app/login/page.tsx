@@ -14,6 +14,8 @@ export default function LoginPage() {
     const redirectUri = `${window.location.origin}/auth/sso/callback`;
     const clientId = process.env.NEXT_PUBLIC_BIMA_CLIENT_ID ?? "prism";
     const bimaBase = (process.env.NEXT_PUBLIC_BIMA_BASE_URL ?? "https://bima.reksolindo.co.id").replace(/\/+$/, "");
+    // This is an external BIMA SSO redirect, not navigation to an internal Next.js route.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- BIMA requires a full-page external redirect.
     window.location.href = `${bimaBase}/sso/authorize?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=profile%20roles%20permissions%20email%20department`;
   }
 
