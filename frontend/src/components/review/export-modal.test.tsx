@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { ExportModal } from "./export-modal";
 import * as downloadModule from "@/lib/download";
@@ -161,6 +161,31 @@ describe("ExportModal", () => {
       expect.objectContaining({ enabled: true, placement: "split_standard" }),
       true,
     );
+  });
+
+  it("resets optional finding exports when the modal is reopened", async () => {
+    const props = {
+      documentId: docId,
+      documentFilename: docFilename,
+      onClose: vi.fn(),
+    };
+    const { rerender } = render(<ExportModal {...props} isOpen={true} />);
+    const mechanicsLabel = "Include language and mechanics";
+    const findMechanicsCheckbox = () =>
+      screen.getByText(mechanicsLabel).closest("label")?.querySelector("input");
+
+    await waitFor(() => expect(findMechanicsCheckbox()?.checked).toBe(false));
+    const checkbox = findMechanicsCheckbox();
+    expect(checkbox).not.toBeNull();
+    if (!checkbox) throw new Error("Language-mechanics checkbox not found");
+    fireEvent.click(checkbox);
+    expect(checkbox.checked).toBe(true);
+
+    fireEvent.click(screen.getByRole("button", { name: "Close export modal" }));
+    rerender(<ExportModal {...props} isOpen={false} />);
+    rerender(<ExportModal {...props} isOpen={true} />);
+
+    await waitFor(() => expect(findMechanicsCheckbox()?.checked).toBe(false));
   });
 
   it("calls downloadExport with annotated_pdf when overlay card is clicked", () => {

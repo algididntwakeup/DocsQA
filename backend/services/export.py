@@ -12,6 +12,7 @@ import os
 import re
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
@@ -91,7 +92,7 @@ def _humanize_report_heading(value: Any, language: ReportLanguage) -> str:
     return text
 
 
-def convert_docx_to_pdf(docx_path: Path, output_dir: Path, timeout: int = 30) -> Path:
+def convert_docx_to_pdf(docx_path: Path, output_dir: Path, timeout: int = 120) -> Path:
     """
     Execute headless LibreOffice conversion from DOCX to PDF.
     Command: libreoffice --headless --convert-to pdf --outdir <output_dir> <docx_path>
@@ -123,23 +124,34 @@ def convert_docx_to_pdf(docx_path: Path, output_dir: Path, timeout: int = 30) ->
         logger.error(message)
         raise FileNotFoundError(message)
 
-    cmd = [
-        binary,
-        "--headless",
-        "--convert-to",
-        "pdf",
-        str(docx_path),
-        "--outdir",
-        str(output_dir),
-    ]
     try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            check=False,
-        )
+        # LibreOffice keeps a process-wide user profile lock. Give each conversion
+        # a private profile so concurrent exports cannot collide with each other
+        # or with a desktop LibreOffice process running under the same account.
+        with tempfile.TemporaryDirectory(
+            prefix="prism-libreoffice-profile-", dir=output_dir
+        ) as profile_dir:
+            cmd = [
+                binary,
+                f"-env:UserInstallation={Path(profile_dir).resolve().as_uri()}",
+                "--headless",
+                "--nologo",
+                "--nodefault",
+                "--nolockcheck",
+                "--norestore",
+                "--convert-to",
+                "pdf",
+                str(docx_path),
+                "--outdir",
+                str(output_dir),
+            ]
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                check=False,
+            )
     except FileNotFoundError as exc:
         logger.exception("LibreOffice executable %s disappeared before PDF conversion", binary)
         raise FileNotFoundError(
@@ -204,6 +216,30 @@ def _issue_category(issue: Any) -> str:
     ).upper()
 
 
+_LANGUAGE_MECHANICS_CATEGORIES = {"LINGUISTIC", "SPELLING", "GRAMMAR", "DICTIONARY"}
+_LANGUAGE_MECHANICS_TYPES = {
+    "AMBIGUOUS_CONSTRAINT",
+    "DUPLICATE_CONTENT",
+    "GRAMMAR_ERROR",
+    "GRAMMATICAL_AGREEMENT",
+    "PASSIVE_VOICE_OVERUSE",
+    "REPEATED_PHRASE",
+    "SIGFIG_INCONSISTENCY",
+    "SPELLING_ERROR",
+    "SPELLING_SPLIT",
+    "UNCLOSED_SENTENCE",
+}
+
+
+def _is_language_mechanics_issue(issue: Any) -> bool:
+    """Recognize language findings even when older persisted rows have a bad category."""
+    issue_type = str(getattr(issue, "type", "") or "").upper()
+    return (
+        _issue_category(issue) in _LANGUAGE_MECHANICS_CATEGORIES
+        or issue_type in _LANGUAGE_MECHANICS_TYPES
+    )
+
+
 def _issue_severity(issue: Any) -> str:
     return str(
         getattr(getattr(issue, "severity", ""), "value", getattr(issue, "severity", ""))
@@ -259,17 +295,16 @@ def assessment_from_document_findings(
     """Adapt persisted pipeline artifacts into the executive report contract."""
     strings = get_report_strings(language)
     is_english = language == ReportLanguage.ENGLISH
-    language_categories = {"LINGUISTIC", "SPELLING", "GRAMMAR", "DICTIONARY"}
     included = [
         issue
         for issue in issues
         if getattr(issue, "included_in_report", True)
         and str(getattr(issue, "type", "")).upper() != "STANDARD_NOT_IN_BIBLIOGRAPHY"
-        and (include_language_mechanics or _issue_category(issue) not in language_categories)
+        and (include_language_mechanics or not _is_language_mechanics_issue(issue))
         and (
             include_minors
             or _issue_severity(issue) not in {"MINOR", "INFO", "LOW"}
-            or _issue_category(issue) in language_categories
+            or _is_language_mechanics_issue(issue)
         )
     ]
     scorecard = _load_scorecard(scorecard_data)
@@ -287,7 +322,7 @@ def assessment_from_document_findings(
     )
     major_count = sum(
         _issue_severity(issue) in {"MAJOR", "MEDIUM"}
-        and _issue_category(issue) not in {"LINGUISTIC", "SPELLING", "GRAMMAR", "DICTIONARY"}
+        and not _is_language_mechanics_issue(issue)
         and _issue_severity(issue) not in blocker_levels
         and str(getattr(issue, "type", "")).upper() not in control_blocker_types
         for issue in included
@@ -341,7 +376,7 @@ def assessment_from_document_findings(
         issue_type = str(getattr(issue, "type", "")).upper()
         if _issue_severity(issue) in blocker_levels or issue_type in control_blocker_types:
             continue
-        elif _issue_category(issue) in language_categories:
+        elif _is_language_mechanics_issue(issue):
             lang_findings.append(
                 LanguageFinding(
                     page=page,
