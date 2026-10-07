@@ -214,6 +214,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
+export function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  return request<T>(path, init);
+}
+
 export async function login(username: string, password: string): Promise<LoginResponse> {
   const res = await request<LoginResponse>("/auth/login", {
     method: "POST",

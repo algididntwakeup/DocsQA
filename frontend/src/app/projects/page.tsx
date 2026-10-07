@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { ApiError, createProject, deleteProject, finishProject, getCurrentUser, listProjectDocuments, listProjects, syncBimaProjects, type ProjectItem } from "@/lib/api";
 import { ProjectCard } from "@/components/project/project-card";
 import { useLocale } from "@/components/layout/locale-provider";
+import { ImportBimaModal } from "@/components/projects/import-bima-modal";
 
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<ProjectItem[]>([]);
@@ -123,6 +124,7 @@ export default function ProjectsPage() {
           <p className="mt-1 text-sm text-muted-foreground">{t("projectDescription")}</p>
         </div>
         <div className="flex flex-wrap gap-2 self-start sm:self-auto">
+          <ImportBimaModal onImported={() => void load()} />
           {canCreateProject && (
             <button
               className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:opacity-50"
