@@ -87,17 +87,19 @@ def test_document_owner_can_retry_failed_analysis() -> None:
     )
     current_user = SimpleNamespace(id=owner_id, role=UserRole.ENGINEER)
     session = AsyncMock(spec=AsyncSession)
-    expected_response = DocumentRead(
-        id=document_id,
-        original_filename="retry.pdf",
-        media_type="application/pdf",
-        size_bytes=1,
-        sha256="0" * 64,
-        status=DocumentStatus.QUEUED,
-        progress_pct=0,
-        workflow_status=DocumentWorkflowStatus.ANALYZING,
-        created_at=now,
-        updated_at=now,
+    expected_response = DocumentRead.model_validate(
+        {
+            "id": document_id,
+            "original_filename": "retry.pdf",
+            "media_type": "application/pdf",
+            "size_bytes": 1,
+            "sha256": "0" * 64,
+            "status": DocumentStatus.QUEUED,
+            "progress_pct": 0,
+            "workflow_status": DocumentWorkflowStatus.ANALYZING,
+            "created_at": now,
+            "updated_at": now,
+        }
     )
 
     with pytest.MonkeyPatch.context() as monkeypatch:
