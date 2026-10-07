@@ -27,6 +27,9 @@ class ProjectRead(ApiModel):
     name: str
     code: str | None = None
     description: str | None = None
+    bima_project_id: int | None = None
+    project_number: str | None = None
+    client_name: str | None = None
     header_config: HeaderTemplateConfig = Field(default_factory=HeaderTemplateConfig)
     plant_area: str | None = None
     created_by_id: UUID
@@ -58,3 +61,27 @@ class ProjectAssignment(ApiModel):
 
 class ProjectHeaderConfigUpdate(ApiModel):
     header_config: HeaderTemplateConfig
+
+
+class BimaProjectItem(ApiModel):
+    """Project listed by BIMA with its local import state."""
+
+    id: int
+    number: str
+    name: str
+    client_name: str
+    is_imported: bool = False
+    prism_project_id: str | None = None
+
+
+class ImportBimaProjectRequest(ApiModel):
+    """Request to import one BIMA project into PRISM."""
+
+    bima_project_id: int = Field(ge=1)
+
+
+class BimaProjectListResponse(ApiModel):
+    """BIMA project directory and import-state envelope."""
+
+    success: bool
+    data: list[BimaProjectItem]

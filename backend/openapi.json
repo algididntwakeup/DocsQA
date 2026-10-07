@@ -63,6 +63,75 @@
         "title": "AssignedProjectDocument",
         "type": "object"
       },
+      "BimaProjectItem": {
+        "additionalProperties": false,
+        "description": "Project listed by BIMA with its local import state.",
+        "properties": {
+          "client_name": {
+            "title": "Client Name",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "is_imported": {
+            "default": false,
+            "title": "Is Imported",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "number": {
+            "title": "Number",
+            "type": "string"
+          },
+          "prism_project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prism Project Id"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "name",
+          "client_name"
+        ],
+        "title": "BimaProjectItem",
+        "type": "object"
+      },
+      "BimaProjectListResponse": {
+        "additionalProperties": false,
+        "description": "BIMA project directory and import-state envelope.",
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/BimaProjectItem"
+            },
+            "title": "Data",
+            "type": "array"
+          },
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success",
+          "data"
+        ],
+        "title": "BimaProjectListResponse",
+        "type": "object"
+      },
       "Body_upload_document_api_v1_documents_upload_post": {
         "properties": {
           "file": {
@@ -1056,6 +1125,22 @@
         "title": "HeaderTemplateConfig",
         "type": "object"
       },
+      "ImportBimaProjectRequest": {
+        "additionalProperties": false,
+        "description": "Request to import one BIMA project into PRISM.",
+        "properties": {
+          "bima_project_id": {
+            "minimum": 1.0,
+            "title": "Bima Project Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "bima_project_id"
+        ],
+        "title": "ImportBimaProjectRequest",
+        "type": "object"
+      },
       "IssueCategory": {
         "description": "Top-level issue grouping used by API filters and the review UI.",
         "enum": [
@@ -1681,6 +1766,28 @@
             ],
             "title": "Assigned To Name"
           },
+          "bima_project_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bima Project Id"
+          },
+          "client_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Name"
+          },
           "code": {
             "anyOf": [
               {
@@ -1758,6 +1865,17 @@
               }
             ],
             "title": "Plant Area"
+          },
+          "project_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Number"
           },
           "status": {
             "default": "NO_DOCUMENTS",
@@ -3403,6 +3521,61 @@
         "summary": "Update User Status",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/api/v1/bima/projects": {
+      "get": {
+        "description": "List projects visible to the BIMA user and mark any already imported.",
+        "operationId": "list_bima_projects_api_v1_bima_projects_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BimaProjectListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Bima Projects",
+        "tags": [
+          "bima"
         ]
       }
     },
@@ -5053,6 +5226,72 @@
         ],
         "summary": "Create Project",
         "tags": [
+          "projects"
+        ]
+      }
+    },
+    "/api/v1/projects/import-bima": {
+      "post": {
+        "description": "Import one BIMA project into PRISM and create its workspace directory.",
+        "operationId": "import_bima_project_api_v1_projects_import_bima_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportBimaProjectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Import Bima Project",
+        "tags": [
+          "bima",
           "projects"
         ]
       }

@@ -206,6 +206,26 @@ export interface paths {
         patch: operations["update_user_status_api_v1_auth_users__user_id__status_patch"];
         trace?: never;
     };
+    "/api/v1/bima/projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Bima Projects
+         * @description List projects visible to the BIMA user and mark any already imported.
+         */
+        get: operations["list_bima_projects_api_v1_bima_projects_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dictionary/terms": {
         parameters: {
             query?: never;
@@ -632,6 +652,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/import-bima": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Bima Project
+         * @description Import one BIMA project into PRISM and create its workspace directory.
+         */
+        post: operations["import_bima_project_api_v1_projects_import_bima_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/sync-bima": {
         parameters: {
             query?: never;
@@ -842,6 +882,37 @@ export interface components {
             title: string;
             /** Workflow Status */
             workflow_status: string;
+        };
+        /**
+         * BimaProjectItem
+         * @description Project listed by BIMA with its local import state.
+         */
+        BimaProjectItem: {
+            /** Client Name */
+            client_name: string;
+            /** Id */
+            id: number;
+            /**
+             * Is Imported
+             * @default false
+             */
+            is_imported: boolean;
+            /** Name */
+            name: string;
+            /** Number */
+            number: string;
+            /** Prism Project Id */
+            prism_project_id?: string | null;
+        };
+        /**
+         * BimaProjectListResponse
+         * @description BIMA project directory and import-state envelope.
+         */
+        BimaProjectListResponse: {
+            /** Data */
+            data: components["schemas"]["BimaProjectItem"][];
+            /** Success */
+            success: boolean;
         };
         /** Body_upload_document_api_v1_documents_upload_post */
         Body_upload_document_api_v1_documents_upload_post: {
@@ -1225,6 +1296,14 @@ export interface components {
             title: string;
         };
         /**
+         * ImportBimaProjectRequest
+         * @description Request to import one BIMA project into PRISM.
+         */
+        ImportBimaProjectRequest: {
+            /** Bima Project Id */
+            bima_project_id: number;
+        };
+        /**
          * IssueCategory
          * @description Top-level issue grouping used by API filters and the review UI.
          * @enum {string}
@@ -1458,6 +1537,10 @@ export interface components {
             assigned_to_id?: string | null;
             /** Assigned To Name */
             assigned_to_name?: string | null;
+            /** Bima Project Id */
+            bima_project_id?: number | null;
+            /** Client Name */
+            client_name?: string | null;
             /** Code */
             code?: string | null;
             /**
@@ -1486,6 +1569,8 @@ export interface components {
             name: string;
             /** Plant Area */
             plant_area?: string | null;
+            /** Project Number */
+            project_number?: string | null;
             /**
              * Status
              * @default NO_DOCUMENTS
@@ -2299,6 +2384,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UserManagementRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_bima_projects_api_v1_bima_projects_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BimaProjectListResponse"];
                 };
             };
             /** @description Validation Error */
@@ -3243,6 +3359,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ProjectCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_bima_project_api_v1_projects_import_bima_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportBimaProjectRequest"];
             };
         };
         responses: {
