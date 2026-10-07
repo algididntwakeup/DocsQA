@@ -784,6 +784,23 @@
         "additionalProperties": false,
         "description": "Processing and stage status used for polling.",
         "properties": {
+          "current_stage": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Current Stage",
+            "type": "string"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -815,6 +832,7 @@
           "id",
           "status",
           "progress_pct",
+          "current_stage",
           "stages",
           "updated_at"
         ],
@@ -4611,9 +4629,58 @@
         ]
       }
     },
+    "/api/v1/documents/{document_id}/retry": {
+      "post": {
+        "description": "Re-enqueue a failed document for its owner, assignee, or a lead reviewer.",
+        "operationId": "retry_document_analysis_api_v1_documents__document_id__retry_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Document Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Retry Document Analysis",
+        "tags": [
+          "documents"
+        ]
+      }
+    },
     "/api/v1/documents/{document_id}/status": {
       "get": {
-        "description": "Return processing progress and latest stage states.",
+        "description": "Return the current processing phase, percentage, and useful error context.",
         "operationId": "get_document_status_api_v1_documents__document_id__status_get",
         "parameters": [
           {

@@ -118,6 +118,8 @@ class DocumentStatusResponse(ApiModel):
     id: UUID
     status: DocumentStatus
     progress_pct: int = Field(ge=0, le=100)
+    current_stage: str = Field(min_length=1, max_length=100)
+    error_message: str | None = None
     stages: list[StageRunRead]
     updated_at: datetime
 
