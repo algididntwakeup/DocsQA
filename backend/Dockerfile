@@ -11,7 +11,6 @@ WORKDIR /app
 
 RUN apt-get update \
     && apt-get install --no-install-recommends -y \
-        libreoffice \
         libreoffice-writer \
         fonts-dejavu \
         fonts-liberation \

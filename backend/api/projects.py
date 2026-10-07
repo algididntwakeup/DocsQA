@@ -16,7 +16,7 @@ from fastapi import (
     UploadFile,
     status,
 )
-from sqlalchemy import exists, or_, select
+from sqlalchemy import exists, func, or_, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
@@ -53,21 +53,23 @@ TERMINAL_DOCUMENT_STATUSES = {
 }
 
 
-def _project_status(project: Project) -> str:
+def _project_status(project: Project, total_documents: int | None = None) -> str:
     if project.finished_at is not None:
         return "FINISHED"
-    return "NO_DOCUMENTS" if not project.documents else "ACTIVE"
+    has_documents = bool(project.documents) if total_documents is None else total_documents > 0
+    return "ACTIVE" if has_documents else "NO_DOCUMENTS"
 
 
-def _project_read(project: Project) -> ProjectRead:
+def _project_read(project: Project, total_documents: int | None = None) -> ProjectRead:
     data = ProjectRead.model_validate(project).model_dump()
+    count = len(project.documents) if total_documents is None else total_documents
     data.update(
         created_by_name=project.created_by.full_name if project.created_by else None,
         assigned_to_name=project.assigned_to.full_name if project.assigned_to else None,
-        total_documents=len(project.documents),
+        total_documents=count,
         # The API status remains the PRISM lifecycle status; BIMA's raw status
         # is persisted separately on Project for synchronization decisions.
-        status=_project_status(project),
+        status=_project_status(project, count),
     )
     return ProjectRead(**data)
 
@@ -217,10 +219,12 @@ async def list_projects(
                 exc.detail,
             )
 
-    query = select(Project).options(
+    query = select(
+        Project,
+        func.count(Document.id).label("total_documents"),
+    ).outerjoin(Document, Document.project_id == Project.id).options(
         joinedload(Project.created_by),
         joinedload(Project.assigned_to),
-        joinedload(Project.documents),
     )
     if user_id is not None:
         query = query.where(Project.assigned_to_id == user_id)
@@ -242,10 +246,15 @@ async def list_projects(
                 ),
             )
         )
-    projects = (
-        (await session.execute(query.order_by(Project.created_at.desc()))).unique().scalars().all()
+    project_result = await session.execute(
+        query.group_by(Project.id).order_by(Project.created_at.desc())
     )
-    return [_project_read(project) for project in projects]
+    all_rows = getattr(project_result, "all", None)
+    if callable(all_rows):
+        rows = all_rows()
+        return [_project_read(project, count) for project, count in rows]
+    projects = project_result.unique().scalars().all()
+    return [_project_read(project, len(project.documents)) for project in projects]
 
 
 @router.patch("/{project_id}/assign", response_model=ProjectRead)
@@ -347,6 +356,8 @@ async def list_project_documents(
     sort_by: Annotated[str, Query(pattern=r"^(date_desc|date_asc)$")] = "date_desc",
     workflow_status: Annotated[DocumentStatus | None, Query(alias="status")] = None,
     has_blockers: bool | None = None,
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> DocumentListResponse:
     """List project documents with lead-only cross-engineer filters."""
     query = (
@@ -392,7 +403,14 @@ async def list_project_documents(
         )
         query = query.where(blocker if has_blockers else ~blocker)
     order = Document.created_at.desc() if sort_by == "date_desc" else Document.created_at.asc()
-    documents = (await session.execute(query.order_by(order))).scalars().all()
+    total = (await session.execute(select(func.count()).select_from(query.subquery()))).scalar_one()
+    documents = (
+        await session.execute(
+            query.order_by(order)
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+    ).scalars().all()
     return DocumentListResponse(
         documents=[
             DocumentRead.model_validate(document).model_copy(
@@ -409,11 +427,7 @@ async def list_project_documents(
             )
             for document in documents
         ],
-        pagination=PageInfo(
-            page=1,
-            page_size=max(1, len(documents)),
-            total=len(documents),
-        ),
+        pagination=PageInfo(page=page, page_size=page_size, total=total),
     )
 
 

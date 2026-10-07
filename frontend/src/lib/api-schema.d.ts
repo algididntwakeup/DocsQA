@@ -3317,6 +3317,8 @@ export interface operations {
                 sort_by?: string;
                 status?: components["schemas"]["DocumentStatus"] | null;
                 has_blockers?: boolean | null;
+                page?: number;
+                page_size?: number;
             };
             header?: never;
             path: {

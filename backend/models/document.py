@@ -56,6 +56,9 @@ class Document(TimestampMixin, Base):
             name="page_count_positive",
         ),
         Index("ix_documents_status_created_at", "status", "created_at"),
+        Index("ix_documents_project_id", "project_id"),
+        Index("ix_documents_owner_id", "owner_id"),
+        Index("ix_documents_workflow_status", "workflow_status"),
         Index(
             "uq_documents_active_sha256",
             "sha256",

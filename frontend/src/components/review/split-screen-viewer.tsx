@@ -17,7 +17,7 @@ import {
 import type { DocumentItem, IssueItem } from "@/lib/api";
 import {
   curateIssue,
-  listAllDocumentIssues,
+  listDocumentIssues,
   getIssueLocation,
 } from "@/lib/api";
 import { downloadExport } from "@/lib/download";
@@ -69,7 +69,11 @@ export function SplitScreenViewer({
     }
     return 1;
   });
-
+  const [issuesSnapshot, setIssuesSnapshot] = useState(initialIssues);
+  if (initialIssues !== issuesSnapshot) {
+    setIssuesSnapshot(initialIssues);
+    setIssues(initialIssues);
+  }
   const selectedIssue = useMemo(
     () => issues.find((i) => i.id === selectedIssueId) ?? null,
     [issues, selectedIssueId]
@@ -97,8 +101,16 @@ export function SplitScreenViewer({
   const handleReloadIssues = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      const fresh = await listAllDocumentIssues(document.id);
-      setIssues(fresh);
+      const pageSize = 50;
+      const first = await listDocumentIssues(document.id, undefined, 1, pageSize);
+      const loadedPageCount = Math.max(1, Math.ceil(issues.length / pageSize));
+      const rest = await Promise.all(
+        Array.from(
+          { length: loadedPageCount - 1 },
+          (_, index) => listDocumentIssues(document.id, undefined, index + 2, pageSize)
+        )
+      );
+      setIssues([first.issues, ...rest.map((page) => page.issues)].flat());
       setAlertMessage({ type: "success", message: "Findings refreshed." });
       setTimeout(() => setAlertMessage(null), 3000);
     } catch {
@@ -106,7 +118,7 @@ export function SplitScreenViewer({
     } finally {
       setIsRefreshing(false);
     }
-  }, [document.id]);
+  }, [document.id, issues.length]);
 
   const handleSelectIssue = (issueId: string) => {
     setSelectedIssueId(issueId);

@@ -354,8 +354,7 @@ async def test_list_projects_refreshes_engineer_projects_from_bima_cookie(
         "Result",
         (),
         {
-            "unique": lambda self: self,
-            "scalars": lambda self: type("Scalars", (), {"all": lambda _self: [project]})(),
+            "all": lambda self: [(project, 0)],
         },
     )()
     session = AsyncMock()

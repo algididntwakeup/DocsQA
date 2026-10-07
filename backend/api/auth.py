@@ -271,8 +271,21 @@ async def list_users(
     _: Annotated[User, Depends(require_user_manager)],
 ) -> list[UserManagementRead]:
     """List all accounts for the lead/superuser administration console."""
-    users = (await session.execute(select(User).order_by(User.created_at.desc()))).scalars().all()
-    return [await _managed_user_read(session, user) for user in users]
+    rows = (
+        await session.execute(
+            select(User, func.count(Document.id).label("total_documents_owned"))
+            .outerjoin(Document, Document.owner_id == User.id)
+            .group_by(User.id)
+            .order_by(User.created_at.desc())
+        )
+    ).all()
+    return [
+        UserManagementRead(
+            **UserRead.model_validate(user).model_dump(),
+            total_documents_owned=int(count or 0),
+        )
+        for user, count in rows
+    ]
 
 
 @router.get("/users/{user_id}/projects", response_model=list[AssignedProject])

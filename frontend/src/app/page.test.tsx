@@ -14,7 +14,7 @@ vi.mock("@/lib/api", async () => {
     ...actual,
     listDocuments: vi.fn().mockResolvedValue({
       documents: [],
-      pagination: { page: 1, page_size: 100, total: 0 },
+      pagination: { page: 1, page_size: 20, total: 0 },
     }),
   };
 });

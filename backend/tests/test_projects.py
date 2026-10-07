@@ -306,6 +306,7 @@ async def test_project_member_lists_all_project_documents() -> None:
     session = AsyncMock()
     session.execute.side_effect = [
         type("Result", (), {"scalar_one_or_none": lambda self: project})(),
+        type("CountResult", (), {"scalar_one": lambda self: 1})(),
         type(
             "Result",
             (),

@@ -35,6 +35,7 @@ from services.consistency_evaluator import (
 )
 from services.extract import extract_document
 from services.layout_inspector import DocumentLayoutInspector
+from services.progress_events import publish_document_progress
 from services.report_synthesizer import ReportSynthesizer
 from services.storage import LocalStorage
 from tasks.extraction import extract_document_task
@@ -441,6 +442,7 @@ async def enqueue_extraction(document: Document, session: AsyncSession) -> None:
         document.status = DocumentStatus.FAILED
         session.add(stage_run)
         await session.commit()
+        await publish_document_progress(document.id)
 
 
 async def execute_document_pipeline(
@@ -462,7 +464,7 @@ async def execute_document_pipeline(
     now = datetime.now(UTC)
     document.status = DocumentStatus.PROCESSING
     await session.commit()
-
+    await publish_document_progress(document.id)
     all_stage_runs: list[dict[str, str]] = []
 
     async def _emit_transition(stage: PipelineStage, status: StageStatus, pct: int) -> StageRun:
@@ -476,7 +478,7 @@ async def execute_document_pipeline(
         )
         session.add(stage_run)
         await session.commit()
-
+        await publish_document_progress(document.id)
         all_stage_runs.append({"name": stage.value, "status": status.value})
         if on_event is not None:
             sse_msg = format_sse_stage_event(
@@ -501,6 +503,7 @@ async def execute_document_pipeline(
         stage_1.progress_pct = 100
         stage_1.finished_at = datetime.now(UTC)
         await session.commit()
+        await publish_document_progress(document.id)
         if on_event:
             await on_event(
                 format_sse_stage_event(
@@ -517,6 +520,7 @@ async def execute_document_pipeline(
     layout_inspector = DocumentLayoutInspector()
     layout_anomalies: list[LayoutAnomaly] = []
     if file_path is not None and file_path.exists():
+        doc_pdf = None
         try:
             import fitz
 
@@ -539,11 +543,15 @@ async def execute_document_pipeline(
         except Exception as exc:  # noqa: BLE001
             stage_2.status = StageStatus.SUCCEEDED_WITH_WARNINGS
             stage_2.error_message = str(exc)[:500]
+        finally:
+            if doc_pdf is not None:
+                doc_pdf.close()
     else:
         stage_2.status = StageStatus.SUCCEEDED
     stage_2.progress_pct = 100
     stage_2.finished_at = datetime.now(UTC)
     await session.commit()
+    await publish_document_progress(document.id)
     if on_event:
         await on_event(
             format_sse_stage_event(
@@ -646,9 +654,8 @@ async def execute_document_pipeline(
     ).uri
     stage_3.artifact_uri = scorecard_uri
     stage_3.status = StageStatus.SUCCEEDED
-    stage_3.progress_pct = 100
-    stage_3.finished_at = datetime.now(UTC)
     await session.commit()
+    await publish_document_progress(document.id)
     if on_event:
         await on_event(
             format_sse_stage_event(
@@ -669,6 +676,7 @@ async def execute_document_pipeline(
     stage_4.progress_pct = 100
     stage_4.finished_at = datetime.now(UTC)
     await session.commit()
+    await publish_document_progress(document.id)
     if on_event:
         await on_event(
             format_sse_stage_event(
@@ -686,6 +694,7 @@ async def execute_document_pipeline(
     stage_5.progress_pct = 100
     stage_5.finished_at = datetime.now(UTC)
     await session.commit()
+    await publish_document_progress(document.id)
     if on_event:
         await on_event(
             format_sse_stage_event(
@@ -835,7 +844,7 @@ async def execute_document_pipeline(
     document.status = DocumentStatus.COMPLETED
     document.progress_pct = 100
     await session.commit()
-
+    await publish_document_progress(document.id)
     if on_event:
         await on_event(
             format_sse_stage_event(

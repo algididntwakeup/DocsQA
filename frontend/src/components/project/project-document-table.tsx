@@ -33,6 +33,9 @@ export function ProjectDocumentTable({
   engineers: availableEngineers,
   onChanged,
   projectFinished = false,
+  onLoadMore,
+  hasMore = false,
+  loadingMore = false,
 }: {
   documents: DocumentItem[];
   projectId?: string;
@@ -44,6 +47,9 @@ export function ProjectDocumentTable({
   engineers?: ManagedUser[];
   onChanged?: () => Promise<void>;
   projectFinished?: boolean;
+  onLoadMore?: () => Promise<void>;
+  hasMore?: boolean;
+  loadingMore?: boolean;
 }) {
   const { t } = useLocale();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -352,6 +358,18 @@ export function ProjectDocumentTable({
             })}
           </TableBody>
         </Table>
+      )}
+      {hasMore && onLoadMore && (
+        <div className="flex justify-center border-t border-border bg-card px-6 py-3">
+          <button
+            type="button"
+            disabled={loadingMore}
+            onClick={() => void onLoadMore()}
+            className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold hover:bg-muted disabled:opacity-50"
+          >
+            {loadingMore ? "Loading…" : `Load more documents (${documents.length})`}
+          </button>
+        </div>
       )}
 
       {role === "LEAD_ENGINEER" && blockers !== "all" && (
