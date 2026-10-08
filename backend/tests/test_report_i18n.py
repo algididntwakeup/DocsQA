@@ -122,7 +122,7 @@ def test_english_docx_keeps_english_footer_and_date() -> None:
 def test_indonesian_pdf_preserves_localized_footer(tmp_path: Path) -> None:
     assessment = create_canonical_ale_assessment_data()
     source = tmp_path / "report-id.docx"
-    source.write_bytes(generate_ale_review_docx(assessment, language="id"))
+    source.write_bytes(generate_ale_review_docx(assessment, language=ReportLanguage.INDONESIAN))
     pdf_path = convert_docx_to_pdf(source, tmp_path)
     pdf = PdfReader(pdf_path)
     text = "\n".join(page.extract_text() or "" for page in pdf.pages)
