@@ -12,6 +12,7 @@ import os
 import re
 import shutil
 import subprocess
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
@@ -48,6 +49,13 @@ from services.report_locale import (
     humanize_finding_type,
 )
 from services.report_synthesizer import ReportSynthesizer
+from services.reports.formatters import format_report_date
+from services.reports.i18n import (
+    get_report_labels,
+    localize_report_tokens,
+    localize_review_score,
+    translate_status,
+)
 
 if TYPE_CHECKING:
     from models.document import Document
@@ -63,32 +71,20 @@ logger = logging.getLogger(__name__)
 
 
 _FINDING_CODE_TOKEN = re.compile(r"\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b")
-_DISPLAY_STATUS_LABELS = {
-    "TRACEABILITY": "Document Control and Traceability",
-    "CRITICAL": "Critical",
-    "HIGH": "High",
-    "MAJOR": "Major",
-    "MEDIUM": "Medium",
-    "MINOR": "Minor",
-    "LOW": "Low",
-    "INFO": "Informational",
-}
 
 
 def _humanize_report_label(value: Any, language: ReportLanguage) -> str:
     """Render machine finding tokens as display labels at the export boundary."""
     text = str(value or "")
-    return _FINDING_CODE_TOKEN.sub(
+    text = _FINDING_CODE_TOKEN.sub(
         lambda match: humanize_finding_type(match.group(0), language=language), text
     )
+    return localize_report_tokens(text, language)
 
 
 def _humanize_report_heading(value: Any, language: ReportLanguage) -> str:
     """Humanize a finding heading and uppercase workflow/severity chips."""
-    text = _humanize_report_label(value, language)
-    for raw, display in _DISPLAY_STATUS_LABELS.items():
-        text = re.sub(rf"\b{raw}\b", display, text)
-    return text
+    return localize_report_tokens(_humanize_report_label(value, language), language)
 
 
 def convert_docx_to_pdf(docx_path: Path, output_dir: Path, timeout: int = 30) -> Path:
@@ -255,6 +251,7 @@ def assessment_from_document_findings(
     include_minors: bool = False,
     language: ReportLanguage = ReportLanguage.ENGLISH,
     include_language_mechanics: bool = True,
+    project: Any | None = None,
 ) -> AssessmentData:
     """Adapt persisted pipeline artifacts into the executive report contract."""
     strings = get_report_strings(language)
@@ -375,6 +372,17 @@ def assessment_from_document_findings(
     metadata = AssessmentMetadata(
         document_reviewed=(f"{doc_name} | {getattr(document, 'id', '')}"),
         document_number=str(extracted_metadata.get("document_number") or ""),
+        project_number=str(
+            getattr(project, "project_number", None)
+            or getattr(project, "code", None)
+            or extracted_metadata.get("project_number")
+            or ""
+        ),
+        client_name=str(
+            getattr(project, "client_name", None)
+            or extracted_metadata.get("client_name")
+            or ""
+        ),
         revision=str(extracted_metadata.get("revision") or ""),
         page_count=extracted_metadata.get("page_count"),
         document_date=str(extracted_metadata.get("document_date") or ""),
@@ -382,6 +390,11 @@ def assessment_from_document_findings(
             extracted_metadata.get("originator") or extracted_metadata.get("contractor") or ""
         ),
         document_type=str(getattr(document, "document_type", "") or ""),
+        review_date=(
+            getattr(document, "reviewed_at", None)
+            or getattr(document, "verified_at", None)
+            or datetime.now(UTC)
+        ).isoformat(),
         reviewer=str(getattr(getattr(document, "verified_by", None), "full_name", "") or ""),
         type_of_review=strings.type_of_review,
         basis=strings.basis,
@@ -753,8 +766,11 @@ def _format_table_row(
                     r.font.size = Pt(9)
 
 
-def _setup_page_header_footer(doc: DocxDocument, assessment: AssessmentData) -> None:
+def _setup_page_header_footer(
+    doc: DocxDocument, assessment: AssessmentData, language: ReportLanguage
+) -> None:
     """Setup running header and footer with dynamic page numbers and document identity."""
+    labels = get_report_labels(language)
     section = doc.sections[0]
     section.top_margin = Inches(0.8)
     section.bottom_margin = Inches(0.8)
@@ -781,18 +797,20 @@ def _setup_page_header_footer(doc: DocxDocument, assessment: AssessmentData) -> 
     fp.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     fp.paragraph_format.space_before = Pt(4)
 
-    r_ftr_title = fp.add_run(f"{assessment.title}    ")
-    r_ftr_title.font.name = "Arial"
-    r_ftr_title.font.size = Pt(8)
-    r_ftr_title.font.color.rgb = COLOR_MUTED
+    footer_meta = fp.add_run(
+        f"{labels['footer']['generated_by']}  |  {labels['footer']['confidential']}\n"
+    )
+    footer_meta.font.name = "Arial"
+    footer_meta.font.size = Pt(7)
+    footer_meta.font.color.rgb = COLOR_MUTED
 
-    r_pg = fp.add_run("Page ")
+    r_pg = fp.add_run(labels["footer"]["page_prefix"])
     r_pg.font.name = "Arial"
     r_pg.font.size = Pt(8)
     r_pg.font.color.rgb = COLOR_MUTED
     r_pg._r.append(parse_xml(f'<w:fldSimple {nsdecls("w")} w:instr="PAGE"/>'))
 
-    r_of = fp.add_run(" of ")
+    r_of = fp.add_run(labels["footer"]["page_connector"])
     r_of.font.name = "Arial"
     r_of.font.size = Pt(8)
     r_of.font.color.rgb = COLOR_MUTED
@@ -850,8 +868,13 @@ def generate_ale_review_docx(
     )
     if not recommendations:
         recommendations = [strings.rec_fallback_closing]
-    _setup_page_header_footer(doc, assessment_result)
-    apply_document_header(doc, header_config or HeaderTemplateConfig())
+    _setup_page_header_footer(doc, assessment_result, language)
+    effective_header_config = header_config or HeaderTemplateConfig()
+    if effective_header_config.title == "EXECUTIVE DOCUMENT REVIEW":
+        effective_header_config = effective_header_config.model_copy(
+            update={"title": get_report_labels(language)["meta"]["header_title"]}
+        )
+    apply_document_header(doc, effective_header_config)
 
     normal_style = doc.styles["Normal"]
     normal_style.font.name = "Arial"
@@ -882,6 +905,7 @@ def generate_ale_review_docx(
     # Bagian 1: Document Reviewed Metadata Block
     # -----------------------------------------------------------------------
     meta = assessment_result.metadata
+    labels = get_report_labels(language)
     workflow_status = getattr(
         getattr(document, "workflow_status", None), "value", strings.not_supplied
     )
@@ -889,14 +913,16 @@ def generate_ale_review_docx(
     verified = getattr(document, "verified_by", None)
     prepared_by = getattr(owner, "full_name", strings.not_supplied)
     checked_by = getattr(verified, "full_name", strings.pending_verification)
+    audit_date = format_report_date(meta.review_date, language) or strings.not_supplied
+    document_date = format_report_date(meta.document_date, language) or strings.not_supplied
     meta_entries = [
+        (labels["meta"]["project_number"], meta.project_number),
+        (labels["meta"]["client"], meta.client_name),
         (strings.doc_no, meta.document_number or meta.document_reviewed),
-        (
-            strings.revision,
-            meta.revision or strings.not_supplied,
-        ),
+        (labels["meta"]["document_version"], meta.revision or strings.not_supplied),
         (strings.pages, str(meta.page_count) if meta.page_count else strings.not_supplied),
-        (strings.file_date, meta.document_date or strings.not_supplied),
+        (strings.file_date, document_date),
+        (labels["meta"]["audit_date"], audit_date),
         (strings.originator, meta.originator or strings.not_supplied),
         (strings.document_reviewed, meta.document_reviewed),
         (strings.type_of_review, meta.type_of_review),
@@ -909,8 +935,9 @@ def generate_ale_review_docx(
             strings.checked_by,
             checked_by if workflow_status == "VERIFIED_BY_LEAD" else strings.pending_verification,
         ),
-        (strings.status, workflow_status),
+        (strings.status, translate_status(workflow_status, language)),
     ]
+    meta_entries = [(label, value) for label, value in meta_entries if value]
 
     meta_table = doc.add_table(rows=0, cols=2)
     meta_table.autofit = False
@@ -969,15 +996,15 @@ def generate_ale_review_docx(
     identity_table.autofit = False
     _set_table_borders(identity_table, color=HEX_BORDER, sz="4")
     for label, value in (
-        (strings.doc_title_label, meta.document_reviewed.split(" | ", 1)[0]),
+        (labels["meta"]["report_title"], meta.document_reviewed.split(" | ", 1)[0]),
         (
             strings.doc_id_label,
             meta.document_reviewed.split(" | ", 1)[1]
             if " | " in meta.document_reviewed
             else strings.not_supplied,
         ),
-        (strings.review_date_label, meta.review_date or strings.not_supplied),
-        (strings.reviewer_pic_label, meta.reviewer or checked_by),
+        (strings.review_date_label, audit_date),
+        (labels["meta"]["evaluator"], meta.reviewer or checked_by),
     ):
         row = identity_table.add_row()
         _format_table_row(row, [1.8, 5.1])
@@ -1192,9 +1219,9 @@ def generate_ale_review_docx(
         _set_table_borders(maj_table, color=HEX_BORDER, sz="4")
         maj_widths = [0.5, 3.5, 2.9]
         m_hdr = maj_table.add_row()
-        m_hdr.cells[0].paragraphs[0].add_run(strings.no)
-        m_hdr.cells[1].paragraphs[0].add_run(strings.finding)
-        m_hdr.cells[2].paragraphs[0].add_run(strings.what_would_fix_it)
+        m_hdr.cells[0].paragraphs[0].add_run(labels["table"]["number"])
+        m_hdr.cells[1].paragraphs[0].add_run(labels["table"]["finding_description"])
+        m_hdr.cells[2].paragraphs[0].add_run(labels["table"]["recommendation"])
         _format_table_row(m_hdr, maj_widths, bg_hex=HEX_NAVY, is_header=True)
         for idx, finding in enumerate(assessment_result.major_findings):
             row = maj_table.add_row()
@@ -1664,7 +1691,7 @@ def generate_ale_review_docx(
             p2 = row.cells[2].paragraphs[0]
             is_rework = score is not None and score <= 2
             score_str = (
-                "N/A"
+                translate_status("NOT_APPLICABLE", language)
                 if status == "NOT_APPLICABLE" or score is None
                 else (f"{score} ({strings.rework})" if is_rework else str(score))
             )
@@ -1723,8 +1750,30 @@ def generate_ale_review_docx(
     for item_text in assessment_result.limits_of_review:
         _add_body_p(doc, item_text, space_after=6)
 
+    signature_table = doc.add_table(rows=2, cols=3)
+    signature_table.autofit = False
+    _set_table_borders(signature_table, color=HEX_BORDER, sz="4")
+    for index, label in enumerate(
+        (
+            labels["signature"]["prepared_by"],
+            labels["signature"]["reviewed_by"],
+            labels["signature"]["approved_by"],
+        )
+    ):
+        signature_table.cell(0, index).text = label
+        signature_table.cell(1, index).text = "\n\n"
+        _set_cell_shading(signature_table.cell(0, index), "F4F6F8")
+        for run in signature_table.cell(0, index).paragraphs[0].runs:
+            run.bold = True
+            run.font.name = "Arial"
+            run.font.size = Pt(8)
+            run.font.color.rgb = COLOR_NAVY
+
     # REVIEWSCORE Callout Box
-    score_str = assessment_result.review_score_string or scorecard.review_score_string
+    score_str = localize_review_score(
+        assessment_result.review_score_string or scorecard.review_score_string,
+        language,
+    )
     if score_str:
         c_rs = _add_callout_box(
             doc,

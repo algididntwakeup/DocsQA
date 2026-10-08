@@ -14,7 +14,11 @@ export default function LoginPage() {
     const redirectUri = `${window.location.origin}/auth/sso/callback`;
     const clientId = process.env.NEXT_PUBLIC_BIMA_CLIENT_ID ?? "prism";
     const bimaBase = (process.env.NEXT_PUBLIC_BIMA_BASE_URL ?? "https://bima.reksolindo.co.id").replace(/\/+$/, "");
-    window.location.href = `${bimaBase}/sso/authorize?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=profile%20roles%20permissions%20email%20department`;
+    const authorizationUrl = new URL("/sso/authorize", bimaBase);
+    authorizationUrl.searchParams.set("client_id", clientId);
+    authorizationUrl.searchParams.set("redirect_uri", redirectUri);
+    authorizationUrl.searchParams.set("scope", "profile roles permissions email department");
+    window.location.href = authorizationUrl.href;
   }
 
   function handleSsoClick() {

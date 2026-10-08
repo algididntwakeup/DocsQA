@@ -20,6 +20,32 @@ const en: Messages = {
 Object.assign(en, {
   newDocument: "New document",
   documentDescription: "Monitoring and review workspace for technical documents.",
+  exportDeliverablesTitle: "Review Deliverables",
+  exportFormatPrompt: "Select an export format for document",
+  exportIncludedFindingsOnly: "Generated outputs reflect only findings marked as included in report.",
+  exportCloseModal: "Close export modal",
+  closeReportPreview: "Close report preview",
+  exportIncludeMinorsDescription: "Include other minor and informational findings in the export. Off by default to keep the report concise.",
+  exportIncludeLanguage: "Include language and mechanics",
+  exportIncludeLanguageDescription: "Include spelling, grammar, and mechanics findings by page. Off by default to keep the report concise.",
+  exportPdfTitle: "PDF Review Report",
+  exportDocxTitle: "DOCX Review Report",
+  exportAnnotatedPdfTitle: "Annotated Source PDF",
+  exportRecommended: "Recommended",
+  exportEditable: "Editable",
+  exportVisualInspection: "Visual Inspection",
+  exportPdfDescription: "Production-ready read-only review report with exact layouts and tables rendered via Headless LibreOffice.",
+  exportDocxDescription: "Editable Microsoft Word document for reviewers who need to add manual revisions or comments.",
+  exportAnnotatedPdfDescription: "Original source PDF overlaid with bounding boxes and callout popups for included findings.",
+  exportPdfAction: "Download PDF",
+  exportDocxAction: "Download DOCX",
+  exportAnnotatedPdfAction: "Download Overlay",
+  reportPreviewSubtitle: "Deterministic engineering review composition for",
+  reportCalculating: "Calculating report composition...",
+  draftReportScorecard: "Draft Report Scorecard",
+  reviewLimitsTitle: "Limits of this review",
+  reviewLimitsDescription: "Assesses internal consistency, technical terminology, document structure, references, and table calculations. It does not validate external-standard compliance or certify operational safety.",
+  exportSectionTitle: "Export Deliverables",
 });
 
 const id: Messages = {
@@ -36,6 +62,35 @@ const id: Messages = {
   findings: "Temuan", export: "Ekspor", reportPreview: "Pratinjau Laporan", dictionary: "Kamus", refreshFindings: "Segarkan temuan", pages: "halaman", totalFindings: "total temuan", included: "Disertakan", blockers: "Penghambat", reviewCuration: "Tinjauan & Kurasi", layoutFormat: "Tata Letak & Format", budinskiCompliance: "Kepatuhan Budinski", standardsCitations: "Standar & Kutipan", languageTypos: "Bahasa & Salah Ketik", allIssues: "Semua Isu", total: "total", filterByRule: "Filter berdasarkan aturan, fakta, atau nomor halaman...", filterSeverity: "Filter berdasarkan Tingkat Keparahan", allSeverities: "Semua Tingkat Keparahan", blockerOnly: "Hanya Penghambat", criticalOnly: "Hanya Kritis", majorOnly: "Hanya Mayor", minorOnly: "Hanya Minor", infoOnly: "Hanya Info", legacyHigh: "Hanya High Lama", legacyMedium: "Hanya Medium Lama", legacyLow: "Hanya Low Lama", filterStatus: "Filter berdasarkan Status Laporan", allStatuses: "Semua Status Laporan", includedInReport: "Disertakan dalam Laporan", excludedFromReport: "Dikecualikan dari Laporan", loadingFindings: "Memuat temuan dokumen...", noMatch: "Tidak ada temuan yang cocok dengan filter", clearFilters: "Coba hapus filter atau istilah pencarian.", showing: "Menampilkan", of: "dari", includedLower: "disertakan", failedPipeline: "Alur tinjauan gagal. Temuan di bawah mungkin tidak lengkap.", completedWarnings: "Tinjauan selesai dengan peringatan. Periksa temuan sebelum mengekspor.", pipelineRunning: "Alur tinjauan masih berjalan. Temuan dapat terus muncul.", findingsRefreshed: "Temuan berhasil disegarkan.", reloadFailed: "Gagal memuat ulang daftar temuan.", updateCuration: "Temuan {id} {action} laporan.", includedAction: "disertakan dalam", excludedAction: "dikecualikan dari", updateFailed: "Gagal memperbarui kurasi laporan", loadingReport: "Memuat pratinjau laporan...", reportError: "Tidak dapat memuat pratinjau laporan.", downloadDocx: "Unduh DOCX", downloadPdf: "Unduh PDF Beranotasi", generating: "Membuat", ready: "siap", annotatedPdf: "PDF beranotasi", docxReport: "laporan DOCX", includeMinors: "Sertakan temuan minor", reportLanguage: "Bahasa laporan", reportLanguageHelp: "Laporan tinjauan DOCX dan PDF mengikuti bahasa ini. PDF beranotasi mempertahankan anotasi dari sumber.", download: "Unduh", reportSummary: "Ringkasan Laporan", noSummary: "Ringkasan tidak tersedia.", summaryJudgement: "Penilaian ringkasan", sourceText: "Teks sumber", reviewerNote: "Catatan peninjau", save: "Simpan", edit: "Edit", page: "Halaman", original: "Asli", suggestion: "Saran", errorGeneric: "Terjadi kesalahan.",
   statusQueued: "Antrean", statusProcessing: "Memproses", statusCompleted: "Selesai", statusFailed: "Gagal", statusCompletedWarnings: "Selesai dengan peringatan", roleEngineer: "Insinyur", roleLead: "Insinyur Pimpinan", roleSuperuser: "Superuser", severityBlocker: "Penghambat", severityCritical: "Kritis", severityMajor: "Mayor", severityMinor: "Minor", severityInfo: "Info", severityHigh: "High", severityMedium: "Medium", severityLow: "Low",
 };
+
+Object.assign(id, {
+  exportDeliverablesTitle: "Dokumen Hasil Tinjauan",
+  exportFormatPrompt: "Pilih format ekspor untuk dokumen",
+  exportIncludedFindingsOnly: "Hasil ekspor hanya memuat temuan yang ditandai untuk disertakan dalam laporan.",
+  exportCloseModal: "Tutup modal ekspor",
+  closeReportPreview: "Tutup pratinjau laporan",
+  exportIncludeMinorsDescription: "Sertakan temuan minor dan informasi lainnya. Nonaktif secara bawaan agar laporan tetap ringkas.",
+  exportIncludeLanguage: "Sertakan temuan bahasa dan mekanika",
+  exportIncludeLanguageDescription: "Sertakan temuan ejaan, tata bahasa, dan mekanika per halaman. Nonaktif secara bawaan agar laporan tetap ringkas.",
+  exportPdfTitle: "Laporan Tinjauan PDF",
+  exportDocxTitle: "Laporan Tinjauan DOCX",
+  exportAnnotatedPdfTitle: "PDF Sumber Beranotasi",
+  exportRecommended: "Disarankan",
+  exportEditable: "Dapat disunting",
+  exportVisualInspection: "Pemeriksaan visual",
+  exportPdfDescription: "Laporan tinjauan siap edar dengan tata letak dan tabel yang dirender melalui LibreOffice.",
+  exportDocxDescription: "Dokumen Microsoft Word yang dapat disunting untuk menambahkan revisi atau komentar.",
+  exportAnnotatedPdfDescription: "PDF sumber dengan kotak penanda dan catatan untuk temuan yang disertakan.",
+  exportPdfAction: "Unduh PDF",
+  exportDocxAction: "Unduh DOCX",
+  exportAnnotatedPdfAction: "Unduh Anotasi",
+  reportPreviewSubtitle: "Komposisi tinjauan teknik deterministik untuk",
+  reportCalculating: "Menghitung susunan laporan...",
+  draftReportScorecard: "Kartu Nilai Draf Laporan",
+  reviewLimitsTitle: "Batasan tinjauan ini",
+  reviewLimitsDescription: "Menilai konsistensi internal, istilah teknis, struktur dokumen, referensi, dan perhitungan tabel. Tinjauan ini tidak memvalidasi kepatuhan terhadap standar eksternal atau menjamin keselamatan operasi.",
+  exportSectionTitle: "Dokumen Hasil Tinjauan",
+});
 
 const catalog: Record<Locale, Messages> = { en, id };
 export type TranslationKey = string;

@@ -1011,6 +1011,7 @@ async def export_document(
         if export_options and export_options.include_language_mechanics is not None
         else include_language_mechanics
     )
+    project = await session.get(Project, document.project_id) if document.project_id else None
     assessment = assessment_from_document_findings(
         document,
         list(issues),
@@ -1018,15 +1019,14 @@ async def export_document(
         include_minors=include_minors,
         language=report_lang,
         include_language_mechanics=report_include_language_mechanics,
+        project=project,
     )
     project_config = None
-    if document.project_id is not None:
-        project = await session.get(Project, document.project_id)
-        if project is not None and project.header_config:
-            try:
-                project_config = HeaderTemplateConfig.model_validate(project.header_config)
-            except Exception:
-                project_config = None
+    if project is not None and project.header_config:
+        try:
+            project_config = HeaderTemplateConfig.model_validate(project.header_config)
+        except Exception:
+            project_config = None
     effective_header_config = (
         export_options.header_config if export_options else project_config or HeaderTemplateConfig()
     )

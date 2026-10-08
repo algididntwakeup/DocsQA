@@ -12,6 +12,8 @@ from services.report_locale import (
     humanize_finding_message,
     humanize_finding_type,
 )
+from services.reports.formatters import format_report_date
+from services.reports.i18n import get_report_labels
 
 
 def _value(item: Any, key: str, default: Any = "") -> Any:
@@ -627,8 +629,10 @@ class ReportSynthesizer:
         self, metadata: Any, scorecard: Any, *, blockers: int, majors: int, minors: int
     ) -> str:
         """Format the report banner from current document metadata and review data."""
+        labels = get_report_labels(self.language)["score"]
 
-        def clean(value: Any, fallback: str = "not supplied") -> str:
+        def clean(value: Any, fallback: str | None = None) -> str:
+            fallback = fallback or labels["missing"]
             return re.sub(r"\s*\|\s*", "/", str(value or fallback)).strip()
 
         def score(group: str) -> str:
@@ -642,17 +646,29 @@ class ReportSynthesizer:
                     "Group IV": "group_iv_average",
                 }[group]
                 value = _value(scorecard, legacy_key)
-            return "N/A" if value is None else f"{float(value):.2f}"
+            return labels["not_applicable"] if value is None else f"{float(value):.2f}"
 
         baseline = int(float(_value(scorecard, "baseline_score", 0)))
         doc_no = _value(metadata, "document_number") or _value(metadata, "doc_no")
         revision = _value(metadata, "revision") or _value(metadata, "rev")
         date = _value(metadata, "document_date") or _value(metadata, "cover_date")
+        if self.language == ReportLanguage.INDONESIAN:
+            date = format_report_date(date, self.language) or labels["missing"]
+            return (
+                f"{labels['label']} | {labels['document']}={clean(doc_no)} | "
+                f"{labels['revision']}={clean(revision)} | {labels['date']}={clean(date)} | "
+                f"I={score('Group I')} II={score('Group II')} III={score('Group III')} "
+                f"IV={score('Group IV')} | {labels['baseline']}={baseline}/4 | "
+                f"{labels['blockers']}={blockers} {labels['majors']}={majors} "
+                f"{labels['minors']}={minors}"
+            )
         return (
-            f"REVIEWSCORE | doc={clean(doc_no)} | rev={clean(revision)} | date={clean(date)} | "
+            f"{labels['label']} | {labels['document']}={clean(doc_no)} | "
+            f"{labels['revision']}={clean(revision)} | {labels['date']}={clean(date)} | "
             f"I={score('Group I')} II={score('Group II')} III={score('Group III')} "
-            f"IV={score('Group IV')} | baseline={baseline}/4 | blockers={blockers} "
-            f"majors={majors} minors={minors}"
+            f"IV={score('Group IV')} | {labels['baseline']}={baseline}/4 | "
+            f"{labels['blockers']}={blockers} {labels['majors']}={majors} "
+            f"{labels['minors']}={minors}"
         )
 
     def synthesize_baseline_measures(
