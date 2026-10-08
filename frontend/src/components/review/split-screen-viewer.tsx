@@ -51,6 +51,23 @@ interface SplitScreenViewerProps {
   embedded?: boolean;
   readOnly?: boolean;
 }
+
+function ProcessingOverlay() {
+  return (
+    <div className="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 bg-card/50 p-6 text-center opacity-60 backdrop-blur-sm">
+      <div className="w-full max-w-xs space-y-3" aria-hidden="true">
+        <div className="h-4 animate-pulse rounded bg-muted" />
+        <div className="h-14 animate-pulse rounded-lg bg-muted" />
+        <div className="h-14 animate-pulse rounded-lg bg-muted" />
+        <div className="h-14 animate-pulse rounded-lg bg-muted" />
+      </div>
+      <p className="rounded-lg bg-card/90 px-4 py-2 text-sm font-semibold text-foreground shadow-sm">
+        Scorecard dan temuan sedang dikompilasi...
+      </p>
+    </div>
+  );
+}
+
 export function SplitScreenViewer({
   document,
   initialIssues,
@@ -96,9 +113,11 @@ export function SplitScreenViewer({
     message: string;
   } | null>(null);
 
+  const isProcessing = document.status === "QUEUED" || document.status === "PROCESSING";
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const handleReloadIssues = useCallback(async () => {
+    if (isProcessing) return;
     setIsRefreshing(true);
     try {
       const pageSize = 50;
@@ -118,7 +137,7 @@ export function SplitScreenViewer({
     } finally {
       setIsRefreshing(false);
     }
-  }, [document.id, issues.length]);
+  }, [document.id, isProcessing, issues.length]);
 
   const handleSelectIssue = (issueId: string) => {
     setSelectedIssueId(issueId);
@@ -135,7 +154,7 @@ export function SplitScreenViewer({
     issueId: string,
     payload: { included_in_report: boolean; reviewer_note?: string | null }
   ) => {
-    if (readOnly) return;
+    if (readOnly || isProcessing) return;
     try {
       const updated = await curateIssue(issueId, payload);
       setIssues((prev) => prev.map((item) => (item.id === issueId ? updated : item)));
@@ -167,7 +186,6 @@ export function SplitScreenViewer({
   const auditCount = issues.filter(
     (issue) => issue.category === "BUDINSKI" || issue.category === "LAYOUT"
   ).length;
-  const isProcessing = document.status === "QUEUED" || document.status === "PROCESSING";
   const statusMessage =
     document.status === "FAILED"
       ? "The review pipeline failed. Findings shown below may be incomplete."
@@ -315,8 +333,10 @@ export function SplitScreenViewer({
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <button
               type="button"
+              disabled={isProcessing}
               onClick={() => setIsScorecardOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-semibold text-foreground hover:bg-muted shadow-sm"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-semibold text-foreground shadow-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+              title={isProcessing ? "Scorecard dan temuan sedang dikompilasi..." : undefined}
             >
               <ShieldCheck size={13} className="text-indigo-600" />
               <span className="hidden sm:inline">Budinski</span> Scorecard
@@ -324,8 +344,10 @@ export function SplitScreenViewer({
 
             <button
               type="button"
+              disabled={isProcessing}
               onClick={() => setIsReportModalOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-semibold text-foreground hover:bg-muted shadow-sm"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-semibold text-foreground shadow-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+              title={isProcessing ? "Laporan sedang disusun." : undefined}
             >
               <FileSpreadsheet size={13} />
               <span>Report Preview</span>
@@ -333,8 +355,10 @@ export function SplitScreenViewer({
 
             <button
               type="button"
+              disabled={isProcessing}
               onClick={() => setIsExportModalOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1 text-xs font-bold text-primary-foreground hover:bg-primary/90 shadow-xs"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1 text-xs font-bold text-primary-foreground shadow-xs hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+              title={isProcessing ? "Fitur ekspor aktif setelah analisis selesai." : undefined}
             >
               <Download size={13} />
               <span>Export</span>
@@ -343,7 +367,7 @@ export function SplitScreenViewer({
             <button
               type="button"
               onClick={() => void handleReloadIssues()}
-              disabled={isRefreshing}
+              disabled={isRefreshing || isProcessing}
               className="inline-flex items-center gap-1 rounded-lg border border-border bg-card p-1.5 text-xs text-muted-foreground hover:bg-muted shadow-sm disabled:opacity-50"
               title="Refresh findings list"
             >
@@ -402,15 +426,18 @@ export function SplitScreenViewer({
             </ResizablePanel>
             <ResizableHandle aria-label="Resize document and findings panels" />
             <ResizablePanel defaultSize="40" minSize="25" maxSize="55" id="review-findings-panel">
-              <IssuePanel
-                issues={issues}
-                selectedIssueId={selectedIssueId}
-                onSelectIssue={handleSelectIssue}
-                onCurateIssue={handleCurateIssue}
-                onJumpToPage={setCurrentPage}
-                readOnly={readOnly}
-                onAddToDictionary={handleAddToDictionary}
-              />
+              <div className="relative h-full min-h-0" aria-busy={isProcessing}>
+                <IssuePanel
+                  issues={issues}
+                  selectedIssueId={selectedIssueId}
+                  onSelectIssue={handleSelectIssue}
+                  onCurateIssue={handleCurateIssue}
+                  onJumpToPage={setCurrentPage}
+                  readOnly={readOnly || isProcessing}
+                  onAddToDictionary={handleAddToDictionary}
+                />
+                {isProcessing && <ProcessingOverlay />}
+              </div>
             </ResizablePanel>
           </ResizablePanelGroup>
         ) : (
@@ -431,15 +458,18 @@ export function SplitScreenViewer({
               </main>
             ) : (
               <section className="review-findings-pane h-full min-h-0 min-w-0 flex-1 overflow-hidden">
-                <IssuePanel
-                  issues={issues}
-                  selectedIssueId={selectedIssueId}
-                  onSelectIssue={handleSelectIssue}
-                  onCurateIssue={handleCurateIssue}
-                  onJumpToPage={setCurrentPage}
-                  readOnly={readOnly}
-                  onAddToDictionary={handleAddToDictionary}
-                />
+                <div className="relative h-full min-h-0" aria-busy={isProcessing}>
+                  <IssuePanel
+                    issues={issues}
+                    selectedIssueId={selectedIssueId}
+                    onSelectIssue={handleSelectIssue}
+                    onCurateIssue={handleCurateIssue}
+                    onJumpToPage={setCurrentPage}
+                    readOnly={readOnly || isProcessing}
+                    onAddToDictionary={handleAddToDictionary}
+                  />
+                  {isProcessing && <ProcessingOverlay />}
+                </div>
               </section>
             )}
           </div>
@@ -457,16 +487,20 @@ export function SplitScreenViewer({
           <div className="flex items-center gap-2">
             <button
               type="button"
+              disabled={isProcessing}
+              title={isProcessing ? "Fitur ekspor aktif setelah analisis selesai." : undefined}
               onClick={() => void downloadExport(document.id, "docx", false, locale)}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground hover:bg-primary/90 shadow-sm"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground shadow-sm hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Download size={13} />
               <span>Export DOCX</span>
             </button>
             <button
               type="button"
+              disabled={isProcessing}
+              title={isProcessing ? "Fitur ekspor aktif setelah analisis selesai." : undefined}
               onClick={() => void downloadExport(document.id, "pdf")}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
             >
               <FileText size={13} />
               <span>Export Annotated PDF</span>
@@ -510,33 +544,48 @@ export function SplitScreenViewer({
                 <X size={18} />
               </button>
             </header>
-            <div className="grid grid-cols-3 gap-3 p-5">
-              <div className="rounded-xl border border-border bg-muted/40 p-4 text-center">
-                <strong className="block text-2xl font-bold text-foreground">{budinskiIssues.length}</strong>
-                <span className="text-[11px] font-medium text-muted-foreground">Items flagged</span>
+            {isProcessing ? (
+              <div className="flex flex-col items-center gap-4 p-8 text-center" aria-live="polite">
+                <div className="w-full max-w-sm space-y-3" aria-hidden="true">
+                  <div className="h-12 animate-pulse rounded-lg bg-muted" />
+                  <div className="h-12 animate-pulse rounded-lg bg-muted" />
+                  <div className="h-12 animate-pulse rounded-lg bg-muted" />
+                </div>
+                <p className="text-sm font-semibold text-muted-foreground">
+                  Scorecard dan temuan sedang dikompilasi...
+                </p>
               </div>
-              <div className="rounded-xl border border-border bg-muted/40 p-4 text-center">
-                <strong className="block text-2xl font-bold text-emerald-600">{Math.max(0, 41 - budinskiIssues.length)}</strong>
-                <span className="text-[11px] font-medium text-muted-foreground">Items clear</span>
-              </div>
-              <div className="rounded-xl border border-border bg-muted/40 p-4 text-center">
-                <strong className="block text-2xl font-bold text-accent-foreground">{baselinePasses}/4</strong>
-                <span className="text-[11px] font-medium text-muted-foreground">Baselines passing</span>
-              </div>
-            </div>
-            <div className="px-5 pb-5">
-              <div className="flex justify-between text-xs font-semibold text-muted-foreground">
-                <span>Appendix 12 coverage</span>
-                <b className="text-accent-foreground font-bold">{Math.round(((41 - budinskiIssues.length) / 41) * 100)}%</b>
-              </div>
-              <progress className="mt-2 h-2 w-full accent-blue-600 rounded-full" value={Math.max(0, 41 - budinskiIssues.length)} max="41" />
-            </div>
-            <footer className="flex items-center justify-between border-t border-border bg-muted/40 px-5 py-3 text-xs text-muted-foreground">
-              <span>Detailed values remain in the exported DOCX report.</span>
-              <button type="button" className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground shadow-sm hover:bg-muted" onClick={() => setIsScorecardOpen(false)}>
-                Close
-              </button>
-            </footer>
+            ) : (
+              <>
+                <div className="grid grid-cols-3 gap-3 p-5">
+                  <div className="rounded-xl border border-border bg-muted/40 p-4 text-center">
+                    <strong className="block text-2xl font-bold text-foreground">{budinskiIssues.length}</strong>
+                    <span className="text-[11px] font-medium text-muted-foreground">Items flagged</span>
+                  </div>
+                  <div className="rounded-xl border border-border bg-muted/40 p-4 text-center">
+                    <strong className="block text-2xl font-bold text-emerald-600">{Math.max(0, 41 - budinskiIssues.length)}</strong>
+                    <span className="text-[11px] font-medium text-muted-foreground">Items clear</span>
+                  </div>
+                  <div className="rounded-xl border border-border bg-muted/40 p-4 text-center">
+                    <strong className="block text-2xl font-bold text-accent-foreground">{baselinePasses}/4</strong>
+                    <span className="text-[11px] font-medium text-muted-foreground">Baselines passing</span>
+                  </div>
+                </div>
+                <div className="px-5 pb-5">
+                  <div className="flex justify-between text-xs font-semibold text-muted-foreground">
+                    <span>Appendix 12 coverage</span>
+                    <b className="text-accent-foreground font-bold">{Math.round(((41 - budinskiIssues.length) / 41) * 100)}%</b>
+                  </div>
+                  <progress className="mt-2 h-2 w-full accent-blue-600 rounded-full" value={Math.max(0, 41 - budinskiIssues.length)} max="41" />
+                </div>
+                <footer className="flex items-center justify-between border-t border-border bg-muted/40 px-5 py-3 text-xs text-muted-foreground">
+                  <span>Detailed values remain in the exported DOCX report.</span>
+                  <button type="button" className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground shadow-sm hover:bg-muted" onClick={() => setIsScorecardOpen(false)}>
+                    Close
+                  </button>
+                </footer>
+              </>
+            )}
           </div>
         </div>
       )}

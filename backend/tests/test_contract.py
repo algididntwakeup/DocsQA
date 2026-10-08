@@ -5,6 +5,7 @@ from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
+from core.dependencies import get_accessible_document
 from main import app
 from schemas.issues import BoundingBox, IssueRead, TableMathEvidence
 
@@ -33,8 +34,15 @@ def test_unimplemented_endpoint_uses_problem_details() -> None:
 
 def test_validation_error_uses_problem_details() -> None:
     """Invalid path values do not leak FastAPI's framework-specific error shape."""
-
-    response = client.get("/api/v1/documents/not-a-uuid/status")
+    previous = app.dependency_overrides.get(get_accessible_document)
+    app.dependency_overrides[get_accessible_document] = lambda: None
+    try:
+        response = client.get("/api/v1/documents/not-a-uuid/status")
+    finally:
+        if previous is None:
+            app.dependency_overrides.pop(get_accessible_document, None)
+        else:
+            app.dependency_overrides[get_accessible_document] = previous
 
     assert response.status_code == 422
     assert response.headers["content-type"].startswith("application/problem+json")
@@ -53,13 +61,27 @@ def test_openapi_contains_required_contract_paths() -> None:
         "/api/v1/documents/upload",
         "/api/v1/documents/{document_id}",
         "/api/v1/documents/{document_id}/status",
+        "/api/v1/documents/{document_id}/retry",
         "/api/v1/documents/{document_id}/issues",
         "/api/v1/documents/{document_id}/export",
         "/api/v1/documents/{document_id}/report",
         "/api/v1/issues/{issue_id}/curation",
         "/api/v1/dictionary/terms",
         "/api/v1/standards-registry",
+        "/api/v1/bima/projects",
+        "/api/v1/projects/import-bima",
     }.issubset(paths)
+
+    status_schema = app.openapi()["components"]["schemas"]["DocumentStatusResponse"]
+    assert {
+        "id",
+        "status",
+        "progress_pct",
+        "current_stage",
+        "stages",
+        "updated_at",
+    }.issubset(status_schema["required"])
+    assert "error_message" in status_schema["properties"]
 
 
 def test_issue_evidence_is_discriminated_and_decimal_safe() -> None:

@@ -49,6 +49,8 @@ class Project(Base):
     bima_project_id: Mapped[int | None] = mapped_column(
         Integer, unique=True, index=True, nullable=True
     )
+    project_number: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
+    client_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     status: Mapped[str] = mapped_column(String(30), default="ACTIVE", nullable=False)
     plant_area: Mapped[str | None] = mapped_column(String(100), nullable=True)
     created_by_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), nullable=False)

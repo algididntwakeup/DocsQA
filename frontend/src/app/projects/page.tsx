@@ -1,13 +1,21 @@
 "use client";
 
-import { AlertTriangle, CloudDownload, FolderKanban, LoaderCircle, Plus, X } from "lucide-react";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { ApiError, createProject, deleteProject, finishProject, getCurrentUser, listProjectDocuments, listProjects, syncBimaProjects, type ProjectItem } from "@/lib/api";
-import { ProjectCard } from "@/components/project/project-card";
+import { AlertTriangle, CloudDownload, FolderKanban, Plus, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
+import type { SortingState } from "@tanstack/react-table";
+import { ApiError, createProject, deleteProject, finishProject, getCurrentUser, listProjectDocuments, listProjects, syncBimaProjects } from "@/lib/api";
 import { useLocale } from "@/components/layout/locale-provider";
+import { ExplorerToolbar } from "@/components/projects/explorer-toolbar";
+import { ProjectGridSkeleton, ProjectGridView } from "@/components/projects/project-grid-view";
+import { ProjectTableSkeleton, ProjectTableView, useProjectTable } from "@/components/projects/project-table-view";
+import { useViewMode } from "@/hooks/use-view-mode";
+import type { Project, ProjectSortField } from "@/types/project";
+import { ImportBimaModal } from "@/components/projects/import-bima-modal";
 
 export default function ProjectsPage() {
-  const [projects, setProjects] = useState<ProjectItem[]>([]);
+  const router = useRouter();
+  const [projects, setProjects] = useState<Project[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -16,10 +24,40 @@ export default function ProjectsPage() {
   const [name, setName] = useState("");
   const [area, setArea] = useState("");
   const [creating, setCreating] = useState(false);
-  const [verifiedCounts, setVerifiedCounts] = useState<Record<string, number>>({});
   const [currentRole, setCurrentRole] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [search, setSearch] = useState("");
+  const [sorting, setSorting] = useState<SortingState>([{ id: "updated_at", desc: true }]);
+  const [viewMode, setViewMode] = useViewMode();
   const { t } = useLocale();
+  const canManage = currentRole === "LEAD_ENGINEER" || currentRole === "SUPERUSER";
+  const sortBy = (sorting[0]?.id ?? "updated_at") as ProjectSortField;
+  const sortDirection = sorting[0]?.desc ? "desc" : "asc";
+
+  const filteredProjects = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return projects
+      .map((project) => ({
+        ...project,
+        project_number: project.project_number ?? project.code ?? null,
+        documents_count: counts[project.id] ?? project.documents_count ?? project.total_documents ?? 0,
+      }))
+      .filter((project) => {
+        if (!query) return true;
+        return [project.name, project.project_number ?? "", project.client_name ?? ""]
+          .some((value) => value.toLowerCase().includes(query));
+      });
+  }, [counts, projects, search]);
+
+  const projectTable = useProjectTable({
+    projects: filteredProjects,
+    sorting,
+    onSortingChange: setSorting,
+    canManage,
+    onFinish: handleFinish,
+    onDelete: handleDelete,
+  });
+  const sortedProjects = projectTable.getRowModel().rows.map((row) => row.original);
 
   const load = useCallback(async () => {
     try {
@@ -33,19 +71,6 @@ export default function ProjectsPage() {
         next.map(async (project) => [project.id, (await listProjectDocuments(project.id)).pagination.total] as const)
       );
       setCounts(Object.fromEntries(entries));
-      setVerifiedCounts(
-        Object.fromEntries(
-          await Promise.all(
-            next.map(
-              async (project) =>
-                [
-                  project.id,
-                  (await listProjectDocuments(project.id)).documents.filter((item) => item.workflow_status === "VERIFIED_BY_LEAD").length,
-                ] as const
-            )
-          )
-        )
-      );
     } catch (caught) {
       if (caught instanceof ApiError && caught.status === 401) {
         if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
@@ -113,6 +138,14 @@ export default function ProjectsPage() {
     }
   }
 
+  function handleSortByChange(field: ProjectSortField) {
+    setSorting((current) => [{ id: field, desc: current[0]?.desc ?? true }]);
+  }
+
+  function toggleSortDirection() {
+    setSorting((current) => [{ id: current[0]?.id ?? "updated_at", desc: !(current[0]?.desc ?? true) }]);
+  }
+
   return (
     <div className="space-y-8">
       {/* Page Heading */}
@@ -123,6 +156,7 @@ export default function ProjectsPage() {
           <p className="mt-1 text-sm text-muted-foreground">{t("projectDescription")}</p>
         </div>
         <div className="flex flex-wrap gap-2 self-start sm:self-auto">
+          <ImportBimaModal onImported={() => void load()} />
           {canCreateProject && (
             <button
               className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:opacity-50"
@@ -134,19 +168,35 @@ export default function ProjectsPage() {
               {t("createProject")}
             </button>
           )}
-          {canCreateProject && (
-            <button
-              className="inline-flex items-center gap-2 rounded-lg border border-primary/20 bg-accent px-4 py-2.5 text-xs font-bold text-accent-foreground transition hover:bg-accent/80 disabled:opacity-50"
-              type="button"
-              onClick={() => void handleBimaSync()}
-              disabled={syncing}
-            >
-              <CloudDownload size={16} />
-              {syncing ? t("syncing") : t("syncProjects")}
-            </button>
-          )}
         </div>
       </div>
+
+      <ExplorerToolbar
+        search={search}
+        onSearchChange={setSearch}
+        sortBy={sortBy}
+        onSortByChange={handleSortByChange}
+        sortDirection={sortDirection}
+        onToggleSortDirection={toggleSortDirection}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        rightSlot={(
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <ImportBimaModal onImported={() => void load()} />
+            {canCreateProject && (
+              <button
+                className="inline-flex items-center gap-2 rounded-lg border border-primary/20 bg-accent px-4 py-2.5 text-xs font-bold text-accent-foreground transition hover:bg-accent/80 disabled:opacity-50"
+                type="button"
+                onClick={() => void handleBimaSync()}
+                disabled={syncing}
+              >
+                <CloudDownload size={16} />
+                {syncing ? t("syncing") : t("syncProjects")}
+              </button>
+            )}
+          </div>
+        )}
+      />
 
       {/* Error Alert */}
       {error && (
@@ -163,12 +213,8 @@ export default function ProjectsPage() {
         </div>
       )}
 
-      {/* Grid Content */}
       {loading ? (
-        <div className="flex min-h-[300px] flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border/60 bg-card/50 p-12 text-muted-foreground">
-          <LoaderCircle className="animate-spin text-accent-foreground" size={28} />
-          <span className="text-sm font-medium">{t("loadingProjects")}</span>
-        </div>
+        viewMode === "grid" ? <ProjectGridSkeleton /> : <ProjectTableSkeleton />
       ) : projects.length === 0 ? (
         <div className="flex min-h-[300px] flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border/60 bg-card p-12 text-center text-muted-foreground shadow-sm">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent text-accent-foreground">
@@ -177,20 +223,19 @@ export default function ProjectsPage() {
           <h2 className="text-base font-bold text-foreground">{t("noProjects")}</h2>
           <p className="max-w-md text-xs text-muted-foreground">{t("noProjectsDescription")}</p>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {projects.map((project) => (
-            <ProjectCard
-              key={project.id}
-              project={project}
-              documentCount={counts[project.id] ?? 0}
-              verifiedCount={verifiedCounts[project.id] ?? 0}
-              canManage={currentRole === "LEAD_ENGINEER" || currentRole === "SUPERUSER"}
-              onFinish={handleFinish}
-              onDelete={handleDelete}
-            />
-          ))}
+      ) : filteredProjects.length === 0 ? (
+        <div className="flex min-h-64 flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card p-8 text-center">
+          <FolderKanban size={28} className="text-muted-foreground" />
+          <p className="mt-3 text-sm font-semibold text-foreground">Tidak ada proyek yang cocok.</p>
+          <p className="mt-1 max-w-sm text-xs text-muted-foreground">Ubah kata kunci pencarian atau bersihkan pencarian untuk melihat proyek lainnya.</p>
+          <button type="button" onClick={() => setSearch("")} className="mt-4 rounded-lg border border-border px-3 py-2 text-xs font-semibold hover:bg-muted">
+            Bersihkan pencarian
+          </button>
         </div>
+      ) : viewMode === "grid" ? (
+        <ProjectGridView projects={sortedProjects} canManage={canManage} onFinish={handleFinish} onDelete={handleDelete} />
+      ) : (
+        <ProjectTableView table={projectTable} onOpen={(projectId) => router.push(`/workspace/${projectId}`)} />
       )}
       {/* Modal Create Project */}
       {modalOpen && (

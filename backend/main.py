@@ -10,6 +10,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.auth import router as auth_router
+from api.bima import router as bima_router
 from api.dictionary import router as dictionary_router
 from api.documents import router as documents_router
 from api.issues import router as issues_router
@@ -74,6 +75,7 @@ async def health_check() -> dict[str, str]:
 
 app.include_router(documents_router, prefix="/api/v1")
 app.include_router(auth_router, prefix="/api/v1")
+app.include_router(bima_router, prefix="/api/v1")
 app.include_router(projects_router, prefix="/api/v1")
 app.include_router(issues_router, prefix="/api/v1")
 app.include_router(dictionary_router, prefix="/api/v1")

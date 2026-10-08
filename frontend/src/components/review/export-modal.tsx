@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Download, FileCheck2, FileText, X, ExternalLink } from "lucide-react";
 import { listProjects, type ExportFormat, type HeaderTemplateConfig, type ReportLanguage } from "@/lib/api";
 import { downloadExport } from "@/lib/download";
@@ -43,6 +43,12 @@ export function ExportModal({ documentId, documentFilename, isOpen, onClose, pro
   const [reportLanguage, setReportLanguage] = useState<ReportLanguage>(locale);
   const [headerConfig, setHeaderConfig] = useState<HeaderTemplateConfig>(defaultHeaderConfig);
 
+  const closeModal = useCallback(() => {
+    setIncludeMinors(false);
+    setIncludeLanguageMechanics(false);
+    onClose();
+  }, [onClose]);
+
   useEffect(() => {
     if (!isOpen) return;
     queueMicrotask(() => { setReportLanguage(locale); setHeaderConfig(defaultHeaderConfig); });
@@ -54,11 +60,11 @@ export function ExportModal({ documentId, documentFilename, isOpen, onClose, pro
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && isOpen) onClose();
+      if (event.key === "Escape" && isOpen) closeModal();
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, closeModal]);
 
   if (!isOpen) return null;
 
@@ -99,14 +105,14 @@ export function ExportModal({ documentId, documentFilename, isOpen, onClose, pro
   ];
 
   return (
-    <div className="modal-backdrop" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="export-modal-title">
+    <div className="modal-backdrop" onClick={closeModal} role="dialog" aria-modal="true" aria-labelledby="export-modal-title">
       <div className="modal-container max-w-xl" onClick={(event) => event.stopPropagation()}>
         <header className="modal-header">
           <div className="flex items-center gap-2">
             <Download size={18} className="text-sky-500" />
             <h2 id="export-modal-title" className="text-base font-semibold text-ink">{t("export")} {t("exportDeliverablesTitle")}</h2>
           </div>
-          <button type="button" className="icon-button text-muted-foreground" onClick={onClose} aria-label={t("exportCloseModal")}><X size={16} /></button>
+          <button type="button" className="icon-button text-muted-foreground" onClick={closeModal} aria-label={t("exportCloseModal")}><X size={16} /></button>
         </header>
         <div className="modal-body p-5 space-y-4">
           <p className="text-xs text-muted-foreground">

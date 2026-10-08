@@ -214,6 +214,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
+export function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  return request<T>(path, init);
+}
+
 export async function login(username: string, password: string): Promise<LoginResponse> {
   const res = await request<LoginResponse>("/auth/login", {
     method: "POST",
@@ -427,7 +431,15 @@ export function deleteDocument(id: string): Promise<void> {
 }
 
 export function getDocumentStatus(id: string): Promise<DocumentStatus> {
-  return request<DocumentStatus>(`/documents/${encodeURIComponent(id)}/status`, { cache: "no-store" });
+  return request<DocumentStatus>(`/documents/${encodeURIComponent(id)}/status`, {
+    cache: "no-store",
+  });
+}
+
+export function retryDocumentAnalysis(id: string): Promise<DocumentItem> {
+  return request<DocumentItem>(`/documents/${encodeURIComponent(id)}/retry`, {
+    method: "POST",
+  });
 }
 
 export function uploadDocument(file: File): Promise<DocumentUpload> {
