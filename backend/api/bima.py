@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Annotated, Any
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, status
 from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -100,10 +100,13 @@ async def list_bima_projects(
     _current_user: Annotated[User, Depends(get_current_user)],
     bima_service: Annotated[BimaService, Depends(get_bima_service)],
     authorization: Annotated[str | None, Header()] = None,
+    bima_cookie: Annotated[str | None, Cookie(alias="bima_access_token")] = None,
 ) -> BimaProjectListResponse:
     """List projects visible to the BIMA user and mark any already imported."""
 
-    token = _require_bearer_token(authorization)
+    # The browser's Authorization header contains the PRISM session JWT. SSO stores
+    # the upstream BIMA credential in its own HttpOnly cookie.
+    token = bima_cookie or _require_bearer_token(authorization)
     remote_records = await bima_service.list_projects(token)
     normalized = [_project_fields(record) for record in remote_records]
     bima_ids = [bima_id for bima_id, _, _, _ in normalized]
@@ -154,10 +157,11 @@ async def import_bima_project(
     storage: Annotated[LocalStorage, Depends(get_storage)],
     bima_service: Annotated[BimaService, Depends(get_bima_service)],
     authorization: Annotated[str | None, Header()] = None,
+    bima_cookie: Annotated[str | None, Cookie(alias="bima_access_token")] = None,
 ) -> ProjectRead:
     """Import one BIMA project into PRISM and create its workspace directory."""
 
-    token = _require_bearer_token(authorization)
+    token = bima_cookie or _require_bearer_token(authorization)
     existing = (
         await session.execute(
             select(Project).where(Project.bima_project_id == payload.bima_project_id)
