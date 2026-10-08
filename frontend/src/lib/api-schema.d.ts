@@ -2404,7 +2404,9 @@ export interface operations {
                 authorization?: string | null;
             };
             path?: never;
-            cookie?: never;
+            cookie?: {
+                bima_access_token?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -3389,7 +3391,9 @@ export interface operations {
                 authorization?: string | null;
             };
             path?: never;
-            cookie?: never;
+            cookie?: {
+                bima_access_token?: string | null;
+            };
         };
         requestBody: {
             content: {
