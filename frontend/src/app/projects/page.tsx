@@ -12,6 +12,7 @@ import { ProjectTableSkeleton, ProjectTableView, useProjectTable } from "@/compo
 import { useViewMode } from "@/hooks/use-view-mode";
 import type { Project, ProjectSortField } from "@/types/project";
 import { ImportBimaModal } from "@/components/projects/import-bima-modal";
+import { ErrorBoundary } from "@/components/common/error-boundary";
 
 export default function ProjectsPage() {
   const router = useRouter();
@@ -181,7 +182,9 @@ export default function ProjectsPage() {
         onViewModeChange={setViewMode}
         rightSlot={(
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <ImportBimaModal onImported={() => void load()} />
+            <ErrorBoundary>
+              <ImportBimaModal onImported={() => void load()} />
+            </ErrorBoundary>
             {canCreateProject && (
               <button
                 className="inline-flex items-center gap-2 rounded-lg border border-primary/20 bg-accent px-4 py-2.5 text-xs font-bold text-accent-foreground transition hover:bg-accent/80 disabled:opacity-50"
