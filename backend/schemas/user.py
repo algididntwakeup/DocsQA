@@ -40,11 +40,13 @@ class UserManagementRead(UserRead):
 
 
 class ManagedUserCreate(ApiModel):
-    """Payload for creating an engineer or lead account."""
+    """Payload for creating an engineer, lead, HR/GA, or finance account."""
 
     email: str = Field(max_length=255)
     full_name: str = Field(min_length=1, max_length=150)
-    role: Literal[UserRole.ENGINEER, UserRole.LEAD_ENGINEER] = UserRole.ENGINEER
+    role: Literal[
+        UserRole.ENGINEER, UserRole.LEAD_ENGINEER, UserRole.HRGA, UserRole.FINANCE
+    ] = UserRole.ENGINEER
     temporary_password: str = Field(min_length=8, max_length=255)
 
 

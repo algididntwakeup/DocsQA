@@ -10,9 +10,11 @@ import { LanguageToggle } from "./language-toggle";
 import { ThemeToggle } from "./theme-toggle";
 import { ReksolindoLogo } from "./reksolindo-logo";
 
-function roleLabel(user: UserSession | null, t: (key: "roleEngineer" | "roleLead" | "roleSuperuser") => string) {
+function roleLabel(user: UserSession | null, t: (key: "roleEngineer" | "roleLead" | "roleSuperuser" | "roleHrga" | "roleFinance") => string) {
   if (user?.role === "LEAD_ENGINEER") return t("roleLead");
   if (user?.role === "SUPERUSER") return t("roleSuperuser");
+  if (user?.role === "HRGA") return t("roleHrga");
+  if (user?.role === "FINANCE") return t("roleFinance");
   return t("roleEngineer");
 }
 
