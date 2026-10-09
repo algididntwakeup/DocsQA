@@ -2,7 +2,7 @@
 
 import { X } from "lucide-react";
 import { useState, type FormEvent } from "react";
-import type { CreateManagedUserPayload, UserRole } from "@/lib/api";
+import type { CreateManagedUserPayload } from "@/lib/api";
 import { useLocale } from "@/components/layout/locale-provider";
 
 export function CreateUserModal({
@@ -20,7 +20,7 @@ export function CreateUserModal({
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<Exclude<UserRole, "SUPERUSER">>("ENGINEER");
+  const [role, setRole] = useState<CreateManagedUserPayload["role"]>("ENGINEER");
 
   if (!open) return null;
 
@@ -105,6 +105,8 @@ export function CreateUserModal({
             >
               <option value="ENGINEER">Engineer</option>
               <option value="LEAD_ENGINEER">Lead Engineer</option>
+              <option value="HRGA">HR/GA</option>
+              <option value="FINANCE">Finance</option>
             </select>
           </div>
 

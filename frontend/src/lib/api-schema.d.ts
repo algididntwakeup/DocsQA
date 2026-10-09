@@ -137,7 +137,7 @@ export interface paths {
         put?: never;
         /**
          * Create User
-         * @description Create an engineer or lead account with a temporary password.
+         * @description Create an engineer, lead, HR/GA, or finance account with a temporary password.
          */
         post: operations["create_user_api_v1_auth_users_post"];
         delete?: never;
@@ -643,7 +643,11 @@ export interface paths {
         put?: never;
         /**
          * Create Project
-         * @description Create a project for lead users.
+         * @description Create a project and its workspace folder under the folder RBAC rules.
+         *
+         *     Numbered projects are restricted by prefix: ``13`` engineering projects are
+         *     owned by engineering roles, ``03`` internal projects by HR/GA and finance.
+         *     Unnumbered projects keep the legacy lead-only rule.
          */
         post: operations["create_project_api_v1_projects_post"];
         delete?: never;
@@ -1435,7 +1439,7 @@ export interface components {
         };
         /**
          * ManagedUserCreate
-         * @description Payload for creating an engineer or lead account.
+         * @description Payload for creating an engineer, lead, HR/GA, or finance account.
          */
         ManagedUserCreate: {
             /** Email */
@@ -1447,7 +1451,7 @@ export interface components {
              * @default ENGINEER
              * @enum {string}
              */
-            role: "ENGINEER" | "LEAD_ENGINEER";
+            role: "ENGINEER" | "LEAD_ENGINEER" | "HRGA" | "FINANCE";
             /** Temporary Password */
             temporary_password: string;
         };
@@ -1518,6 +1522,8 @@ export interface components {
             name: string;
             /** Plant Area */
             plant_area?: string | null;
+            /** Project Number */
+            project_number?: string | null;
             /**
              * Status
              * @default ACTIVE
@@ -2009,7 +2015,7 @@ export interface components {
          * @description Authorization roles for project and document review workflows.
          * @enum {string}
          */
-        UserRole: "ENGINEER" | "LEAD_ENGINEER" | "SUPERUSER";
+        UserRole: "ENGINEER" | "LEAD_ENGINEER" | "SUPERUSER" | "HRGA" | "FINANCE";
         /**
          * UserStatusUpdate
          * @description Explicit account activation state update.

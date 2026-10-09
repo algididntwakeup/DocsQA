@@ -16,6 +16,7 @@ class ProjectCreate(ApiModel):
     code: str | None = Field(default=None, max_length=50)
     description: str | None = None
     bima_project_id: int | None = None
+    project_number: str | None = Field(default=None, max_length=100)
     status: str = "ACTIVE"
     plant_area: str | None = Field(default=None, max_length=100)
 
