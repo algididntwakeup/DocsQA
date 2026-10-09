@@ -28,13 +28,11 @@ PROJECT_MEMBER_FIELDS = ("member_ids", "members")
 PROJECT_PIC_FIELDS = ("pic_id", "pic")
 
 USER_ID_FIELDS = ("id", "bima_id")
-USER_NAME_FIELDS = ("full_name", "name")
 
 INVALID_USER_RECORD = "BIMA user directory contains an invalid record."
 DUPLICATE_USER_IDS = "BIMA user directory contains duplicate user IDs."
 INVALID_PROJECT_RECORD = "BIMA project directory contains an invalid record."
 DUPLICATE_PROJECT_IDS = "BIMA project directory contains duplicate project IDs."
-MISSING_MEMBERSHIP = "BIMA project membership is missing."
 UNKNOWN_MEMBER = "BIMA project references an unknown user."
 
 
@@ -52,7 +50,12 @@ class BimaUserRecord:
 
 @dataclass(frozen=True)
 class BimaProjectRecord:
-    """Normalized BIMA project with its resolved membership IDs."""
+    """Normalized BIMA project with its resolved membership IDs.
+
+    ``member_bima_ids`` is ``None`` when the upstream payload carried no
+    membership information at all (the live directory omits it); callers must
+    then keep the locally known membership instead of clearing it.
+    """
 
     bima_project_id: int
     name: str
@@ -60,7 +63,7 @@ class BimaProjectRecord:
     description: str | None
     plant_area: str | None
     status: str
-    member_bima_ids: tuple[int, ...]
+    member_bima_ids: tuple[int, ...] | None
 
 
 @dataclass(frozen=True)
@@ -103,7 +106,11 @@ class BimaMasterDataAdapter:
         """Return validated master data, raising 502 on any contract violation."""
         user_records = self._adapt_users(users)
         project_records = self._adapt_projects(projects, user_records)
-        referenced = {bima_id for record in project_records for bima_id in record.member_bima_ids}
+        referenced = {
+            bima_id
+            for record in project_records
+            for bima_id in (record.member_bima_ids or ())
+        }
         return BimaMasterData(
             projects=tuple(project_records),
             users=tuple(record for record in user_records if record.bima_id in referenced),
@@ -116,15 +123,16 @@ class BimaMasterDataAdapter:
             bima_id = _positive_int(_first_value(row, USER_ID_FIELDS))
             if bima_id is None:
                 raise _bad_gateway(INVALID_USER_RECORD)
-            email = row.get("email")
-            if not isinstance(email, str) or not email.strip():
-                raise _bad_gateway(INVALID_USER_RECORD)
-            if _first_text(row, USER_NAME_FIELDS) is None:
-                raise _bad_gateway(INVALID_USER_RECORD)
             if bima_id in seen:
                 raise _bad_gateway(DUPLICATE_USER_IDS)
             seen.add(bima_id)
-            profile = bima_client._profile({"data": {"valid": True, "user": row}})
+            try:
+                # The BIMA user directory nests email and full_name under
+                # ``profile``; ``_profile`` normalizes both that envelope and
+                # the flat SSO payloads used by the credential login flows.
+                profile = bima_client._profile({"data": {"valid": True, "user": row}})
+            except HTTPException as exc:
+                raise _bad_gateway(INVALID_USER_RECORD) from exc
             records.append(
                 BimaUserRecord(
                     bima_id=bima_id,
@@ -153,21 +161,29 @@ class BimaMasterDataAdapter:
                 raise _bad_gateway(DUPLICATE_PROJECT_IDS)
             seen.add(bima_project_id)
 
-            member_fields = [field for field in PROJECT_MEMBER_FIELDS if field in row]
-            if not member_fields:
-                raise _bad_gateway(MISSING_MEMBERSHIP)
-            if len(member_fields) != 1 or not isinstance(row[member_fields[0]], list):
-                raise _bad_gateway(INVALID_PROJECT_RECORD)
-            member_values = row[member_fields[0]]
+            # BIMA's directory payload does not always carry membership: the
+            # real /api/projects rows only expose id/number/name/client_name.
+            # A missing list therefore means "membership unknown" instead of
+            # failing the whole sync or clearing local members; a
+            # present-but-malformed list is still rejected.
             member_ids: set[int] = set()
-            for value in member_values:
-                member_id = _positive_int(value)
-                if member_id is None:
+            membership_present = False
+            for field in PROJECT_MEMBER_FIELDS:
+                if field not in row:
+                    continue
+                membership_present = True
+                member_values = row[field]
+                if not isinstance(member_values, list):
                     raise _bad_gateway(INVALID_PROJECT_RECORD)
-                member_ids.add(member_id)
+                for value in member_values:
+                    member_id = _positive_int(value)
+                    if member_id is None:
+                        raise _bad_gateway(INVALID_PROJECT_RECORD)
+                    member_ids.add(member_id)
 
             pic_field = _first_present(row, PROJECT_PIC_FIELDS)
             if pic_field is not None and pic_field[1] is not None:
+                membership_present = True
                 pic_id = _positive_int(pic_field[1])
                 if pic_id is None:
                     raise _bad_gateway(INVALID_PROJECT_RECORD)
@@ -189,7 +205,9 @@ class BimaMasterDataAdapter:
                     description=description if isinstance(description, str) else None,
                     plant_area=plant_area,
                     status=str(row.get("status") or "ACTIVE").upper(),
-                    member_bima_ids=tuple(sorted(member_ids)),
+                    member_bima_ids=(
+                        tuple(sorted(member_ids)) if membership_present else None
+                    ),
                 )
             )
         records.sort(key=lambda record: record.bima_project_id)

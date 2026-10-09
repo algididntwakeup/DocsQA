@@ -201,6 +201,37 @@ async def test_bima_service_reports_html_error_page_instead_of_502_json() -> Non
 
 
 @pytest.mark.anyio
+async def test_bima_service_get_project_falls_back_to_listing_on_404() -> None:
+    """BIMA answers 404 on /api/projects/{id}; the directory row must be used."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/projects/627":
+            return httpx.Response(404, json={"message": "Not Found"})
+        if request.url.path == "/api/projects":
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {
+                            "id": 627,
+                            "number": "13726486.01",
+                            "name": "Plant Upgrade",
+                            "client_name": "Example Client",
+                        }
+                    ]
+                },
+            )
+        return httpx.Response(404)
+
+    service = BimaService(base_url="https://bima.test", transport=httpx.MockTransport(handler))
+
+    project = await service.get_project(627, "engineer-token")
+
+    assert project["id"] == 627
+    assert project["name"] == "Plant Upgrade"
+    assert project["client_name"] == "Example Client"
+
+@pytest.mark.anyio
 async def test_bima_service_sends_single_bearer_prefix() -> None:
     """A token arriving as 'Bearer Bearer x' must not be forwarded twice."""
 
@@ -360,7 +391,6 @@ async def test_list_bima_projects_prefers_bima_cookie_over_prism_jwt() -> None:
 @pytest.mark.anyio
 async def test_list_bima_projects_accepts_missing_client_name() -> None:
     """BIMA does not always populate the client; the directory must still load."""
-
     user = _engineer()
     result = SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: []))
     session = MagicMock()

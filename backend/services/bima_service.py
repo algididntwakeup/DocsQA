@@ -50,11 +50,29 @@ class BimaService:
         return data
 
     async def get_project(self, project_id: int, token: str) -> dict[str, Any]:
-        """Return one BIMA project, accepting the common project/detail envelopes."""
+        """Return one BIMA project, accepting the common project/detail envelopes.
 
-        payload = await self._get_json(
-            f"/api/projects/{project_id}", token, resource="project", missing_is_404=True
-        )
+        BIMA's ``/api/projects/{id}`` endpoint answers 404 for some deployments
+        even though the project is present in the directory listing. When that
+        happens the listing row is used instead so the import flow keeps
+        working.
+        """
+
+        try:
+            payload = await self._get_json(
+                f"/api/projects/{project_id}", token, resource="project", missing_is_404=True
+            )
+        except HTTPException as exc:
+            if exc.status_code != status.HTTP_404_NOT_FOUND:
+                raise
+            records = await self.list_projects(token)
+            match = next(
+                (record for record in records if str(record.get("id")) == str(project_id)),
+                None,
+            )
+            if match is None:
+                raise
+            return match
         data = payload.get("data", payload) if isinstance(payload, dict) else payload
         if isinstance(data, dict):
             for key in ("project", "item"):

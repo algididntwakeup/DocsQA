@@ -37,6 +37,18 @@ def _profile(payload: dict[str, Any]) -> dict[str, Any]:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid BIMA profile."
         )
+    # The BIMA user directory nests the identity under ``profile`` (email and
+    # full_name live there), while the SSO ``/me`` payload is flat. Unwrap the
+    # nested profile but keep the account-level fields as fallback.
+    profile = data.get("profile")
+    if isinstance(profile, dict):
+        merged = {**data, **profile}
+        if "id" in data:
+            # ``profile.id`` identifies the profile record, not the account.
+            merged["id"] = data["id"]
+        if not merged.get("email") and data.get("username"):
+            merged["email"] = data["username"]
+        data = merged
     roles = _roles(data)
     position = str(data.get("position") or "")
     if data.get("is_admin") is True or "super-administrator" in roles:
@@ -54,6 +66,10 @@ def _profile(payload: dict[str, Any]) -> dict[str, Any]:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="BIMA profile has no email."
         )
+    if "@" not in email:
+        # The user directory exposes only the account ``username`` for some
+        # accounts; PRISM needs a syntactically valid, unique address.
+        email = f"{email}@bima.local"
     return {
         "bima_id": int(bima_id) if bima_id is not None else None,
         "email": email,

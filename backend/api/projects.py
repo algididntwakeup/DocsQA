@@ -146,6 +146,15 @@ async def sync_bima_projects(
                     .where(Project.bima_project_id == remote.bima_project_id)
                 )
             ).scalar_one_or_none()
+            # ``member_bima_ids is None`` means BIMA sent no membership data at
+            # all (the live directory omits it); keep the local membership
+            # instead of clearing it. An empty tuple is an explicit "no
+            # members" and still applies.
+            resolved_members = (
+                [user_by_bima_id[bima_id] for bima_id in remote.member_bima_ids]
+                if remote.member_bima_ids is not None
+                else None
+            )
             if project is None:
                 project = Project(
                     name=remote.name,
@@ -155,13 +164,14 @@ async def sync_bima_projects(
                     status=remote.status,
                     created_by_id=current_user.id,
                     bima_project_id=remote.bima_project_id,
-                    members=[user_by_bima_id[bima_id] for bima_id in remote.member_bima_ids],
+                    members=resolved_members or [],
                 )
                 session.add(project)
                 created += 1
             else:
                 updated += 1
-                project.members = [user_by_bima_id[bima_id] for bima_id in remote.member_bima_ids]
+                if resolved_members is not None:
+                    project.members = resolved_members
             project.name = remote.name
             project.code = remote.code
             project.description = remote.description
