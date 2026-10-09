@@ -1,6 +1,10 @@
+"use client";
+
 import Link from "next/link";
 import { CalendarClock, FileText, FolderOpen } from "lucide-react";
+import { useLocale } from "@/components/layout/locale-provider";
 import { ProjectActionsMenu } from "@/components/projects/project-actions-menu";
+import { formatRelativeTime } from "@/lib/format";
 import type { Project } from "@/types/project";
 
 interface ProjectGridViewProps {
@@ -10,13 +14,9 @@ interface ProjectGridViewProps {
   onDelete?: (projectId: string) => void;
 }
 
-function formatModifiedDate(project: Project): string {
-  return new Intl.DateTimeFormat("id-ID", { dateStyle: "medium" }).format(
-    new Date(project.updated_at ?? project.created_at),
-  );
-}
-
 export function ProjectGridView({ projects, canManage, onFinish, onDelete }: ProjectGridViewProps) {
+  const { locale, t } = useLocale();
+
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
       {projects.map((project) => {
@@ -30,7 +30,7 @@ export function ProjectGridView({ projects, canManage, onFinish, onDelete }: Pro
           >
             <Link
               href={`/workspace/${project.id}`}
-              aria-label={`Buka workspace ${project.name}`}
+              aria-label={t("openWorkspaceFor", { name: project.name })}
               className="block min-h-52 rounded-2xl p-5 pr-16 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
             >
               <div className="flex items-center justify-between gap-3">
@@ -41,24 +41,26 @@ export function ProjectGridView({ projects, canManage, onFinish, onDelete }: Pro
                   <span className="max-w-40 truncate rounded-md border border-border/70 bg-muted/70 px-2 py-1 font-mono text-[11px] font-semibold text-muted-foreground" title={projectNumber}>
                     {projectNumber}
                   </span>
-                ) : <span className="text-xs text-muted-foreground">Nomor belum tersedia</span>}
+                ) : <span className="text-xs text-muted-foreground">{t("numberNotAvailable")}</span>}
               </div>
 
               <h2 className="mt-4 line-clamp-2 text-base font-bold leading-6 text-foreground group-hover:text-accent-foreground">
                 {project.name}
               </h2>
               <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
-                {project.client_name || "Klien belum tersedia"}
+                {project.client_name || t("clientNotAvailable")}
               </p>
 
               <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-border/70 pt-3 text-[11px] text-muted-foreground">
                 <span className="inline-flex items-center gap-1.5">
                   <FileText size={13} />
-                  {documentCount} dokumen
+                  {t("docCount", { count: documentCount })}
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <CalendarClock size={13} />
-                  {formatModifiedDate(project)}
+                  <time dateTime={project.updated_at ?? project.created_at}>
+                    {formatRelativeTime(project.updated_at ?? project.created_at, locale)}
+                  </time>
                 </span>
               </div>
             </Link>
@@ -74,8 +76,10 @@ export function ProjectGridView({ projects, canManage, onFinish, onDelete }: Pro
 }
 
 export function ProjectGridSkeleton({ count = 8 }: { count?: number }) {
+  const { t } = useLocale();
+
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4" aria-label="Memuat proyek" role="status">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4" aria-label={t("loadingProjectList")} role="status">
       {Array.from({ length: count }, (_, index) => (
         <div key={index} className="min-h-52 animate-pulse rounded-2xl border border-border/70 bg-card p-5">
           <div className="flex items-center justify-between">

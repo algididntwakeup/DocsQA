@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CircleAlert, CloudDownload, LoaderCircle, Search, X } from "lucide-react";
 import { toast } from "sonner";
+import { useLocale } from "@/components/layout/locale-provider";
 import { useBimaProjects, useImportBimaProject } from "@/hooks/use-bima-projects";
 import type { BimaProject } from "@/types/project";
 
@@ -17,6 +18,7 @@ export function ImportBimaModal({ onImported }: ImportBimaModalProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const projectsQuery = useBimaProjects(open);
   const importMutation = useImportBimaProject();
+  const { t } = useLocale();
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -40,10 +42,10 @@ export function ImportBimaModal({ onImported }: ImportBimaModalProps) {
     setImportError(null);
     try {
       await importMutation.mutateAsync({ bima_project_id: project.id });
-      toast.success("Proyek berhasil diimpor ke PRISM");
+      toast.success(t("bimaImportSuccess"));
       await onImported?.();
     } catch (caught) {
-      const message = caught instanceof Error ? caught.message : "Proyek gagal diimpor ke PRISM.";
+      const message = caught instanceof Error ? caught.message : t("bimaImportFailed");
       setImportError(message);
       toast.error(message);
     }
@@ -62,7 +64,7 @@ export function ImportBimaModal({ onImported }: ImportBimaModalProps) {
         onClick={() => setOpen(true)}
       >
         <CloudDownload size={16} />
-        Tambah dari BIMA
+        {t("importFromBima")}
       </button>
 
       <dialog
@@ -77,13 +79,13 @@ export function ImportBimaModal({ onImported }: ImportBimaModalProps) {
       >
         <div className="flex items-start justify-between gap-4 border-b border-border/70 px-5 py-4">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-accent-foreground">Integrasi BIMA</p>
-            <h2 id="import-bima-title" className="mt-1 text-lg font-bold">Pilih proyek untuk diimpor</h2>
-            <p className="mt-1 text-xs text-muted-foreground">Cari berdasarkan nomor proyek, judul, atau nama klien.</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-accent-foreground">{t("bimaIntegration")}</p>
+            <h2 id="import-bima-title" className="mt-1 text-lg font-bold">{t("bimaModalTitle")}</h2>
+            <p className="mt-1 text-xs text-muted-foreground">{t("bimaModalDesc")}</p>
           </div>
           <button
             type="button"
-            aria-label="Tutup dialog"
+            aria-label={t("closeDialog")}
             onClick={closeDialog}
             className="rounded-lg p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground"
           >
@@ -92,14 +94,14 @@ export function ImportBimaModal({ onImported }: ImportBimaModalProps) {
         </div>
 
         <div className="sticky top-0 z-10 border-b border-border/60 bg-card/95 p-4 backdrop-blur-sm">
-          <label className="sr-only" htmlFor="bima-project-search">Cari proyek BIMA</label>
+          <label className="sr-only" htmlFor="bima-project-search">{t("bimaSearchLabel")}</label>
           <div className="relative">
             <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
               id="bima-project-search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Cari nomor, nama proyek, atau klien..."
+              placeholder={t("bimaSearchPlaceholder")}
               className="h-10 w-full rounded-lg border border-border bg-background pl-9 pr-3 text-sm outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/30"
             />
           </div>
@@ -114,7 +116,7 @@ export function ImportBimaModal({ onImported }: ImportBimaModalProps) {
           )}
 
           {projectsQuery.isPending ? (
-            <div className="space-y-3" aria-label="Memuat proyek BIMA" role="status">
+            <div className="space-y-3" aria-label={t("bimaLoading")} role="status">
               {Array.from({ length: 4 }, (_, index) => (
                 <div key={index} className="flex items-center gap-4 rounded-xl border border-border/70 p-4">
                   <div className="h-6 w-28 animate-pulse rounded bg-muted" />
@@ -134,14 +136,14 @@ export function ImportBimaModal({ onImported }: ImportBimaModalProps) {
                 onClick={() => void projectsQuery.refetch()}
                 className="rounded-lg border border-border px-3 py-2 text-xs font-semibold hover:bg-muted/50"
               >
-                Coba lagi
+                {t("retry")}
               </button>
             </div>
           ) : projects.length === 0 ? (
             <div className="flex min-h-40 flex-col items-center justify-center gap-2 text-center text-muted-foreground">
               <Search size={24} className="text-border" />
-              <p className="text-sm font-semibold">Tidak ada proyek yang cocok.</p>
-              <p className="text-xs">Coba kata kunci lain atau hapus pencarian.</p>
+              <p className="text-sm font-semibold">{t("emptySearch")}</p>
+              <p className="text-xs">{t("emptySearchHint")}</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -159,7 +161,7 @@ export function ImportBimaModal({ onImported }: ImportBimaModalProps) {
                     <div className="shrink-0">
                       {project.is_imported ? (
                         <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[10px] font-bold text-emerald-800">
-                          Sudah Ada
+                          {t("bimaBadgeImported")}
                         </span>
                       ) : (
                         <button
@@ -169,7 +171,7 @@ export function ImportBimaModal({ onImported }: ImportBimaModalProps) {
                           className="inline-flex min-w-20 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-bold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           {isImporting && <LoaderCircle size={14} className="animate-spin" />}
-                          Impor
+                          {isImporting ? t("bimaBtnImporting") : t("bimaBtnImport")}
                         </button>
                       )}
                     </div>
