@@ -201,6 +201,24 @@ async def test_bima_service_reports_html_error_page_instead_of_502_json() -> Non
 
 
 @pytest.mark.anyio
+async def test_bima_service_sends_single_bearer_prefix() -> None:
+    """A token arriving as 'Bearer Bearer x' must not be forwarded twice."""
+
+    seen: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.headers["Authorization"])
+        return httpx.Response(200, json={"data": []})
+
+    service = BimaService(base_url="https://bima.test", transport=httpx.MockTransport(handler))
+
+    for token in ("plain-token", "Bearer plain-token", "Bearer Bearer plain-token"):
+        await service.list_projects(token)
+
+    assert seen == ["Bearer plain-token"] * 3
+
+
+@pytest.mark.anyio
 async def test_bima_service_maps_connect_error_to_bad_gateway() -> None:
     class ConnectFailTransport(httpx.AsyncBaseTransport):
         async def handle_async_request(self, request: httpx.Request) -> httpx.Response:

@@ -22,10 +22,14 @@ def bima_json_headers() -> dict[str, str]:
 
 
 def clean_bima_token(token: str) -> str:
-    """Return the raw credential, dropping any duplicated ``Bearer`` prefix."""
+    """Return the raw credential, dropping any duplicated ``Bearer`` prefix.
+
+    Callers sometimes forward the cookie value verbatim while others pass the
+    ``Authorization`` header, so a token can arrive as ``Bearer Bearer <token>``.
+    """
 
     cleaned = token.strip()
-    if cleaned.lower().startswith("bearer "):
+    while cleaned.lower().startswith("bearer "):
         cleaned = cleaned[len("bearer ") :].strip()
     return cleaned
 
