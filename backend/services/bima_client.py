@@ -16,6 +16,67 @@ def _roles(payload: dict[str, Any]) -> list[str]:
     return [str(role) for role in roles or []]
 
 
+def _normalized(value: str) -> str:
+    """Casefold and strip separators so 'IT_ADMIN', 'it-admin' match one token."""
+
+    return value.strip().casefold().replace("_", "-").replace(" ", "-")
+
+
+# BIMA declares roles either in the ``roles``/``role`` claim, in the
+# ``department``/``position`` text, or through ``is_admin``. Tokens are matched
+# after separator normalization, and the most privileged match wins first.
+_SUPERUSER_TOKENS = {
+    "super-administrator",
+    "superadmin",
+    "it-admin",
+    "administrator",
+}
+_LEAD_TOKENS = {"lead-engineer", "manager", "project-manager", "lead"}
+_LEAD_POSITION_TOKENS = {"lead", "lead-engineer", "engineering-manager"}
+_HRGA_TOKENS = {
+    "hrga",
+    "hr-ga",
+    "human-resource",
+    "human-resources",
+    "hrd",
+    "hr",
+    "general-affair",
+    "general-affairs",
+    "ga",
+}
+_HRGA_POSITION_TOKENS = {
+    "hrga",
+    "hr-ga",
+    "hrd",
+    "hr",
+    "human-resource",
+    "general-affair",
+    "general-affairs",
+}
+_FINANCE_TOKENS = {"finance", "financial", "accounting", "accountant", "treasury"}
+
+
+def _matches(tokens: set[str], *values: str | None) -> bool:
+    """Return whether any candidate text contains one of the role tokens.
+
+    Short tokens (``hr``, ``ga``) only match whole words; longer tokens also
+    match inside composite labels such as ``hrga-department``.
+    """
+
+    for value in values:
+        if not value:
+            continue
+        normalized = _normalized(str(value))
+        if normalized in tokens:
+            return True
+        words = set(normalized.replace("/", "-").split("-"))
+        if words & tokens:
+            return True
+        if any(len(token) > 2 and token in normalized for token in tokens):
+            return True
+    return False
+
+
 def _profile(payload: dict[str, Any]) -> dict[str, Any]:
     data = payload.get("data", payload)
     if isinstance(data, dict) and data.get("valid") is False:
@@ -29,12 +90,25 @@ def _profile(payload: dict[str, Any]) -> dict[str, Any]:
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid BIMA profile."
         )
     roles = _roles(data)
+    department = str(data.get("department") or "")
     position = str(data.get("position") or "")
-    if data.get("is_admin") is True or "super-administrator" in roles:
+    declared = str(data.get("role") or "")
+    # Most privileged identity first, then domain roles, then lead. Domain
+    # (HR/GA, finance) outranks a "manager" position so a "Finance Manager"
+    # is never promoted to lead engineer access. Position-only matching for
+    # lead stays limited to the "Lead" token, as before.
+    if data.get("is_admin") is True or _matches(
+        _SUPERUSER_TOKENS, declared, *roles, department, position
+    ):
         role = UserRole.SUPERUSER
-    elif (
-        any(value in roles for value in ("lead-engineer", "manager", "project-manager"))
-        or "Lead" in position
+    elif _matches(_HRGA_TOKENS, declared, *roles, department) or _matches(
+        _HRGA_POSITION_TOKENS, position
+    ):
+        role = UserRole.HRGA
+    elif _matches(_FINANCE_TOKENS, declared, *roles, department, position):
+        role = UserRole.FINANCE
+    elif _matches(_LEAD_TOKENS, declared, *roles) or _matches(
+        _LEAD_POSITION_TOKENS, position
     ):
         role = UserRole.LEAD_ENGINEER
     else:

@@ -2,7 +2,7 @@
 
 import logging
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import (
@@ -19,7 +19,7 @@ from fastapi import (
 from sqlalchemy import exists, func, or_, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload, selectinload
+from sqlalchemy.orm import aliased, joinedload, selectinload
 
 from api.auth import upsert_bima_user
 from core.dependencies import get_current_user, get_upload_service, require_lead
@@ -39,6 +39,11 @@ from schemas.project import (
 )
 from services import bima_client as bima_client
 from services.bima_adapter import BimaMasterDataAdapter, sync_user_bima_projects
+from services.permission_service import (
+    can_create_project,
+    create_permission_message,
+    is_privileged,
+)
 from services.pipeline import enqueue_extraction
 from services.uploads import UploadService
 
@@ -181,20 +186,68 @@ async def sync_bima_projects(
 async def create_project(
     payload: ProjectCreate,
     session: Annotated[AsyncSession, Depends(get_session)],
-    current_user: Annotated[User, Depends(require_lead)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> ProjectRead:
-    """Create a project for lead users."""
+    """Create a project and its workspace folder under the folder RBAC rules.
+
+    Numbered projects are restricted by prefix: ``13`` engineering projects are
+    owned by engineering roles, ``03`` internal projects by HR/GA and finance.
+    Unnumbered projects keep the legacy lead-only rule.
+    """
+    if not can_create_project(current_user.role, payload.project_number):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=create_permission_message(payload.project_number),
+        )
     project = Project(
         name=payload.name,
         code=payload.code,
         description=payload.description,
         plant_area=payload.plant_area,
+        project_number=payload.project_number,
         created_by_id=current_user.id,
     )
     session.add(project)
     await session.commit()
     await session.refresh(project, attribute_names=["created_by", "assigned_to", "documents"])
     return _project_read(project)
+
+
+def _visible_projects_query(current_user: User, user_id: UUID | None) -> Any:
+    """Build the project listing query with the caller's visibility scope.
+
+    The ``Document`` entity is already part of the outer join used for the
+    document count, so the correlated EXISTS must be built from an alias;
+    reusing ``Document`` here triggers SQLAlchemy auto-correlation and strips
+    the FROM clause, which surfaces as a 500 on the project listing.
+    """
+
+    query = select(
+        Project,
+        func.coalesce(func.count(Document.id), 0).label("total_documents"),
+    ).outerjoin(Document, Document.project_id == Project.id).options(
+        joinedload(Project.created_by),
+        joinedload(Project.assigned_to),
+    )
+    if user_id is not None:
+        query = query.where(Project.assigned_to_id == user_id)
+        if not is_privileged(current_user.role) and user_id != current_user.id:
+            query = query.where(Project.id == UUID(int=0))
+    elif not is_privileged(current_user.role):
+        document_alias = aliased(Document)
+        query = query.where(
+            (Project.created_by_id == current_user.id)
+            | (Project.assigned_to_id == current_user.id)
+            | Project.members.any(User.id == current_user.id)
+            | exists().where(
+                document_alias.project_id == Project.id,
+                or_(
+                    document_alias.assigned_to_id == current_user.id,
+                    document_alias.owner_id == current_user.id,
+                ),
+            )
+        )
+    return query
 
 
 @router.get("", response_model=list[ProjectRead])
@@ -219,33 +272,7 @@ async def list_projects(
                 exc.detail,
             )
 
-    query = select(
-        Project,
-        func.count(Document.id).label("total_documents"),
-    ).outerjoin(Document, Document.project_id == Project.id).options(
-        joinedload(Project.created_by),
-        joinedload(Project.assigned_to),
-    )
-    if user_id is not None:
-        query = query.where(Project.assigned_to_id == user_id)
-        if (
-            current_user.role not in {UserRole.LEAD_ENGINEER, UserRole.SUPERUSER}
-            and user_id != current_user.id
-        ):
-            query = query.where(Project.id == UUID(int=0))
-    elif current_user.role not in {UserRole.LEAD_ENGINEER, UserRole.SUPERUSER}:
-        query = query.where(
-            (Project.created_by_id == current_user.id)
-            | (Project.assigned_to_id == current_user.id)
-            | Project.members.any(User.id == current_user.id)
-            | exists().where(
-                Document.project_id == Project.id,
-                or_(
-                    Document.assigned_to_id == current_user.id,
-                    Document.owner_id == current_user.id,
-                ),
-            )
-        )
+    query = _visible_projects_query(current_user, user_id)
     project_result = await session.execute(
         query.group_by(Project.id).order_by(Project.created_at.desc())
     )
@@ -377,7 +404,9 @@ async def list_project_documents(
     member_ids = {member.id for member in project.members} if project is not None else set()
     is_member = current_user.id in member_ids
     bima_backed = project is not None and project.bima_project_id is not None
-    if current_user.role == UserRole.ENGINEER:
+    # Every non-privileged role (engineers, HR/GA, finance) is scoped to its own
+    # documents; only lead engineers and superusers get cross-engineer filters.
+    if not is_privileged(current_user.role):
         if bima_backed:
             if not is_member:
                 raise HTTPException(

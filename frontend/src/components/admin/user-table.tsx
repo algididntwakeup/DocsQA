@@ -56,6 +56,16 @@ export function UserTable({
                     <span className="h-1.5 w-1.5 rounded-full bg-purple-500" />
                      {t("roleSuperuser")}
                   </span>
+                ) : user.role === "HRGA" ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700 ring-1 ring-emerald-500/30 shadow-2xs">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                     {t("roleHrga")}
+                  </span>
+                ) : user.role === "FINANCE" ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700 ring-1 ring-amber-500/30 shadow-2xs">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                     {t("roleFinance")}
+                  </span>
                 ) : (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-100 px-3 py-1 text-xs font-bold text-indigo-700 ring-1 ring-indigo-500/30 shadow-2xs">
                     <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />

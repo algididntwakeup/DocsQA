@@ -24,6 +24,7 @@ from schemas.project import (
     ProjectRead,
 )
 from services.bima_service import BimaService
+from services.permission_service import can_manage_folders, folder_permission_message
 from services.storage import LocalStorage
 
 router = APIRouter(tags=["bima"])
@@ -179,6 +180,14 @@ async def import_bima_project(
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="BIMA returned a different project than the requested ID.",
+        )
+    # Importing provisions the project workspace folder, so the folder RBAC
+    # applies: engineering (13) numbers belong to engineering roles, internal
+    # (03) numbers to HR/GA and finance.
+    if not can_manage_folders(current_user.role, number):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=folder_permission_message(number),
         )
 
     project = Project(
