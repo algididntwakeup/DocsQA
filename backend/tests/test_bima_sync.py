@@ -45,7 +45,7 @@ _DEFAULT_MEMBER_IDS: tuple[int, ...] = (42,)
 
 
 def _project_payload(
-    member_ids: list[int] | tuple[int, ...] | None = _DEFAULT_MEMBER_IDS,
+    member_ids: list[Any] | tuple[Any, ...] | None = _DEFAULT_MEMBER_IDS,
     pic_id: int | None = 43,
 ) -> dict[str, Any]:
     """Build a BIMA project payload; `member_ids=None` omits the membership field."""
@@ -83,11 +83,46 @@ def test_adapter_ignores_unreferenced_directory_users() -> None:
     assert master.projects[0].member_bima_ids == ()
     assert master.users == ()
 
+def test_adapter_accepts_nested_profile_user_records() -> None:
+    """The live /api/users directory nests email and full_name under ``profile``."""
+
+    row = {
+        "id": 57,
+        "username": "m.alghifari",
+        "profile_id": 69,
+        "profile": {
+            "id": 69,
+            "email": "m.alghifari@reksolindo.co.id",
+            "full_name": "Muhammad Alghifari",
+            "department": "Engineering",
+        },
+    }
+    master = BimaMasterDataAdapter().adapt(
+        [_project_payload(member_ids=[57], pic_id=None)],
+        [row],
+    )
+    assert master.projects[0].member_bima_ids == (57,)
+    record = master.users[0]
+    assert record.bima_id == 57
+    assert record.email == "m.alghifari@reksolindo.co.id"
+    assert record.full_name == "Muhammad Alghifari"
+
+def test_adapter_accepts_projects_without_membership_fields() -> None:
+    """The live directory rows expose only id/number/name/client_name."""
+
+    master = BimaMasterDataAdapter().adapt(
+        [{"id": 160, "number": "03705011.01", "name": "Internal Training", "client_name": None}],
+        [],
+    )
+    assert master.projects[0].bima_project_id == 160
+    assert master.projects[0].member_bima_ids is None
+    assert master.users == ()
+
 
 @pytest.mark.parametrize(
     ("projects", "users"),
     [
-        ([_project_payload(member_ids=None)], [_user_payload(42), _user_payload(43)]),
+        ([_project_payload(member_ids=["42"])], [_user_payload(42), _user_payload(43)]),
         ([_project_payload(member_ids=[42, 99])], [_user_payload(42), _user_payload(43)]),
         ([_project_payload()], [_user_payload(42), _user_payload(42)]),
         ([_project_payload()], [{"id": "42", "email": "user42@test.local", "name": "User"}]),
@@ -252,10 +287,14 @@ async def test_sync_updates_existing_project_membership(monkeypatch: pytest.Monk
 
 
 @pytest.mark.anyio
-async def test_sync_rejects_incomplete_payload_without_writing(
+async def test_sync_rejects_unknown_member_without_writing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _patch_sources(monkeypatch, [_project_payload(member_ids=None)], [_user_payload(42)])
+    _patch_sources(
+        monkeypatch,
+        [_project_payload(member_ids=[42, 99])],
+        [_user_payload(42)],
+    )
     session = _session_with_project(None)
 
     with pytest.raises(HTTPException) as error:
@@ -264,6 +303,57 @@ async def test_sync_rejects_incomplete_payload_without_writing(
     assert error.value.status_code == 502
     session.commit.assert_not_awaited()
     session.add.assert_not_called()
+
+@pytest.mark.anyio
+async def test_sync_accepts_project_without_membership(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Directory rows without membership sync as projects with no members."""
+
+    _patch_sources(
+        monkeypatch,
+        [{"id": 160, "number": "03705011.01", "name": "Internal Training"}],
+        [],
+    )
+    session = _session_with_project(None)
+
+    result = await sync_bima_projects(session, _lead(), bima_token="bima-token")
+
+    assert result == {"synced": 1, "created": 1, "updated": 0}
+    session.commit.assert_awaited_once()
+    project = next(call.args[0] for call in session.add.call_args_list)
+    assert project.bima_project_id == 160
+    assert project.name == "Internal Training"
+    assert project.members == []
+
+@pytest.mark.anyio
+async def test_sync_without_membership_keeps_local_members(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Missing upstream membership must not clear the locally assigned users."""
+
+    lead = _lead()
+    existing = Project(
+        id=uuid4(),
+        name="Internal Training",
+        code=None,
+        bima_project_id=160,
+        status="ACTIVE",
+        created_by_id=lead.id,
+        created_at=datetime.now(UTC),
+    )
+    existing.members = [lead]
+    _patch_sources(
+        monkeypatch,
+        [{"id": 160, "number": "03705011.01", "name": "Internal Training"}],
+        [],
+    )
+    session = _session_with_project(existing)
+
+    result = await sync_bima_projects(session, lead, bima_token="bima-token")
+
+    assert result == {"synced": 1, "created": 0, "updated": 1}
+    assert existing.members == [lead]
+    assert existing.name == "Internal Training"
+    session.commit.assert_awaited_once()
 
 
 @pytest.mark.anyio

@@ -40,7 +40,8 @@ export type IssueCuration = components["schemas"]["IssueCurationRequest"];
 export type ReviewReportPreview = components["schemas"]["ReviewReportPreview"];
 export type TraceabilitySummary = components["schemas"]["TraceabilitySummaryResponse"];
 
-export type UserRole = "ENGINEER" | "LEAD_ENGINEER" | "SUPERUSER";
+export type UserRole = "ENGINEER" | "LEAD_ENGINEER" | "SUPERUSER" | "HRGA" | "FINANCE";
+export type ManagedRole = "ENGINEER" | "LEAD_ENGINEER";
 export type ReportLanguage = "en" | "id";
 export type HeaderPlacement = "split_standard" | "split_inverted" | "both_left" | "both_right";
 export interface HeaderTemplateConfig {
@@ -88,6 +89,7 @@ export interface CreateProjectPayload {
   plant_area?: string;
   code?: string;
   description?: string;
+  project_number?: string;
 }
 
 export interface ChangePasswordPayload {
@@ -104,7 +106,7 @@ export interface ManagedUser extends UserSession {
 export interface CreateManagedUserPayload {
   email: string;
   full_name: string;
-  role: Exclude<UserRole, "SUPERUSER">;
+  role: ManagedRole | "HRGA" | "FINANCE";
   temporary_password: string;
 }
 
