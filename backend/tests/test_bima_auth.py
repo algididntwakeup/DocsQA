@@ -58,6 +58,40 @@ def test_bima_envelope_profile_mapping() -> None:
     assert profile["role"] == UserRole.SUPERUSER
 
 
+def test_bima_directory_profile_mapping() -> None:
+    """Directory rows nest identity under ``profile`` and may lack a real email."""
+
+    profile = _profile(
+        {
+            "id": 57,
+            "username": "m.alghifari",
+            "profile_id": 69,
+            "profile": {
+                "id": 69,
+                "email": "m.alghifari@reksolindo.co.id",
+                "full_name": "Muhammad Alghifari",
+                "department": "Engineering",
+                "role": None,
+            },
+        }
+    )
+    assert profile["bima_id"] == 57
+    assert profile["email"] == "m.alghifari@reksolindo.co.id"
+    assert profile["full_name"] == "Muhammad Alghifari"
+    assert profile["department"] == "Engineering"
+    assert profile["role"] == UserRole.ENGINEER
+
+    username_only = _profile(
+        {
+            "id": 3,
+            "username": "aswin",
+            "profile": {"id": 4, "full_name": "Aswin", "department": None},
+        }
+    )
+    assert username_only["bima_id"] == 3
+    assert username_only["email"] == "aswin@bima.local"
+    assert username_only["full_name"] == "Aswin"
+
 @pytest.mark.anyio
 async def test_fetch_bima_projects(monkeypatch: pytest.MonkeyPatch) -> None:
     class Response:

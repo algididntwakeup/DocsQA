@@ -1,5 +1,6 @@
 """Endpoints for listing and importing projects from BIMA."""
 
+import logging
 from contextlib import suppress
 from datetime import UTC, datetime
 from pathlib import Path
@@ -28,6 +29,8 @@ from services.storage import LocalStorage
 
 router = APIRouter(tags=["bima"])
 
+logger = logging.getLogger(__name__)
+
 
 def get_bima_service() -> BimaService:
     """Build the configured BIMA client for one request."""
@@ -48,6 +51,30 @@ def _require_bearer_token(authorization: str | None) -> str:
     return parts[1]
 
 
+def _resolve_bima_token(
+    authorization: str | None,
+    bima_cookie: str | None,
+    *,
+    endpoint: str,
+) -> str:
+    """Pick the upstream BIMA credential for one request.
+
+    The browser's ``Authorization`` header carries the PRISM session JWT, not the
+    upstream BIMA credential, so the SSO-issued ``bima_access_token`` cookie wins
+    whenever it is present. The header stays supported for direct API clients.
+    """
+
+    if bima_cookie:
+        return bima_cookie
+    token = _require_bearer_token(authorization)
+    logger.warning(
+        "Serving %s from the Authorization header because the bima_access_token cookie "
+        "is missing; the PRISM session JWT is not a valid BIMA credential.",
+        endpoint,
+    )
+    return token
+
+
 def _project_fields(record: dict[str, Any]) -> tuple[int, str, str, str]:
     """Normalize the BIMA fields used by PRISM and reject incomplete upstream records."""
 
@@ -64,7 +91,7 @@ def _project_fields(record: dict[str, Any]) -> tuple[int, str, str, str]:
             detail="BIMA project record has an invalid ID.",
         ) from exc
 
-    raw_name = record.get("name")
+    raw_name = record.get("name", record.get("project_name"))
     raw_number = record.get("number", record.get("project_number"))
     raw_client_name = record.get("client_name", record.get("client", ""))
     if isinstance(raw_client_name, dict):
@@ -76,11 +103,19 @@ def _project_fields(record: dict[str, Any]) -> tuple[int, str, str, str]:
         or not raw_name.strip()
         or raw_number is None
         or not str(raw_number).strip()
-        or not isinstance(raw_client_name, str)
     ):
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="BIMA project record is missing a valid number, name, or client name.",
+            detail="BIMA project record is missing a valid number or name.",
+        )
+    # BIMA does not always populate the client, and a missing client must not
+    # fail the whole directory. Only a non-textual value is treated as corrupt.
+    if raw_client_name is None:
+        raw_client_name = ""
+    elif not isinstance(raw_client_name, str):
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="BIMA project record has an invalid client name.",
         )
     return bima_id, str(raw_number), raw_name, raw_client_name
 
@@ -104,10 +139,14 @@ async def list_bima_projects(
 ) -> BimaProjectListResponse:
     """List projects visible to the BIMA user and mark any already imported."""
 
-    # The browser's Authorization header contains the PRISM session JWT. SSO stores
-    # the upstream BIMA credential in its own HttpOnly cookie.
-    token = bima_cookie or _require_bearer_token(authorization)
-    remote_records = await bima_service.list_projects(token)
+    token = _resolve_bima_token(authorization, bima_cookie, endpoint="/bima/projects")
+    try:
+        remote_records = await bima_service.list_projects(token)
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Unexpected failure while listing BIMA projects.")
+        raise
     normalized = [_project_fields(record) for record in remote_records]
     bima_ids = [bima_id for bima_id, _, _, _ in normalized]
 
@@ -161,7 +200,7 @@ async def import_bima_project(
 ) -> ProjectRead:
     """Import one BIMA project into PRISM and create its workspace directory."""
 
-    token = bima_cookie or _require_bearer_token(authorization)
+    token = _resolve_bima_token(authorization, bima_cookie, endpoint="/projects/import-bima")
     existing = (
         await session.execute(
             select(Project).where(Project.bima_project_id == payload.bima_project_id)

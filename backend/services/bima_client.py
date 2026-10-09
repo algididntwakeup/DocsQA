@@ -1,5 +1,6 @@
 """Small client for the BIMA credential and SSO identity APIs."""
 
+import logging
 from typing import Any
 
 import httpx
@@ -7,6 +8,14 @@ from fastapi import HTTPException, status
 
 from core.config import settings
 from domain.enums import UserRole
+from services.bima_http import (
+    bima_authorization_header,
+    body_preview,
+    build_bima_client,
+    login_redirect_target,
+)
+
+logger = logging.getLogger(__name__)
 
 
 def _roles(payload: dict[str, Any]) -> list[str]:
@@ -28,6 +37,18 @@ def _profile(payload: dict[str, Any]) -> dict[str, Any]:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid BIMA profile."
         )
+    # The BIMA user directory nests the identity under ``profile`` (email and
+    # full_name live there), while the SSO ``/me`` payload is flat. Unwrap the
+    # nested profile but keep the account-level fields as fallback.
+    profile = data.get("profile")
+    if isinstance(profile, dict):
+        merged = {**data, **profile}
+        if "id" in data:
+            # ``profile.id`` identifies the profile record, not the account.
+            merged["id"] = data["id"]
+        if not merged.get("email") and data.get("username"):
+            merged["email"] = data["username"]
+        data = merged
     roles = _roles(data)
     position = str(data.get("position") or "")
     if data.get("is_admin") is True or "super-administrator" in roles:
@@ -45,6 +66,10 @@ def _profile(payload: dict[str, Any]) -> dict[str, Any]:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="BIMA profile has no email."
         )
+    if "@" not in email:
+        # The user directory exposes only the account ``username`` for some
+        # accounts; PRISM needs a syntactically valid, unique address.
+        email = f"{email}@bima.local"
     return {
         "bima_id": int(bima_id) if bima_id is not None else None,
         "email": email,
@@ -61,11 +86,16 @@ async def login_with_bima_credentials(username: str, password: str) -> dict[str,
     """Authenticate at BIMA, then resolve the complete profile from /me."""
     base = settings.BIMA_BASE_URL.rstrip("/")
     try:
-        async with httpx.AsyncClient(timeout=settings.BIMA_TIMEOUT_SECONDS) as client:
+        async with build_bima_client() as client:
             response = await client.post(
                 f"{base}/api/auth/login", json={"username": username, "password": password}
             )
             if response.status_code != 200:
+                logger.warning(
+                    "BIMA rejected the credential login (HTTP %s, body=%s)",
+                    response.status_code,
+                    body_preview(response),
+                )
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid BIMA credentials."
                 )
@@ -81,9 +111,14 @@ async def login_with_bima_credentials(username: str, password: str) -> dict[str,
                     status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid BIMA response."
                 )
             profile = await client.get(
-                f"{base}/api/auth/me", headers={"Authorization": f"Bearer {token}"}
+                f"{base}/api/auth/me", headers=bima_authorization_header(str(token))
             )
             if profile.status_code != 200:
+                logger.warning(
+                    "BIMA refused to resolve the authenticated profile (HTTP %s, body=%s)",
+                    profile.status_code,
+                    body_preview(profile),
+                )
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Unable to resolve BIMA profile.",
@@ -93,7 +128,20 @@ async def login_with_bima_credentials(username: str, password: str) -> dict[str,
             return normalized
     except HTTPException:
         raise
+    except httpx.TimeoutException as exc:
+        logger.warning("Request timeout ke BIMA during credential login: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail="BIMA login timed out."
+        ) from exc
+    except httpx.ConnectError as exc:
+        logger.error(
+            "Gagal koneksi ke server BIMA (cek VPN/DNS/Firewall) during credential login: %s", exc
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="BIMA is unavailable."
+        ) from exc
     except httpx.HTTPError as exc:
+        logger.error("BIMA transport failure during credential login: %r", exc)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="BIMA is unavailable."
         ) from exc
@@ -102,21 +150,52 @@ async def login_with_bima_credentials(username: str, password: str) -> dict[str,
 async def verify_sso_token(token: str) -> dict[str, Any]:
     """Exchange a BIMA SSO token for a normalized user profile."""
     try:
-        async with httpx.AsyncClient(timeout=settings.BIMA_TIMEOUT_SECONDS) as client:
+        async with build_bima_client() as client:
             response = await client.post(
                 f"{settings.BIMA_BASE_URL.rstrip('/')}/api/sso/verify",
                 json={"token": token, "client_id": settings.BIMA_CLIENT_ID},
             )
             if response.status_code != 200:
+                logger.warning(
+                    "BIMA rejected the SSO token exchange (HTTP %s, body=%s)",
+                    response.status_code,
+                    body_preview(response),
+                )
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid BIMA SSO token."
                 )
-            normalized = _profile(response.json())
+            try:
+                payload = response.json()
+            except ValueError as exc:
+                logger.error(
+                    "BIMA returned a non-JSON SSO verification body (content-type=%s, body=%s)",
+                    response.headers.get("content-type", "<unknown>"),
+                    body_preview(response),
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail="BIMA returned an invalid SSO verification response.",
+                ) from exc
+            normalized = _profile(payload)
             normalized["bima_token"] = token
             return normalized
     except HTTPException:
         raise
+    except httpx.TimeoutException as exc:
+        logger.warning("Request timeout ke BIMA during SSO verification: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="BIMA SSO verification timed out.",
+        ) from exc
+    except httpx.ConnectError as exc:
+        logger.error(
+            "Gagal koneksi ke server BIMA (cek VPN/DNS/Firewall) during SSO verification: %s", exc
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="BIMA is unavailable."
+        ) from exc
     except httpx.HTTPError as exc:
+        logger.error("BIMA transport failure during SSO verification: %r", exc)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="BIMA is unavailable."
         ) from exc
@@ -151,21 +230,61 @@ async def _fetch_bima_directory(
     malformed_detail: str,
 ) -> list[dict[str, Any]]:
     """Fetch one BIMA directory endpoint using a user bearer token."""
+    url = f"{settings.BIMA_BASE_URL.rstrip('/')}{path}"
     try:
-        async with httpx.AsyncClient(timeout=settings.BIMA_TIMEOUT_SECONDS) as client:
-            response = await client.get(
-                f"{settings.BIMA_BASE_URL.rstrip('/')}{path}",
-                headers={"Authorization": f"Bearer {bima_token}"},
-            )
-            if response.status_code != 200:
+        async with build_bima_client() as client:
+            response = await client.get(url, headers=bima_authorization_header(bima_token))
+            if login_redirect_target(response) is not None:
+                logger.warning(
+                    "BIMA redirected %s to its login page; the stored BIMA token is missing "
+                    "or expired.",
+                    path,
+                )
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail=unauthorized_detail,
                 )
-            return _directory_rows(response.json(), keys, malformed_detail)
+            if response.status_code != 200:
+                logger.warning(
+                    "BIMA rejected %s (HTTP %s, body=%s)",
+                    path,
+                    response.status_code,
+                    body_preview(response),
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail=unauthorized_detail,
+                )
+            try:
+                payload = response.json()
+            except ValueError as exc:
+                logger.error(
+                    "BIMA returned a non-JSON body for %s (content-type=%s, body=%s)",
+                    path,
+                    response.headers.get("content-type", "<unknown>"),
+                    body_preview(response),
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail=malformed_detail,
+                ) from exc
+            return _directory_rows(payload, keys, malformed_detail)
     except HTTPException:
         raise
+    except httpx.TimeoutException as exc:
+        logger.warning("Request timeout ke BIMA for %s: %s", path, exc)
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail="BIMA request timed out."
+        ) from exc
+    except httpx.ConnectError as exc:
+        logger.error(
+            "Gagal koneksi ke server BIMA (cek VPN/DNS/Firewall) for %s: %s", path, exc
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="BIMA is unavailable."
+        ) from exc
     except httpx.HTTPError as exc:
+        logger.error("BIMA transport failure for %s: %r", path, exc)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="BIMA is unavailable."
         ) from exc

@@ -119,7 +119,7 @@ async def test_bima_service_forwards_bearer_and_fetches_list_and_detail() -> Non
     projects = await service.list_projects("engineer-token")
     project = await service.get_project(627, "engineer-token")
 
-    assert service.timeout_seconds == 10.0
+    assert service.timeout_seconds == 15.0
     assert projects[0]["number"] == "13726486.01"
     assert project["id"] == 627
     assert [request.url.path for request in requests] == [
@@ -127,6 +127,144 @@ async def test_bima_service_forwards_bearer_and_fetches_list_and_detail() -> Non
         "/api/projects/627",
     ]
     assert all(request.headers["Authorization"] == "Bearer engineer-token" for request in requests)
+    # BIMA answers an HTML login redirect unless the call looks like an API client.
+    assert all(request.headers["Accept"] == "application/json" for request in requests)
+    assert all("PRISM-App" in request.headers["User-Agent"] for request in requests)
+
+
+@pytest.mark.anyio
+async def test_bima_service_treats_login_redirect_as_expired_token() -> None:
+    """A 302 to /login must not surface as a bogus 502 'invalid JSON'."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/projects":
+            return httpx.Response(302, headers={"location": "https://bima.test/login"})
+        return httpx.Response(
+            200, html="<html><head><title>Login | BIMA</title></head></html>"
+        )
+
+    service = BimaService(base_url="https://bima.test", transport=httpx.MockTransport(handler))
+
+    with pytest.raises(HTTPException) as raised:
+        await service.list_projects("engineer-token")
+
+    assert raised.value.status_code == 401
+    assert "expired" in str(raised.value.detail).lower()
+
+
+@pytest.mark.anyio
+async def test_bima_service_treats_login_redirect_loop_as_expired_token() -> None:
+    """BIMA can bounce /login back to itself; that is still an auth failure."""
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(302, headers={"location": "https://bima.test/login"})
+
+    service = BimaService(base_url="https://bima.test", transport=httpx.MockTransport(handler))
+
+    with pytest.raises(HTTPException) as raised:
+        await service.list_projects("engineer-token")
+
+    assert raised.value.status_code == 401
+    assert "expired" in str(raised.value.detail).lower()
+
+
+@pytest.mark.anyio
+async def test_bima_service_follows_redirect_to_api_payload() -> None:
+    """A trailing-slash or http->https redirect must still reach the JSON payload."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/projects":
+            return httpx.Response(301, headers={"location": "https://bima.test/api/projects/"})
+        return httpx.Response(200, json={"data": [{"id": 627, "number": "1", "name": "Plant"}]})
+
+    service = BimaService(base_url="https://bima.test", transport=httpx.MockTransport(handler))
+
+    projects = await service.list_projects("engineer-token")
+
+    assert projects == [{"id": 627, "number": "1", "name": "Plant"}]
+
+
+@pytest.mark.anyio
+async def test_bima_service_reports_html_error_page_instead_of_502_json() -> None:
+    """An HTML error page must be logged as non-JSON, never parsed as a payload."""
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text="<html><body>Nginx error</body></html>")
+
+    service = BimaService(base_url="https://bima.test", transport=httpx.MockTransport(handler))
+
+    with pytest.raises(HTTPException) as raised:
+        await service.list_projects("engineer-token")
+
+    assert raised.value.status_code == 502
+    assert "invalid JSON" in str(raised.value.detail)
+
+
+@pytest.mark.anyio
+async def test_bima_service_get_project_falls_back_to_listing_on_404() -> None:
+    """BIMA answers 404 on /api/projects/{id}; the directory row must be used."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/projects/627":
+            return httpx.Response(404, json={"message": "Not Found"})
+        if request.url.path == "/api/projects":
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {
+                            "id": 627,
+                            "number": "13726486.01",
+                            "name": "Plant Upgrade",
+                            "client_name": "Example Client",
+                        }
+                    ]
+                },
+            )
+        return httpx.Response(404)
+
+    service = BimaService(base_url="https://bima.test", transport=httpx.MockTransport(handler))
+
+    project = await service.get_project(627, "engineer-token")
+
+    assert project["id"] == 627
+    assert project["name"] == "Plant Upgrade"
+    assert project["client_name"] == "Example Client"
+
+@pytest.mark.anyio
+async def test_bima_service_sends_single_bearer_prefix() -> None:
+    """A token arriving as 'Bearer Bearer x' must not be forwarded twice."""
+
+    seen: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.headers["Authorization"])
+        return httpx.Response(200, json={"data": []})
+
+    service = BimaService(base_url="https://bima.test", transport=httpx.MockTransport(handler))
+
+    for token in ("plain-token", "Bearer plain-token", "Bearer Bearer plain-token"):
+        await service.list_projects(token)
+
+    assert seen == ["Bearer plain-token"] * 3
+
+
+@pytest.mark.anyio
+async def test_bima_service_maps_connect_error_to_bad_gateway() -> None:
+    class ConnectFailTransport(httpx.AsyncBaseTransport):
+        async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+            raise httpx.ConnectError("name resolution failed", request=request)
+
+        async def aclose(self) -> None:
+            return None
+
+    service = BimaService(base_url="https://bima.test", transport=ConnectFailTransport())
+
+    with pytest.raises(HTTPException) as raised:
+        await service.list_projects("engineer-token")
+
+    assert raised.value.status_code == 502
+    assert raised.value.detail == "BIMA is unreachable."
 
 
 @pytest.mark.anyio
@@ -215,7 +353,8 @@ async def test_list_bima_projects_marks_imported_projects(tmp_path: Path) -> Non
 
 
 @pytest.mark.anyio
-async def test_list_bima_projects_prefers_bima_cookie_to_prism_authorization() -> None:
+async def test_list_bima_projects_prefers_bima_cookie_over_prism_jwt() -> None:
+    """The PRISM session JWT is not a BIMA credential; the SSO cookie must win."""
     user = _engineer()
     result = SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: []))
     session = MagicMock()
@@ -247,6 +386,37 @@ async def test_list_bima_projects_prefers_bima_cookie_to_prism_authorization() -
 
     assert response.status_code == 200
     assert service.list_calls == ["bima-engineer-token"]
+
+
+@pytest.mark.anyio
+async def test_list_bima_projects_accepts_missing_client_name() -> None:
+    """BIMA does not always populate the client; the directory must still load."""
+    user = _engineer()
+    result = SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: []))
+    session = MagicMock()
+    session.execute = AsyncMock(return_value=result)
+    service = _StubBimaService(
+        projects=[{"id": 900, "number": "13726486.09", "name": "Unassigned Client Plant"}]
+    )
+    previous = _install_overrides(session, user, service)
+
+    try:
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            response = await client.get(
+                "/api/v1/bima/projects",
+                headers={"Authorization": "Bearer engineer-token"},
+            )
+    finally:
+        _restore_overrides(previous)
+
+    assert response.status_code == 200
+    item = response.json()["data"][0]
+    assert item["id"] == 900
+    assert item["number"] == "13726486.09"
+    assert item["name"] == "Unassigned Client Plant"
+    assert item["client_name"] == ""
 
 
 @pytest.mark.anyio
