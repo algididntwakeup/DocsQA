@@ -2589,12 +2589,10 @@
         "description": "Arithmetic operands and locations supporting a table finding.",
         "properties": {
           "computed_value": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Computed Value",
             "type": "string"
           },
           "delta": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Delta",
             "type": "string"
           },
@@ -2620,12 +2618,10 @@
             "type": "string"
           },
           "stated_value": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Stated Value",
             "type": "string"
           },
           "tolerance": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Tolerance",
             "type": "string"
           },
