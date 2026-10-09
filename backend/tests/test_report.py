@@ -388,7 +388,7 @@ def test_bottom_line_and_visual_finding_table_humanize_raw_categories() -> None:
     finding_table = next(
         table
         for table in report.tables
-        if any(cell.text == "Finding" for cell in table.rows[0].cells)
+        if any(cell.text == "Finding Description" for cell in table.rows[0].cells)
     )
     visual_rows = [cell.text for row in finding_table.rows[1:] for cell in row.cells]
     assert all("_" not in cell for cell in visual_rows)

@@ -71,36 +71,36 @@ export function ExportModal({ documentId, documentFilename, isOpen, onClose, pro
   const options: ExportOption[] = [
     {
       format: "pdf",
-      title: "PDF Review Report",
+      title: t("exportPdfTitle"),
       extension: ".pdf",
-      badge: "Recommended",
+      badge: t("exportRecommended"),
       badgeClass: "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
-      description: "Production-ready read-only review report with exact layouts and tables rendered via Headless LibreOffice.",
+      description: t("exportPdfDescription"),
       icon: <FileText size={24} className="text-emerald-500 dark:text-emerald-400" />,
       testId: "export-pdf-btn",
-      actionLabel: "Download PDF",
+      actionLabel: t("exportPdfAction"),
     },
     {
       format: "docx",
-      title: "DOCX Review Report",
+      title: t("exportDocxTitle"),
       extension: ".docx",
-      badge: "Editable",
+      badge: t("exportEditable"),
       badgeClass: "text-sky-600 dark:text-sky-400 bg-sky-500/10 border-sky-500/20",
-      description: "Editable Microsoft Word document for reviewers who need to add manual revisions or comments.",
+      description: t("exportDocxDescription"),
       icon: <FileCheck2 size={24} className="text-sky-500 dark:text-sky-400" />,
       testId: "export-docx-btn",
-      actionLabel: "Download DOCX",
+      actionLabel: t("exportDocxAction"),
     },
     {
       format: "annotated_pdf",
-      title: "Annotated Source PDF",
+      title: t("exportAnnotatedPdfTitle"),
       extension: ".pdf",
-      badge: "Visual Inspection",
+      badge: t("exportVisualInspection"),
       badgeClass: "text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20",
-      description: "Original source PDF overlaid with bounding boxes and callout popups indicating exact finding locations and reviewer notes for included findings.",
+      description: t("exportAnnotatedPdfDescription"),
       icon: <FileText size={24} className="text-amber-500 dark:text-amber-400" />,
       testId: "export-annotated-pdf-btn",
-      actionLabel: "Download Overlay",
+      actionLabel: t("exportAnnotatedPdfAction"),
     },
   ];
 
@@ -110,13 +110,13 @@ export function ExportModal({ documentId, documentFilename, isOpen, onClose, pro
         <header className="modal-header">
           <div className="flex items-center gap-2">
             <Download size={18} className="text-sky-500" />
-            <h2 id="export-modal-title" className="text-base font-semibold text-ink">{t("export")} Review Deliverables</h2>
+            <h2 id="export-modal-title" className="text-base font-semibold text-ink">{t("export")} {t("exportDeliverablesTitle")}</h2>
           </div>
-          <button type="button" className="icon-button text-muted-foreground" onClick={closeModal} aria-label="Close export modal"><X size={16} /></button>
+          <button type="button" className="icon-button text-muted-foreground" onClick={closeModal} aria-label={t("exportCloseModal")}><X size={16} /></button>
         </header>
         <div className="modal-body p-5 space-y-4">
           <p className="text-xs text-muted-foreground">
-            Select an export format for document <strong className="text-ink font-semibold">{documentFilename}</strong>. Generated outputs reflect only findings marked as included in report.
+            {t("exportFormatPrompt")} <strong className="text-ink font-semibold">{documentFilename}</strong>. {t("exportIncludedFindingsOnly")}
           </p>
           <fieldset className="rounded-lg border border-line bg-muted/5 p-3 text-xs text-muted-foreground">
             <legend className="font-semibold text-ink">{t("reportLanguage")}</legend>
@@ -130,7 +130,7 @@ export function ExportModal({ documentId, documentFilename, isOpen, onClose, pro
                   onChange={() => setReportLanguage("en")}
                   className="accent-primary"
                 />
-                <span>English</span>
+                <span>English (EN)</span>
               </label>
               <label className="inline-flex items-center gap-2 cursor-pointer font-medium text-ink">
                 <input
@@ -141,7 +141,7 @@ export function ExportModal({ documentId, documentFilename, isOpen, onClose, pro
                   onChange={() => setReportLanguage("id")}
                   className="accent-primary"
                 />
-                <span>Bahasa Indonesia</span>
+                <span>Bahasa Indonesia (ID)</span>
               </label>
             </div>
             <p className="mt-2 text-[11px] text-muted-foreground">{t("reportLanguageHelp")}</p>
@@ -155,7 +155,7 @@ export function ExportModal({ documentId, documentFilename, isOpen, onClose, pro
             />
             <span>
               <span className="block font-semibold text-ink">{t("includeMinors")}</span>
-              <span>Include other minor and informational findings in the export. Off by default to keep the report concise.</span>
+              <span>{t("exportIncludeMinorsDescription")}</span>
             </span>
           </label>
           <label className="flex items-start gap-2 rounded-lg border border-line bg-muted/5 p-3 text-xs text-muted-foreground cursor-pointer">
@@ -166,8 +166,8 @@ export function ExportModal({ documentId, documentFilename, isOpen, onClose, pro
               className="mt-0.5 accent-primary"
             />
             <span>
-              <span className="block font-semibold text-ink">Include language and mechanics</span>
-              <span>Include spelling, grammar, and mechanics findings by page. Off by default to keep the report concise.</span>
+              <span className="block font-semibold text-ink">{t("exportIncludeLanguage")}</span>
+              <span>{t("exportIncludeLanguageDescription")}</span>
             </span>
           </label>
           <HeaderTemplateConfigEditor value={headerConfig} onChange={setHeaderConfig} />

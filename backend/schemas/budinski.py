@@ -434,6 +434,8 @@ class AssessmentMetadata(ApiModel):
 
     document_reviewed: str = Field(description="Full identity string of the reviewed document.")
     document_number: str = ""
+    project_number: str = ""
+    client_name: str = ""
     revision: str = ""
     page_count: int | None = None
     document_date: str = ""

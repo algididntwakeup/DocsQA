@@ -256,7 +256,11 @@ class TestReviewExportDocx:
         maj_table = None
         for t in doc.tables:
             hdr_text = " ".join(c.text for c in t.rows[0].cells)
-            if "No." in hdr_text and "Finding" in hdr_text and "What would fix it" in hdr_text:
+            if (
+                "No." in hdr_text
+                and "Finding Description" in hdr_text
+                and "Recommendation" in hdr_text
+            ):
                 maj_table = t
                 break
 

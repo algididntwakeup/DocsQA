@@ -90,7 +90,7 @@ describe("ExportModal", () => {
       />
     );
 
-    const idRadio = screen.getByLabelText("Bahasa Indonesia");
+    const idRadio = screen.getByLabelText("Bahasa Indonesia (ID)");
     fireEvent.click(idRadio);
 
     const docxBtn = screen.getByTestId("export-docx-btn");

@@ -2,6 +2,11 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { ReportPreviewModal } from "./report-preview-modal";
 import * as api from "@/lib/api";
+import * as downloadModule from "@/lib/download";
+
+vi.mock("@/lib/download", () => ({
+  downloadExport: vi.fn(),
+}));
 
 vi.mock("@/lib/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api")>();
@@ -68,8 +73,13 @@ describe("ReportPreviewModal", () => {
     });
 
     // Export actions are buttons so they can show asynchronous toast feedback.
-    expect(screen.getByRole("button", { name: /download docx report/i })).toBeDefined();
-    expect(screen.getByRole("button", { name: /download annotated pdf/i })).toBeDefined();
+    expect(screen.getByRole("button", { name: /download docx/i })).toBeDefined();
+    expect(screen.getByRole("button", { name: /download pdf/i })).toBeDefined();
+
+    fireEvent.click(screen.getByRole("button", { name: /download docx/i }));
+    fireEvent.click(screen.getByRole("button", { name: /download pdf/i }));
+    expect(downloadModule.downloadExport).toHaveBeenNthCalledWith(1, docId, "docx", false, "en");
+    expect(downloadModule.downloadExport).toHaveBeenNthCalledWith(2, docId, "pdf", false, "en");
   });
 
   it("handles preview error gracefully", async () => {

@@ -324,7 +324,6 @@ async def test_list_bima_projects_marks_imported_projects(tmp_path: Path) -> Non
 @pytest.mark.anyio
 async def test_list_bima_projects_prefers_bima_cookie_over_prism_jwt() -> None:
     """The PRISM session JWT is not a BIMA credential; the SSO cookie must win."""
-
     user = _engineer()
     result = SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: []))
     session = MagicMock()
@@ -415,11 +414,13 @@ async def test_import_bima_project_creates_record_and_workspace(tmp_path: Path) 
 
     try:
         async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
+            transport=ASGITransport(app=app),
+            base_url="http://test",
+            cookies={"bima_access_token": "bima-engineer-token"},
         ) as client:
             response = await client.post(
                 "/api/v1/projects/import-bima",
-                headers={"Authorization": "Bearer engineer-token"},
+                headers={"Authorization": "Bearer prism-session-jwt"},
                 json={"bima_project_id": 627},
             )
     finally:
@@ -434,10 +435,10 @@ async def test_import_bima_project_creates_record_and_workspace(tmp_path: Path) 
     assert body["client_name"] == "Example Client"
     assert project.name == "Plant Upgrade"
     assert project.created_by_id == user.id
+    assert service.detail_calls == [(627, "bima-engineer-token")]
     assert (tmp_path / "projects" / str(project.id)).is_dir()
     session.flush.assert_awaited_once()
     session.commit.assert_awaited_once()
-    assert service.detail_calls == [(627, "engineer-token")]
 
 
 @pytest.mark.anyio
