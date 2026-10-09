@@ -54,7 +54,14 @@ class Settings(BaseSettings):
     # ── BIMA identity provider ────────────────────────────────────────
     BIMA_BASE_URL: str = "https://bima.reksolindo.co.id"
     BIMA_CLIENT_ID: str = "prism"
-    BIMA_TIMEOUT_SECONDS: float = 10.0
+    BIMA_TIMEOUT_SECONDS: float = 15.0
+    BIMA_CONNECT_TIMEOUT_SECONDS: float = 5.0
+    # Dev environments behind an internal CA may set BIMA_SSL_VERIFY=false.
+    BIMA_SSL_VERIFY: bool = True
+    BIMA_USER_AGENT: str = (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 PRISM-App/1.0"
+    )
 
     # ── NLP / LanguageTool ───────────────────────────────────────────
     LANGUAGE_TOOL_HOST: str = "http://languagetool:8081"
