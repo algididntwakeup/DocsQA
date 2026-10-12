@@ -4,8 +4,9 @@ import { AlertTriangle, CloudDownload, FolderKanban, Plus, X } from "lucide-reac
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { SortingState } from "@tanstack/react-table";
-import { ApiError, createProject, deleteProject, finishProject, getCurrentUser, listProjectDocuments, listProjects, syncBimaProjects } from "@/lib/api";
+import { ApiError, createProject, deleteProject, finishProject, getCurrentUser, listProjectDocuments, listProjects, syncBimaProjects, type UserRole } from "@/lib/api";
 import { useLocale } from "@/components/layout/locale-provider";
+import { canCreateAnyProject, canCreateProject, createPermissionMessage, createScopeHint, isPrivileged } from "@/lib/project-permissions";
 import { ExplorerToolbar } from "@/components/projects/explorer-toolbar";
 import { ProjectGridSkeleton, ProjectGridView } from "@/components/projects/project-grid-view";
 import { ProjectTableSkeleton, ProjectTableView, useProjectTable } from "@/components/projects/project-table-view";
@@ -19,18 +20,21 @@ export default function ProjectsPage() {
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [canCreateProject, setCanCreateProject] = useState(false);
+  const [canOpenCreateModal, setCanOpenCreateModal] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [name, setName] = useState("");
   const [area, setArea] = useState("");
+  const [projectNumber, setProjectNumber] = useState("");
   const [creating, setCreating] = useState(false);
-  const [currentRole, setCurrentRole] = useState<string | null>(null);
+  const [currentRole, setCurrentRole] = useState<UserRole | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [search, setSearch] = useState("");
   const [sorting, setSorting] = useState<SortingState>([{ id: "updated_at", desc: true }]);
   const [viewMode, setViewMode] = useViewMode();
   const { t } = useLocale();
-  const canManage = currentRole === "LEAD_ENGINEER" || currentRole === "SUPERUSER";
+  const canManage = isPrivileged(currentRole);
+  const createAllowed = canCreateProject(currentRole, projectNumber);
+  const createBlockedReason = createAllowed ? null : createPermissionMessage(projectNumber);
   const sortBy = (sorting[0]?.id ?? "updated_at") as ProjectSortField;
   const sortDirection = sorting[0]?.desc ? "desc" : "asc";
 
@@ -65,7 +69,7 @@ export default function ProjectsPage() {
       const next = await listProjects();
       setProjects(next);
       const current = await getCurrentUser();
-      setCanCreateProject(current.role === "LEAD_ENGINEER" || current.role === "SUPERUSER");
+      setCanOpenCreateModal(canCreateAnyProject(current.role));
       setCurrentRole(current.role);
       const entries = await Promise.all(
         next.map(async (project) => [project.id, (await listProjectDocuments(project.id)).pagination.total] as const)
@@ -92,12 +96,21 @@ export default function ProjectsPage() {
   async function submitProject(event: FormEvent) {
     event.preventDefault();
     if (!name.trim()) return;
+    if (!createAllowed) {
+      setError(createBlockedReason ?? t("couldNotCreateProject"));
+      return;
+    }
     setCreating(true);
     try {
-      await createProject({ name: name.trim(), plant_area: area.trim() || undefined });
+      await createProject({
+        name: name.trim(),
+        plant_area: area.trim() || undefined,
+        project_number: projectNumber.trim() || undefined,
+      });
       setModalOpen(false);
       setName("");
       setArea("");
+      setProjectNumber("");
       await load();
     } catch (caught) {
        setError(caught instanceof ApiError ? caught.message : t("couldNotCreateProject"));
@@ -156,12 +169,13 @@ export default function ProjectsPage() {
           <p className="mt-1 text-sm text-muted-foreground">{t("projectDescription")}</p>
         </div>
         <div className="flex flex-wrap gap-2 self-start sm:self-auto">
-          {canCreateProject && (
+          {canOpenCreateModal && (
             <button
               className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:opacity-50"
               type="button"
               onClick={() => setModalOpen(true)}
               disabled={syncing}
+              title={createScopeHint(currentRole)}
             >
               <Plus size={16} />
               {t("createProject")}
@@ -181,8 +195,8 @@ export default function ProjectsPage() {
         onViewModeChange={setViewMode}
         rightSlot={(
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <ImportBimaModal onImported={() => void load()} />
-            {canCreateProject && (
+            <ImportBimaModal onImported={() => void load()} role={currentRole} />
+            {isPrivileged(currentRole) && (
               <button
                 className="inline-flex items-center gap-2 rounded-lg border border-primary/20 bg-accent px-4 py-2.5 text-xs font-bold text-accent-foreground transition hover:bg-accent/80 disabled:opacity-50"
                 type="button"
@@ -276,7 +290,26 @@ export default function ProjectsPage() {
                   className="mt-1 h-10 w-full rounded-lg border border-border px-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none"
                 />
               </label>
+
+              <label className="block text-xs font-bold text-foreground">
+                Nomor Proyek
+                <input
+                  value={projectNumber}
+                  onChange={(event) => setProjectNumber(event.target.value)}
+                  placeholder="e.g. 13726486.01 (Engineering) / 03-2026-001 (Internal)"
+                  className="mt-1 h-10 w-full rounded-lg border border-border px-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none"
+                />
+                <span className="mt-1 block text-[10px] font-medium text-muted-foreground">
+                  {createScopeHint(currentRole)}
+                </span>
+              </label>
             </div>
+
+            {!createAllowed && projectNumber.trim() !== "" && (
+              <p role="alert" className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-[11px] font-medium text-amber-800">
+                {createBlockedReason}
+              </p>
+            )}
 
             <div className="mt-6 flex justify-end gap-2 border-t border-border/60 pt-4">
               <button
@@ -288,7 +321,8 @@ export default function ProjectsPage() {
               </button>
               <button
                 className="rounded-lg bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50"
-                disabled={creating}
+                disabled={creating || !createAllowed}
+                title={createAllowed ? undefined : createBlockedReason ?? undefined}
               >
                  {creating ? t("creating") : t("createProject")}
               </button>

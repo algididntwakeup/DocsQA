@@ -1,17 +1,22 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CircleAlert, CloudDownload, LoaderCircle, Search, X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { CircleAlert, CloudDownload, ExternalLink, LoaderCircle, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import { useLocale } from "@/components/layout/locale-provider";
 import { useBimaProjects, useImportBimaProject } from "@/hooks/use-bima-projects";
+import { canManageFolders, folderPermissionMessage } from "@/lib/project-permissions";
+import type { UserRole } from "@/lib/api";
 import type { BimaProject } from "@/types/project";
 
 interface ImportBimaModalProps {
   onImported?: () => void | Promise<void>;
+  role?: UserRole | null;
 }
 
-export function ImportBimaModal({ onImported }: ImportBimaModalProps) {
+export function ImportBimaModal({ onImported, role = null }: ImportBimaModalProps) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [importError, setImportError] = useState<string | null>(null);
@@ -37,6 +42,12 @@ export function ImportBimaModal({ onImported }: ImportBimaModalProps) {
       [project.number, project.name, project.client_name].some((value) => value.toLowerCase().includes(query)),
     );
   }, [projectsQuery.data, search]);
+
+  function openImportedProject(project: BimaProject) {
+    if (!project.prism_project_id) return;
+    closeDialog();
+    router.push(`/workspace/${project.prism_project_id}`);
+  }
 
   async function handleImport(project: BimaProject) {
     setImportError(null);
@@ -149,6 +160,7 @@ export function ImportBimaModal({ onImported }: ImportBimaModalProps) {
             <div className="space-y-3">
               {projects.map((project) => {
                 const isImporting = importMutation.isPending && importMutation.variables?.bima_project_id === project.id;
+                const importAllowed = canManageFolders(role, project.number);
                 return (
                   <div key={project.id} className="flex items-center gap-4 rounded-xl border border-border/70 bg-card p-4 transition hover:bg-muted/30">
                     <span className="max-w-32 shrink-0 truncate rounded-md bg-muted px-2 py-1 font-mono text-[11px] font-semibold text-muted-foreground" title={project.number}>
@@ -158,16 +170,30 @@ export function ImportBimaModal({ onImported }: ImportBimaModalProps) {
                       <p className="line-clamp-1 text-sm font-semibold text-foreground" title={project.name}>{project.name}</p>
                       <p className="mt-1 line-clamp-1 text-xs text-muted-foreground" title={project.client_name}>{project.client_name}</p>
                     </div>
-                    <div className="shrink-0">
+                    <div className="flex shrink-0 items-center gap-2">
                       {project.is_imported ? (
-                        <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[10px] font-bold text-emerald-800">
-                          {t("bimaBadgeImported")}
-                        </span>
+                        <>
+                          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[10px] font-bold text-emerald-800">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                            {t("bimaBadgeImported")}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => openImportedProject(project)}
+                            disabled={!project.prism_project_id}
+                            title={t("openWorkspaceFor", { name: project.name })}
+                            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-xs font-bold text-foreground transition hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <ExternalLink size={14} />
+                            {t("bimaBtnOpenProject")}
+                          </button>
+                        </>
                       ) : (
                         <button
                           type="button"
-                          disabled={importMutation.isPending}
+                          disabled={importMutation.isPending || !importAllowed}
                           onClick={() => void handleImport(project)}
+                          title={importAllowed ? undefined : folderPermissionMessage(project.number)}
                           className="inline-flex min-w-20 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-bold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           {isImporting && <LoaderCircle size={14} className="animate-spin" />}

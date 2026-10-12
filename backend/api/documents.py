@@ -70,6 +70,7 @@ from services.export import (
     export_annotated_pdf,
     generate_ale_review_docx,
 )
+from services.permission_service import is_privileged
 from services.pipeline import enqueue_extraction
 from services.progress_events import open_document_progress_subscription
 from services.storage.local import LocalStorage
@@ -403,7 +404,9 @@ async def list_documents(
         joinedload(Document.assigned_to),
         joinedload(Document.project).selectinload(Project.members),
     )
-    if current_user.role == UserRole.ENGINEER:
+    # Non-privileged roles (engineers, HR/GA, finance) only see their own
+    # documents; lead engineers and superusers keep the cross-engineer view.
+    if not is_privileged(current_user.role):
         query = query.outerjoin(Document.project).where(
             (Document.assigned_to_id == current_user.id)
             | (Document.owner_id == current_user.id)

@@ -26,7 +26,9 @@ alembic>=1.13.0
 
 # Utilities
 python-multipart>=0.0.9
-pydantic>=2.7.0
+# Keep pydantic <2.14: 2.14 drops the Decimal pattern from generated JSON
+# schemas, so scripts.export_openapi drifts from the committed openapi.json.
+pydantic>=2.7.0,<2.14
 pydantic-settings>=2.3.0
 PyJWT>=2.8.0
 passlib[bcrypt]>=1.7.4

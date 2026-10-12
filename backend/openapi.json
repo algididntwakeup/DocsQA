@@ -1500,7 +1500,7 @@
       },
       "ManagedUserCreate": {
         "additionalProperties": false,
-        "description": "Payload for creating an engineer or lead account.",
+        "description": "Payload for creating an engineer, lead, HR/GA, or finance account.",
         "properties": {
           "email": {
             "maxLength": 255,
@@ -1517,7 +1517,9 @@
             "default": "ENGINEER",
             "enum": [
               "ENGINEER",
-              "LEAD_ENGINEER"
+              "LEAD_ENGINEER",
+              "HRGA",
+              "FINANCE"
             ],
             "title": "Role",
             "type": "string"
@@ -1713,6 +1715,18 @@
               }
             ],
             "title": "Plant Area"
+          },
+          "project_number": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Number"
           },
           "status": {
             "default": "ACTIVE",
@@ -2935,7 +2949,9 @@
         "enum": [
           "ENGINEER",
           "LEAD_ENGINEER",
-          "SUPERUSER"
+          "SUPERUSER",
+          "HRGA",
+          "FINANCE"
         ],
         "title": "UserRole",
         "type": "string"
@@ -3304,7 +3320,7 @@
         ]
       },
       "post": {
-        "description": "Create an engineer or lead account with a temporary password.",
+        "description": "Create an engineer, lead, HR/GA, or finance account with a temporary password.",
         "operationId": "create_user_api_v1_auth_users_post",
         "requestBody": {
           "content": {
@@ -5197,7 +5213,7 @@
         ]
       },
       "post": {
-        "description": "Create a project for lead users.",
+        "description": "Create a project and its workspace folder under the folder RBAC rules.\n\nNumbered projects are restricted by prefix: ``13`` engineering projects are\nowned by engineering roles, ``03`` internal projects by HR/GA and finance.\nUnnumbered projects keep the legacy lead-only rule.",
         "operationId": "create_project_api_v1_projects_post",
         "requestBody": {
           "content": {

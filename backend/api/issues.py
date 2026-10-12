@@ -9,12 +9,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.dependencies import get_current_user
 from db.session import get_session
-from domain.enums import UserRole
 from models.document import Document
 from models.issue import Issue
 from models.project import Project
 from models.user import User
 from schemas.issues import IssueCurationRequest, IssueRead
+from services.permission_service import is_privileged
 
 router = APIRouter(prefix="/issues", tags=["issues"])
 
@@ -32,7 +32,7 @@ async def curate_issue(
         .join(Project, Document.project_id == Project.id, isouter=True)
         .where(Issue.id == issue_id)
     )
-    if current_user.role == UserRole.ENGINEER:
+    if not is_privileged(current_user.role):
         query = query.where(
             or_(Document.assigned_to_id == current_user.id, Document.owner_id == current_user.id)
         )

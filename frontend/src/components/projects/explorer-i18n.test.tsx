@@ -10,6 +10,10 @@ vi.mock("@/hooks/use-bima-projects", () => ({
   useImportBimaProject: () => ({ isPending: false, mutateAsync: vi.fn(), variables: undefined }),
 }));
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
+
 function renderWithLocale(ui: ReactElement, locale: "en" | "id") {
   window.localStorage.setItem("matqc-locale", locale);
   return render(<LocaleProvider>{ui}</LocaleProvider>);

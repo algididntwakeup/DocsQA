@@ -334,8 +334,13 @@ async def create_user(
     session: Annotated[AsyncSession, Depends(get_session)],
     _: Annotated[User, Depends(require_user_manager)],
 ) -> UserManagementRead:
-    """Create an engineer or lead account with a temporary password."""
-    if payload.role not in {UserRole.ENGINEER, UserRole.LEAD_ENGINEER}:
+    """Create an engineer, lead, HR/GA, or finance account with a temporary password."""
+    if payload.role not in {
+        UserRole.ENGINEER,
+        UserRole.LEAD_ENGINEER,
+        UserRole.HRGA,
+        UserRole.FINANCE,
+    }:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="SUPERUSER cannot be created here.",

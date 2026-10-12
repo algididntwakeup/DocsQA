@@ -10,7 +10,7 @@ const workspaceKeys = [
   "emptyWorkspace", "loadingProjectList", "projectActions", "actionsForProject", "copyProjectNumber",
   "projectNumberCopied", "projectNumberCopyFailed",
   "bimaIntegration", "bimaModalTitle", "bimaModalDesc", "bimaSearchLabel", "bimaSearchPlaceholder",
-  "bimaBadgeImported", "bimaBtnImport", "bimaBtnImporting", "bimaLoading", "bimaImportSuccess", "bimaImportFailed",
+  "bimaBadgeImported", "bimaBtnOpenProject", "bimaBtnImport", "bimaBtnImporting", "bimaLoading", "bimaImportSuccess", "bimaImportFailed",
   "closeDialog",
   "relativeJustNow", "relativeMinuteAgo", "relativeMinutesAgo", "relativeHourAgo", "relativeHoursAgo",
   "relativeYesterday", "relativeDaysAgo", "relativeMonthAgo", "relativeMonthsAgo", "relativeYearAgo", "relativeYearsAgo",
