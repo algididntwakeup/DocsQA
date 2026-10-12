@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import * as pdfjsLib from "pdfjs-dist";
 import {
   ChevronLeft,
@@ -326,8 +326,11 @@ export function PdfCanvasViewer({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [currentPage, effectiveTotalPages, onPageChange]);
 
-  // Enable trackpad pinch-to-zoom and Ctrl+wheel zooming
-  useEffect(() => {
+  // Enable trackpad pinch-to-zoom and Ctrl+wheel zooming.
+  // useLayoutEffect attaches the native listeners synchronously in the same
+  // commit that mounts the scroll container, so a gesture dispatched right
+  // after the canvas appears can never slip through before binding.
+  useLayoutEffect(() => {
     const scrollEl = scrollRef.current;
     if (!scrollEl) return;
 
