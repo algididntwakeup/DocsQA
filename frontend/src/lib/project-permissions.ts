@@ -1,4 +1,5 @@
 import type { UserRole } from "@/lib/api";
+import type { TranslationKey } from "@/lib/i18n";
 
 /**
  * Client-side mirror of `backend/services/permission_service.py`.
@@ -57,15 +58,11 @@ export function canCreateAnyProject(role: UserRole | null | undefined): boolean 
     || role === "FINANCE";
 }
 
-export function folderPermissionMessage(projectNumber: string | null | undefined): string {
+export function folderPermissionMessageKey(projectNumber: string | null | undefined): TranslationKey {
   const kind = projectKind(projectNumber);
-  if (kind === "ENGINEERING") {
-    return "Hanya engineer, lead engineer, atau superuser yang dapat mengelola folder pada proyek Engineering (nomor prefix 13).";
-  }
-  if (kind === "INTERNAL") {
-    return "Hanya HR/GA, finance, atau superuser yang dapat mengelola folder pada proyek Internal (nomor prefix 03).";
-  }
-  return "Anda tidak memiliki izin mengelola folder pada proyek ini.";
+  if (kind === "ENGINEERING") return "folderPermissionEngineering";
+  if (kind === "INTERNAL") return "folderPermissionInternal";
+  return "folderPermissionUnclassified";
 }
 
 export function createPermissionMessage(projectNumber: string | null | undefined): string {

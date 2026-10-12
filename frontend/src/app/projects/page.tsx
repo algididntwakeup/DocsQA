@@ -181,7 +181,7 @@ export default function ProjectsPage() {
         onViewModeChange={setViewMode}
         rightSlot={(
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <ImportBimaModal onImported={() => void load()} role={currentRole} />
+            <ImportBimaModal role={currentRole} />
           </div>
         )}
       />

@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { translate, type Locale } from "./i18n";
 import {
   canCreateProject,
   canManageFolders,
   createPermissionMessage,
-  folderPermissionMessage,
+  folderPermissionMessageKey,
   isPrivileged,
   projectKind,
 } from "./project-permissions";
@@ -78,9 +79,18 @@ describe("isPrivileged", () => {
 
 describe("permission messages", () => {
   it("names the required prefix", () => {
-    expect(folderPermissionMessage(ENGINEERING_NUMBER)).toContain("13");
-    expect(folderPermissionMessage(INTERNAL_NUMBER)).toContain("03");
     expect(createPermissionMessage(ENGINEERING_NUMBER)).toContain("13");
     expect(createPermissionMessage(INTERNAL_NUMBER)).toContain("03");
+  });
+
+  it("resolves the folder tooltip to localized text in both locales", () => {
+    const locales: Locale[] = ["en", "id"];
+    for (const locale of locales) {
+      expect(translate(locale, folderPermissionMessageKey(ENGINEERING_NUMBER))).toContain("13");
+      expect(translate(locale, folderPermissionMessageKey(INTERNAL_NUMBER))).toContain("03");
+      expect(translate(locale, folderPermissionMessageKey(null))).not.toBe(
+        folderPermissionMessageKey(null),
+      );
+    }
   });
 });
