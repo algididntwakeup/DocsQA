@@ -52,7 +52,12 @@ export function ImportBimaModal({ onImported, role = null }: ImportBimaModalProp
   async function handleImport(project: BimaProject) {
     setImportError(null);
     try {
-      await importMutation.mutateAsync({ bima_project_id: project.id });
+      await importMutation.mutateAsync({
+        bima_project_id: project.id,
+        project_number: project.number,
+        name: project.name,
+        client_name: project.client_name,
+      });
       toast.success(t("bimaImportSuccess"));
       await onImported?.();
     } catch (caught) {

@@ -185,17 +185,6 @@ export default function ProjectsPage() {
             <ErrorBoundary>
               <ImportBimaModal onImported={() => void load()} role={currentRole} />
             </ErrorBoundary>
-            {isPrivileged(currentRole) && (
-              <button
-                className="inline-flex items-center gap-2 rounded-lg border border-primary/20 bg-accent px-4 py-2.5 text-xs font-bold text-accent-foreground transition hover:bg-accent/80 disabled:opacity-50"
-                type="button"
-                onClick={() => void handleBimaSync()}
-                disabled={syncing}
-              >
-                <CloudDownload size={16} />
-                {syncing ? t("syncing") : t("syncProjects")}
-              </button>
-            )}
           </div>
         )}
       />
