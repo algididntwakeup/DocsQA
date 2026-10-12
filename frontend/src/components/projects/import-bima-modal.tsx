@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { CircleAlert, CloudDownload, ExternalLink, LoaderCircle, Plus, Search, X } from "lucide-react";
+import { CircleAlert, CloudDownload, LoaderCircle, Plus, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import { useLocale } from "@/components/layout/locale-provider";
 import { useBimaProjects, useImportBimaProject } from "@/hooks/use-bima-projects";
@@ -15,7 +14,6 @@ interface ImportBimaModalProps {
 }
 
 export function ImportBimaModal({ role = null }: ImportBimaModalProps) {
-  const router = useRouter();
   const { t } = useLocale();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -47,24 +45,18 @@ export function ImportBimaModal({ role = null }: ImportBimaModalProps) {
     setImportError(null);
   }
 
-  function openImportedProject(project: BimaCatalogItem) {
-    if (!project.prism_project_id) return;
-    closeDialog();
-    router.push(`/workspace/${project.prism_project_id}`);
-  }
-
   async function handleImport(project: BimaCatalogItem) {
     setImportError(null);
     try {
       // Success handling lives in the mutation hook: it invalidates the catalog
-      // and project queries, toasts, and routes to the new workspace.
+      // and project queries, toasts, and leaves the dialog open so the user can
+      // keep adding. The new folder shows up on /projects.
       await importMutation.mutateAsync({
         bima_project_id: project.id,
         project_number: project.number,
         name: project.name,
         client_name: project.client_name,
       });
-      closeDialog();
     } catch {
       const message = t("bimaImportFailed");
       setImportError(message);
@@ -177,16 +169,10 @@ export function ImportBimaModal({ role = null }: ImportBimaModalProps) {
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       {project.is_imported ? (
-                        <button
-                          type="button"
-                          onClick={() => openImportedProject(project)}
-                          disabled={!project.prism_project_id}
-                          title={t("bimaOpenWorkspaceTitle")}
-                          className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-xs font-bold text-foreground transition hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          <ExternalLink size={14} />
-                          {t("openWorkspace")}
-                        </button>
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[10px] font-bold text-emerald-800">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                          {t("bimaBadgeInFolder")}
+                        </span>
                       ) : (
                         <button
                           type="button"
@@ -196,7 +182,7 @@ export function ImportBimaModal({ role = null }: ImportBimaModalProps) {
                           className="inline-flex min-w-20 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-bold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           {isImporting ? <LoaderCircle size={14} className="animate-spin" /> : <Plus size={14} />}
-                          {isImporting ? t("bimaImporting") : t("bimaImportAction")}
+                          {isImporting ? t("bimaAddingToFolder") : t("bimaAddToFolder")}
                         </button>
                       )}
                     </div>

@@ -10,8 +10,8 @@ const workspaceKeys = [
   "emptyWorkspace", "loadingProjectList", "projectActions", "actionsForProject", "copyProjectNumber",
   "projectNumberCopied", "projectNumberCopyFailed",
   "bimaIntegration", "bimaModalTitle", "bimaModalDesc", "bimaSearchLabel", "bimaSearchPlaceholder",
-  "bimaCloseDialog", "bimaEmptyTitle", "bimaEmptyHint", "bimaImportAction", "bimaImporting",
-  "bimaOpenWorkspaceTitle", "openWorkspace", "bimaLoading", "bimaLoadFailed", "bimaImportSuccess", "bimaImportFailed",
+  "bimaCloseDialog", "bimaEmptyTitle", "bimaEmptyHint", "bimaAddToFolder", "bimaAddingToFolder",
+  "bimaBadgeInFolder", "openWorkspace", "bimaLoading", "bimaLoadFailed", "bimaImportSuccess", "bimaImportFailed",
   "relativeJustNow", "relativeMinuteAgo", "relativeMinutesAgo", "relativeHourAgo", "relativeHoursAgo",
   "relativeYesterday", "relativeDaysAgo", "relativeMonthAgo", "relativeMonthsAgo", "relativeYearAgo", "relativeYearsAgo",
 ] as const;
@@ -39,8 +39,9 @@ describe("workspace & BIMA dictionaries", () => {
     expect(translate("id", "importFromBima")).toBe("Tambah dari BIMA");
     expect(translate("id", "searchPlaceholder")).toBe("Cari proyek berdasarkan nama, nomor, atau klien...");
     expect(translate("id", "viewTable")).toBe("Tampilan Tabel");
-    expect(translate("id", "bimaImportAction")).toBe("Impor");
-    expect(translate("id", "bimaImporting")).toBe("Mengimpor...");
+    expect(translate("id", "bimaAddToFolder")).toBe("Tambah ke Folder");
+    expect(translate("id", "bimaAddingToFolder")).toBe("Menambahkan...");
+    expect(translate("id", "bimaBadgeInFolder")).toBe("Sudah di Folder");
     expect(translate("id", "openWorkspace")).toBe("Buka Workspace");
     expect(translate("id", "bimaImportSuccess")).toBe("Proyek berhasil diimpor ke PRISM");
   });
@@ -50,7 +51,8 @@ describe("workspace & BIMA dictionaries", () => {
     expect(translate("en", "bimaModalTitle")).toBe("Choose a project to import");
     expect(translate("en", "bimaModalDesc")).toBe("Search by project number, title, or client name.");
     expect(translate("en", "bimaSearchPlaceholder")).toBe("Search project number, name, or client...");
-    expect(translate("en", "bimaImporting")).toBe("Importing...");
+    expect(translate("en", "bimaAddingToFolder")).toBe("Adding...");
+    expect(translate("en", "bimaBadgeInFolder")).toBe("Already in Folder");
     expect(translate("en", "openWorkspace")).toBe("Open Workspace");
     expect(translate("en", "bimaLoading")).toBe("Loading BIMA projects...");
     expect(translate("en", "bimaImportSuccess")).toBe("Project successfully imported to PRISM");
