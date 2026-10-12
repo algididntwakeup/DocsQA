@@ -628,6 +628,26 @@ export interface paths {
         patch: operations["curate_issue_api_v1_issues__issue_id__curation_patch"];
         trace?: never;
     };
+    "/api/v1/logs/client": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ingest Client Error
+         * @description Record a frontend error without exposing the report back to the user.
+         */
+        post: operations["ingest_client_error_api_v1_logs_client_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects": {
         parameters: {
             query?: never;
@@ -1022,6 +1042,33 @@ export interface components {
             current_password: string;
             /** New Password */
             new_password: string;
+        };
+        /** ClientErrorAccepted */
+        ClientErrorAccepted: {
+            /** Correlation Id */
+            correlation_id: string;
+            /** Success */
+            success: boolean;
+        };
+        /**
+         * ClientErrorPayload
+         * @description A bounded browser error report suitable for structured logs.
+         */
+        ClientErrorPayload: {
+            /** Component Stack */
+            component_stack?: string | null;
+            /** Correlation Id */
+            correlation_id?: string | null;
+            /** Message */
+            message: string;
+            /** Stack */
+            stack?: string | null;
+            /** Timestamp */
+            timestamp?: string | null;
+            /** Url */
+            url?: string | null;
+            /** User Agent */
+            user_agent?: string | null;
         };
         /**
          * DictionaryTermApprovalRequest
@@ -3309,6 +3356,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IssueRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ingest_client_error_api_v1_logs_client_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClientErrorPayload"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientErrorAccepted"];
                 };
             };
             /** @description Validation Error */
