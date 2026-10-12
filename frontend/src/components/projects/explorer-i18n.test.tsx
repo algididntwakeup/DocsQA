@@ -62,7 +62,7 @@ describe("ImportBimaModal localization", () => {
   it("renders English copy when locale is en", () => {
     renderWithLocale(<ImportBimaModal />, "en");
 
-    expect(screen.getByRole("button", { name: /Import from BIMA/ })).toBeDefined();
+    expect(screen.getByRole("button", { name: /Add from BIMA/ })).toBeDefined();
     expect(screen.queryByText("Tambah dari BIMA")).toBeNull();
   });
 
@@ -70,6 +70,6 @@ describe("ImportBimaModal localization", () => {
     renderWithLocale(<ImportBimaModal />, "id");
 
     expect(screen.getByRole("button", { name: /Tambah dari BIMA/ })).toBeDefined();
-    expect(screen.queryByText("Import from BIMA")).toBeNull();
+    expect(screen.queryByText("Add from BIMA")).toBeNull();
   });
 });

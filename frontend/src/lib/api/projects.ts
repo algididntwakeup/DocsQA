@@ -1,8 +1,8 @@
 import { apiRequest, type ProjectItem } from "@/lib/api";
-import type { BimaProject, ImportBimaPayload } from "@/types/project";
+import type { BimaCatalogItem, ImportBimaPayload } from "@/types/project";
 
-export function fetchBimaProjects(): Promise<BimaProject[]> {
-  return apiRequest<BimaProject[]>("/bima/catalog", { cache: "no-store" });
+export function fetchBimaProjects(): Promise<BimaCatalogItem[]> {
+  return apiRequest<BimaCatalogItem[]>("/bima/catalog", { cache: "no-store" });
 }
 
 export function importBimaProject(payload: ImportBimaPayload): Promise<ProjectItem> {

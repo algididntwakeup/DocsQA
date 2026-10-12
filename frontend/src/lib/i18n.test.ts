@@ -10,8 +10,8 @@ const workspaceKeys = [
   "emptyWorkspace", "loadingProjectList", "projectActions", "actionsForProject", "copyProjectNumber",
   "projectNumberCopied", "projectNumberCopyFailed",
   "bimaIntegration", "bimaModalTitle", "bimaModalDesc", "bimaSearchLabel", "bimaSearchPlaceholder",
-  "bimaBadgeImported", "bimaBtnOpenProject", "bimaBtnImport", "bimaBtnImporting", "bimaLoading", "bimaImportSuccess", "bimaImportFailed",
-  "closeDialog",
+  "bimaCloseDialog", "bimaEmptyTitle", "bimaEmptyHint", "bimaImportAction", "bimaImporting",
+  "bimaOpenWorkspaceTitle", "openWorkspace", "bimaLoading", "bimaLoadFailed", "bimaImportSuccess", "bimaImportFailed",
   "relativeJustNow", "relativeMinuteAgo", "relativeMinutesAgo", "relativeHourAgo", "relativeHoursAgo",
   "relativeYesterday", "relativeDaysAgo", "relativeMonthAgo", "relativeMonthsAgo", "relativeYearAgo", "relativeYearsAgo",
 ] as const;
@@ -39,20 +39,20 @@ describe("workspace & BIMA dictionaries", () => {
     expect(translate("id", "importFromBima")).toBe("Tambah dari BIMA");
     expect(translate("id", "searchPlaceholder")).toBe("Cari proyek berdasarkan nama, nomor, atau klien...");
     expect(translate("id", "viewTable")).toBe("Tampilan Tabel");
-    expect(translate("id", "bimaBadgeImported")).toBe("Sudah Ada");
-    expect(translate("id", "bimaBtnImport")).toBe("Impor");
-    expect(translate("id", "bimaBtnImporting")).toBe("Mengimpor...");
+    expect(translate("id", "bimaImportAction")).toBe("Impor");
+    expect(translate("id", "bimaImporting")).toBe("Mengimpor...");
+    expect(translate("id", "openWorkspace")).toBe("Buka Workspace");
     expect(translate("id", "bimaImportSuccess")).toBe("Proyek berhasil diimpor ke PRISM");
   });
 
   it("matches the required English copy for the BIMA modal and empty states", () => {
-    expect(translate("en", "importFromBima")).toBe("Import from BIMA");
-    expect(translate("en", "bimaModalTitle")).toBe("Select BIMA Project");
-    expect(translate("en", "bimaModalDesc")).toBe("Import active projects from Reksolindo BIMA server to PRISM.");
+    expect(translate("en", "importFromBima")).toBe("Add from BIMA");
+    expect(translate("en", "bimaModalTitle")).toBe("Choose a project to import");
+    expect(translate("en", "bimaModalDesc")).toBe("Search by project number, title, or client name.");
     expect(translate("en", "bimaSearchPlaceholder")).toBe("Search project number, name, or client...");
-    expect(translate("en", "bimaBadgeImported")).toBe("Already Imported");
-    expect(translate("en", "bimaBtnImporting")).toBe("Importing...");
-    expect(translate("en", "bimaLoading")).toBe("Loading BIMA project list...");
+    expect(translate("en", "bimaImporting")).toBe("Importing...");
+    expect(translate("en", "openWorkspace")).toBe("Open Workspace");
+    expect(translate("en", "bimaLoading")).toBe("Loading BIMA projects...");
     expect(translate("en", "bimaImportSuccess")).toBe("Project successfully imported to PRISM");
     expect(translate("en", "emptySearch")).toBe("No projects match your search.");
     expect(translate("en", "emptyWorkspace")).toBe("No projects yet. Import from BIMA to get started.");
