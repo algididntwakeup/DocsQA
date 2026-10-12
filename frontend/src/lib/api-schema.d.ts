@@ -206,7 +206,7 @@ export interface paths {
         patch: operations["update_user_status_api_v1_auth_users__user_id__status_patch"];
         trace?: never;
     };
-    "/api/v1/bima/projects": {
+    "/api/v1/bima/catalog": {
         parameters: {
             query?: never;
             header?: never;
@@ -214,10 +214,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List Bima Projects
-         * @description List projects visible to the BIMA user and mark any already imported.
+         * List Bima Catalog
+         * @description Return the flat BIMA project catalog annotated with its local import state.
          */
-        get: operations["list_bima_projects_api_v1_bima_projects_get"];
+        get: operations["list_bima_catalog_api_v1_bima_catalog_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -667,29 +667,13 @@ export interface paths {
         put?: never;
         /**
          * Import Bima Project
-         * @description Import one BIMA project into PRISM and create its workspace directory.
+         * @description Import one BIMA catalog project on demand and assign its PRISM owner.
+         *
+         *     Importing is idempotent on ``bima_project_id``: a project that is already in
+         *     PRISM is returned unchanged with ``200 OK``. A new project is created with
+         *     the calling user as its owner and gets an empty workspace directory.
          */
         post: operations["import_bima_project_api_v1_projects_import_bima_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/projects/sync-bima": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Sync Bima Projects
-         * @description Synchronize BIMA projects and their members into the local master data.
-         */
-        post: operations["sync_bima_projects_api_v1_projects_sync_bima_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -714,26 +698,6 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
-        trace?: never;
-    };
-    "/api/v1/projects/{project_id}/assign": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Assign Project
-         * @description Assign or unassign a project to an active user.
-         */
-        patch: operations["assign_project_api_v1_projects__project_id__assign_patch"];
         trace?: never;
     };
     "/api/v1/projects/{project_id}/documents": {
@@ -888,12 +852,12 @@ export interface components {
             workflow_status: string;
         };
         /**
-         * BimaProjectItem
-         * @description Project listed by BIMA with its local import state.
+         * BimaCatalogItem
+         * @description One BIMA directory row with its local import state.
          */
-        BimaProjectItem: {
+        BimaCatalogItem: {
             /** Client Name */
-            client_name: string;
+            client_name?: string | null;
             /** Id */
             id: number;
             /**
@@ -907,16 +871,6 @@ export interface components {
             number: string;
             /** Prism Project Id */
             prism_project_id?: string | null;
-        };
-        /**
-         * BimaProjectListResponse
-         * @description BIMA project directory and import-state envelope.
-         */
-        BimaProjectListResponse: {
-            /** Data */
-            data: components["schemas"]["BimaProjectItem"][];
-            /** Success */
-            success: boolean;
         };
         /** Body_upload_document_api_v1_documents_upload_post */
         Body_upload_document_api_v1_documents_upload_post: {
@@ -1306,6 +1260,12 @@ export interface components {
         ImportBimaProjectRequest: {
             /** Bima Project Id */
             bima_project_id: number;
+            /** Client Name */
+            client_name?: string | null;
+            /** Name */
+            name: string;
+            /** Project Number */
+            project_number: string;
         };
         /**
          * IssueCategory
@@ -1500,20 +1460,10 @@ export interface components {
             type: string;
         };
         /**
-         * ProjectAssignment
-         * @description Payload used by leads to assign a project to an engineer.
-         */
-        ProjectAssignment: {
-            /** Assigned To Id */
-            assigned_to_id?: string | null;
-        };
-        /**
          * ProjectCreate
          * @description Payload for creating a project.
          */
         ProjectCreate: {
-            /** Bima Project Id */
-            bima_project_id?: number | null;
             /** Code */
             code?: string | null;
             /** Description */
@@ -1539,10 +1489,6 @@ export interface components {
          * @description Project representation returned by the API.
          */
         ProjectRead: {
-            /** Assigned To Id */
-            assigned_to_id?: string | null;
-            /** Assigned To Name */
-            assigned_to_name?: string | null;
             /** Bima Project Id */
             bima_project_id?: number | null;
             /** Client Name */
@@ -1554,13 +1500,6 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
-            /**
-             * Created By Id
-             * Format: uuid
-             */
-            created_by_id: string;
-            /** Created By Name */
-            created_by_name?: string | null;
             /** Description */
             description?: string | null;
             /** Finished At */
@@ -1573,6 +1512,13 @@ export interface components {
             id: string;
             /** Name */
             name: string;
+            /**
+             * Owner Id
+             * Format: uuid
+             */
+            owner_id: string;
+            /** Owner Name */
+            owner_name?: string | null;
             /** Plant Area */
             plant_area?: string | null;
             /** Project Number */
@@ -1587,6 +1533,11 @@ export interface components {
              * @default 0
              */
             total_documents: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
         };
         /**
          * ReferenceDriftEvidence
@@ -2403,7 +2354,7 @@ export interface operations {
             };
         };
     };
-    list_bima_projects_api_v1_bima_projects_get: {
+    list_bima_catalog_api_v1_bima_catalog_get: {
         parameters: {
             query?: never;
             header?: {
@@ -2422,7 +2373,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BimaProjectListResponse"];
+                    "application/json": components["schemas"]["BimaCatalogItem"][];
                 };
             };
             /** @description Validation Error */
@@ -3327,13 +3278,9 @@ export interface operations {
             query?: {
                 user_id?: string | null;
             };
-            header?: {
-                "X-BIMA-Token"?: string | null;
-            };
+            header?: never;
             path?: never;
-            cookie?: {
-                bima_access_token?: string | null;
-            };
+            cookie?: never;
         };
         requestBody?: never;
         responses: {
@@ -3393,13 +3340,9 @@ export interface operations {
     import_bima_project_api_v1_projects_import_bima_post: {
         parameters: {
             query?: never;
-            header?: {
-                authorization?: string | null;
-            };
+            header?: never;
             path?: never;
-            cookie?: {
-                bima_access_token?: string | null;
-            };
+            cookie?: never;
         };
         requestBody: {
             content: {
@@ -3414,41 +3357,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProjectRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    sync_bima_projects_api_v1_projects_sync_bima_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                "X-BIMA-Token"?: string | null;
-            };
-            path?: never;
-            cookie?: {
-                bima_access_token?: string | null;
-            };
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: number;
-                    };
                 };
             };
             /** @description Validation Error */
@@ -3479,41 +3387,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    assign_project_api_v1_projects__project_id__assign_patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ProjectAssignment"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProjectRead"];
-                };
             };
             /** @description Validation Error */
             422: {

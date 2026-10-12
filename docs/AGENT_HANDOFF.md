@@ -8,8 +8,14 @@ This file records implementation decisions that must not be reverted or duplicat
 ## PRISM Identity and Workspace
 
 - Browser sign-in has a single BIMA SSO action; do not add local password login or registration forms. Password endpoints exist only for managed recovery/admin workflows.
-- BIMA directory synchronization validates both `/api/projects` and `/api/users` completely before writing. Do not upsert the full BIMA directory: persist only users referenced by project membership/PIC.
-- `Project.members` uses the `project_members` association (Alembic `20260923_0015_project_members`). BIMA membership adds project/document read visibility only; never extend upload, assignment, review, or issue-curation authority from membership.
+- BIMA is a read-only, flat project catalog. `GET /api/v1/bima/catalog` returns
+  `id`/`number`/`name`/`client_name` plus local `is_imported`/`prism_project_id`, and PRISM never
+  mirrors BIMA master data. Do not reintroduce directory sync, membership mirroring, or a per-project
+  BIMA detail fetch: BIMA's live directory omits membership and its `/api/projects/{id}` answers 404.
+- Importing is on demand via `POST /api/v1/projects/import-bima`, which is idempotent on
+  `bima_project_id` (existing row → `200`, new row → `201`) and sets `projects.owner_id` to the
+  calling user. Project read access is ownership- or document-based; there is no project membership
+  table (dropped in Alembic `20261012_0020_bima_on_demand_import`).
 - Browser API uses relative `/api/v1`; SSR/rewrite targets `INTERNAL_BACKEND_URL` (Compose alias default `http://backend:8000`). SSO authorization origin is configured through `NEXT_PUBLIC_BIMA_BASE_URL` and returns to `NEXT_PUBLIC_APP_URL`/current app origin.
 - PDF canvas and highlight overlay share one viewport-sized wrapper. Continuous Ctrl/Meta-wheel zoom and mouse drag pan must keep that shared coordinate space; touch panning stays native.
 
@@ -106,22 +112,23 @@ This file records implementation decisions that must not be reverted or duplicat
 - Production deployment identity is PRISM: set `APP_NAME=PRISM - Document Assurance Platform`,
   `NEXT_PUBLIC_APP_URL=https://prism.reksolindo.co.id`, `CORS_ORIGINS=https://prism.reksolindo.co.id`,
   and `BIMA_CLIENT_ID=prism`. Keep the Compose project name unchanged unless volumes are migrated.
-- `POST /api/v1/projects/sync-bima` is lead/superuser-only and uses the HttpOnly `bima_access_token`
-  established during BIMA credential/SSO login. It calls BIMA `GET /api/projects` **and**
-  `GET /api/users`, validates both through `services/bima_adapter.py`, and upserts local project
-  master data **matched solely on `projects.bima_project_id`** (never by name/code — the earlier
-  OR-match could merge unrelated projects). Migration `20260916_0014_bima_projects` adds
-  `projects.bima_project_id` and the persisted BIMA status; migration `20260923_0015_project_members`
-  adds the membership table. See "PRISM Membership & Workspace Contract" below.
+- `GET /api/v1/bima/catalog` proxies BIMA `GET /api/projects` with the `bima_access_token` cookie
+  (or an `Authorization: Bearer` header for direct API clients) and annotates each flat row with
+  local import state from one `SELECT bima_project_id, id FROM projects WHERE bima_project_id IN (...)`.
+  `POST /api/v1/projects/import-bima` then creates the local project on demand. Migration
+  `20261007_0019_bima_project_metadata` adds `project_number`/`client_name`; migration
+  `20261012_0020_bima_on_demand_import` drops `project_members`/`projects.assigned_to_id` and renames
+  `projects.created_by_id` to `projects.owner_id`. See "BIMA Catalog & On-Demand Import Contract" below.
 
 - `POST /api/v1/auth/login` returns a bearer token and user role; `GET /api/v1/auth/me` returns
   the current user.
 - `GET /api/v1/projects` lists visible projects. `GET /api/v1/projects/{project_id}/documents`
   applies engineer isolation and lead-only engineer/date/blocker filters.
 - `POST /api/v1/projects` can be used by any authenticated user. Project responses include
-  `created_by_name`, `assigned_to_id`, `assigned_to_name`, `total_documents`, and `status`.
-- `PATCH /api/v1/projects/{project_id}/assign` is lead/superuser-only and accepts an active user's
-  UUID or `null`. `GET /api/v1/projects?user_id=...` returns projects assigned to that user.
+  `owner_id`, `owner_name`, `total_documents`, `status`, and `updated_at`.
+- `GET /api/v1/projects?user_id=...` returns the projects **owned** by that user. Project-level
+  assignment no longer exists (`PATCH /api/v1/projects/{project_id}/assign` was removed with the
+  `projects.assigned_to_id` column); document-level assignment is unaffected.
 - `POST /api/v1/projects/{project_id}/documents/upload` assigns the uploaded document to the
   project and current user.
 - `POST /api/v1/documents/{document_id}/claim` enforces one active `ANALYZING` document per
@@ -241,7 +248,7 @@ production endpoint: HTTP 200
 ## Assignment & Kanban WIP=1 Contract
 
 - Document claim enforces strict WIP = 1 for engineers: an engineer cannot claim a new document if they have $\ge 1$ document in `ANALYZING` workflow status.
-- In `backend/api/projects.py` (`assign_project`), `await session.refresh(project, attribute_names=["created_by", "assigned_to", "documents"])` must always be called with explicit attribute names so relationships are loaded before `_project_read()` serializes them, preventing `MissingGreenlet` HTTP 500 errors.
+- In `backend/api/projects.py`, `await session.refresh(project, attribute_names=["owner", "documents"])` must always be called with explicit attribute names so relationships are loaded before `_project_read()` serializes them, preventing `MissingGreenlet` HTTP 500 errors. The project listing query also groups by `projects.id`, so it must load the owner with `selectinload(Project.owner)`: a `joinedload` adds `users` columns to the `GROUP BY` query and PostgreSQL rejects it with `GroupingError`.
 - In PostgreSQL, queries using `with_for_update()` must NOT use `joinedload` on nullable relationships (such as `assigned_to`), because PostgreSQL raises `FeatureNotSupportedError: FOR UPDATE cannot be applied to the nullable side of an outer join`. Single-row locking in `_load_document_for_assignment` locks `Document` directly without joins; relationships are loaded post-commit via `session.refresh(document, attribute_names=["owner", "assigned_to"])`.
 - In `backend/api/documents.py` (`mark_document_reviewed`), the permission check restricts action to `document.assigned_to_id == current_user.id` (assignee only). Test fixtures must assign the document to the acting user.
 - Frontend document table cell rendering adheres to 5 strict cases (Cases A–E) detailed in `docs/ASSIGNMENT_WIP_FIX_PLAN.md`, with formal Indonesian tooltips ("Selesaikan tugas aktif Anda terlebih dahulu") and "Tugas Anda" badge with direct review link.
@@ -251,42 +258,72 @@ production endpoint: HTTP 200
 - Documents and their canonical preview streams (`GET /documents/{id}/file` and `GET /documents/{id}/pdf`) grant read access if:
   1. `doc.assigned_to_id == current_user.id` (Direct PIC)
   2. `doc.owner_id == current_user.id` (Uploader)
-  3. `doc.project.assigned_to_id == current_user.id` (Assigned to the parent Project)
-  4. `doc.project.created_by_id == current_user.id` or user is in `project.members`
-  5. `current_user.role in {LEAD_ENGINEER, SUPERUSER}`
+  3. `doc.project.owner_id == current_user.id` (Project owner)
+  4. `current_user.role in {LEAD_ENGINEER, SUPERUSER}`
 - For DOCX uploads, the review endpoints serve the converted `preview.pdf`. If the document is still in `QUEUED` or `PROCESSING` pipeline state, an HTTP 409 is returned with a descriptive message. If completed, an on-the-fly conversion fallback via headless LibreOffice is invoked if `preview.pdf` was not yet generated.
 - `pdf-canvas-viewer.tsx` and API helpers fetch with `credentials: "include"`, pass the Bearer token via `Authorization: Bearer <token>`, and use `cache: "no-store"` to avoid browser caching of transient preview generation states.
 
-## PRISM Membership & Workspace Contract
+## BIMA Catalog & On-Demand Import Contract
 
-Membership is the bridge between BIMA master data and PRISM read access. Do not weaken the validation or widen membership into write authorization.
+BIMA is an upstream, read-only, flat project catalog. PRISM owns every project record; there is no
+membership or assignment mirroring, and no BIMA master-data sync.
 
-### Adapter boundary
+### Catalog proxy
 
-- `backend/services/bima_adapter.py` owns the entire BIMA directory contract. `BimaMasterDataAdapter.adapt()` accepts the documented aliases (`bima_project_id`/`id`, `name`/`project_name`, `code`/`project_code`, `plant_area`/`plant`, `member_ids`/`members`, `pic_id`/`pic`) and rejects everything else with HTTP 502 **before any database write**.
-- Rejected input includes: non-integer or non-positive IDs, `bool` used as an ID, missing/absent member list (absent membership is never treated as "empty"), duplicate project or user IDs, member IDs missing from the fetched directory, and blank emails or names. Error strings are load-bearing — tests assert them by code, so change them deliberately.
-- Membership is `member_ids ∪ {pic_id}`. The adapter returns only directory users actually referenced by a project; never upsert the whole BIMA directory.
-- `services/bima_client._fetch_bima_directory` is shared by `fetch_bima_projects` and `fetch_bima_users`. A malformed envelope now raises 502 instead of silently returning `[]` — that silent-empty behavior previously let a bad payload look like "zero projects".
+- `backend/api/bima.py` holds the only BIMA project endpoint: `GET /api/v1/bima/catalog`, which calls
+  `BimaService.list_projects(token)` (upstream `GET /api/projects`) and returns a bare JSON array of
+  `BimaCatalogItem` — not a `{success, data}` envelope. The upstream credential is the
+  `bima_access_token` cookie, falling back to `Authorization: Bearer` for direct API clients.
+- `_catalog_fields()` normalizes one row and raises HTTP 502 for a missing/invalid ID or a missing
+  number/name. It accepts the documented aliases (`id`/`bima_project_id`, `name`/`project_name`,
+  `number`/`project_number`, `client_name`/`client`, and a nested `client_name.name` object).
+  A missing or blank client becomes `None`; only a non-textual client is treated as corrupt.
+- Import state comes from a single query — `SELECT bima_project_id, id FROM projects WHERE
+  bima_project_id IN (...)` — and is rendered as `is_imported` plus `prism_project_id`.
+- Do not reintroduce `GET /bima/projects`, its `{success, data}` envelope, or a per-project
+  `GET /api/projects/{id}` fetch: the live BIMA directory exposes no membership fields and its detail
+  endpoint answers 404 for listed projects. Those paths caused the recurring 500/502s.
 
-### Transactional sync
+### On-demand import
 
-- `sync_bima_projects` is all-or-nothing: fetch both feeds → adapt → upsert users (`upsert_bima_user(..., commit=False)`) → upsert projects → single `session.commit()`. `SQLAlchemyError` triggers `rollback()` and a 502. Never move the commit inside the loop.
-- `upsert_bima_user(session, payload, *, commit=True)` is keyword-only on purpose. Login and SSO keep the default `True`; only sync passes `commit=False`, which flushes instead of committing.
-- Projects are matched **solely** on the unique `Project.bima_project_id`. The previous name/code OR-match could merge two unrelated projects; do not reintroduce it.
-- Sync updates `name`, `code`, `description`, `plant_area`, `status`, and the full member set. It must never touch `assigned_to_id`, `created_by_id`, `finished_at`, documents, or projects absent from the payload.
+- `POST /api/v1/projects/import-bima` (`backend/api/projects.py::import_bima_project`) takes the
+  catalog row it needs — `bima_project_id`, `project_number`, `name`, `client_name` — and never calls
+  BIMA itself.
+- It is idempotent on the unique `projects.bima_project_id`: an existing row is returned unchanged
+  with **200**; a new row is created with **201**. `IntegrityError` (concurrent import) re-selects the
+  winner and also returns 200. There is no 409 for a duplicate import.
+- A new project is owned by the calling user: `owner_id = current_user.id`, exposed as `owner_id` and
+  `owner_name`. Importing still provisions the workspace directory
+  (`storage.get_full_path(f"projects/{project.id}")`) and therefore still enforces the folder RBAC —
+  `can_manage_folders(role, project_number)`, i.e. `13` engineering numbers for engineering roles and
+  `03` internal numbers for HR/GA and finance — returning 403 otherwise.
+- `POST /api/v1/projects/sync-bima` no longer exists; `backend/services/bima_adapter.py` was deleted
+  with it. Do not restore directory sync, `BimaMasterDataAdapter`, `sync_user_bima_projects`, or the
+  `fetch_bima_projects`/`fetch_bima_users` directory clients. `services/bima_client.py` now only owns
+  BIMA login/SSO identity (`login_with_bima_credentials`, `verify_sso_token`, `_profile`).
 
 ### Persistence
 
-- `project_members` is a secondary table in `backend/models/project.py` with a `(project_id, user_id)` composite primary key, both FKs `ON DELETE CASCADE`, and `ix_project_members_user_id`. Migration `20260923_0015_project_members` is the current schema head; it performs no backfill.
-- `Project.members` / `User.member_projects` are bidirectional. Lazy loading stays at the default `select`, so **any async code touching `project.members` must eager-load it explicitly** — `selectinload(Project.members)` for project loads, `joinedload(Document.project).selectinload(Project.members)` in `accessible_document_query`. Lazy-loading inside async authorization raises `MissingGreenlet`.
-- `backend/tests/test_models.py` asserts the exact registered table set. Adding a table means updating that assertion.
+- Migration `20261012_0020_bima_on_demand_import` is the schema head. It drops `project_members` and
+  `projects.assigned_to_id`, renames `projects.created_by_id` → `projects.owner_id`, and adds
+  `projects.updated_at` (the model now inherits `models.document.TimestampMixin`).
+  `documents.assigned_to_id` is deliberately untouched: document kanban assignment is a PRISM
+  workflow concept, not BIMA mirroring.
+- `backend/tests/test_models.py` asserts the exact registered table set. Adding a table means updating
+  that assertion.
 
-### Read-only RBAC
+### Ownership-based RBAC
 
-- Membership grants **reads only**. It is applied in `list_projects`, `list_project_documents`, `list_documents`, and `check_document_read_access` (which already had a dormant `project.members` branch, now backed by real data).
-- `list_project_documents` treats BIMA-backed projects specially: a non-member engineer gets 403, a member engineer sees every document in the project. Local (non-BIMA) projects keep the legacy `assigned_to_id == me OR owner_id == me` filter.
-- Do **not** add member authorization to upload, claim, assignment, `mark-reviewed`, `verify`, request-revision, or issue curation. `PATCH /api/v1/issues/{issue_id}/curation` must still 404 for a member engineer who is neither owner nor assignee — this is asserted in tests.
-- Engineers still cannot inspect other users' projects through the `user_id` filter.
+- Project read visibility is `Project.owner_id == me` OR the caller owns/holds an assigned document in
+  the project. It is applied in `list_projects`, `list_project_documents`, `list_documents`, and
+  `check_document_read_access`.
+- `list_project_documents` no longer treats BIMA-backed projects specially: every non-privileged role
+  gets the `assigned_to_id == me OR owner_id == me` document filter, so an unrelated engineer sees an
+  empty list rather than a 403.
+- Do **not** widen ownership into write authorization. `PATCH /api/v1/issues/{issue_id}/curation`
+  must still 404 for an engineer who is neither owner nor assignee — this is asserted in tests.
+- Engineers still cannot inspect other users' projects through the `user_id` filter, which now means
+  "projects owned by that user".
 
 ### Design tokens and primitives
 

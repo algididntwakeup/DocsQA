@@ -1,30 +1,30 @@
 """Project-scoped document endpoints."""
 
 import logging
+from contextlib import suppress
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Annotated, Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import (
     APIRouter,
-    Cookie,
     Depends,
     File,
-    Header,
     HTTPException,
     Query,
+    Response,
     UploadFile,
     status,
 )
 from sqlalchemy import exists, func, or_, select
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased, joinedload, selectinload
 
-from api.auth import upsert_bima_user
-from core.dependencies import get_current_user, get_upload_service, require_lead
+from core.dependencies import get_current_user, get_storage, get_upload_service, require_lead
 from db.session import get_session
-from domain.enums import DocumentStatus, Severity, UserRole
+from domain.enums import DocumentStatus, Severity
 from models.document import Document
 from models.issue import Issue
 from models.project import Project
@@ -32,19 +32,20 @@ from models.user import User
 from schemas.common import PageInfo
 from schemas.documents import DocumentListResponse, DocumentRead, DocumentUploadResponse
 from schemas.project import (
-    ProjectAssignment,
+    ImportBimaProjectRequest,
     ProjectCreate,
     ProjectHeaderConfigUpdate,
     ProjectRead,
 )
-from services import bima_client as bima_client
-from services.bima_adapter import BimaMasterDataAdapter, sync_user_bima_projects
 from services.permission_service import (
     can_create_project,
+    can_manage_folders,
     create_permission_message,
+    folder_permission_message,
     is_privileged,
 )
 from services.pipeline import enqueue_extraction
+from services.storage import LocalStorage
 from services.uploads import UploadService
 
 router = APIRouter(prefix="/projects", tags=["projects"])
@@ -69,11 +70,8 @@ def _project_read(project: Project, total_documents: int | None = None) -> Proje
     data = ProjectRead.model_validate(project).model_dump()
     count = len(project.documents) if total_documents is None else total_documents
     data.update(
-        created_by_name=project.created_by.full_name if project.created_by else None,
-        assigned_to_name=project.assigned_to.full_name if project.assigned_to else None,
+        owner_name=project.owner.full_name if project.owner else None,
         total_documents=count,
-        # The API status remains the PRISM lifecycle status; BIMA's raw status
-        # is persisted separately on Project for synchronization decisions.
         status=_project_status(project, count),
     )
     return ProjectRead(**data)
@@ -86,8 +84,7 @@ async def _load_project_for_mutation(session: AsyncSession, project_id: UUID) ->
                 select(Project)
                 .where(Project.id == project_id)
                 .options(
-                    joinedload(Project.created_by),
-                    joinedload(Project.assigned_to),
+                    joinedload(Project.owner),
                     joinedload(Project.documents),
                 )
             )
@@ -104,92 +101,106 @@ def _ensure_project_open(project: Project) -> None:
     if project.finished_at is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Project is finished; assignment and review changes are disabled.",
+            detail="Project is finished; review changes are disabled.",
         )
 
 
-@router.post("/sync-bima")
-async def sync_bima_projects(
+def _remove_empty_workspace(path: Path | None) -> None:
+    """Remove only the newly-created empty project directory after a failed import."""
+
+    if path is None:
+        return
+    with suppress(OSError):
+        path.rmdir()
+
+
+@router.post("/import-bima", response_model=ProjectRead, status_code=status.HTTP_201_CREATED)
+async def import_bima_project(
+    payload: ImportBimaProjectRequest,
+    response: Response,
     session: Annotated[AsyncSession, Depends(get_session)],
-    current_user: Annotated[User, Depends(require_lead)],
-    bima_token: Annotated[str | None, Header(alias="X-BIMA-Token")] = None,
-    bima_cookie: Annotated[str | None, Cookie(alias="bima_access_token")] = None,
-) -> dict[str, int]:
-    """Synchronize BIMA projects and their members into the local master data."""
-    token = bima_token or bima_cookie
-    if not token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="BIMA token is required to sync projects.",
+    current_user: Annotated[User, Depends(get_current_user)],
+    storage: Annotated[LocalStorage, Depends(get_storage)],
+) -> ProjectRead:
+    """Import one BIMA catalog project on demand and assign its PRISM owner.
+
+    Importing is idempotent on ``bima_project_id``: a project that is already in
+    PRISM is returned unchanged with ``200 OK``. A new project is created with
+    the calling user as its owner and gets an empty workspace directory.
+    """
+
+    existing = (
+        await session.execute(
+            select(Project)
+            .options(joinedload(Project.owner))
+            .where(Project.bima_project_id == payload.bima_project_id)
         )
-    remote_projects = await bima_client.fetch_bima_projects(token)
-    remote_users = await bima_client.fetch_bima_users(token)
-    master = BimaMasterDataAdapter().adapt(remote_projects, remote_users)
-    created = 0
-    updated = 0
+    ).scalar_one_or_none()
+    if existing is not None:
+        response.status_code = status.HTTP_200_OK
+        return _project_read(existing, total_documents=0)
+
+    # Importing provisions the project workspace folder, so the folder RBAC
+    # applies: engineering (13) numbers belong to engineering roles, internal
+    # (03) numbers to HR/GA and finance.
+    if not can_manage_folders(current_user.role, payload.project_number):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=folder_permission_message(payload.project_number),
+        )
+
+    project = Project(
+        id=uuid4(),
+        name=payload.name,
+        bima_project_id=payload.bima_project_id,
+        project_number=payload.project_number,
+        client_name=payload.client_name,
+        owner_id=current_user.id,
+        owner=current_user,
+        documents=[],
+    )
+    workspace_path = None
     try:
-        user_by_bima_id: dict[int, User] = {}
-        for record in master.users:
-            user = await upsert_bima_user(
-                session,
-                {
-                    "bima_id": record.bima_id,
-                    "email": record.email,
-                    "full_name": record.full_name,
-                    "role": record.role,
-                    "department": record.department,
-                    "position": record.position,
-                },
-                commit=False,
-            )
-            user_by_bima_id[record.bima_id] = user
-        for remote in master.projects:
-            project = (
-                await session.execute(
-                    select(Project)
-                    .options(selectinload(Project.members))
-                    .where(Project.bima_project_id == remote.bima_project_id)
-                )
-            ).scalar_one_or_none()
-            # ``member_bima_ids is None`` means BIMA sent no membership data at
-            # all (the live directory omits it); keep the local membership
-            # instead of clearing it. An empty tuple is an explicit "no
-            # members" and still applies.
-            resolved_members = (
-                [user_by_bima_id[bima_id] for bima_id in remote.member_bima_ids]
-                if remote.member_bima_ids is not None
-                else None
-            )
-            if project is None:
-                project = Project(
-                    name=remote.name,
-                    code=remote.code,
-                    description=remote.description,
-                    plant_area=remote.plant_area,
-                    status=remote.status,
-                    created_by_id=current_user.id,
-                    bima_project_id=remote.bima_project_id,
-                    members=resolved_members or [],
-                )
-                session.add(project)
-                created += 1
-            else:
-                updated += 1
-                if resolved_members is not None:
-                    project.members = resolved_members
-            project.name = remote.name
-            project.code = remote.code
-            project.description = remote.description
-            project.plant_area = remote.plant_area
-            project.status = remote.status
+        session.add(project)
+        await session.flush()
+        await session.refresh(project, attribute_names=["owner", "documents"])
+        workspace_path = storage.get_full_path(f"projects/{project.id}")
+        workspace_path.mkdir(parents=True, exist_ok=True)
         await session.commit()
+    except IntegrityError:
+        # A concurrent import won the race; return the row it created.
+        await session.rollback()
+        _remove_empty_workspace(workspace_path)
+        winner = (
+            await session.execute(
+                select(Project)
+                .options(joinedload(Project.owner))
+                .where(Project.bima_project_id == payload.bima_project_id)
+            )
+        ).scalar_one_or_none()
+        if winner is None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This BIMA project could not be imported into PRISM.",
+            ) from None
+        response.status_code = status.HTTP_200_OK
+        return _project_read(winner, total_documents=0)
+    except OSError as exc:
+        await session.rollback()
+        _remove_empty_workspace(workspace_path)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="The PRISM project workspace could not be created.",
+        ) from exc
     except SQLAlchemyError as exc:
         await session.rollback()
+        _remove_empty_workspace(workspace_path)
         raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="BIMA sync could not be applied; no changes were saved.",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="The BIMA project could not be imported into PRISM.",
         ) from exc
-    return {"synced": len(master.projects), "created": created, "updated": updated}
+
+    return _project_read(project, total_documents=0)
 
 
 @router.post("", response_model=ProjectRead, status_code=201)
@@ -215,11 +226,11 @@ async def create_project(
         description=payload.description,
         plant_area=payload.plant_area,
         project_number=payload.project_number,
-        created_by_id=current_user.id,
+        owner_id=current_user.id,
     )
     session.add(project)
     await session.commit()
-    await session.refresh(project, attribute_names=["created_by", "assigned_to", "documents"])
+    await session.refresh(project, attribute_names=["owner", "documents"])
     return _project_read(project)
 
 
@@ -236,19 +247,20 @@ def _visible_projects_query(current_user: User, user_id: UUID | None) -> Any:
         Project,
         func.coalesce(func.count(Document.id), 0).label("total_documents"),
     ).outerjoin(Document, Document.project_id == Project.id).options(
-        joinedload(Project.created_by),
-        joinedload(Project.assigned_to),
+        # The listing groups by ``projects.id``, so the owner must be loaded with
+        # a separate SELECT (selectinload). A joinedload would add ``users``
+        # columns to the GROUP BY query and PostgreSQL rejects that with
+        # GroupingError ("column users_1.id must appear in the GROUP BY clause").
+        selectinload(Project.owner),
     )
     if user_id is not None:
-        query = query.where(Project.assigned_to_id == user_id)
+        query = query.where(Project.owner_id == user_id)
         if not is_privileged(current_user.role) and user_id != current_user.id:
             query = query.where(Project.id == UUID(int=0))
     elif not is_privileged(current_user.role):
         document_alias = aliased(Document)
         query = query.where(
-            (Project.created_by_id == current_user.id)
-            | (Project.assigned_to_id == current_user.id)
-            | Project.members.any(User.id == current_user.id)
+            (Project.owner_id == current_user.id)
             | exists().where(
                 document_alias.project_id == Project.id,
                 or_(
@@ -264,24 +276,9 @@ def _visible_projects_query(current_user: User, user_id: UUID | None) -> Any:
 async def list_projects(
     session: Annotated[AsyncSession, Depends(get_session)],
     current_user: Annotated[User, Depends(get_current_user)],
-    bima_token: Annotated[str | None, Header(alias="X-BIMA-Token")] = None,
-    bima_cookie: Annotated[str | None, Cookie(alias="bima_access_token")] = None,
     user_id: UUID | None = None,
 ) -> list[ProjectRead]:
     """List projects visible to the authenticated user."""
-    token = bima_token or bima_cookie
-    if current_user.role == UserRole.ENGINEER and token:
-        try:
-            await sync_user_bima_projects(session, current_user, token)
-        except HTTPException as exc:
-            # Keep the local workspace available if BIMA is temporarily
-            # unavailable or the stored BIMA token has expired.
-            logger.warning(
-                "Could not refresh BIMA projects for user %s: %s",
-                current_user.id,
-                exc.detail,
-            )
-
     query = _visible_projects_query(current_user, user_id)
     project_result = await session.execute(
         query.group_by(Project.id).order_by(Project.created_at.desc())
@@ -292,31 +289,6 @@ async def list_projects(
         return [_project_read(project, count) for project, count in rows]
     projects = project_result.unique().scalars().all()
     return [_project_read(project, len(project.documents)) for project in projects]
-
-
-@router.patch("/{project_id}/assign", response_model=ProjectRead)
-async def assign_project(
-    project_id: UUID,
-    payload: ProjectAssignment,
-    session: Annotated[AsyncSession, Depends(get_session)],
-    _: Annotated[User, Depends(require_lead)],
-) -> ProjectRead:
-    """Assign or unassign a project to an active user."""
-    project = await _load_project_for_mutation(session, project_id)
-    _ensure_project_open(project)
-    if payload.assigned_to_id is not None:
-        assigned = (
-            await session.execute(
-                select(User).where(User.id == payload.assigned_to_id, User.is_active.is_(True))
-            )
-        ).scalar_one_or_none()
-        if assigned is None:
-            raise HTTPException(status_code=404, detail="Assigned user not found or inactive.")
-    project.assigned_to_id = payload.assigned_to_id
-    project.assigned_to = assigned if payload.assigned_to_id is not None else None
-    await session.commit()
-    await session.refresh(project, attribute_names=["created_by", "assigned_to", "documents"])
-    return _project_read(project)
 
 
 @router.put("/{project_id}/header-config", response_model=ProjectRead)
@@ -331,7 +303,7 @@ async def update_project_header_config(
     _ensure_project_open(project)
     project.header_config = payload.header_config.model_dump()
     await session.commit()
-    await session.refresh(project, attribute_names=["created_by", "assigned_to", "documents"])
+    await session.refresh(project, attribute_names=["owner", "documents"])
     return _project_read(project)
 
 
@@ -363,7 +335,7 @@ async def finish_project(
         )
     project.finished_at = datetime.now(UTC)
     await session.commit()
-    await session.refresh(project, attribute_names=["created_by", "assigned_to", "documents"])
+    await session.refresh(project, attribute_names=["owner", "documents"])
     return _project_read(project)
 
 
@@ -403,33 +375,18 @@ async def list_project_documents(
         .options(
             joinedload(Document.owner),
             joinedload(Document.assigned_to),
-            joinedload(Document.project).selectinload(Project.members),
+            joinedload(Document.project),
         )
     )
-    project = (
-        await session.execute(
-            select(Project).options(selectinload(Project.members)).where(Project.id == project_id)
-        )
-    ).scalar_one_or_none()
-    member_ids = {member.id for member in project.members} if project is not None else set()
-    is_member = current_user.id in member_ids
-    bima_backed = project is not None and project.bima_project_id is not None
     # Every non-privileged role (engineers, HR/GA, finance) is scoped to its own
     # documents; only lead engineers and superusers get cross-engineer filters.
     if not is_privileged(current_user.role):
-        if bima_backed:
-            if not is_member:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="You do not have access to this project.",
-                )
-        else:
-            query = query.where(
-                or_(
-                    Document.assigned_to_id == current_user.id,
-                    Document.owner_id == current_user.id,
-                )
+        query = query.where(
+            or_(
+                Document.assigned_to_id == current_user.id,
+                Document.owner_id == current_user.id,
             )
+        )
     elif engineer_id is not None:
         query = query.where(Document.assigned_to_id == engineer_id)
     if workflow_status is not None:

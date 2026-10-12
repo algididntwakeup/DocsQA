@@ -12,7 +12,6 @@ from services.bima_http import (
     bima_authorization_header,
     body_preview,
     build_bima_client,
-    login_redirect_target,
 )
 
 logger = logging.getLogger(__name__)
@@ -275,112 +274,14 @@ async def verify_sso_token(token: str) -> dict[str, Any]:
         ) from exc
 
 
-def _directory_rows(
-    payload: Any, keys: tuple[str, ...], malformed_detail: str
-) -> list[dict[str, Any]]:
-    """Unwrap a BIMA directory envelope, rejecting unrecognized shapes."""
-    data = payload.get("data", payload) if isinstance(payload, dict) else payload
-    if isinstance(data, dict):
-        for key in keys:
-            candidate = data.get(key)
-            if isinstance(candidate, list):
-                data = candidate
-                break
-        else:
-            data = None
-    if not isinstance(data, list):
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=malformed_detail,
-        )
-    return [item for item in data if isinstance(item, dict)]
 
 
-async def _fetch_bima_directory(
-    bima_token: str,
-    path: str,
-    keys: tuple[str, ...],
-    unauthorized_detail: str,
-    malformed_detail: str,
-) -> list[dict[str, Any]]:
-    """Fetch one BIMA directory endpoint using a user bearer token."""
-    url = f"{settings.BIMA_BASE_URL.rstrip('/')}{path}"
-    try:
-        async with build_bima_client() as client:
-            response = await client.get(url, headers=bima_authorization_header(bima_token))
-            if login_redirect_target(response) is not None:
-                logger.warning(
-                    "BIMA redirected %s to its login page; the stored BIMA token is missing "
-                    "or expired.",
-                    path,
-                )
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail=unauthorized_detail,
-                )
-            if response.status_code != 200:
-                logger.warning(
-                    "BIMA rejected %s (HTTP %s, body=%s)",
-                    path,
-                    response.status_code,
-                    body_preview(response),
-                )
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail=unauthorized_detail,
-                )
-            try:
-                payload = response.json()
-            except ValueError as exc:
-                logger.error(
-                    "BIMA returned a non-JSON body for %s (content-type=%s, body=%s)",
-                    path,
-                    response.headers.get("content-type", "<unknown>"),
-                    body_preview(response),
-                )
-                raise HTTPException(
-                    status_code=status.HTTP_502_BAD_GATEWAY,
-                    detail=malformed_detail,
-                ) from exc
-            return _directory_rows(payload, keys, malformed_detail)
-    except HTTPException:
-        raise
-    except httpx.TimeoutException as exc:
-        logger.warning("Request timeout ke BIMA for %s: %s", path, exc)
-        raise HTTPException(
-            status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail="BIMA request timed out."
-        ) from exc
-    except httpx.ConnectError as exc:
-        logger.error(
-            "Gagal koneksi ke server BIMA (cek VPN/DNS/Firewall) for %s: %s", path, exc
-        )
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="BIMA is unavailable."
-        ) from exc
-    except httpx.HTTPError as exc:
-        logger.error("BIMA transport failure for %s: %r", path, exc)
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="BIMA is unavailable."
-        ) from exc
 
 
-async def fetch_bima_projects(bima_token: str) -> list[dict[str, Any]]:
-    """Fetch active/reference projects from BIMA using a user bearer token."""
-    return await _fetch_bima_directory(
-        bima_token,
-        "/api/projects",
-        ("projects", "items"),
-        "BIMA project access is unauthorized.",
-        "BIMA project directory response is malformed.",
-    )
 
 
-async def fetch_bima_users(bima_token: str) -> list[dict[str, Any]]:
-    """Fetch the BIMA user directory using a user bearer token."""
-    return await _fetch_bima_directory(
-        bima_token,
-        "/api/users",
-        ("users", "items"),
-        "BIMA project access is unauthorized.",
-        "BIMA user directory response is malformed.",
-    )
+
+
+
+
+

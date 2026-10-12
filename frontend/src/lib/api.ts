@@ -21,10 +21,6 @@ export interface AssignedProject {
   code?: string | null;
   description?: string | null;
   plant_area?: string | null;
-  created_by_id?: string;
-  created_by_name?: string | null;
-  assigned_to_id?: string | null;
-  assigned_to_name?: string | null;
   created_at?: string;
   total_documents?: number;
   status?: string;
@@ -68,14 +64,15 @@ export interface ProjectItem {
   code?: string | null;
   description?: string | null;
   plant_area?: string | null;
-  created_by_id: string;
-  created_by_name?: string | null;
-  assigned_to_id?: string | null;
-  assigned_to_name?: string | null;
+  project_number?: string | null;
+  client_name?: string | null;
+  owner_id: string;
+  owner_name?: string | null;
   total_documents?: number;
   status?: string;
   finished_at?: string | null;
   created_at: string;
+  updated_at?: string | null;
   header_config?: HeaderTemplateConfig;
 }
 export interface LoginResponse {
@@ -242,16 +239,6 @@ export async function exchangeSsoToken(token: string): Promise<LoginResponse> {
   return res;
 }
 
-export interface BimaSyncResponse {
-  synced: number;
-  created: number;
-  updated: number;
-}
-
-export function syncBimaProjects(): Promise<BimaSyncResponse> {
-  return request<BimaSyncResponse>("/projects/sync-bima", { method: "POST" });
-}
-
 export async function logout(): Promise<void> {
   try {
     await request<void>("/auth/logout", { method: "POST" });
@@ -342,14 +329,6 @@ export function assignDocument(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ engineer_id: engineerId, override_wip: overrideWip }),
-  });
-}
-
-export function assignProject(projectId: string, assignedToId: string | null): Promise<ProjectItem> {
-  return request<ProjectItem>(`/projects/${encodeURIComponent(projectId)}/assign`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ assigned_to_id: assignedToId }),
   });
 }
 

@@ -37,7 +37,7 @@ export function ImportBimaModal({ onImported, role = null }: ImportBimaModalProp
     if (!query) return items;
 
     return items.filter((project) =>
-      [project.number, project.name, project.client_name].some((value) => value.toLowerCase().includes(query)),
+      [project.number, project.name, project.client_name ?? ""].some((value) => value.toLowerCase().includes(query)),
     );
   }, [projectsQuery.data, search]);
 
@@ -50,7 +50,12 @@ export function ImportBimaModal({ onImported, role = null }: ImportBimaModalProp
   async function handleImport(project: BimaProject) {
     setImportError(null);
     try {
-      await importMutation.mutateAsync({ bima_project_id: project.id });
+      await importMutation.mutateAsync({
+        bima_project_id: project.id,
+        project_number: project.number,
+        name: project.name,
+        client_name: project.client_name,
+      });
       toast.success("Proyek berhasil diimpor ke PRISM");
       await onImported?.();
     } catch (caught) {
@@ -166,7 +171,7 @@ export function ImportBimaModal({ onImported, role = null }: ImportBimaModalProp
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="line-clamp-1 text-sm font-semibold text-foreground" title={project.name}>{project.name}</p>
-                      <p className="mt-1 line-clamp-1 text-xs text-muted-foreground" title={project.client_name}>{project.client_name}</p>
+                      <p className="mt-1 line-clamp-1 text-xs text-muted-foreground" title={project.client_name ?? undefined}>{project.client_name}</p>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       {project.is_imported ? (

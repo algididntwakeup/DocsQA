@@ -37,11 +37,8 @@ class User(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
-    projects: Mapped[list["Project"]] = relationship(
-        back_populates="created_by", foreign_keys="Project.created_by_id"
-    )
-    assigned_projects: Mapped[list["Project"]] = relationship(
-        back_populates="assigned_to", foreign_keys="Project.assigned_to_id"
+    owned_projects: Mapped[list["Project"]] = relationship(
+        back_populates="owner", foreign_keys="Project.owner_id"
     )
     owned_documents: Mapped[list["Document"]] = relationship(
         back_populates="owner", foreign_keys="Document.owner_id"
@@ -51,8 +48,4 @@ class User(Base):
     )
     verified_documents: Mapped[list["Document"]] = relationship(
         back_populates="verified_by", foreign_keys="Document.verified_by_id"
-    )
-    member_projects: Mapped[list["Project"]] = relationship(
-        secondary="project_members",
-        back_populates="members",
     )

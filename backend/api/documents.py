@@ -402,7 +402,7 @@ async def list_documents(
     query = select(Document).options(
         joinedload(Document.owner),
         joinedload(Document.assigned_to),
-        joinedload(Document.project).selectinload(Project.members),
+        joinedload(Document.project),
     )
     # Non-privileged roles (engineers, HR/GA, finance) only see their own
     # documents; lead engineers and superusers keep the cross-engineer view.
@@ -410,9 +410,7 @@ async def list_documents(
         query = query.outerjoin(Document.project).where(
             (Document.assigned_to_id == current_user.id)
             | (Document.owner_id == current_user.id)
-            | (Project.assigned_to_id == current_user.id)
-            | (Project.created_by_id == current_user.id)
-            | Project.members.any(User.id == current_user.id)
+            | (Project.owner_id == current_user.id)
         )
     else:
         if project_id is not None:

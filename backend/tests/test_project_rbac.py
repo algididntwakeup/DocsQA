@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock
 from uuid import UUID, uuid4
 
 import pytest
-from fastapi import HTTPException
+from fastapi import HTTPException, Response
 from sqlalchemy import Select
 
 from api.projects import _visible_projects_query, create_project
@@ -121,12 +121,14 @@ def test_folder_permission_messages_are_descriptive() -> None:
 async def test_engineer_can_create_engineering_project() -> None:
     engineer = _user(UserRole.ENGINEER)
     session = AsyncMock()
+    session.add = MagicMock()
 
     async def refresh(value: Any, *args: Any, **kwargs: Any) -> None:
         value.id = uuid4()
-        value.created_at = datetime.now(UTC)
-        value.created_by = engineer
-        value.assigned_to = None
+        now = datetime.now(UTC)
+        value.created_at = now
+        value.updated_at = now
+        value.owner = engineer
         value.documents = []
 
     session.refresh.side_effect = refresh
@@ -172,12 +174,14 @@ async def test_hrga_is_rejected_from_engineering_project_creation() -> None:
 async def test_hrga_can_create_internal_project() -> None:
     hrga = _user(UserRole.HRGA)
     session = AsyncMock()
+    session.add = MagicMock()
 
     async def refresh(value: Any, *args: Any, **kwargs: Any) -> None:
         value.id = uuid4()
-        value.created_at = datetime.now(UTC)
-        value.created_by = hrga
-        value.assigned_to = None
+        now = datetime.now(UTC)
+        value.created_at = now
+        value.updated_at = now
+        value.owner = hrga
         value.documents = []
 
     session.refresh.side_effect = refresh
@@ -238,32 +242,29 @@ def test_visible_projects_query_has_no_scope_for_leads() -> None:
 
 
 @pytest.mark.anyio
-async def test_bima_import_rejects_role_project_mismatch(monkeypatch: pytest.MonkeyPatch) -> None:
-    from api import bima as bima_api
+async def test_bima_import_rejects_role_project_mismatch() -> None:
+    """Folder RBAC still gates the on-demand import by project-number prefix."""
+
+    from api import projects as projects_api
 
     engineer = _user(UserRole.ENGINEER)
-    service = MagicMock()
-
-    async def get_project(project_id: int, token: str) -> dict[str, Any]:
-        return {
-            "id": project_id,
-            "number": INTERNAL_NUMBER,
-            "name": "Internal HR Project",
-            "client_name": "Internal",
-        }
-
-    service.get_project = get_project
     session = AsyncMock()
-    session.execute.return_value.scalar_one_or_none = MagicMock(return_value=None)
+    session.add = MagicMock()
+    session.execute = AsyncMock()
+    session.execute.return_value = MagicMock(scalar_one_or_none=MagicMock(return_value=None))
 
     with pytest.raises(HTTPException) as error:
-        await bima_api.import_bima_project(
-            ImportBimaProjectRequest(bima_project_id=901),
+        await projects_api.import_bima_project(
+            ImportBimaProjectRequest(
+                bima_project_id=901,
+                project_number=INTERNAL_NUMBER,
+                name="Internal HR Project",
+                client_name="Internal",
+            ),
+            Response(),
             session,
             engineer,
             MagicMock(),
-            service,
-            authorization="Bearer bima-token",
         )
 
     assert error.value.status_code == 403

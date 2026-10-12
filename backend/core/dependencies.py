@@ -15,7 +15,6 @@ from core.config import settings
 from db.session import get_session
 from domain.enums import UserRole
 from models.document import Document
-from models.project import Project
 from models.user import User
 from services.storage import LocalStorage
 from services.uploads import UploadService
@@ -106,19 +105,9 @@ def check_document_read_access(document: Document, current_user: User) -> bool:
     # 2. Document uploader / owner
     if document.owner_id == current_user.id:
         return True
-    # 3. Assigned to parent project, project creator, or project member
+    # 3. Project owner
     project = getattr(document, "project", None)
-    if project is not None:
-        if project.assigned_to_id == current_user.id:
-            return True
-        if getattr(project, "created_by_id", None) == current_user.id:
-            return True
-        members = getattr(project, "members", None)
-        if members:
-            member_ids = {m.id if hasattr(m, "id") else m for m in members}
-            if current_user.id in member_ids:
-                return True
-    return False
+    return project is not None and project.owner_id == current_user.id
 
 
 def accessible_document_query(document_id: UUID, current_user: User) -> Any:
@@ -129,7 +118,7 @@ def accessible_document_query(document_id: UUID, current_user: User) -> Any:
         .options(
             joinedload(Document.owner),
             joinedload(Document.assigned_to),
-            joinedload(Document.project).selectinload(Project.members),
+            joinedload(Document.project),
         )
     )
     return query

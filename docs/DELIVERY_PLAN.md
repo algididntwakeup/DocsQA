@@ -130,8 +130,8 @@
   - Added `Lihat Projects` modal with assigned project metadata and direct project links.
   - Added real `owner_name` to document list responses through eager-loaded owner relations.
   - Removed whole-page layout constraints that prevented normal scrolling on project, admin, and settings pages.
-- [ ] **Milestone 26: Assignment and Identity Verification**
-  - Add backend HTTP tests for profile update, duplicate email, project assignment, visibility, and role boundaries.
-  - Add frontend tests for profile form, project modal, assignment visibility, and responsive scrolling.
+- [ ] **Milestone 26: Ownership and Identity Verification**
+  - Add backend HTTP tests for profile update, duplicate email, project ownership, visibility, and role boundaries.
+  - Add frontend tests for profile form, project modal, ownership visibility, and responsive scrolling.
   - Regenerate OpenAPI and TypeScript contracts after finalizing the new response fields.
   - Run the full backend suite, frontend suite, Docker migration, and production smoke test.

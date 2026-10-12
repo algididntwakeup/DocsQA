@@ -1,32 +1,25 @@
-"""Endpoints for listing and importing projects from BIMA."""
+"""Endpoint that proxies the flat BIMA project catalog.
+
+BIMA exposes only a flat directory (``id``/``number``/``name``/``client_name``)
+and answers 404 on per-project detail lookups, so PRISM treats it as a read-only
+catalog: the local import state is annotated here and importing is an explicit
+on-demand action on the project endpoints.
+"""
 
 import logging
-from contextlib import suppress
-from datetime import UTC, datetime
-from pathlib import Path
 from typing import Annotated, Any
-from uuid import uuid4
+from uuid import UUID
 
 from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, status
-from pydantic import ValidationError
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.projects import _project_read
-from core.dependencies import get_current_user, get_storage
+from core.dependencies import get_current_user
 from db.session import get_session
 from models.project import Project
 from models.user import User
-from schemas.project import (
-    BimaProjectItem,
-    BimaProjectListResponse,
-    ImportBimaProjectRequest,
-    ProjectRead,
-)
+from schemas.project import BimaCatalogItem
 from services.bima_service import BimaService
-from services.permission_service import can_manage_folders, folder_permission_message
-from services.storage import LocalStorage
 
 router = APIRouter(tags=["bima"])
 
@@ -76,8 +69,8 @@ def _resolve_bima_token(
     return token
 
 
-def _project_fields(record: dict[str, Any]) -> tuple[int, str, str, str]:
-    """Normalize the BIMA fields used by PRISM and reject incomplete upstream records."""
+def _catalog_fields(record: dict[str, Any]) -> tuple[int, str, str, str | None]:
+    """Normalize one BIMA directory row and reject incomplete upstream records."""
 
     raw_id = record.get("id")
     if raw_id is None:
@@ -94,9 +87,9 @@ def _project_fields(record: dict[str, Any]) -> tuple[int, str, str, str]:
 
     raw_name = record.get("name", record.get("project_name"))
     raw_number = record.get("number", record.get("project_number"))
-    raw_client_name = record.get("client_name", record.get("client", ""))
+    raw_client_name = record.get("client_name", record.get("client"))
     if isinstance(raw_client_name, dict):
-        raw_client_name = raw_client_name.get("name", "")
+        raw_client_name = raw_client_name.get("name")
 
     if (
         bima_id < 1
@@ -109,166 +102,62 @@ def _project_fields(record: dict[str, Any]) -> tuple[int, str, str, str]:
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="BIMA project record is missing a valid number or name.",
         )
-    # BIMA does not always populate the client, and a missing client must not
-    # fail the whole directory. Only a non-textual value is treated as corrupt.
+    # BIMA does not always populate the client; a missing client must not fail
+    # the whole catalog. Only a non-textual value is treated as corrupt.
     if raw_client_name is None:
-        raw_client_name = ""
-    elif not isinstance(raw_client_name, str):
+        client_name: str | None = None
+    elif isinstance(raw_client_name, str):
+        client_name = raw_client_name.strip() or None
+    else:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="BIMA project record has an invalid client name.",
         )
-    return bima_id, str(raw_number), raw_name, raw_client_name
+    return bima_id, str(raw_number).strip(), raw_name.strip(), client_name
 
 
-def _remove_empty_workspace(path: Path | None) -> None:
-    """Remove only the newly-created empty project directory after a failed import."""
-
-    if path is None:
-        return
-    with suppress(OSError):
-        path.rmdir()
-
-
-@router.get("/bima/projects", response_model=BimaProjectListResponse)
-async def list_bima_projects(
+@router.get("/bima/catalog", response_model=list[BimaCatalogItem])
+async def list_bima_catalog(
     session: Annotated[AsyncSession, Depends(get_session)],
     _current_user: Annotated[User, Depends(get_current_user)],
     bima_service: Annotated[BimaService, Depends(get_bima_service)],
     authorization: Annotated[str | None, Header()] = None,
     bima_cookie: Annotated[str | None, Cookie(alias="bima_access_token")] = None,
-) -> BimaProjectListResponse:
-    """List projects visible to the BIMA user and mark any already imported."""
+) -> list[BimaCatalogItem]:
+    """Return the flat BIMA project catalog annotated with its local import state."""
 
-    token = _resolve_bima_token(authorization, bima_cookie, endpoint="/bima/projects")
+    token = _resolve_bima_token(authorization, bima_cookie, endpoint="/bima/catalog")
     try:
         remote_records = await bima_service.list_projects(token)
     except HTTPException:
         raise
     except Exception:
-        logger.exception("Unexpected failure while listing BIMA projects.")
+        logger.exception("Unexpected failure while listing the BIMA project catalog.")
         raise
-    normalized = [_project_fields(record) for record in remote_records]
+    normalized = [_catalog_fields(record) for record in remote_records]
     bima_ids = [bima_id for bima_id, _, _, _ in normalized]
 
-    imported_by_id: dict[int, Project] = {}
+    imported_by_id: dict[int, UUID] = {}
     if bima_ids:
         result = await session.execute(
-            select(Project).where(Project.bima_project_id.in_(bima_ids))
+            select(Project.bima_project_id, Project.id).where(
+                Project.bima_project_id.in_(bima_ids)
+            )
         )
         imported_by_id = {
-            project.bima_project_id: project
-            for project in result.scalars().all()
-            if project.bima_project_id is not None
+            row[0]: row[1] for row in result.all() if row[0] is not None
         }
 
-    items: list[BimaProjectItem] = []
-    for bima_id, number, name, client_name in normalized:
-        imported = imported_by_id.get(bima_id)
-        try:
-            item = BimaProjectItem(
-                id=bima_id,
-                number=number,
-                name=name,
-                client_name=client_name,
-                is_imported=imported is not None,
-                prism_project_id=str(imported.id) if imported is not None else None,
-            )
-        except ValidationError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="BIMA project record does not match the project contract.",
-            ) from exc
-        items.append(item)
-
-    return BimaProjectListResponse(success=True, data=items)
-
-
-@router.post(
-    "/projects/import-bima",
-    response_model=ProjectRead,
-    status_code=status.HTTP_201_CREATED,
-    tags=["projects"],
-)
-async def import_bima_project(
-    payload: ImportBimaProjectRequest,
-    session: Annotated[AsyncSession, Depends(get_session)],
-    current_user: Annotated[User, Depends(get_current_user)],
-    storage: Annotated[LocalStorage, Depends(get_storage)],
-    bima_service: Annotated[BimaService, Depends(get_bima_service)],
-    authorization: Annotated[str | None, Header()] = None,
-    bima_cookie: Annotated[str | None, Cookie(alias="bima_access_token")] = None,
-) -> ProjectRead:
-    """Import one BIMA project into PRISM and create its workspace directory."""
-
-    token = _resolve_bima_token(authorization, bima_cookie, endpoint="/projects/import-bima")
-    existing = (
-        await session.execute(
-            select(Project).where(Project.bima_project_id == payload.bima_project_id)
+    return [
+        BimaCatalogItem(
+            id=bima_id,
+            number=number,
+            name=name,
+            client_name=client_name,
+            is_imported=bima_id in imported_by_id,
+            prism_project_id=(
+                str(imported_by_id[bima_id]) if bima_id in imported_by_id else None
+            ),
         )
-    ).scalar_one_or_none()
-    if existing is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="This BIMA project has already been imported.",
-        )
-
-    remote = await bima_service.get_project(payload.bima_project_id, token)
-    bima_id, number, name, client_name = _project_fields(remote)
-    if bima_id != payload.bima_project_id:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="BIMA returned a different project than the requested ID.",
-        )
-    # Importing provisions the project workspace folder, so the folder RBAC
-    # applies: engineering (13) numbers belong to engineering roles, internal
-    # (03) numbers to HR/GA and finance.
-    if not can_manage_folders(current_user.role, number):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=folder_permission_message(number),
-        )
-
-    project = Project(
-        id=uuid4(),
-        name=name,
-        bima_project_id=bima_id,
-        project_number=number,
-        client_name=client_name,
-        created_by_id=current_user.id,
-        created_by=current_user,
-        assigned_to=None,
-        documents=[],
-        created_at=datetime.now(UTC),
-    )
-    workspace_path = None
-    try:
-        session.add(project)
-        await session.flush()
-        await session.refresh(project, attribute_names=["created_at"])
-        workspace_path = storage.get_full_path(f"projects/{project.id}")
-        workspace_path.mkdir(parents=True, exist_ok=True)
-        await session.commit()
-    except IntegrityError as exc:
-        await session.rollback()
-        _remove_empty_workspace(workspace_path)
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="This BIMA project has already been imported.",
-        ) from exc
-    except OSError as exc:
-        await session.rollback()
-        _remove_empty_workspace(workspace_path)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="The PRISM project workspace could not be created.",
-        ) from exc
-    except SQLAlchemyError as exc:
-        await session.rollback()
-        _remove_empty_workspace(workspace_path)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="The BIMA project could not be imported into PRISM.",
-        ) from exc
-
-    return _project_read(project, total_documents=0)
+        for bima_id, number, name, client_name in normalized
+    ]

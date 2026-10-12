@@ -15,7 +15,6 @@ class ProjectCreate(ApiModel):
     name: str = Field(min_length=1, max_length=200)
     code: str | None = Field(default=None, max_length=50)
     description: str | None = None
-    bima_project_id: int | None = None
     project_number: str | None = Field(default=None, max_length=100)
     status: str = "ACTIVE"
     plant_area: str | None = Field(default=None, max_length=100)
@@ -33,14 +32,13 @@ class ProjectRead(ApiModel):
     client_name: str | None = None
     header_config: HeaderTemplateConfig = Field(default_factory=HeaderTemplateConfig)
     plant_area: str | None = None
-    created_by_id: UUID
-    created_by_name: str | None = None
-    assigned_to_id: UUID | None = None
-    assigned_to_name: str | None = None
+    owner_id: UUID
+    owner_name: str | None = None
     total_documents: int = 0
     status: str = "NO_DOCUMENTS"
     finished_at: datetime | None = None
     created_at: datetime
+    updated_at: datetime
 
     @field_validator("header_config", mode="before")
     @classmethod
@@ -54,23 +52,17 @@ class ProjectRead(ApiModel):
         return value or "ACTIVE"
 
 
-class ProjectAssignment(ApiModel):
-    """Payload used by leads to assign a project to an engineer."""
-
-    assigned_to_id: UUID | None = None
-
-
 class ProjectHeaderConfigUpdate(ApiModel):
     header_config: HeaderTemplateConfig
 
 
-class BimaProjectItem(ApiModel):
-    """Project listed by BIMA with its local import state."""
+class BimaCatalogItem(ApiModel):
+    """One BIMA directory row with its local import state."""
 
     id: int
     number: str
     name: str
-    client_name: str
+    client_name: str | None = None
     is_imported: bool = False
     prism_project_id: str | None = None
 
@@ -79,10 +71,6 @@ class ImportBimaProjectRequest(ApiModel):
     """Request to import one BIMA project into PRISM."""
 
     bima_project_id: int = Field(ge=1)
-
-
-class BimaProjectListResponse(ApiModel):
-    """BIMA project directory and import-state envelope."""
-
-    success: bool
-    data: list[BimaProjectItem]
+    project_number: str = Field(min_length=1, max_length=100)
+    name: str = Field(min_length=1, max_length=200)
+    client_name: str | None = Field(default=None, max_length=255)

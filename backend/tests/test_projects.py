@@ -1,20 +1,19 @@
-"""Project assignment authorization tests."""
+"""Project lifecycle and project-scoped document visibility tests."""
 
 from datetime import UTC, datetime
 from typing import Any
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
 from fastapi import HTTPException
 
-from api.projects import assign_project, delete_project, finish_project
+from api.projects import delete_project, finish_project
 from core.dependencies import require_lead
 from domain.enums import DocumentStatus, DocumentWorkflowStatus, UserRole
 from models.document import Document
 from models.project import Project
 from models.user import User
-from schemas.project import ProjectAssignment
 
 
 def _user(role: UserRole) -> User:
@@ -29,8 +28,21 @@ def _user(role: UserRole) -> User:
     )
 
 
+def _project(lead: User, documents: list[Document] | None = None) -> Project:
+    now = datetime.now(UTC)
+    return Project(
+        id=uuid4(),
+        name="Plant Lifecycle",
+        owner_id=lead.id,
+        owner=lead,
+        documents=documents or [],
+        created_at=now,
+        updated_at=now,
+    )
+
+
 @pytest.mark.anyio
-async def test_only_lead_can_assign_projects() -> None:
+async def test_only_lead_holds_project_admin_privileges() -> None:
     with pytest.raises(HTTPException) as error:
         await require_lead(_user(UserRole.ENGINEER))
     assert error.value.status_code == 403
@@ -43,12 +55,14 @@ async def test_lead_can_create_project() -> None:
 
     lead = _user(UserRole.LEAD_ENGINEER)
     session = AsyncMock()
+    session.add = MagicMock()
 
     async def refresh(val: Any, *args: Any, **kwargs: Any) -> None:
         val.id = uuid4()
-        val.created_at = datetime.now(UTC)
-        val.created_by = lead
-        val.assigned_to = None
+        now = datetime.now(UTC)
+        val.created_at = now
+        val.updated_at = now
+        val.owner = lead
         val.documents = []
 
     session.refresh.side_effect = refresh
@@ -59,99 +73,10 @@ async def test_lead_can_create_project() -> None:
         lead,
     )
     assert created.name == "New Plant"
-    assert created.created_by_name == lead.full_name
+    assert created.owner_id == lead.id
+    assert created.owner_name == lead.full_name
     session.add.assert_called_once()
     session.commit.assert_awaited_once()
-
-
-@pytest.mark.anyio
-async def test_lead_can_assign_active_engineer() -> None:
-    lead = _user(UserRole.LEAD_ENGINEER)
-    engineer = _user(UserRole.ENGINEER)
-    project = Project(
-        id=uuid4(),
-        name="Plant",
-        created_by_id=lead.id,
-        created_by=lead,
-        documents=[],
-        assigned_to=None,
-        created_at=datetime.now(UTC),
-    )
-    session = AsyncMock()
-    result = type(
-        "Result", (), {"unique": lambda self: self, "scalar_one_or_none": lambda self: project}
-    )()
-    session.execute.return_value = result
-    assigned_result = type("AssignedResult", (), {"scalar_one_or_none": lambda self: engineer})()
-    session.execute.side_effect = [result, assigned_result]
-
-    async def refresh(value: Any, *args: Any, **kwargs: Any) -> None:
-        value.assigned_to = engineer
-
-    session.refresh.side_effect = refresh
-
-    updated = await assign_project(
-        project.id,
-        ProjectAssignment(assigned_to_id=engineer.id),
-        session,
-        lead,
-    )
-
-    assert updated.assigned_to_id == engineer.id
-    session.commit.assert_awaited_once()
-
-
-@pytest.mark.anyio
-async def test_assign_project_refreshes_relationships() -> None:
-    lead = _user(UserRole.LEAD_ENGINEER)
-    engineer = _user(UserRole.ENGINEER)
-    project = Project(
-        id=uuid4(),
-        name="Plant Alpha",
-        created_by_id=lead.id,
-        created_by=lead,
-        documents=[],
-        assigned_to=None,
-        created_at=datetime.now(UTC),
-    )
-    session = AsyncMock()
-    result = type(
-        "Result", (), {"unique": lambda self: self, "scalar_one_or_none": lambda self: project}
-    )()
-    assigned_result = type("AssignedResult", (), {"scalar_one_or_none": lambda self: engineer})()
-    session.execute.side_effect = [result, assigned_result]
-
-    refresh_calls = []
-
-    async def refresh(value: Any, *args: Any, **kwargs: Any) -> None:
-        refresh_calls.append((value, args, kwargs))
-        value.assigned_to = engineer
-
-    session.refresh.side_effect = refresh
-
-    updated = await assign_project(
-        project.id,
-        ProjectAssignment(assigned_to_id=engineer.id),
-        session,
-        lead,
-    )
-
-    assert updated.assigned_to_id == engineer.id
-    assert updated.assigned_to_name == engineer.full_name
-    session.refresh.assert_awaited_once()
-    assert refresh_calls[0][2].get("attribute_names") == ["created_by", "assigned_to", "documents"]
-
-
-def _project(lead: User, documents: list[Document] | None = None) -> Project:
-    return Project(
-        id=uuid4(),
-        name="Plant Lifecycle",
-        created_by_id=lead.id,
-        created_by=lead,
-        documents=documents or [],
-        assigned_to=None,
-        created_at=datetime.now(UTC),
-    )
 
 
 @pytest.mark.anyio
@@ -221,30 +146,6 @@ async def test_delete_only_allows_empty_project() -> None:
 
 
 @pytest.mark.anyio
-async def test_finished_project_rejects_assignment() -> None:
-    lead = _user(UserRole.LEAD_ENGINEER)
-    engineer = _user(UserRole.ENGINEER)
-    project = _project(lead)
-    project.finished_at = datetime.now(UTC)
-    session = AsyncMock()
-    result = type(
-        "Result", (), {"unique": lambda self: self, "scalar_one_or_none": lambda self: project}
-    )()
-    session.execute.return_value = result
-
-    with pytest.raises(HTTPException) as error:
-        await assign_project(
-            project.id,
-            ProjectAssignment(assigned_to_id=engineer.id),
-            session,
-            lead,
-        )
-
-    assert error.value.status_code == 409
-    session.commit.assert_not_awaited()
-
-
-@pytest.mark.anyio
 async def test_delete_rejects_project_with_documents() -> None:
     lead = _user(UserRole.LEAD_ENGINEER)
     project = _project(lead, [Document(id=uuid4(), original_filename="review.pdf")])
@@ -261,30 +162,8 @@ async def test_delete_rejects_project_with_documents() -> None:
     session.delete.assert_not_awaited()
 
 
-def _bima_project(lead: User, member: User | None) -> Project:
-    project = Project(
-        id=uuid4(),
-        name="BIMA Plant",
-        code="BIMA-1",
-        bima_project_id=77,
-        status="ACTIVE",
-        created_by_id=lead.id,
-        created_by=lead,
-        documents=[],
-        assigned_to=None,
-        created_at=datetime.now(UTC),
-    )
-    project.members = [member] if member is not None else []
-    return project
-
-
-@pytest.mark.anyio
-async def test_project_member_lists_all_project_documents() -> None:
-    from api.projects import list_project_documents
-
-    lead = _user(UserRole.LEAD_ENGINEER)
-    member = _user(UserRole.ENGINEER)
-    project = _bima_project(lead, member)
+def _document_owned_by(project: Project, owner: User) -> Document:
+    now = datetime.now(UTC)
     document = Document(
         id=uuid4(),
         original_filename="member-visible.pdf",
@@ -297,15 +176,24 @@ async def test_project_member_lists_all_project_documents() -> None:
         progress_pct=100,
         project_id=project.id,
         workflow_status=DocumentWorkflowStatus.ANALYZING,
-        created_at=datetime.now(UTC),
-        updated_at=datetime.now(UTC),
+        created_at=now,
+        updated_at=now,
     )
     document.project = project
-    document.owner = lead
+    document.owner = owner
     document.assigned_to = None
+    return document
+
+
+@pytest.mark.anyio
+async def test_project_owner_lists_all_project_documents() -> None:
+    from api.projects import list_project_documents
+
+    lead = _user(UserRole.LEAD_ENGINEER)
+    project = _project(lead)
+    document = _document_owned_by(project, lead)
     session = AsyncMock()
     session.execute.side_effect = [
-        type("Result", (), {"scalar_one_or_none": lambda self: project})(),
         type("CountResult", (), {"scalar_one": lambda self: 1})(),
         type(
             "Result",
@@ -314,24 +202,28 @@ async def test_project_member_lists_all_project_documents() -> None:
         )(),
     ]
 
-    response = await list_project_documents(project.id, session, member)
+    response = await list_project_documents(project.id, session, lead)
 
     assert [item.id for item in response.documents] == [document.id]
 
 
 @pytest.mark.anyio
-async def test_non_member_engineer_cannot_list_bima_project_documents() -> None:
+async def test_unrelated_engineer_sees_no_documents_in_foreign_project() -> None:
     from api.projects import list_project_documents
 
     lead = _user(UserRole.LEAD_ENGINEER)
     outsider = _user(UserRole.ENGINEER)
-    project = _bima_project(lead, None)
+    project = _project(lead)
     session = AsyncMock()
-    session.execute.return_value = type(
-        "Result", (), {"scalar_one_or_none": lambda self: project}
-    )()
+    session.execute.side_effect = [
+        type("CountResult", (), {"scalar_one": lambda self: 0})(),
+        type(
+            "Result",
+            (),
+            {"scalars": lambda self: type("Scalars", (), {"all": lambda _s: []})()},
+        )(),
+    ]
 
-    with pytest.raises(HTTPException) as error:
-        await list_project_documents(project.id, session, outsider)
+    response = await list_project_documents(project.id, session, outsider)
 
-    assert error.value.status_code == 403
+    assert response.documents == []

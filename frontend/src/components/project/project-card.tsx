@@ -73,7 +73,7 @@ export function ProjectCard({
             <UserRound size={12} /> {t("created")}:
           </span>
           <b className="font-semibold text-foreground truncate max-w-[130px]">
-            {project.created_by_name ?? t("system")}
+            {project.owner_name ?? t("system")}
           </b>
         </div>
       </div>

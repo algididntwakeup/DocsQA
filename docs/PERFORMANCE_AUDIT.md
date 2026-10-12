@@ -68,8 +68,8 @@ Not implemented by design in this pass:
 
 - `Document.project_id`, `Document.owner_id`, and `Document.verified_by_id` are foreign keys without explicit indexes.
 - `Document.workflow_status` is filtered in list endpoints without an explicit index.
-- `Project.created_by_id` is a foreign key without an explicit index.
-- Existing indexes cover `documents(status, created_at)`, `assigned_to_id`, issue document/category/severity/page, and project assignment.
+- `Project.owner_id` carries `ix_projects_owner_id` (migration `20261012_0020_bima_on_demand_import`).
+- Existing indexes cover `documents(status, created_at)`, `assigned_to_id`, issue document/category/severity/page, and project ownership.
 - Impact: visibility, dashboard, ownership, and workflow queries can degrade into sequential scans as data grows.
 
 ### P1 — Managed-user N+1 query
