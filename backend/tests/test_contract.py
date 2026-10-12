@@ -68,7 +68,7 @@ def test_openapi_contains_required_contract_paths() -> None:
         "/api/v1/issues/{issue_id}/curation",
         "/api/v1/dictionary/terms",
         "/api/v1/standards-registry",
-        "/api/v1/bima/projects",
+        "/api/v1/bima/catalog",
         "/api/v1/projects/import-bima",
     }.issubset(paths)
 

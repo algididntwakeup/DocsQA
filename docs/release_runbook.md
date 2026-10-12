@@ -43,8 +43,8 @@ graph TD
 - [x] Backend quality suite 100% passing (`backend/scripts/quality.ps1`).
 - [x] Frontend checks 100% passing (`npm run check`: lint, typecheck, tests, production build).
 - [x] Zero uncommitted local modifications.
-- [x] Apply and verify Alembic migrations through `20260923_0015_project_members` locally.
-- [ ] Verify profile update, project assignment visibility, and admin project modal with HTTP/browser tests.
+- [x] Apply and verify Alembic migrations through `20261012_0020_bima_on_demand_import` locally.
+- [ ] Verify profile update, project ownership visibility, and admin project modal with HTTP/browser tests.
 
 The default backend suite reports the Redis vertical-slice test as skipped because it is opt-in.
 Redis is available in the local Docker stack; run the integration test explicitly with
@@ -63,9 +63,9 @@ python -m alembic current
 python -m alembic heads
 ```
 
-The local Docker database head is `20260923_0015_project_members`. Do not deploy project
-membership or BIMA workspace sync until the identity, BIMA project, and membership migrations
-(`20260916_0013`, `20260916_0014`, `20260923_0015`) have all been applied.
+The local Docker database head is `20261012_0020_bima_on_demand_import`. The BIMA identity and
+project-metadata migrations (`20260916_0013`, `20260916_0014`, `20261007_0019`) must be applied
+before it, and `20261012_0020` then drops the obsolete `project_members` table.
 
 ### 3.2 Offline SQL Review (Recommended for Production DBA Review)
 To generate the raw SQL script without executing it:
@@ -83,8 +83,9 @@ python -m alembic upgrade head
 python -m alembic downgrade -1
 ```
 
-The current head adds `project_members` (composite-key membership table with cascading foreign
-keys). On Docker, run the migration job before recreating the application services:
+The current head (`20261012_0020_bima_on_demand_import`) drops the `project_members` table and
+`projects.assigned_to_id`, renames `projects.created_by_id` to `projects.owner_id`, and adds
+`projects.updated_at`. On Docker, run the migration job before recreating the application services:
 
 ```bash
 docker compose build migrate api worker frontend
@@ -92,10 +93,10 @@ docker compose up migrate
 docker compose up -d api worker frontend
 ```
 
-Do not delete `postgres-data` or `backend-data` during a normal release update. The migration is
-additive and preserves existing projects; membership is populated only by a subsequent
-`POST /api/v1/projects/sync-bima` as lead/superuser, and existing projects keep their current
-assignment until that sync runs.
+Do not delete `postgres-data` or `backend-data` during a normal release update. The migration
+preserves existing projects and renames their single owner column in place; projects are created
+afterwards only by explicit on-demand import (`POST /api/v1/projects/import-bima`), which assigns the
+importing user as `owner_id`. There is no directory sync step.
 
 ---
 
@@ -222,16 +223,17 @@ asyncio.run(run())
    - Storage service isolates uploads into safe subdirectories with SHA-256 deduplication.
    - If an upload fails validation, temporary unlinked files are cleaned up immediately via `_delete_stored_object`.
 
-## 9. BIMA Identity and Workspace Access Smoke Checklist
+## 9. BIMA Catalog and On-Demand Import Smoke Checklist
 
 Run after migrations and before exposing the server:
 
 1. Open `/login`; confirm only **Sign in with BIMA SSO** appears, with no email/password or registration form.
 2. Complete BIMA SSO and confirm PRISM returns to the configured app origin with an authenticated session.
-3. As lead/superuser, run `POST /api/v1/projects/sync-bima`; verify BIMA project and user data synchronize.
-4. Sign in as an engineer with BIMA-assigned work and call `GET /api/v1/projects`; confirm each accessible BIMA project appears as a PRISM folder and the engineer is a member. Project names are provisioned from BIMA, not hard-coded.
-5. Confirm the assigned engineer can read project documents/PDFs, but cannot upload, assign, review, or curate issues by membership alone.
-6. Confirm unrelated engineers cannot list the BIMA project or read its documents.
-7. Confirm lead/superuser retain global project/document visibility.
-8. Open `/settings/profile`, update the name, and confirm the navbar reflects it after reload.
-9. Confirm long project, admin, and settings pages scroll on desktop and mobile widths.
+3. Call `GET /api/v1/bima/catalog`; confirm the flat BIMA directory returns with `is_imported: false` for projects PRISM does not have.
+4. Import one project from the `Tambah dari BIMA` modal; confirm `201` and that the response `owner_id` is the signed-in user.
+5. Import the same project again; confirm `200` with the identical `id` and that no duplicate row exists (`SELECT count(*) FROM projects WHERE bima_project_id = <id>` returns 1).
+6. Re-open the catalog; confirm that project now reports `is_imported: true` with its `prism_project_id`.
+7. Sign in as an engineer who did not import the project and call `GET /api/v1/projects`; confirm the project is not listed and `GET /api/v1/projects/{id}/documents` returns an empty list rather than foreign documents.
+8. Confirm lead/superuser retain global project/document visibility.
+9. Open `/settings/profile`, update the name, and confirm the navbar reflects it after reload.
+10. Confirm long project, admin, and settings pages scroll on desktop and mobile widths.

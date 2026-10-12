@@ -20,8 +20,7 @@ describe("UserProjectsModal", () => {
     vi.clearAllMocks();
     vi.mocked(api.listProjectsForUser).mockResolvedValue([{
       id: "project-1", name: "Central Plant", code: null, description: null, plant_area: "Unit A",
-      created_by_id: "lead-1", created_by_name: "Lead One", assigned_to_id: user.id,
-      assigned_to_name: user.full_name, total_documents: 3, status: "ACTIVE", created_at: "2026-09-10T00:00:00Z",
+      total_documents: 3, status: "ACTIVE", created_at: "2026-09-10T00:00:00Z",
     }]);
   });
 

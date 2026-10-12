@@ -1,11 +1,9 @@
 """Focused unit coverage for BIMA normalization and JIT provisioning."""
 
-from typing import Any
 
-import pytest
 
 from domain.enums import UserRole
-from services.bima_client import _profile, fetch_bima_projects
+from services.bima_client import _profile
 
 
 def test_bima_role_mapping() -> None:
@@ -91,35 +89,6 @@ def test_bima_directory_profile_mapping() -> None:
     assert username_only["bima_id"] == 3
     assert username_only["email"] == "aswin@bima.local"
     assert username_only["full_name"] == "Aswin"
-
-@pytest.mark.anyio
-async def test_fetch_bima_projects(monkeypatch: pytest.MonkeyPatch) -> None:
-    class Response:
-        status_code = 200
-
-        def raise_for_status(self) -> None:
-            return None
-
-        def json(self) -> dict[str, Any]:
-            return {
-                "success": True,
-                "data": {"projects": [{"id": 7, "code": "P-7", "name": "Plant 7"}]},
-            }
-
-    class Client:
-        async def __aenter__(self) -> "Client":
-            return self
-
-        async def __aexit__(self, *_args: Any) -> None:
-            return None
-
-        async def get(self, _url: str, headers: dict[str, str]) -> Response:
-            assert headers == {"Authorization": "Bearer bima-token"}
-            return Response()
-
-    monkeypatch.setattr("services.bima_client.httpx.AsyncClient", lambda **_kwargs: Client())
-    assert await fetch_bima_projects("bima-token") == [{"id": 7, "code": "P-7", "name": "Plant 7"}]
-
 
 def test_bima_role_mapping_covers_internal_roles() -> None:
     """HR/GA and finance identities map to their own roles, not to engineer."""

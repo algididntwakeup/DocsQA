@@ -32,7 +32,7 @@ def test_passwords_and_tokens_round_trip() -> None:
     assert claims["exp"]
 
 
-def test_document_query_eager_loads_project_members() -> None:
+def test_document_query_eager_loads_project_ownership() -> None:
     """Document reads load ownership fields before the permission decision."""
     from core.dependencies import accessible_document_query
 
@@ -46,7 +46,7 @@ def test_document_query_eager_loads_project_members() -> None:
     query = accessible_document_query(uuid4(), engineer)
     compiled = str(query.compile(compile_kwargs={"literal_binds": False}))
     assert "documents.id" in compiled
-    assert any("Project.members" in str(option.path) for option in query._with_options)
+    assert any("Document.project" in str(option.path) for option in query._with_options)
 
 
 def test_lead_scope_query_does_not_add_owner_filter() -> None:
@@ -142,8 +142,7 @@ def test_document_read_access_project_aware_for_engineers() -> None:
     project = Project(
         id=uuid4(),
         name="Test Project",
-        created_by_id=project_creator.id,
-        assigned_to_id=project_lead_assigned.id,
+        owner_id=project_creator.id,
     )
     doc = Document(
         id=uuid4(),
@@ -157,26 +156,11 @@ def test_document_read_access_project_aware_for_engineers() -> None:
     assert check_document_read_access(doc, doc_pic)
     # 2. Uploader/owner has access
     assert check_document_read_access(doc, owner)
-    # 3. Engineer assigned to parent project has access
-    assert check_document_read_access(doc, project_lead_assigned)
-    # 4. Engineer who created the project has access
+    # 3. The project owner has access
     assert check_document_read_access(doc, project_creator)
-    # 5. Unrelated engineer is denied
+    # 4. An engineer who is neither PIC, uploader, nor project owner is denied
+    assert not check_document_read_access(doc, project_lead_assigned)
     assert not check_document_read_access(doc, unrelated_engineer)
-
-    # 6. Project membership grants read access without ownership or assignment
-    member = User(
-        id=uuid4(),
-        email="member@example.test",
-        hashed_password="unused",
-        full_name="Member",
-        role=UserRole.ENGINEER,
-    )
-    project.members = [member]
-    assert check_document_read_access(doc, member)
-    # 7. Removing membership revokes that access
-    project.members = []
-    assert not check_document_read_access(doc, member)
 
 
 def _request_with_cookie(value: str | None) -> Request:

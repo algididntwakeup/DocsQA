@@ -1,10 +1,10 @@
 "use client";
 
-import { AlertTriangle, CloudDownload, FolderKanban, Plus, X } from "lucide-react";
+import { AlertTriangle, FolderKanban, Plus, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { SortingState } from "@tanstack/react-table";
-import { ApiError, createProject, deleteProject, finishProject, getCurrentUser, listProjectDocuments, listProjects, syncBimaProjects, type UserRole } from "@/lib/api";
+import { ApiError, createProject, deleteProject, finishProject, getCurrentUser, listProjectDocuments, listProjects, type UserRole } from "@/lib/api";
 import { useLocale } from "@/components/layout/locale-provider";
 import { canCreateAnyProject, canCreateProject, createPermissionMessage, createScopeHint, isPrivileged } from "@/lib/project-permissions";
 import { ExplorerToolbar } from "@/components/projects/explorer-toolbar";
@@ -28,7 +28,6 @@ export default function ProjectsPage() {
   const [projectNumber, setProjectNumber] = useState("");
   const [creating, setCreating] = useState(false);
   const [currentRole, setCurrentRole] = useState<UserRole | null>(null);
-  const [syncing, setSyncing] = useState(false);
   const [search, setSearch] = useState("");
   const [sorting, setSorting] = useState<SortingState>([{ id: "updated_at", desc: true }]);
   const [viewMode, setViewMode] = useViewMode();
@@ -140,18 +139,6 @@ export default function ProjectsPage() {
     }
   }
 
-  async function handleBimaSync() {
-    setSyncing(true);
-    try {
-      await syncBimaProjects();
-      await load();
-    } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : t("couldNotSyncProjects"));
-    } finally {
-      setSyncing(false);
-    }
-  }
-
   function handleSortByChange(field: ProjectSortField) {
     setSorting((current) => [{ id: field, desc: current[0]?.desc ?? true }]);
   }
@@ -175,7 +162,6 @@ export default function ProjectsPage() {
               className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:opacity-50"
               type="button"
               onClick={() => setModalOpen(true)}
-              disabled={syncing}
               title={createScopeHint(currentRole)}
             >
               <Plus size={16} />
@@ -199,17 +185,6 @@ export default function ProjectsPage() {
             <ErrorBoundary>
               <ImportBimaModal onImported={() => void load()} role={currentRole} />
             </ErrorBoundary>
-            {isPrivileged(currentRole) && (
-              <button
-                className="inline-flex items-center gap-2 rounded-lg border border-primary/20 bg-accent px-4 py-2.5 text-xs font-bold text-accent-foreground transition hover:bg-accent/80 disabled:opacity-50"
-                type="button"
-                onClick={() => void handleBimaSync()}
-                disabled={syncing}
-              >
-                <CloudDownload size={16} />
-                {syncing ? t("syncing") : t("syncProjects")}
-              </button>
-            )}
           </div>
         )}
       />

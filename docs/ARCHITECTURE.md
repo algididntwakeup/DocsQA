@@ -33,11 +33,11 @@ Normalized data structures in `backend/schemas/extraction.py`:
 - `PDFPage`: Page geometry, orientation (`portrait` vs `landscape`), and control elements.
 - `LayoutAnomaly`: Normalized diagnostic findings.
 
-## Workspace Identity and Membership
+## Workspace Identity and Import
 
-PRISM keeps its own project master data and treats BIMA as the upstream directory. `POST /api/v1/projects/sync-bima` (lead/superuser) fetches BIMA `GET /api/projects` and `GET /api/users`, validates both directories, and applies the master-data sync transactionally. During `GET /api/v1/projects`, an engineer's BIMA session token is also used to fetch that engineer's accessible projects from `GET /api/projects`. Each returned project is matched by BIMA project ID or, for an existing local folder without a BIMA ID, by name; missing folders are created as `ACTIVE` and the engineer is added to `project_members`. This makes assigned BIMA workspaces visible on the engineer's first project-list request without hard-coded project names. If BIMA is unavailable, the API logs the sync failure and still returns the engineer's locally available projects.
+PRISM keeps its own project master data and treats BIMA as a read-only, flat upstream catalog. `GET /api/v1/bima/catalog` proxies BIMA `GET /api/projects` and annotates each row with local import state (`is_imported`, `prism_project_id`) from one lookup on `projects.bima_project_id`. Projects enter PRISM on demand through `POST /api/v1/projects/import-bima`, which is idempotent on `bima_project_id` (existing row → 200, new row → 201), sets `projects.owner_id` to the calling user, and provisions the workspace directory. There is no directory sync, no membership table, and no per-project BIMA detail fetch.
 
-Membership lives in the `project_members` association table (`project_id`, `user_id`, composite primary key, cascading deletes). It is a read-authorization concept: engineers who are project members can see the project and every document inside it, while all write operations keep their existing role- and ownership-based rules. `backend/core/dependencies.py::check_document_read_access` is the single document-level decision point, and async callers must eager-load `Project.members` because membership uses default lazy loading.
+Project read access is ownership- or document-based: `backend/core/dependencies.py::check_document_read_access` grants access to the document PIC, the uploader, the owner of the parent project, and lead engineers/superusers. All write operations keep their existing role- and ownership-based rules.
 
 Spellcheck suppresses equipment tags, alphanumeric identifiers, standard engineering and Indonesian company terms, and all terms registered in the applicable organization/project dictionary scopes. Repeated language findings are grouped in exported review reports by finding type, source phrase, and suggestion so recurring benign terms do not create one row per page.
 

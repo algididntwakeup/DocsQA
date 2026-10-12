@@ -49,50 +49,12 @@ class BimaService:
             )
         return data
 
-    async def get_project(self, project_id: int, token: str) -> dict[str, Any]:
-        """Return one BIMA project, accepting the common project/detail envelopes.
-
-        BIMA's ``/api/projects/{id}`` endpoint answers 404 for some deployments
-        even though the project is present in the directory listing. When that
-        happens the listing row is used instead so the import flow keeps
-        working.
-        """
-
-        try:
-            payload = await self._get_json(
-                f"/api/projects/{project_id}", token, resource="project", missing_is_404=True
-            )
-        except HTTPException as exc:
-            if exc.status_code != status.HTTP_404_NOT_FOUND:
-                raise
-            records = await self.list_projects(token)
-            match = next(
-                (record for record in records if str(record.get("id")) == str(project_id)),
-                None,
-            )
-            if match is None:
-                raise
-            return match
-        data = payload.get("data", payload) if isinstance(payload, dict) else payload
-        if isinstance(data, dict):
-            for key in ("project", "item"):
-                if isinstance(data.get(key), dict):
-                    data = data[key]
-                    break
-        if not isinstance(data, dict):
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="BIMA project detail response is malformed.",
-            )
-        return data
-
     async def _get_json(
         self,
         path: str,
         token: str,
         *,
         resource: str,
-        missing_is_404: bool = False,
     ) -> Any:
         """Perform a bounded GET and map upstream/network failures to gateway errors."""
 
@@ -203,11 +165,6 @@ class BimaService:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="BIMA rejected the supplied access token.",
-            )
-        if response.status_code == 404 and missing_is_404:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Project was not found in BIMA.",
             )
         if response.status_code in {408, 504}:
             logger.warning(

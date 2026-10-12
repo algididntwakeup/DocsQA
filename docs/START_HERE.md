@@ -38,33 +38,35 @@ This is the central index every new agent must read in full. Repository state al
   recovery/admin tools, not user-facing login or registration forms.
 - **Latest BIMA authentication checkpoint**: The frontend offers only BIMA SSO sign-in; no
   email/password login or self-registration form appears. The SSO callback verifies BIMA identity,
-  maps roles, and provisions a PRISM session. BIMA project sync reads both project and user
-  directories; project membership grants read-only workspace/document visibility. See PRISM
-  transition checkpoint below for adapter, network, viewer, and UI details.
+  maps roles, and provisions a PRISM session. BIMA itself is read-only: its flat project catalog is
+  proxied for on-demand import, and imported projects are owned by the importing user. See the
+  on-demand import checkpoint below for the catalog/import and network details.
 - **Latest deployment/project-master checkpoint**: Browser API calls now use same-origin
   `/api/v1` through the Next.js rewrite proxy and no longer depend on a compiled public API host.
-  Added environment-driven CORS and corporate-domain routing, BIMA project master synchronization
-  (`POST /api/v1/projects/sync-bima`), project identity migration `20260916_0014_bima_projects`,
-  and the lead/superuser `Tarik Proyek BIMA` action.
+  Added environment-driven CORS and corporate-domain routing, the BIMA flat project catalog
+  (`GET /api/v1/bima/catalog`), project identity migration `20260916_0014_bima_projects`,
+  and the `Tambah dari BIMA` import action.
 - **PRISM deployment identity**: Production configuration uses `APP_NAME=PRISM - Document
   Assurance Platform`, `https://prism.reksolindo.co.id`, and BIMA client ID `prism`. Compose project
   is `prism`; explicit existing volume names preserve local PostgreSQL, Redis, and uploads.
-- **Latest PRISM transition checkpoint**: Four pillars landed together — (1) BIMA master data now
-  ingests `GET /api/projects` **and** `GET /api/users` through a strict adapter
-  (`backend/services/bima_adapter.py`) that validates before any write and upserts matched solely
-  on `projects.bima_project_id`; project membership persists in `project_members` (migration
-  `20260923_0015_project_members`, the current database head) and grants **read-only** project and
-  document visibility to member engineers. (2) Network sanitization: browser requests stay
+- **Latest BIMA checkpoint (on-demand import)**: BIMA is now a read-only flat catalog —
+  `GET /api/v1/bima/catalog` annotates each upstream row with local import state, and
+  `POST /api/v1/projects/import-bima` imports one project on demand, idempotently
+  (existing → 200, new → 201), assigning `projects.owner_id = current user`. Directory sync
+  (`POST /api/v1/projects/sync-bima`), the `project_members` table, project assignment, and
+  `backend/services/bima_adapter.py` were removed in migration `20261012_0020_bima_on_demand_import`,
+  which also renames `projects.created_by_id` to `owner_id` and adds `projects.updated_at`.
+- **PRISM transition checkpoint**: Network sanitization keeps browser requests
   same-origin `/api/v1`, the SSR/rewrite default is `http://backend:8000` with a Compose `backend`
   network alias, corporate `CORS_ORIGIN_REGEX` and `frame-ancestors` cover `*.reksolindo.co.id`,
-  and the BIMA SSO host comes from `NEXT_PUBLIC_BIMA_BASE_URL`. (3) The PDF.js viewer keeps
+  and the BIMA SSO host comes from `NEXT_PUBLIC_BIMA_BASE_URL`. The PDF.js viewer keeps
   continuous wheel/pinch zoom and gains left-button drag panning over one shared canvas/highlight
-  coordinate surface. (4) UI revamp: Plus Jakarta Sans, shadcn semantic light/dark tokens with a
+  coordinate surface. UI revamp: Plus Jakarta Sans, shadcn semantic light/dark tokens with a
   working theme toggle, `Card`/`Table`/`Resizable` primitives, `h-16` app shell with `max-w-7xl`
   gutters, and a resizable review workspace inside the shared shell.
-- **Latest project-assignment checkpoint**: Added nullable `projects.assigned_to_id`, migration
-  `20260910_0009_project_assignment`, lead-only project assignment, user project filtering,
-  engineer project creation, creator/assignee names, document counts, and assigned visibility.
+- **Latest project-ownership checkpoint**: `projects.owner_id` (renamed from `created_by_id`) is the
+  single project owner; the earlier nullable `projects.assigned_to_id` and its lead-only assignment
+  endpoint were removed. `GET /api/v1/projects?user_id=...` now returns projects owned by that user.
 - **Latest document-assignment checkpoint**: Added `documents.assigned_to_id`, migration
   `20260910_0010_document_assignment`, engineer claim with WIP=1 enforcement, lead assignment with
   override, assignment metadata in document responses, and assigned-task project inspection.
