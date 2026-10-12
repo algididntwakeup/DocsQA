@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { LocaleProvider } from "@/components/layout/locale-provider";
 import { ImportBimaModal } from "./import-bima-modal";
 import * as hooks from "@/hooks/use-bima-projects";
 
@@ -67,7 +68,12 @@ function mockQueries(projects: unknown[]) {
 }
 
 async function renderAndOpen(role: "ENGINEER" | "HRGA" | "FINANCE") {
-  render(<ImportBimaModal role={role} />);
+  window.localStorage.setItem("matqc-locale", "id");
+  render(
+    <LocaleProvider>
+      <ImportBimaModal role={role} />
+    </LocaleProvider>,
+  );
   fireEvent.click(screen.getByRole("button", { name: /Tambah dari BIMA/i }));
 }
 

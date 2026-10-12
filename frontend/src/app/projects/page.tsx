@@ -13,6 +13,7 @@ import { ProjectTableSkeleton, ProjectTableView, useProjectTable } from "@/compo
 import { useViewMode } from "@/hooks/use-view-mode";
 import type { Project, ProjectSortField } from "@/types/project";
 import { ImportBimaModal } from "@/components/projects/import-bima-modal";
+import { ErrorBoundary } from "@/components/common/error-boundary";
 
 export default function ProjectsPage() {
   const router = useRouter();
@@ -181,7 +182,20 @@ export default function ProjectsPage() {
         onViewModeChange={setViewMode}
         rightSlot={(
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <ImportBimaModal onImported={() => void load()} role={currentRole} />
+            <ErrorBoundary>
+              <ImportBimaModal onImported={() => void load()} role={currentRole} />
+            </ErrorBoundary>
+            {isPrivileged(currentRole) && (
+              <button
+                className="inline-flex items-center gap-2 rounded-lg border border-primary/20 bg-accent px-4 py-2.5 text-xs font-bold text-accent-foreground transition hover:bg-accent/80 disabled:opacity-50"
+                type="button"
+                onClick={() => void handleBimaSync()}
+                disabled={syncing}
+              >
+                <CloudDownload size={16} />
+                {syncing ? t("syncing") : t("syncProjects")}
+              </button>
+            )}
           </div>
         )}
       />
@@ -208,16 +222,16 @@ export default function ProjectsPage() {
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent text-accent-foreground">
             <FolderKanban size={24} />
           </div>
-          <h2 className="text-base font-bold text-foreground">{t("noProjects")}</h2>
+          <h2 className="text-base font-bold text-foreground">{t("emptyWorkspace")}</h2>
           <p className="max-w-md text-xs text-muted-foreground">{t("noProjectsDescription")}</p>
         </div>
       ) : filteredProjects.length === 0 ? (
         <div className="flex min-h-64 flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card p-8 text-center">
           <FolderKanban size={28} className="text-muted-foreground" />
-          <p className="mt-3 text-sm font-semibold text-foreground">Tidak ada proyek yang cocok.</p>
-          <p className="mt-1 max-w-sm text-xs text-muted-foreground">Ubah kata kunci pencarian atau bersihkan pencarian untuk melihat proyek lainnya.</p>
+          <p className="mt-3 text-sm font-semibold text-foreground">{t("emptySearch")}</p>
+          <p className="mt-1 max-w-sm text-xs text-muted-foreground">{t("emptySearchHint")}</p>
           <button type="button" onClick={() => setSearch("")} className="mt-4 rounded-lg border border-border px-3 py-2 text-xs font-semibold hover:bg-muted">
-            Bersihkan pencarian
+            {t("clearSearch")}
           </button>
         </div>
       ) : viewMode === "grid" ? (

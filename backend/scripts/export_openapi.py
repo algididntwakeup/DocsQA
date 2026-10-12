@@ -51,6 +51,7 @@ def export_openapi() -> Path:
     output_path.write_text(
         json.dumps(schema, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
+        newline="\n",
     )
     return output_path
 

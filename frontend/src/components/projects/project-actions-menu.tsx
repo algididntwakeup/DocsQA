@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Clipboard, ExternalLink, MoreHorizontal, Trash2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
+import { useLocale } from "@/components/layout/locale-provider";
 import type { Project } from "@/types/project";
 
 interface ProjectActionsMenuProps {
@@ -13,23 +14,24 @@ interface ProjectActionsMenuProps {
 }
 
 export function ProjectActionsMenu({ project, canManage = false, onFinish, onDelete }: ProjectActionsMenuProps) {
+  const { t } = useLocale();
   const projectNumber = project.project_number ?? project.code ?? "";
 
   async function copyProjectNumber() {
     if (!projectNumber) return;
     try {
       await navigator.clipboard.writeText(projectNumber);
-      toast.success("Nomor proyek disalin.");
+      toast.success(t("projectNumberCopied"));
     } catch {
-      toast.error("Nomor proyek tidak dapat disalin.");
+      toast.error(t("projectNumberCopyFailed"));
     }
   }
 
   return (
     <details className="relative">
       <summary
-        aria-label={`Aksi untuk ${project.name}`}
-        title="Aksi proyek"
+        aria-label={t("actionsForProject", { name: project.name })}
+        title={t("projectActions")}
         className="flex size-8 cursor-pointer list-none items-center justify-center rounded-lg border border-border/70 bg-card text-muted-foreground transition hover:bg-muted hover:text-foreground [&::-webkit-details-marker]:hidden"
       >
         <MoreHorizontal size={17} />
@@ -40,7 +42,7 @@ export function ProjectActionsMenu({ project, canManage = false, onFinish, onDel
           className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold text-foreground hover:bg-muted"
         >
           <ExternalLink size={14} />
-          Buka Workspace
+          {t("openWorkspace")}
         </Link>
         <button
           type="button"
@@ -49,7 +51,7 @@ export function ProjectActionsMenu({ project, canManage = false, onFinish, onDel
           className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Clipboard size={14} />
-          Salin Nomor Proyek
+          {t("copyProjectNumber")}
         </button>
         {canManage && project.status !== "FINISHED" && onFinish && (
           <button
@@ -58,19 +60,19 @@ export function ProjectActionsMenu({ project, canManage = false, onFinish, onDel
             className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-foreground hover:bg-muted"
           >
             <CheckCircle2 size={14} />
-            Selesaikan Proyek
+            {t("finish")}
           </button>
         )}
         {canManage && project.status !== "FINISHED" && onDelete && (
           <button
             type="button"
             disabled={(project.documents_count ?? project.total_documents ?? 0) > 0}
-            title={(project.documents_count ?? project.total_documents ?? 0) > 0 ? "Hanya project kosong yang dapat dihapus" : "Hapus proyek"}
+            title={(project.documents_count ?? project.total_documents ?? 0) > 0 ? t("emptyProjectDelete") : t("deleteProject")}
             onClick={() => onDelete(project.id)}
             className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Trash2 size={14} />
-            Hapus Proyek
+            {t("deleteProject")}
           </button>
         )}
       </div>

@@ -4,7 +4,9 @@ import { useMemo, type ReactNode } from "react";
 import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from "@tanstack/react-table";
 import type { Column, ColumnDef, OnChangeFn, SortingState, Table } from "@tanstack/react-table";
 import { ArrowDown, ArrowUp, ArrowUpDown, Folder } from "lucide-react";
+import { useLocale } from "@/components/layout/locale-provider";
 import { ProjectActionsMenu } from "@/components/projects/project-actions-menu";
+import { formatRelativeTime } from "@/lib/format";
 import type { Project } from "@/types/project";
 
 interface UseProjectTableOptions {
@@ -35,18 +37,15 @@ function SortableHeading({ column, label, icon }: { column: Column<Project, unkn
     </button>
   );
 }
-function displayModifiedDate(project: Project): string {
-  return new Intl.DateTimeFormat("id-ID", { dateStyle: "medium" }).format(
-    new Date(project.updated_at ?? project.created_at),
-  );
-}
 
 export function useProjectTable({ projects, sorting, onSortingChange, canManage, onFinish, onDelete }: UseProjectTableOptions) {
+  const { locale, t } = useLocale();
+
   const columns = useMemo<ColumnDef<Project, unknown>[]>(() => [
     {
       id: "name",
       accessorFn: (project) => project.name,
-      header: ({ column }) => <SortableHeading column={column} label="Name" icon={<Folder size={15} />} />,
+      header: ({ column }) => <SortableHeading column={column} label={t("colName")} icon={<Folder size={15} />} />,
       cell: ({ row }) => (
         <span className="flex min-w-48 items-center gap-2 font-semibold text-foreground">
           <Folder size={15} className="shrink-0 text-accent-foreground" />
@@ -57,34 +56,38 @@ export function useProjectTable({ projects, sorting, onSortingChange, canManage,
     {
       id: "project_number",
       accessorFn: (project) => project.project_number ?? project.code ?? "",
-      header: ({ column }) => <SortableHeading column={column} label="Project No." />,
+      header: ({ column }) => <SortableHeading column={column} label={t("colNumber")} />,
       cell: ({ getValue }) => <span className="font-mono text-xs text-muted-foreground">{getValue<string>() || "—"}</span>,
     },
     {
       id: "client_name",
       accessorFn: (project) => project.client_name ?? "",
-      header: ({ column }) => <SortableHeading column={column} label="Client" />,
+      header: ({ column }) => <SortableHeading column={column} label={t("colClient")} />,
       cell: ({ getValue }) => <span className="block max-w-56 truncate text-xs text-muted-foreground">{getValue<string>() || "—"}</span>,
     },
     {
       id: "documents_count",
       accessorFn: (project) => project.documents_count ?? project.total_documents ?? 0,
-      header: ({ column }) => <SortableHeading column={column} label="Documents" />,
+      header: ({ column }) => <SortableHeading column={column} label={t("colDocs")} />,
       cell: ({ getValue }) => <span className="tabular-nums text-xs text-muted-foreground">{getValue<number>()}</span>,
     },
     {
       id: "updated_at",
       accessorFn: (project) => Date.parse(project.updated_at ?? project.created_at) || 0,
-      header: ({ column }) => <SortableHeading column={column} label="Last Modified" />,
-      cell: ({ row }) => <time className="whitespace-nowrap text-xs text-muted-foreground" dateTime={row.original.updated_at ?? row.original.created_at}>{displayModifiedDate(row.original)}</time>,
+      header: ({ column }) => <SortableHeading column={column} label={t("colModified")} />,
+      cell: ({ row }) => (
+        <time className="whitespace-nowrap text-xs text-muted-foreground" dateTime={row.original.updated_at ?? row.original.created_at}>
+          {formatRelativeTime(row.original.updated_at ?? row.original.created_at, locale)}
+        </time>
+      ),
     },
     {
       id: "actions",
       enableSorting: false,
-      header: () => <span className="sr-only">Actions</span>,
+      header: () => <span className="sr-only">{t("colActions")}</span>,
       cell: ({ row }) => <ProjectActionsMenu project={row.original} canManage={canManage} onFinish={onFinish} onDelete={onDelete} />,
     },
-  ], [canManage, onDelete, onFinish]);
+  ], [canManage, locale, onDelete, onFinish, t]);
 
   // TanStack Table's instance is intentionally passed to the explorer table view.
   // eslint-disable-next-line react-hooks/incompatible-library -- TanStack's supported table API is required here.
@@ -99,6 +102,7 @@ export function useProjectTable({ projects, sorting, onSortingChange, canManage,
 }
 
 export function ProjectTableView({ table, onOpen }: ProjectTableViewProps) {
+  const { t } = useLocale();
   const rows = table.getRowModel().rows;
 
   return (
@@ -121,7 +125,7 @@ export function ProjectTableView({ table, onOpen }: ProjectTableViewProps) {
               key={row.id}
               role="link"
               tabIndex={0}
-              aria-label={`Buka workspace ${row.original.name}`}
+              aria-label={t("openWorkspaceFor", { name: row.original.name })}
               onClick={(event) => {
                 const target = event.target;
                 if (target instanceof Element && target.closest("button, a, summary")) return;
@@ -151,8 +155,10 @@ export function ProjectTableView({ table, onOpen }: ProjectTableViewProps) {
 }
 
 export function ProjectTableSkeleton({ count = 7 }: { count?: number }) {
+  const { t } = useLocale();
+
   return (
-    <div className="overflow-hidden rounded-xl border border-border/70 bg-card" role="status" aria-label="Memuat daftar proyek">
+    <div className="overflow-hidden rounded-xl border border-border/70 bg-card" role="status" aria-label={t("loadingProjectList")}>
       <div className="grid min-w-[860px] grid-cols-[2fr_1fr_1.5fr_0.7fr_1.2fr_0.6fr] gap-4 border-b border-border bg-muted/50 px-4 py-4">
         {Array.from({ length: 6 }, (_, index) => <div key={index} className="h-3 animate-pulse rounded bg-muted-foreground/20" />)}
       </div>
