@@ -1,4 +1,5 @@
 import type { components } from "./api-schema";
+import { setLastCorrelationId } from "./correlation";
 
 export type DocumentItem = Omit<components["schemas"]["DocumentRead"], "workflow_status" | "project_finished"> & {
   workflow_status?: components["schemas"]["DocumentWorkflowStatus"];
@@ -170,7 +171,12 @@ export function setAuthToken(token: string | null): void {
 }
 
 export class ApiError extends Error {
-  constructor(message: string, readonly status: number, readonly code?: string) {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly code?: string,
+    readonly correlationId?: string,
+  ) {
     super(message);
     this.name = "ApiError";
   }
@@ -188,6 +194,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     headers,
     credentials: "include",
   });
+  let correlationId = response.headers.get("X-Correlation-ID") ?? undefined;
+  setLastCorrelationId(correlationId ?? null);
   if (response.status === 401 && typeof window !== "undefined") {
     setAuthToken(null);
     const currentPath = window.location.pathname;
@@ -199,13 +207,22 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     let message = `Request failed (${response.status}).`;
     let code: string | undefined;
     try {
-      const problem = (await response.json()) as { detail?: string | { message?: string }; code?: string };
+      const problem = (await response.json()) as {
+        detail?: string | { message?: string };
+        code?: string;
+        error_code?: string;
+        message?: string;
+        correlation_id?: string;
+      };
       message = typeof problem.detail === "string" ? problem.detail : problem.detail?.message ?? message;
-      code = problem.code;
+      message = problem.message ?? message;
+      code = problem.code ?? problem.error_code;
+      correlationId ??= problem.correlation_id;
     } catch {
       // Keep fallback
     }
-    throw new ApiError(message, response.status, code);
+    setLastCorrelationId(correlationId ?? null);
+    throw new ApiError(message, response.status, code, correlationId);
   }
   if (response.status === 204) {
     return undefined as unknown as T;
@@ -604,8 +621,10 @@ export async function downloadDocumentReport(
   const response = await fetch(url, {
     credentials: "include",
   });
+  const correlationId = response.headers.get("X-Correlation-ID") ?? undefined;
+  setLastCorrelationId(correlationId ?? null);
   if (!response.ok) {
-    throw new Error(`Export of ${label} failed (${response.status}).`);
+    throw new ApiError(`Export of ${label} failed (${response.status}).`, response.status, undefined, correlationId);
   }
   const blob = await response.blob();
   const disposition = response.headers.get("Content-Disposition") ?? "";

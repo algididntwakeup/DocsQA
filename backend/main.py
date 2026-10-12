@@ -14,6 +14,7 @@ from api.bima import router as bima_router
 from api.dictionary import router as dictionary_router
 from api.documents import router as documents_router
 from api.issues import router as issues_router
+from api.logs import router as logs_router
 from api.projects import router as projects_router
 from api.standards import router as standards_router
 from core.config import settings
@@ -25,12 +26,20 @@ from core.errors import (
     upload_rejected_handler,
     validation_error_handler,
 )
+from core.exceptions import internal_server_error_handler
+from core.logging import configure_logging
+from core.middleware import CorrelationIDMiddleware
+
+configure_logging()
 
 app = FastAPI(
     title=settings.APP_NAME,
     description="Automated first-pass quality review of engineering documents (PDF/DOCX)",
     version="0.1.0",
 )
+
+# Keep correlation inside CORS so generated 500 responses retain CORS headers.
+app.add_middleware(CorrelationIDMiddleware)
 
 # CORS — allow Next.js dev server, docker frontend, and ngrok preview domains
 app.add_middleware(
@@ -40,6 +49,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Correlation-ID"],
 )
 
 
@@ -66,6 +76,7 @@ app.add_exception_handler(FeatureNotReadyError, feature_not_ready_handler)
 app.add_exception_handler(UploadRejectedError, upload_rejected_handler)
 app.add_exception_handler(RequestValidationError, validation_error_handler)
 app.add_exception_handler(HTTPException, http_error_handler)
+app.add_exception_handler(Exception, internal_server_error_handler)
 
 
 @app.get("/health")
@@ -78,5 +89,6 @@ app.include_router(auth_router, prefix="/api/v1")
 app.include_router(bima_router, prefix="/api/v1")
 app.include_router(projects_router, prefix="/api/v1")
 app.include_router(issues_router, prefix="/api/v1")
+app.include_router(logs_router, prefix="/api/v1")
 app.include_router(dictionary_router, prefix="/api/v1")
 app.include_router(standards_router, prefix="/api/v1")

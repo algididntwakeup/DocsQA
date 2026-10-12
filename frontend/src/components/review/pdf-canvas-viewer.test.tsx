@@ -94,6 +94,7 @@ describe("PdfCanvasViewer", () => {
     const scrollArea = screen.getByTestId("pdf-scroll-area");
 
     fireEvent.wheel(scrollArea, { deltaY: -120, ctrlKey: true, clientX: 10, clientY: 10 });
+    await waitFor(() => expect(screen.getByText(/^\d+%$/).textContent).not.toBe("100%"));
     const firstZoom = screen.getByText(/^\d+%$/).textContent;
 
     fireEvent.wheel(scrollArea, { deltaY: -60, ctrlKey: true, clientX: 10, clientY: 10 });
