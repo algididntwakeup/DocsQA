@@ -40,7 +40,7 @@ describe("ProjectDocumentTable", () => {
     render(<ProjectDocumentTable documents={documents} role="ENGINEER" loading={false} onUpload={vi.fn()} onFiltersChange={vi.fn()} />);
 
     expect(screen.queryByLabelText("Engineer")).toBeNull();
-    expect(screen.getByRole("link", { name: /buka workspace/i }).getAttribute("href")).toBe("/documents/doc-a/review");
+    expect(screen.getByRole("link", { name: /open workspace/i }).getAttribute("href")).toBe("/documents/doc-a/review");
   });
   it("disables workspace while a document is processing", () => {
     render(
@@ -52,9 +52,9 @@ describe("ProjectDocumentTable", () => {
         onFiltersChange={vi.fn()}
       />,
     );
-    expect((screen.getByRole("button", { name: /buka workspace/i }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: /open workspace/i }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText(/42%/)).toBeDefined();
-    expect(screen.queryByRole("link", { name: /buka workspace/i })).toBeNull();
+    expect(screen.queryByRole("link", { name: /open workspace/i })).toBeNull();
   });
 
   it("gates workspace for legacy serialized analyzing status", () => {
@@ -67,8 +67,8 @@ describe("ProjectDocumentTable", () => {
         onFiltersChange={vi.fn()}
       />,
     );
-    expect((screen.getByRole("button", { name: /buka workspace/i }) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByText(/Sedang Dianalisis/)).toBeDefined();
+    expect((screen.getByRole("button", { name: /open workspace/i }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText(/Analyzing/)).toBeDefined();
   });
 
   it("does not block a claim because of an active task in another project", () => {
@@ -108,7 +108,7 @@ describe("ProjectDocumentTable", () => {
       />
     );
 
-    expect(screen.getByRole("link", { name: /buka workspace/i })).not.toBeNull();
+    expect(screen.getByRole("link", { name: /open workspace/i })).not.toBeNull();
     expect(screen.queryByRole("button", { name: /upload document/i })).toBeNull();
     expect((screen.getByLabelText(/assign engineer-a/i) as HTMLSelectElement).disabled).toBe(true);
   });

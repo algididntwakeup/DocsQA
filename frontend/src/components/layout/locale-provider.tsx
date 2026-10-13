@@ -1,7 +1,7 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { detectLocale, LOCALE_STORAGE_KEY, normalizeLocale, translate, type Locale, type TranslationKey } from "@/lib/i18n";
+import { createContext, useContext, useEffect, useMemo, type ReactNode } from "react";
+import { DEFAULT_LOCALE, translate, type Locale, type TranslationKey } from "@/lib/i18n";
 
 interface LocaleContextValue {
   locale: Locale;
@@ -9,44 +9,35 @@ interface LocaleContextValue {
   t: (key: TranslationKey, vars?: Record<string, string | number>) => string;
 }
 
-const LocaleContext = createContext<LocaleContextValue>({ locale: "en", setLocale: () => undefined, t: (key, vars) => translate("en", key, vars) });
+/**
+ * PRISM renders English only.
+ *
+ * The bilingual dictionary still exists in `@/lib/i18n`, but the UI is pinned
+ * to `en` so no mixed-language strings can reach the screen. `setLocale` is
+ * intentionally a no-op: the language toggle was removed, and keeping the
+ * switch inert means a stale `matqc-locale` value in a returning user's
+ * localStorage cannot flip the interface back to Indonesian.
+ */
+const LocaleContext = createContext<LocaleContextValue>({
+  locale: DEFAULT_LOCALE,
+  setLocale: () => undefined,
+  t: (key, vars) => translate(DEFAULT_LOCALE, key, vars),
+});
 
 export function LocaleProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>("en");
-
   useEffect(() => {
-    const syncLocale = () => {
-      try {
-        const stored = window.localStorage.getItem(LOCALE_STORAGE_KEY);
-        setLocaleState(stored === null ? detectLocale() : normalizeLocale(stored));
-      } catch {
-        setLocaleState(detectLocale());
-      }
-    };
-    syncLocale();
-    window.addEventListener("storage", syncLocale);
-    window.addEventListener("matqc-locale-change", syncLocale);
-    return () => {
-      window.removeEventListener("storage", syncLocale);
-      window.removeEventListener("matqc-locale-change", syncLocale);
-    };
+    document.documentElement.lang = DEFAULT_LOCALE;
   }, []);
 
-  useEffect(() => {
-    document.documentElement.lang = locale;
-  }, [locale]);
+  const value = useMemo<LocaleContextValue>(
+    () => ({
+      locale: DEFAULT_LOCALE,
+      setLocale: () => undefined,
+      t: (key, vars) => translate(DEFAULT_LOCALE, key, vars),
+    }),
+    [],
+  );
 
-  const setLocale = (next: Locale) => {
-    setLocaleState(next);
-    try {
-      window.localStorage.setItem(LOCALE_STORAGE_KEY, next);
-      window.dispatchEvent(new CustomEvent("matqc-locale-change", { detail: next }));
-    } catch {
-      // Keep the selected locale in memory when storage is unavailable.
-    }
-  };
-
-  const value = useMemo<LocaleContextValue>(() => ({ locale, setLocale, t: (key, vars) => translate(locale, key, vars) }), [locale]);
   return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>;
 }
 

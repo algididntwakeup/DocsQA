@@ -83,9 +83,11 @@ describe("AppShell dashboard navigation", () => {
     expect(screen.queryByRole("link", { name: /Open Dashboard/i })).toBeNull();
   });
 
-  it("localizes the dashboard button in Indonesian", async () => {
+  it("renders the dashboard button in English regardless of stored locale", async () => {
     vi.mocked(api.getCurrentUser).mockResolvedValue(session({ is_superuser: true }));
 
+    // A stale Indonesian locale in storage must not switch the interface: the
+    // app is pinned to English.
     window.localStorage.setItem("matqc-locale", "id");
     render(
       <LocaleProvider>
@@ -95,6 +97,7 @@ describe("AppShell dashboard navigation", () => {
       </LocaleProvider>,
     );
 
-    expect(await screen.findByRole("link", { name: /Buka Dashboard/i })).toBeDefined();
+    expect(await screen.findByRole("link", { name: /Open Dashboard/i })).toBeDefined();
+    expect(screen.queryByRole("link", { name: /Buka Dashboard/i })).toBeNull();
   });
 });

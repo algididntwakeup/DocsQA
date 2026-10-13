@@ -28,6 +28,7 @@ export default function ProjectsPage() {
   const [projectNumber, setProjectNumber] = useState("");
   const [creating, setCreating] = useState(false);
   const [currentRole, setCurrentRole] = useState<UserRole | null>(null);
+  const [isSuperuser, setIsSuperuser] = useState(false);
   const [search, setSearch] = useState("");
   const [sorting, setSorting] = useState<SortingState>([{ id: "updated_at", desc: true }]);
   const [viewMode, setViewMode] = useViewMode();
@@ -71,6 +72,7 @@ export default function ProjectsPage() {
       const current = await getCurrentUser();
       setCanOpenCreateModal(canCreateAnyProject(current.role));
       setCurrentRole(current.role);
+      setIsSuperuser(current.is_superuser === true);
       const entries = await Promise.all(
         next.map(async (project) => [project.id, (await listProjectDocuments(project.id)).pagination.total] as const)
       );
@@ -183,7 +185,7 @@ export default function ProjectsPage() {
         rightSlot={(
           <div className="flex flex-wrap items-center justify-end gap-2">
             <ErrorBoundary>
-              <ImportBimaModal role={currentRole} />
+              <ImportBimaModal role={currentRole} isSuperuser={isSuperuser} />
             </ErrorBoundary>
           </div>
         )}

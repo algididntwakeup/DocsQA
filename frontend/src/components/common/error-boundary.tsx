@@ -118,7 +118,7 @@ export function ErrorFallback({
             type="button"
           >
             {copied ? <Check aria-hidden="true" size={16} /> : <Copy aria-hidden="true" size={16} />}
-            {copied ? "Kode Pelacak Disalin" : "Salin Kode Pelacak"}
+            {copied ? "Tracking Code Copied" : "Copy Tracking Code"}
           </button>
         </div>
       </section>

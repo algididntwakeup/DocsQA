@@ -42,12 +42,12 @@ export function DocumentList({ documents, onRefresh }: { documents: DocumentItem
       <Table className="min-w-[980px] text-xs">
         <TableHeader className="bg-muted/60">
           <TableRow>
-            <TableHead>Dokumen</TableHead>
-            <TableHead>Proyek &amp; Plant</TableHead>
+            <TableHead>Document</TableHead>
+            <TableHead>Project &amp; Plant</TableHead>
             <TableHead>Uploaded By</TableHead>
             <TableHead>Assigned PIC</TableHead>
             <TableHead>Workflow Status</TableHead>
-            <TableHead className="text-right">Aksi</TableHead>
+            <TableHead className="text-right">Action</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -68,14 +68,14 @@ export function DocumentList({ documents, onRefresh }: { documents: DocumentItem
               </TableCell>
               <TableCell className="text-muted-foreground">{document.uploaded_by_name ?? document.owner_name ?? "Unknown"}</TableCell>
               <TableCell>
-                {document.assigned_to_name ? <span className="font-medium text-foreground">{document.assigned_to_name}</span> : <span className="rounded-full bg-muted px-2.5 py-1 text-[10px] font-semibold text-muted-foreground">Belum di-assign</span>}
+                {document.assigned_to_name ? <span className="font-medium text-foreground">{document.assigned_to_name}</span> : <span className="rounded-full bg-muted px-2.5 py-1 text-[10px] font-semibold text-muted-foreground">Unassigned</span>}
               </TableCell>
               <TableCell>
                 <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold ring-1 ${workflowStyles[document.workflow_status ?? "ANALYZING"] ?? workflowStyles.ANALYZING}`}>{workflowLabel(document.workflow_status)}</span>
               </TableCell>
               <TableCell className="text-right">
                 <div className="flex justify-end gap-2">
-                  <Link href={`/documents/${document.id}/review`} className="rounded-lg bg-primary px-3 py-2 text-[10px] font-bold text-primary-foreground hover:bg-primary/90">Buka Review</Link>
+                  <Link href={`/documents/${document.id}/review`} className="rounded-lg bg-primary px-3 py-2 text-[10px] font-bold text-primary-foreground hover:bg-primary/90">Open Review</Link>
                   <button type="button" onClick={() => void handleDelete(document)} disabled={deletingId === document.id} aria-label={`Delete ${document.filename}`} className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50">{deletingId === document.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}</button>
                 </div>
               </TableCell>

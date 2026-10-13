@@ -90,10 +90,10 @@ export function ProjectDocumentTable({
     try {
       await deleteDocument(document.id);
       setDeleteRequest(null);
-      toast.success("Dokumen berhasil dihapus.");
+      toast.success("Document deleted successfully.");
       await onChanged?.();
     } catch (caught) {
-      toast.error(caught instanceof ApiError ? caught.message : "Dokumen gagal dihapus.");
+      toast.error(caught instanceof ApiError ? caught.message : "Could not delete the document.");
     } finally {
       setBusyId(null);
     }
@@ -325,8 +325,8 @@ export function ProjectDocumentTable({
                     <div className="flex items-center justify-end gap-3">
                     <button
                       type="button"
-                      aria-label={`Hapus ${document.filename}`}
-                      title={document.assigned_to_id || workflow === "REVIEWED_BY_ENGINEER" || workflow === "VERIFIED_BY_LEAD" ? "Dokumen yang sedang dikerjakan atau sudah diverifikasi tidak dapat dihapus" : "Hapus dokumen"}
+                      aria-label={`Delete ${document.filename}`}
+                      title={document.assigned_to_id || workflow === "REVIEWED_BY_ENGINEER" || workflow === "VERIFIED_BY_LEAD" ? "Documents in progress or already verified cannot be deleted" : "Delete document"}
                       disabled={Boolean(document.assigned_to_id) || workflow === "REVIEWED_BY_ENGINEER" || workflow === "VERIFIED_BY_LEAD" || busyId === document.id || projectFinished}
                       onClick={() => setDeleteRequest(document)}
                       className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground shadow-2xs transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-40"
@@ -337,18 +337,18 @@ export function ProjectDocumentTable({
                       <button
                         type="button"
                         disabled
-                        aria-label={`Buka Workspace ${document.filename}`}
-                        title="Workspace tersedia setelah pemrosesan selesai"
+                        aria-label={`Open Workspace ${document.filename}`}
+                        title="The workspace is available once processing finishes"
                         className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs font-bold text-muted-foreground disabled:cursor-not-allowed"
                       >
-                        Sedang Dianalisis... <span aria-label={`Progress ${progressLabel}`}>{progressLabel}</span>
+                        Analyzing... <span aria-label={`Progress ${progressLabel}`}>{progressLabel}</span>
                       </button>
                     ) : (
                       <Link
                         className="inline-flex items-center gap-1 text-xs font-bold text-accent-foreground hover:text-primary hover:underline"
                         href={`/documents/${document.id}/review`}
                       >
-                        Buka Workspace <ExternalLink size={13} />
+                        Open Workspace <ExternalLink size={13} />
                       </Link>
                     )}
                     </div>
@@ -423,13 +423,13 @@ export function ProjectDocumentTable({
             <div className="flex items-start gap-3">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-rose-50 text-rose-600"><Trash2 size={17} /></div>
               <div>
-                <h2 id="delete-document-title" className="text-base font-bold text-foreground">Hapus Dokumen</h2>
+                <h2 id="delete-document-title" className="text-base font-bold text-foreground">Delete Document</h2>
                 <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Apakah Anda yakin ingin menghapus dokumen &apos;{deleteRequest.filename}&apos;? Berkas PDF dan seluruh data analisis akan dihapus permanen.</p>
               </div>
             </div>
             <div className="mt-6 flex justify-end gap-2 border-t border-border pt-4">
-              <button type="button" className="rounded-lg border border-border px-4 py-2 text-xs font-semibold text-foreground hover:bg-muted/60" onClick={() => setDeleteRequest(null)}>Batal</button>
-              <button type="button" className="rounded-lg bg-rose-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-rose-700 disabled:opacity-50" disabled={busyId === deleteRequest.id} onClick={() => void removeDocument(deleteRequest)}>{busyId === deleteRequest.id ? "Menghapus..." : "Ya, Hapus Dokumen"}</button>
+              <button type="button" className="rounded-lg border border-border px-4 py-2 text-xs font-semibold text-foreground hover:bg-muted/60" onClick={() => setDeleteRequest(null)}>Cancel</button>
+              <button type="button" className="rounded-lg bg-rose-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-rose-700 disabled:opacity-50" disabled={busyId === deleteRequest.id} onClick={() => void removeDocument(deleteRequest)}>{busyId === deleteRequest.id ? "Deleting..." : "Yes, Delete Document"}</button>
             </div>
           </div>
         </div>

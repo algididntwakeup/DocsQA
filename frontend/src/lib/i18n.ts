@@ -1,5 +1,5 @@
 export type Locale = "en" | "id";
-export const LOCALE_STORAGE_KEY = "matqc-locale";
+// The UI is pinned to English, so no locale is persisted or detected.
 export const DEFAULT_LOCALE: Locale = "en";
 
 type Messages = Record<string, string>;
@@ -65,6 +65,9 @@ Object.assign(en, {
   bimaOpenWorkspaceTitle: "Open this project's workspace",
   bimaMyProjectBadge: "My Project",
   bimaFilterMine: "My projects only",
+  bimaScopeLabel: "Project scope",
+  bimaTabMine: "My Projects",
+  bimaTabAll: "All Projects",
   folderPermissionEngineering: "Only engineers, lead engineers, or superusers can manage folders on engineering projects (number prefix 13).",
   folderPermissionInternal: "Only HR/GA, finance, or superusers can manage folders on internal projects (number prefix 03).",
   folderPermissionUnclassified: "You do not have permission to manage folders on this project.",
@@ -131,6 +134,9 @@ Object.assign(id, {
   bimaOpenWorkspaceTitle: "Buka workspace proyek ini",
   bimaMyProjectBadge: "Proyek Saya",
   bimaFilterMine: "Hanya proyek saya",
+  bimaScopeLabel: "Cakupan proyek",
+  bimaTabMine: "Proyek Saya",
+  bimaTabAll: "Semua Proyek",
   folderPermissionEngineering: "Hanya engineer, lead engineer, atau superuser yang dapat mengelola folder pada proyek Engineering (nomor prefix 13).",
   folderPermissionInternal: "Hanya HR/GA, finance, atau superuser yang dapat mengelola folder pada proyek Internal (nomor prefix 03).",
   folderPermissionUnclassified: "Anda tidak memiliki izin mengelola folder pada proyek ini.",
@@ -236,8 +242,6 @@ Object.assign(id, {
 
 const catalog: Record<Locale, Messages> = { en, id };
 export type TranslationKey = string;
-export function normalizeLocale(value: string | null | undefined): Locale { return value?.toLowerCase().startsWith("id") ? "id" : "en"; }
-export function detectLocale(): Locale { return typeof navigator !== "undefined" ? normalizeLocale(navigator.language) : DEFAULT_LOCALE; }
 export function translate(locale: Locale, key: TranslationKey, vars?: Record<string, string | number>): string {
   const value = catalog[locale][key] ?? catalog.en[key] ?? key;
   return Object.entries(vars ?? {}).reduce((result, [name, replacement]) => result.replaceAll(`{${name}}`, String(replacement)), value);

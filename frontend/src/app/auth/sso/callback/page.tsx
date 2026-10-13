@@ -14,7 +14,7 @@ function SsoCallbackContent() {
     if (!token) return;
     exchangeSsoToken(token)
       .then(() => router.replace("/projects"))
-      .catch((caught) => setError(caught instanceof ApiError ? caught.message : "Sesi BIMA tidak dapat diverifikasi."));
+      .catch((caught) => setError(caught instanceof ApiError ? caught.message : "The BIMA session could not be verified."));
   }, [router, token]);
 
   return (
@@ -22,12 +22,12 @@ function SsoCallbackContent() {
       <section className="w-full max-w-md rounded-3xl border border-border bg-card p-10 text-center shadow-xl shadow-slate-900/5">
         {!token || error ? (
           <div role="alert" className="space-y-4">
-            <p className="text-sm font-semibold text-rose-700">{error ?? "Token sesi BIMA tidak ditemukan."}</p>
-            <button type="button" onClick={() => router.replace("/login")} className="text-xs font-bold text-primary hover:underline">Kembali ke login</button>
+            <p className="text-sm font-semibold text-rose-700">{error ?? "No BIMA session token was found."}</p>
+            <button type="button" onClick={() => router.replace("/login")} className="text-xs font-bold text-primary hover:underline">Back to login</button>
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="mx-auto h-9 w-9 animate-spin rounded-full border-4 border-border border-t-primary" aria-label="Memuat" />
+            <div className="mx-auto h-9 w-9 animate-spin rounded-full border-4 border-border border-t-primary" aria-label="Loading" />
             <p className="text-sm font-semibold text-foreground">Memverifikasi sesi BIMA SSO...</p>
           </div>
         )}

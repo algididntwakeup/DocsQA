@@ -3,7 +3,6 @@
 import { ArrowRight, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { useLocale } from "@/components/layout/locale-provider";
-import { LanguageToggle } from "@/components/layout/language-toggle";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { ReksolindoLogo } from "@/components/layout/reksolindo-logo";
 
@@ -30,7 +29,6 @@ export default function LoginPage() {
     <div className="relative min-h-screen flex items-center justify-center bg-background p-4 sm:p-6 font-sans">
       <div className="absolute right-6 top-6 flex items-center gap-2">
         <ThemeToggle />
-        <LanguageToggle />
       </div>
 
       <div className="grid w-full max-w-5xl overflow-hidden rounded-3xl border border-border bg-card shadow-2xl shadow-slate-950/10 md:min-h-[560px] md:grid-cols-[1.05fr_0.95fr]">

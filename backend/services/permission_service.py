@@ -72,16 +72,15 @@ def is_privileged(role: UserRole | str | None) -> bool:
 def has_workspace_oversight(user: object | None) -> bool:
     """Return whether ``user`` may read every workspace regardless of ownership.
 
-    Oversight comes from the role (lead engineers) or from the local
-    ``is_superuser`` flag, which is the only way to grant cross-department
-    access because BIMA's flat directory cannot express it.
+    Oversight comes only from the local ``is_superuser`` flag. BIMA's flat
+    directory exposes no lead-engineer concept, so a lead's role must not widen
+    workspace visibility: every account sees its own projects unless it carries
+    the flag.
     """
 
     if user is None:
         return False
-    if bool(getattr(user, "is_superuser", False)):
-        return True
-    return is_privileged(getattr(user, "role", None))
+    return bool(getattr(user, "is_superuser", False))
 
 
 def can_review_document(user: object | None, document: object | None) -> bool:

@@ -336,7 +336,7 @@ export function SplitScreenViewer({
               disabled={isProcessing}
               onClick={() => setIsScorecardOpen(true)}
               className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-semibold text-foreground shadow-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-              title={isProcessing ? "Scorecard dan temuan sedang dikompilasi..." : undefined}
+              title={isProcessing ? "The scorecard and findings are still being compiled..." : undefined}
             >
               <ShieldCheck size={13} className="text-indigo-600" />
               <span className="hidden sm:inline">Budinski</span> Scorecard
@@ -358,7 +358,7 @@ export function SplitScreenViewer({
               disabled={isProcessing}
               onClick={() => setIsExportModalOpen(true)}
               className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1 text-xs font-bold text-primary-foreground shadow-xs hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-              title={isProcessing ? "Fitur ekspor aktif setelah analisis selesai." : undefined}
+              title={isProcessing ? "Export is available once analysis finishes." : undefined}
             >
               <Download size={13} />
               <span>Export</span>
@@ -488,7 +488,7 @@ export function SplitScreenViewer({
             <button
               type="button"
               disabled={isProcessing}
-              title={isProcessing ? "Fitur ekspor aktif setelah analisis selesai." : undefined}
+              title={isProcessing ? "Export is available once analysis finishes." : undefined}
               onClick={() => void downloadExport(document.id, "docx", false, locale)}
               className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground shadow-sm hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -498,7 +498,7 @@ export function SplitScreenViewer({
             <button
               type="button"
               disabled={isProcessing}
-              title={isProcessing ? "Fitur ekspor aktif setelah analisis selesai." : undefined}
+              title={isProcessing ? "Export is available once analysis finishes." : undefined}
               onClick={() => void downloadExport(document.id, "pdf")}
               className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
             >

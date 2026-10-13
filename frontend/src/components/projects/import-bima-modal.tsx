@@ -11,13 +11,18 @@ import type { BimaCatalogItem } from "@/types/project";
 
 interface ImportBimaModalProps {
   role?: UserRole | null;
+  isSuperuser?: boolean;
 }
 
-export function ImportBimaModal({ role = null }: ImportBimaModalProps) {
+type CatalogScope = "mine" | "all";
+
+export function ImportBimaModal({ role = null, isSuperuser = false }: ImportBimaModalProps) {
   const { t } = useLocale();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [mineOnly, setMineOnly] = useState(false);
+  // Standard users are pinned to their own projects; the "All Projects" scope
+  // only exists for locally flagged superusers.
+  const [scope, setScope] = useState<CatalogScope>("mine");
   const [importError, setImportError] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const projectsQuery = useBimaProjects(open);
@@ -41,15 +46,16 @@ export function ImportBimaModal({ role = null }: ImportBimaModalProps) {
             value.toLowerCase().includes(query),
           ),
         );
-    if (!mineOnly) return matched;
+    // "All Projects" is superuser-only; every other account stays on "mine".
+    if (scope === "all" && isSuperuser) return matched;
 
     return matched.filter((project) => project.is_mine);
-  }, [projectsQuery.data, search, mineOnly]);
+  }, [projectsQuery.data, search, scope, isSuperuser]);
 
   function closeDialog() {
     setOpen(false);
     setImportError(null);
-    setMineOnly(false);
+    setScope("mine");
   }
 
   async function handleImport(project: BimaCatalogItem) {
@@ -120,16 +126,39 @@ export function ImportBimaModal({ role = null }: ImportBimaModalProps) {
               className="h-10 w-full rounded-lg border border-border bg-background pl-9 pr-3 text-sm outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/30"
             />
           </div>
-          {projectsQuery.data?.some((project) => project.bima_owner_known) && (
-            <label className="mt-2 inline-flex cursor-pointer items-center gap-2 text-xs font-semibold text-muted-foreground">
-              <input
-                type="checkbox"
-                checked={mineOnly}
-                onChange={(event) => setMineOnly(event.target.checked)}
-                className="size-3.5 rounded border-border"
-              />
-              {t("bimaFilterMine")}
-            </label>
+          {isSuperuser && (
+            <div
+              role="tablist"
+              aria-label={t("bimaScopeLabel")}
+              className="mt-3 inline-flex items-center rounded-lg border border-border bg-muted p-0.5 text-xs font-semibold text-muted-foreground"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={scope === "mine"}
+                onClick={() => setScope("mine")}
+                className={`rounded-md px-3 py-1 text-[11px] transition-all ${
+                  scope === "mine"
+                    ? "bg-card font-bold text-accent-foreground shadow-xs ring-1 ring-border/50"
+                    : "hover:text-foreground"
+                }`}
+              >
+                {t("bimaTabMine")}
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={scope === "all"}
+                onClick={() => setScope("all")}
+                className={`rounded-md px-3 py-1 text-[11px] transition-all ${
+                  scope === "all"
+                    ? "bg-card font-bold text-accent-foreground shadow-xs ring-1 ring-border/50"
+                    : "hover:text-foreground"
+                }`}
+              >
+                {t("bimaTabAll")}
+              </button>
+            </div>
           )}
         </div>
 

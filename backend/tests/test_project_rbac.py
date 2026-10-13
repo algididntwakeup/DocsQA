@@ -209,13 +209,19 @@ def _compiled(query: Any) -> str:
 
 @pytest.mark.parametrize(
     "role",
-    [UserRole.ENGINEER, UserRole.HRGA, UserRole.FINANCE],
+    [
+        UserRole.ENGINEER,
+        UserRole.HRGA,
+        UserRole.FINANCE,
+        UserRole.LEAD_ENGINEER,
+        UserRole.SUPERUSER,
+    ],
 )
-def test_visible_projects_query_scopes_regular_roles_to_owner(role: UserRole) -> None:
-    """Regular roles list only their own projects.
+def test_visible_projects_query_scopes_every_role_to_owner(role: UserRole) -> None:
+    """Only the local flag widens visibility; no role does.
 
-    The listing filters by ``projects.owner_id`` and must never widen the scope
-    with the old cross-user document EXISTS.
+    BIMA's flat directory has no lead-engineer concept, so a lead role must not
+    leak other users' workspaces into the listing.
     """
 
     user = _user(role)
@@ -227,21 +233,20 @@ def test_visible_projects_query_scopes_regular_roles_to_owner(role: UserRole) ->
     assert "projects.id" in sql
 
 
-@pytest.mark.parametrize("role", [UserRole.LEAD_ENGINEER, UserRole.SUPERUSER])
-def test_visible_projects_query_gives_oversight_roles_every_workspace(role: UserRole) -> None:
-    """Lead engineers and superusers keep the cross-user oversight listing."""
-
-    user = _user(role)
-    query = _visible_projects_query(user)
-    compiled = cast(Select[Any], query).compile()
-    assert not any(value == user.id for value in compiled.params.values())
-    assert "projects.id" in str(compiled)
-
-
 def test_visible_projects_query_gives_flagged_accounts_oversight() -> None:
     """The local ``is_superuser`` flag grants oversight without a lead role."""
 
     user = _user(UserRole.ENGINEER)
+    user.is_superuser = True
+    query = _visible_projects_query(user)
+    compiled = cast(Select[Any], query).compile()
+    assert not any(value == user.id for value in compiled.params.values())
+
+
+def test_visible_projects_query_gives_flagged_lead_oversight() -> None:
+    """A flagged lead still sees every workspace."""
+
+    user = _user(UserRole.LEAD_ENGINEER)
     user.is_superuser = True
     query = _visible_projects_query(user)
     compiled = cast(Select[Any], query).compile()

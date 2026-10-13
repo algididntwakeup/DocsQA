@@ -68,22 +68,22 @@ export function folderPermissionMessageKey(projectNumber: string | null | undefi
 export function createPermissionMessage(projectNumber: string | null | undefined): string {
   const kind = projectKind(projectNumber);
   if (kind === "ENGINEERING") {
-    return "Hanya engineer, lead engineer, atau superuser yang dapat membuat proyek Engineering (nomor prefix 13).";
+    return "Only engineers, lead engineers, or superusers can create engineering projects (number prefix 13).";
   }
   if (kind === "INTERNAL") {
-    return "Hanya HR/GA, finance, atau superuser yang dapat membuat proyek Internal (nomor prefix 03).";
+    return "Only HR/GA, finance, or superusers can create internal projects (number prefix 03).";
   }
-  return "Hanya lead engineer atau superuser yang dapat membuat proyek tanpa nomor proyek.";
+  return "Only lead engineers or superusers can create projects without a project number.";
 }
 
 /** Explain which prefixes the signed-in role may create. */
 export function createScopeHint(role: UserRole | null | undefined): string {
-  if (role === "SUPERUSER") return "Superuser dapat membuat proyek Engineering (13) dan Internal (03).";
+  if (role === "SUPERUSER") return "Superusers can create both engineering (13) and internal (03) projects.";
   if (role === "HRGA" || role === "FINANCE") {
-    return "Proyek Internal wajib berprefix 03, contoh: 03-2026-001.";
+    return "Internal projects must use the 03 prefix, for example: 03-2026-001.";
   }
   if (role === "LEAD_ENGINEER") {
-    return "Proyek Engineering wajib berprefix 13, contoh: 13726486.01.";
+    return "Engineering projects must use the 13 prefix, for example: 13726486.01.";
   }
-  return "Proyek Engineering wajib berprefix 13, contoh: 13726486.01.";
+  return "Engineering projects must use the 13 prefix, for example: 13726486.01.";
 }
