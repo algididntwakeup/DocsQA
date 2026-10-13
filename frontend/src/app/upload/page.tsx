@@ -1,5 +1,5 @@
-import { UploadWorkspace } from "@/components/upload/upload-workspace";
+import { DocumentIngestionFlow } from "@/components/upload/document-ingestion-flow";
 
 export default function UploadPage() {
-  return <UploadWorkspace />;
+  return <DocumentIngestionFlow />;
 }
