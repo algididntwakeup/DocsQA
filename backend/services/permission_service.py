@@ -107,6 +107,23 @@ def can_review_document(user: object | None, document: object | None) -> bool:
     return project is not None and user_id == getattr(project, "owner_id", None)
 
 
+def can_finalize_review(user: object | None, document: object | None) -> bool:
+    """Return whether ``user`` may verify or send back ``document``.
+
+    BIMA exposes no lead-engineer concept, so the legacy ``LEAD_ENGINEER`` role
+    check is replaced by: the local superuser flag, or the document uploader.
+    """
+
+    if user is None or document is None:
+        return False
+    if bool(getattr(user, "is_superuser", False)):
+        return True
+    user_id = getattr(user, "id", None)
+    if user_id is None:
+        return False
+    return bool(user_id == getattr(document, "owner_id", None))
+
+
 def can_manage_folders(role: UserRole | str | None, project_number: str | None) -> bool:
     """Return whether ``role`` may add or edit folders on the project."""
 

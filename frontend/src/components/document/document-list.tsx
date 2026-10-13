@@ -8,6 +8,7 @@ import { formatBytes, formatDate } from "@/lib/format";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useLocale } from "@/components/layout/locale-provider";
 import { Card } from "@/components/ui/card";
+import { AlertDialog } from "@/components/ui/alert-dialog";
 
 const workflowStyles: Record<string, string> = {
   ANALYZING: "bg-accent text-accent-foreground ring-primary/10",
@@ -21,11 +22,24 @@ function workflowLabel(status?: string) {
 
 export function DocumentList({ documents, onRefresh }: { documents: DocumentItem[]; onRefresh: () => void }) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteRequest, setDeleteRequest] = useState<DocumentItem | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const { t } = useLocale();
-  async function handleDelete(document: DocumentItem) {
-    if (!window.confirm(`${t("deleteDocument")}: "${document.filename}"?`)) return;
+
+  async function confirmDelete() {
+    const document = deleteRequest;
+    if (!document) return;
     setDeletingId(document.id);
-    try { await deleteDocument(document.id); onRefresh(); } finally { setDeletingId(null); }
+    setDeleteError(null);
+    try {
+      await deleteDocument(document.id);
+      setDeleteRequest(null);
+      onRefresh();
+    } catch (caught) {
+      setDeleteError(caught instanceof Error ? caught.message : t("couldNotDeleteDocument"));
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   if (!documents.length) return <section className="rounded-2xl border border-dashed border-border bg-card p-12 text-center shadow-sm"><FileText className="mx-auto text-accent-foreground" size={28} /><h2 className="mt-3 text-base font-bold text-foreground">{t("noDocuments")}</h2><p className="mt-1 text-xs text-muted-foreground">{t("noDocumentsDescription")}</p><Link href="/upload" className="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground hover:bg-primary/90"><Plus size={16} /> {t("newDocument")}</Link></section>;
@@ -45,7 +59,7 @@ export function DocumentList({ documents, onRefresh }: { documents: DocumentItem
             <TableHead>Document</TableHead>
             <TableHead>Project &amp; Plant</TableHead>
             <TableHead>Uploaded By</TableHead>
-            <TableHead>Assigned PIC</TableHead>
+            <TableHead>Reviewed By</TableHead>
             <TableHead>Workflow Status</TableHead>
             <TableHead className="text-right">Action</TableHead>
           </TableRow>
@@ -68,7 +82,11 @@ export function DocumentList({ documents, onRefresh }: { documents: DocumentItem
               </TableCell>
               <TableCell className="text-muted-foreground">{document.uploaded_by_name ?? document.owner_name ?? "Unknown"}</TableCell>
               <TableCell>
-                {document.assigned_to_name ? <span className="font-medium text-foreground">{document.assigned_to_name}</span> : <span className="rounded-full bg-muted px-2.5 py-1 text-[10px] font-semibold text-muted-foreground">Unassigned</span>}
+                {document.reviewed_by_name ? (
+                  <span className="font-medium text-foreground">{document.reviewed_by_name}</span>
+                ) : (
+                  <span className="rounded-full bg-muted px-2.5 py-1 text-[10px] font-semibold text-muted-foreground">Pending</span>
+                )}
               </TableCell>
               <TableCell>
                 <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold ring-1 ${workflowStyles[document.workflow_status ?? "ANALYZING"] ?? workflowStyles.ANALYZING}`}>{workflowLabel(document.workflow_status)}</span>
@@ -76,13 +94,36 @@ export function DocumentList({ documents, onRefresh }: { documents: DocumentItem
               <TableCell className="text-right">
                 <div className="flex justify-end gap-2">
                   <Link href={`/documents/${document.id}/review`} className="rounded-lg bg-primary px-3 py-2 text-[10px] font-bold text-primary-foreground hover:bg-primary/90">Open Review</Link>
-                  <button type="button" onClick={() => void handleDelete(document)} disabled={deletingId === document.id} aria-label={`Delete ${document.filename}`} className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50">{deletingId === document.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}</button>
+                  <button type="button" onClick={() => setDeleteRequest(document)} disabled={deletingId === document.id} aria-label={`Delete ${document.filename}`} className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50">{deletingId === document.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}</button>
                 </div>
               </TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
+
+      <AlertDialog
+        open={deleteRequest !== null}
+        onOpenChange={(next) => {
+          if (!next) {
+            setDeleteRequest(null);
+            setDeleteError(null);
+          }
+        }}
+        title={t("deleteDocumentTitle")}
+        description={
+          deleteError ? (
+            <span className="font-semibold text-rose-700">{deleteError}</span>
+          ) : (
+            <>{t("deleteDocumentDescription")}</>
+          )
+        }
+        confirmLabel={t("yesDelete")}
+        cancelLabel={t("cancel")}
+        busyLabel={t("deleting")}
+        busy={deletingId !== null}
+        onConfirm={() => void confirmDelete()}
+      />
     </Card>
   );
 }

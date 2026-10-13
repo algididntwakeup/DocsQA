@@ -8,6 +8,7 @@ import { ApiError, assignDocument, claimDocument, deleteDocument, type DocumentI
 import { useLocale } from "@/components/layout/locale-provider";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
+import { AlertDialog } from "@/components/ui/alert-dialog";
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat(typeof navigator !== "undefined" ? navigator.language : "en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
@@ -417,23 +418,21 @@ export function ProjectDocumentTable({
         </div>
       )}
 
-      {deleteRequest && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs" role="dialog" aria-modal="true" aria-labelledby="delete-document-title">
-          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl">
-            <div className="flex items-start gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-rose-50 text-rose-600"><Trash2 size={17} /></div>
-              <div>
-                <h2 id="delete-document-title" className="text-base font-bold text-foreground">Delete Document</h2>
-                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Apakah Anda yakin ingin menghapus dokumen &apos;{deleteRequest.filename}&apos;? Berkas PDF dan seluruh data analisis akan dihapus permanen.</p>
-              </div>
-            </div>
-            <div className="mt-6 flex justify-end gap-2 border-t border-border pt-4">
-              <button type="button" className="rounded-lg border border-border px-4 py-2 text-xs font-semibold text-foreground hover:bg-muted/60" onClick={() => setDeleteRequest(null)}>Cancel</button>
-              <button type="button" className="rounded-lg bg-rose-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-rose-700 disabled:opacity-50" disabled={busyId === deleteRequest.id} onClick={() => void removeDocument(deleteRequest)}>{busyId === deleteRequest.id ? "Deleting..." : "Yes, Delete Document"}</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AlertDialog
+        open={deleteRequest !== null}
+        onOpenChange={(next) => {
+          if (!next) setDeleteRequest(null);
+        }}
+        title="Delete Document"
+        description="Are you sure you want to delete this document? This action cannot be undone."
+        confirmLabel="Yes, Delete Document"
+        cancelLabel="Cancel"
+        busyLabel="Deleting..."
+        busy={busyId === deleteRequest?.id}
+        onConfirm={() => {
+          if (deleteRequest) void removeDocument(deleteRequest);
+        }}
+      />
     </Card>
   );
 }

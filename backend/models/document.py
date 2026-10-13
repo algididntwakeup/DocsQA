@@ -92,6 +92,9 @@ class Document(TimestampMixin, Base):
         ForeignKey("users.id"), nullable=True, index=True
     )
     verified_by_id: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    # The engineer who submitted the review (``mark-reviewed``). Distinct from
+    # ``verified_by_id``, which records the lead who approved the document.
+    reviewed_by_id: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     workflow_status: Mapped[DocumentWorkflowStatus] = mapped_column(
         Enum(DocumentWorkflowStatus, name="document_workflow_status", native_enum=False),
         default=DocumentWorkflowStatus.ANALYZING,
@@ -120,6 +123,9 @@ class Document(TimestampMixin, Base):
     )
     verified_by: Mapped["User | None"] = relationship(
         back_populates="verified_documents", foreign_keys=[verified_by_id]
+    )
+    reviewed_by: Mapped["User | None"] = relationship(
+        back_populates="reviewed_documents", foreign_keys=[reviewed_by_id]
     )
 
     @property

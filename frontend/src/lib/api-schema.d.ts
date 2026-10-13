@@ -551,6 +551,9 @@ export interface paths {
         /**
          * Request Document Revision
          * @description Return a document to an engineer for revision.
+         *
+         *     Allowed for lead engineers, the document uploader, and local superusers so
+         *     a superuser is never blocked by the legacy lead-only rule.
          */
         post: operations["request_document_revision_api_v1_documents__document_id__request_revision_post"];
         delete?: never;
@@ -630,7 +633,7 @@ export interface paths {
         put?: never;
         /**
          * Verify Document
-         * @description Verify a document as a lead engineer.
+         * @description Verify a document as a lead engineer, the uploader, or a superuser.
          */
         post: operations["verify_document_api_v1_documents__document_id__verify_post"];
         delete?: never;
@@ -1209,6 +1212,10 @@ export interface components {
             project_plant?: string | null;
             /** Reviewed At */
             reviewed_at?: string | null;
+            /** Reviewed By Id */
+            reviewed_by_id?: string | null;
+            /** Reviewed By Name */
+            reviewed_by_name?: string | null;
             /** Sha256 */
             sha256: string;
             /** Size Bytes */

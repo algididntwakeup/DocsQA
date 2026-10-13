@@ -151,27 +151,30 @@ async def test_non_owner_cannot_mark_document_reviewed() -> None:
 
 
 @pytest.mark.anyio
-async def test_lead_can_verify_and_request_revision() -> None:
+async def test_superuser_can_verify_and_request_revision() -> None:
+    """Godmode: the local flag authorizes verify and request-revision."""
+
     owner = _user(UserRole.ENGINEER)
-    lead = _user(UserRole.LEAD_ENGINEER)
+    superuser = _user(UserRole.ENGINEER)
+    superuser.is_superuser = True
     document = _document(owner)
     session = AsyncMock()
 
     verified = await verify_document(
         document.id,
         session,
-        lead,
+        superuser,
         document,
         DocumentWorkflowUpdate(verification_notes="Approved after review."),
     )
     assert verified.workflow_status == DocumentWorkflowStatus.VERIFIED_BY_LEAD
-    assert document.verified_by_id == lead.id
+    assert document.verified_by_id == superuser.id
     assert document.verification_notes == "Approved after review."
 
     revised = await request_document_revision(
         document.id,
         session,
-        lead,
+        superuser,
         document,
         DocumentWorkflowUpdate(
             workflow_status=DocumentWorkflowStatus.ANALYZING,
@@ -183,3 +186,67 @@ async def test_lead_can_verify_and_request_revision() -> None:
     assert document.verified_at is None
     assert document.reviewed_at is None
     assert document.verification_notes == "Please correct the traceability gaps."
+
+
+@pytest.mark.anyio
+async def test_uploader_can_verify_and_request_revision() -> None:
+    """The document uploader may finalize without a lead role or flag."""
+
+    uploader = _user(UserRole.ENGINEER)
+    document = _document(uploader)
+    session = AsyncMock()
+
+    verified = await verify_document(
+        document.id,
+        session,
+        uploader,
+        document,
+        DocumentWorkflowUpdate(verification_notes="Self-verified."),
+    )
+    assert verified.workflow_status == DocumentWorkflowStatus.VERIFIED_BY_LEAD
+
+    revised = await request_document_revision(
+        document.id,
+        session,
+        uploader,
+        document,
+        DocumentWorkflowUpdate(workflow_status=DocumentWorkflowStatus.ANALYZING),
+    )
+    assert revised.workflow_status == DocumentWorkflowStatus.ANALYZING
+
+
+@pytest.mark.anyio
+async def test_lead_without_flag_cannot_verify_or_request_revision() -> None:
+    """The legacy lead-only rule is gone: a plain lead is refused.
+
+    BIMA exposes no lead-engineer concept, so authorization comes from the
+    local superuser flag or the uploader identity, not the role.
+    """
+
+    owner = _user(UserRole.ENGINEER)
+    lead = _user(UserRole.LEAD_ENGINEER)
+    document = _document(owner)
+    session = AsyncMock()
+
+    with pytest.raises(HTTPException) as verify_error:
+        await verify_document(document.id, session, lead, document)
+    assert verify_error.value.status_code == 403
+
+    with pytest.raises(HTTPException) as revision_error:
+        await request_document_revision(document.id, session, lead, document)
+    assert revision_error.value.status_code == 403
+    session.commit.assert_not_awaited()
+
+
+@pytest.mark.anyio
+async def test_mark_reviewed_records_the_reviewer() -> None:
+    """The Document Control Log needs an actor, not only a timestamp."""
+
+    engineer = _user(UserRole.ENGINEER)
+    document = _document(engineer)
+    session = AsyncMock()
+
+    await mark_document_reviewed(document.id, session, engineer, document)
+
+    assert document.reviewed_by_id == engineer.id
+    assert document.reviewed_by is engineer
