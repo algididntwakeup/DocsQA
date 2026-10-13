@@ -221,18 +221,16 @@ describe("ImportBimaModal", () => {
     expect(screen.getByRole("button", { name: "Coba lagi" })).toBeDefined();
   });
 
-  it("marks the caller's own BIMA projects and keeps Open Workspace actionable", async () => {
+  it("marks the caller's own BIMA projects without offering a navigation action", async () => {
     mockQueries([importedProject, freshProject]);
     await renderAndOpen("en");
     await screen.findByText(importedProject.name);
 
+    // The ownership marker stays, but adding to the folder is the modal's only
+    // action: opening a workspace happens on /projects.
     expect(screen.getByText("My Project")).toBeDefined();
-    const openButton = screen.getByRole("button", { name: /Open Workspace/i }) as HTMLButtonElement;
-    expect(openButton.disabled).toBe(false);
-    fireEvent.click(openButton);
-    await waitFor(() => {
-      expect(push).toHaveBeenCalledWith("/workspace/prism-project-1");
-    });
+    expect(screen.getByText("Already in Folder")).toBeDefined();
+    expect(screen.queryByRole("button", { name: /Open Workspace/i })).toBeNull();
   });
 
   it("filters the catalog down to the caller's own projects", async () => {
