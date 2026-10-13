@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, DateTime, Enum, Integer, String, func
+from sqlalchemy import Boolean, DateTime, Enum, Integer, String, func, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db.base import Base
@@ -33,6 +33,12 @@ class User(Base):
         nullable=False,
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    # Local PRISM privilege flag. BIMA's flat project API cannot express
+    # cross-department oversight, so workspace-wide access is granted here
+    # instead of through ``role`` (which mirrors the BIMA role).
+    is_superuser: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("false"), nullable=False
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

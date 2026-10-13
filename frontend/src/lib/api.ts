@@ -54,6 +54,7 @@ export interface UserSession {
   full_name: string;
   role: UserRole;
   is_active: boolean;
+  is_superuser: boolean;
   created_at: string;
   bima_id?: number | null;
   department?: string | null;

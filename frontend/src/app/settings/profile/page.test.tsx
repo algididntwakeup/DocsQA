@@ -11,7 +11,7 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn() } }));
 
 const user = {
   id: "user-1", email: "old@example.test", full_name: "Old Name", role: "ENGINEER" as const,
-  is_active: true, created_at: "2026-09-10T00:00:00Z",
+  is_active: true, is_superuser: false, created_at: "2026-09-10T00:00:00Z",
 };
 
 describe("ProfileSettingsPage", () => {

@@ -465,7 +465,12 @@ export interface paths {
         put?: never;
         /**
          * Mark Document Reviewed
-         * @description Mark an assigned document as reviewed by its engineer owner.
+         * @description Submit the document's engineer review.
+         *
+         *     Allowed for the document uploader, the project owner, the assigned
+         *     engineer, and local superusers. The legacy rule required the assigned PIC
+         *     only, which blocked uploaders and project owners from finishing their own
+         *     document's review.
          */
         post: operations["mark_document_reviewed_api_v1_documents__document_id__mark_reviewed_post"];
         delete?: never;
@@ -1967,6 +1972,11 @@ export interface components {
             id: string;
             /** Is Active */
             is_active: boolean;
+            /**
+             * Is Superuser
+             * @default false
+             */
+            is_superuser: boolean;
             /** Position */
             position?: string | null;
             role: components["schemas"]["UserRole"];
@@ -2019,6 +2029,11 @@ export interface components {
             id: string;
             /** Is Active */
             is_active: boolean;
+            /**
+             * Is Superuser
+             * @default false
+             */
+            is_superuser: boolean;
             /** Position */
             position?: string | null;
             role: components["schemas"]["UserRole"];

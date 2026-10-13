@@ -2875,6 +2875,11 @@
             "title": "Is Active",
             "type": "boolean"
           },
+          "is_superuser": {
+            "default": false,
+            "title": "Is Superuser",
+            "type": "boolean"
+          },
           "position": {
             "anyOf": [
               {
@@ -2993,6 +2998,11 @@
           },
           "is_active": {
             "title": "Is Active",
+            "type": "boolean"
+          },
+          "is_superuser": {
+            "default": false,
+            "title": "Is Superuser",
             "type": "boolean"
           },
           "position": {
@@ -4678,7 +4688,7 @@
     },
     "/api/v1/documents/{document_id}/mark-reviewed": {
       "post": {
-        "description": "Mark an assigned document as reviewed by its engineer owner.",
+        "description": "Submit the document's engineer review.\n\nAllowed for the document uploader, the project owner, the assigned\nengineer, and local superusers. The legacy rule required the assigned PIC\nonly, which blocked uploaders and project owners from finishing their own\ndocument's review.",
         "operationId": "mark_document_reviewed_api_v1_documents__document_id__mark_reviewed_post",
         "parameters": [
           {

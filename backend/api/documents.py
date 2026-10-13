@@ -70,7 +70,10 @@ from services.export import (
     export_annotated_pdf,
     generate_ale_review_docx,
 )
-from services.permission_service import is_privileged
+from services.permission_service import (
+    can_review_document,
+    has_workspace_oversight,
+)
 from services.pipeline import enqueue_extraction
 from services.progress_events import open_document_progress_subscription
 from services.storage.local import LocalStorage
@@ -302,11 +305,21 @@ async def mark_document_reviewed(
     current_user: Annotated[User, Depends(get_current_user)],
     document: Annotated[Document, Depends(get_accessible_document)],
 ) -> DocumentRead:
-    """Mark an assigned document as reviewed by its engineer owner."""
+    """Submit the document's engineer review.
+
+    Allowed for the document uploader, the project owner, the assigned
+    engineer, and local superusers. The legacy rule required the assigned PIC
+    only, which blocked uploaders and project owners from finishing their own
+    document's review.
+    """
     _ensure_document_project_open(document)
-    if document.assigned_to_id != current_user.id:
+    if not can_review_document(current_user, document):
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Document owner access required."
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Akses ditolak. Hanya pengunggah dokumen, pemilik proyek, atau "
+                "superuser yang dapat menyelesaikan review."
+            ),
         )
     document.workflow_status = DocumentWorkflowStatus.REVIEWED_BY_ENGINEER
     document.reviewed_at = datetime.now(UTC)
@@ -405,8 +418,9 @@ async def list_documents(
         joinedload(Document.project),
     )
     # Non-privileged roles (engineers, HR/GA, finance) only see their own
-    # documents; lead engineers and superusers keep the cross-engineer view.
-    if not is_privileged(current_user.role):
+    # documents; lead engineers and locally flagged superusers keep the
+    # cross-engineer view.
+    if not has_workspace_oversight(current_user):
         query = query.outerjoin(Document.project).where(
             (Document.assigned_to_id == current_user.id)
             | (Document.owner_id == current_user.id)

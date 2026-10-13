@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     CORS_ORIGINS: str = ""
     CORS_ORIGIN_REGEX: str = ""
     LOCAL_FALLBACK_EMAILS: str = ""
+    #: Accounts promoted to the local ``users.is_superuser`` flag on sign-in.
+    #: BIMA's flat project directory cannot express cross-department oversight,
+    #: so workspace-wide access is granted locally to these addresses.
+    SUPERUSER_EMAILS: str = "m.alghifari@reksolindo.co.id"
 
     # ── Database ─────────────────────────────────────────────────────
     DATABASE_URL: str = "postgresql+asyncpg://prism:prism@postgres:5432/prism"
@@ -85,6 +89,16 @@ class Settings(BaseSettings):
             for email in self.LOCAL_FALLBACK_EMAILS.split(",")
             if email.strip()
         ]
+
+    @property
+    def superuser_emails(self) -> frozenset[str]:
+        """Return the addresses that carry the local superuser flag."""
+
+        return frozenset(
+            email.strip().lower()
+            for email in self.SUPERUSER_EMAILS.split(",")
+            if email.strip()
+        )
 
     # ── Table Math Tolerance ─────────────────────────────────────────
     TABLE_MATH_TOLERANCE_PERCENT: float = 0.5

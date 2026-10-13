@@ -42,7 +42,7 @@ from services.permission_service import (
     can_manage_folders,
     create_permission_message,
     folder_permission_message,
-    is_privileged,
+    has_workspace_oversight,
 )
 from services.pipeline import enqueue_extraction
 from services.storage import LocalStorage
@@ -245,9 +245,9 @@ async def create_project(
 def _visible_projects_query(current_user: User) -> Any:
     """Build the project listing query with the caller's visibility scope.
 
-    Visibility is strictly the caller's own projects: PRISM has no hierarchical
-    role that may read another user's workspace, so leads and superusers have no
-    cross-user project read either. The admin screen uses
+    Visibility is strictly the caller's own projects, except for accounts that
+    carry workspace oversight (lead engineers and locally flagged superusers):
+    they see every workspace for cross-user review. The admin screen uses
     ``/api/v1/auth/users/{user_id}/projects``, which is guarded separately.
     """
 
@@ -261,7 +261,8 @@ def _visible_projects_query(current_user: User) -> Any:
         # GroupingError ("column users_1.id must appear in the GROUP BY clause").
         selectinload(Project.owner),
     )
-    query = query.where(Project.owner_id == current_user.id)
+    if not has_workspace_oversight(current_user):
+        query = query.where(Project.owner_id == current_user.id)
     return query
 
 
@@ -370,9 +371,10 @@ async def list_project_documents(
             joinedload(Document.project),
         )
     )
-    # Every non-privileged role (engineers, HR/GA, finance) is scoped to its own
-    # documents; only lead engineers and superusers get cross-engineer filters.
-    if not is_privileged(current_user.role):
+    # Every non-oversight role (engineers, HR/GA, finance) is scoped to its own
+    # documents; lead engineers and locally flagged superusers get the
+    # cross-engineer view and filters.
+    if not has_workspace_oversight(current_user):
         query = query.where(
             or_(
                 Document.assigned_to_id == current_user.id,

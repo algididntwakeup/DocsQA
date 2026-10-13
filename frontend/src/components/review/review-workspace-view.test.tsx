@@ -22,11 +22,25 @@ vi.mock("@/lib/api", async () => {
   };
 });
 
+const ENGINEER_ID = "engineer-1";
+
+function mockUser(overrides: { role?: string; id?: string; is_superuser?: boolean } = {}) {
+  return {
+    id: ENGINEER_ID,
+    role: "ENGINEER",
+    is_superuser: false,
+    ...overrides,
+  } as never;
+}
+
 const document: DocumentItem = {
   id: "doc-1", filename: "review.pdf", media_type: "application/pdf", size_bytes: 1,
   sha256: "hash", status: "COMPLETED", progress_pct: 100,
   created_at: "2026-09-10T00:00:00Z", updated_at: "2026-09-10T00:00:00Z",
   workflow_status: "ANALYZING" as const,
+  // The reviewer owns this document, which is what the submit gate checks.
+  owner_id: ENGINEER_ID,
+  assigned_to_id: ENGINEER_ID,
 };
 
 const completedStatus: DocumentStatus = {
@@ -50,7 +64,7 @@ describe("ReviewWorkspaceView workflow actions", () => {
 
   it("shows Mark Reviewed for engineers and posts with cookie credentials", async () => {
     vi.mocked(api.getDocument).mockResolvedValue(document);
-    vi.mocked(api.getCurrentUser).mockResolvedValue({ role: "ENGINEER" } as never);
+    vi.mocked(api.getCurrentUser).mockResolvedValue(mockUser());
     render(<ReviewWorkspaceView id="doc-1" />);
 
     const button = await screen.findByRole("button", { name: /tandai selesai/i });
@@ -60,7 +74,7 @@ describe("ReviewWorkspaceView workflow actions", () => {
 
   it("shows Verify for leads after engineer review", async () => {
     vi.mocked(api.getDocument).mockResolvedValue({ ...document, workflow_status: "REVIEWED_BY_ENGINEER" });
-    vi.mocked(api.getCurrentUser).mockResolvedValue({ role: "LEAD_ENGINEER" } as never);
+    vi.mocked(api.getCurrentUser).mockResolvedValue(mockUser({ role: "LEAD_ENGINEER" }));
     render(<ReviewWorkspaceView id="doc-1" />);
 
     expect(await screen.findByRole("button", { name: /verifikasi/i })).not.toBeNull();
@@ -73,7 +87,7 @@ describe("ReviewWorkspaceView workflow actions", () => {
       project_finished: true,
       workflow_status: "REVIEWED_BY_ENGINEER",
     });
-    vi.mocked(api.getCurrentUser).mockResolvedValue({ role: "LEAD_ENGINEER" } as never);
+    vi.mocked(api.getCurrentUser).mockResolvedValue(mockUser({ role: "LEAD_ENGINEER" }));
     render(<ReviewWorkspaceView id="doc-1" />);
 
     expect(await screen.findByText(/project finished/i)).not.toBeNull();
@@ -91,7 +105,7 @@ describe("ReviewWorkspaceView workflow actions", () => {
       progress_pct: 42,
       current_stage: "Budinski checks",
     });
-    vi.mocked(api.getCurrentUser).mockResolvedValue({ role: "ENGINEER" } as never);
+    vi.mocked(api.getCurrentUser).mockResolvedValue(mockUser());
     render(<ReviewWorkspaceView id="doc-1" />);
 
     expect(await screen.findByText("Budinski checks")).not.toBeNull();
@@ -115,7 +129,7 @@ describe("ReviewWorkspaceView workflow actions", () => {
       ...failedDocument,
       status: "QUEUED",
     });
-    vi.mocked(api.getCurrentUser).mockResolvedValue({ role: "ENGINEER" } as never);
+    vi.mocked(api.getCurrentUser).mockResolvedValue(mockUser());
     render(<ReviewWorkspaceView id="doc-1" />);
 
     expect(await screen.findByText("Extraction timed out.")).not.toBeNull();
@@ -138,7 +152,7 @@ describe("ReviewWorkspaceView workflow actions", () => {
     vi.mocked(api.getDocumentStatus)
       .mockResolvedValueOnce(processingStatus)
       .mockResolvedValueOnce(completedStatus);
-    vi.mocked(api.getCurrentUser).mockResolvedValue({ role: "ENGINEER" } as never);
+    vi.mocked(api.getCurrentUser).mockResolvedValue(mockUser());
     vi.mocked(api.subscribeDocumentEvents).mockImplementation((_id, onProgress) => {
       progressCallback = onProgress;
       return () => undefined;

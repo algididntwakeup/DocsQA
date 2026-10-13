@@ -14,7 +14,7 @@ from models.issue import Issue
 from models.project import Project
 from models.user import User
 from schemas.issues import IssueCurationRequest, IssueRead
-from services.permission_service import is_privileged
+from services.permission_service import has_workspace_oversight
 
 router = APIRouter(prefix="/issues", tags=["issues"])
 
@@ -32,7 +32,7 @@ async def curate_issue(
         .join(Project, Document.project_id == Project.id, isouter=True)
         .where(Issue.id == issue_id)
     )
-    if not is_privileged(current_user.role):
+    if not has_workspace_oversight(current_user):
         query = query.where(
             or_(Document.assigned_to_id == current_user.id, Document.owner_id == current_user.id)
         )

@@ -69,6 +69,45 @@ def is_privileged(role: UserRole | str | None) -> bool:
     return resolved in PRIVILEGED_ROLES if resolved is not None else False
 
 
+def has_workspace_oversight(user: object | None) -> bool:
+    """Return whether ``user`` may read every workspace regardless of ownership.
+
+    Oversight comes from the role (lead engineers) or from the local
+    ``is_superuser`` flag, which is the only way to grant cross-department
+    access because BIMA's flat directory cannot express it.
+    """
+
+    if user is None:
+        return False
+    if bool(getattr(user, "is_superuser", False)):
+        return True
+    return is_privileged(getattr(user, "role", None))
+
+
+def can_review_document(user: object | None, document: object | None) -> bool:
+    """Return whether ``user`` may submit or finalize ``document``'s review.
+
+    Allowed for the local superuser, the document uploader, the project owner,
+    and the engineer the document is currently assigned to. The legacy rule
+    required the assigned PIC *only*, which locked out the uploader and the
+    project owner; assignment stays valid but is no longer the sole key.
+    """
+
+    if user is None or document is None:
+        return False
+    if bool(getattr(user, "is_superuser", False)):
+        return True
+    user_id = getattr(user, "id", None)
+    if user_id is None:
+        return False
+    if user_id == getattr(document, "owner_id", None):
+        return True
+    if user_id == getattr(document, "assigned_to_id", None):
+        return True
+    project = getattr(document, "project", None)
+    return project is not None and user_id == getattr(project, "owner_id", None)
+
+
 def can_manage_folders(role: UserRole | str | None, project_number: str | None) -> bool:
     """Return whether ``role`` may add or edit folders on the project."""
 

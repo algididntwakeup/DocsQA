@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from domain.enums import UserRole
 from schemas.base import ApiModel
@@ -27,10 +27,18 @@ class UserRead(ApiModel):
     full_name: str
     role: UserRole
     is_active: bool
+    is_superuser: bool = False
     bima_id: int | None = None
     department: str | None = None
     position: str | None = None
     created_at: datetime
+
+    @field_validator("is_superuser", mode="before")
+    @classmethod
+    def default_missing_superuser(cls, value: bool | None) -> bool:
+        """Treat an unset column (transient models) as a plain account."""
+
+        return bool(value)
 
 
 class UserManagementRead(UserRead):
