@@ -94,46 +94,24 @@ describe("ImportBimaModal", () => {
     vi.clearAllMocks();
   });
 
-  it("shows an active Open Workspace action for imported items", async () => {
+  it("shows a passive in-folder badge for projects already added", async () => {
     mockQueries([importedProject]);
     await renderAndOpen("en");
     await screen.findByText(importedProject.name);
 
-    const openButton = screen.getByRole("button", { name: /Open Workspace/i }) as HTMLButtonElement;
-    expect(openButton.disabled).toBe(false);
-    expect(openButton.title).toBe("Open this project's workspace");
+    expect(screen.getByText("Already in Folder")).toBeDefined();
+    // Adding is the only action the modal offers; opening lives on /projects.
+    expect(screen.queryByRole("button", { name: /Open Workspace/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Add to Folder/i })).toBeNull();
   });
 
-  it("navigates to the workspace and closes the modal on click", async () => {
-    mockQueries([importedProject]);
-    await renderAndOpen("en");
-    await screen.findByText(importedProject.name);
-
-    fireEvent.click(screen.getByRole("button", { name: /Open Workspace/i }));
-
-    await waitFor(() => {
-      expect(push).toHaveBeenCalledWith("/workspace/prism-project-1");
-    });
-  });
-
-  it("disables Open Workspace when the imported item lacks a workspace id", async () => {
-    mockQueries([{ ...importedProject, prism_project_id: null }]);
-    await renderAndOpen("en");
-    await screen.findByText(importedProject.name);
-
-    const openButton = screen.getByRole("button", { name: /Open Workspace/i }) as HTMLButtonElement;
-    expect(openButton.disabled).toBe(true);
-    fireEvent.click(openButton);
-    expect(push).not.toHaveBeenCalled();
-  });
-
-  it("sends the whole catalog row when importing", async () => {
+  it("sends the whole catalog row when adding to the folder", async () => {
     const mutateAsync = vi.fn().mockResolvedValue(undefined);
     mockQueries([freshProject], mutateAsync);
     await renderAndOpen("en");
     await screen.findByText(freshProject.name);
 
-    fireEvent.click(screen.getByRole("button", { name: /^Import$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Add to Folder/i }));
 
     await waitFor(() => {
       expect(mutateAsync).toHaveBeenCalledWith({
@@ -145,33 +123,38 @@ describe("ImportBimaModal", () => {
     });
   });
 
-  it("offers no Open Workspace action for items that are not imported yet", async () => {
-    mockQueries([freshProject]);
+  it("keeps the dialog open and stays on the page after adding", async () => {
+    const mutateAsync = vi.fn().mockResolvedValue(undefined);
+    mockQueries([freshProject], mutateAsync);
     await renderAndOpen("en");
     await screen.findByText(freshProject.name);
 
-    expect(screen.getByRole("button", { name: /^Import$/i })).toBeDefined();
-    expect(screen.queryByRole("button", { name: /Open Workspace/i })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Add to Folder/i }));
+
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalled());
+    // No redirect into the workspace: the user keeps adding from the modal.
+    expect(push).not.toHaveBeenCalled();
+    expect((document.querySelector("dialog") as HTMLDialogElement).open).toBe(true);
   });
 
-  it("blocks importing engineering projects for internal roles with a tooltip", async () => {
+  it("blocks adding engineering projects for internal roles with a tooltip", async () => {
     mockQueries([freshProject]);
     await renderAndOpen("en", "HRGA");
     await screen.findByText(freshProject.name);
 
-    const importButton = screen.getByRole("button", { name: /^Import$/i }) as HTMLButtonElement;
-    expect(importButton.disabled).toBe(true);
-    expect(importButton.title).toContain("13");
+    const button = screen.getByRole("button", { name: /Add to Folder/i }) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    expect(button.title).toContain("13");
   });
 
-  it("blocks importing internal projects for engineering roles with a tooltip", async () => {
+  it("blocks adding internal projects for engineering roles with a tooltip", async () => {
     mockQueries([internalProject]);
     await renderAndOpen("en");
     await screen.findByText(internalProject.name);
 
-    const importButton = screen.getByRole("button", { name: /^Import$/i }) as HTMLButtonElement;
-    expect(importButton.disabled).toBe(true);
-    expect(importButton.title).toContain("03");
+    const button = screen.getByRole("button", { name: /Add to Folder/i }) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    expect(button.title).toContain("03");
   });
 
   it("renders every modal string in English when the locale is en", async () => {
@@ -183,7 +166,7 @@ describe("ImportBimaModal", () => {
     expect(screen.getByText("Search by project number, title, or client name.")).toBeDefined();
     expect(screen.getByPlaceholderText("Search project number, name, or client...")).toBeDefined();
     expect(screen.getByRole("button", { name: "Close dialog" })).toBeDefined();
-    expect(screen.getByRole("button", { name: /Open Workspace/i })).toBeDefined();
+    expect(screen.getByText("Already in Folder")).toBeDefined();
     expect(screen.queryByText("Integrasi BIMA")).toBeNull();
   });
 
@@ -196,19 +179,19 @@ describe("ImportBimaModal", () => {
     expect(screen.getByText("Cari berdasarkan nomor proyek, judul, atau nama klien.")).toBeDefined();
     expect(screen.getByPlaceholderText("Cari nomor proyek, judul, atau nama klien...")).toBeDefined();
     expect(screen.getByRole("button", { name: "Tutup dialog" })).toBeDefined();
-    expect(screen.getByRole("button", { name: /Buka Workspace/i })).toBeDefined();
+    expect(screen.getByText("Sudah di Folder")).toBeDefined();
     expect(screen.queryByText("Choose a project to import")).toBeNull();
   });
 
-  it("localizes the import action and its folder tooltip in Indonesian", async () => {
+  it("localizes the add action and its folder tooltip in Indonesian", async () => {
     mockQueries([freshProject]);
     await renderAndOpen("id", "HRGA");
     await screen.findByText(freshProject.name);
 
-    const importButton = screen.getByRole("button", { name: /^Impor$/i }) as HTMLButtonElement;
-    expect(importButton.disabled).toBe(true);
-    expect(importButton.title).toContain("13");
-    expect(importButton.title).toContain("Hanya engineer");
+    const button = screen.getByRole("button", { name: /Tambah ke Folder/i }) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    expect(button.title).toContain("13");
+    expect(button.title).toContain("Hanya engineer");
   });
 
   it("localizes the empty state in Indonesian", async () => {

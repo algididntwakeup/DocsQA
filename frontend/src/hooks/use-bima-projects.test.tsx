@@ -50,7 +50,7 @@ describe("useImportBimaProject", () => {
     vi.clearAllMocks();
   });
 
-  it("invalidates the catalog and project queries, toasts, and routes to the new workspace", async () => {
+  it("invalidates the catalog and project queries and toasts without navigating", async () => {
     const imported = { id: "prism-project-9", name: "Piping Review" };
     vi.mocked(projectsApi.importBimaProject).mockResolvedValue(imported as never);
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -64,14 +64,13 @@ describe("useImportBimaProject", () => {
       expect(invalidate).toHaveBeenCalledWith({ queryKey: bimaCatalogQueryKey });
       expect(invalidate).toHaveBeenCalledWith({ queryKey: projectsQueryKey });
     });
-    await waitFor(() => {
-      expect(push).toHaveBeenCalledWith("/workspace/prism-project-9");
-    });
     expect(success).toHaveBeenCalledWith("Project successfully imported to PRISM");
     expect(error).not.toHaveBeenCalled();
+    // Adding to the folder must not drag the user into the workspace.
+    expect(push).not.toHaveBeenCalled();
   });
 
-  it("does not navigate when the import fails", async () => {
+  it("does not toast or navigate when the import fails", async () => {
     vi.mocked(projectsApi.importBimaProject).mockRejectedValue(new Error("import failed"));
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
