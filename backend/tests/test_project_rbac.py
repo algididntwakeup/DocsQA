@@ -209,20 +209,13 @@ def _compiled(query: Any) -> str:
 
 @pytest.mark.parametrize(
     "role",
-    [
-        UserRole.ENGINEER,
-        UserRole.HRGA,
-        UserRole.FINANCE,
-        UserRole.LEAD_ENGINEER,
-        UserRole.SUPERUSER,
-    ],
+    [UserRole.ENGINEER, UserRole.HRGA, UserRole.FINANCE],
 )
-def test_visible_projects_query_scopes_every_role_to_owner(role: UserRole) -> None:
-    """Regression: every role lists only its own projects.
+def test_visible_projects_query_scopes_regular_roles_to_owner(role: UserRole) -> None:
+    """Regular roles list only their own projects.
 
-    PRISM has no hierarchical role that may read another user's workspace, so
-    the listing must filter by ``projects.owner_id`` and must never widen the
-    scope with the old cross-user document EXISTS.
+    The listing filters by ``projects.owner_id`` and must never widen the scope
+    with the old cross-user document EXISTS.
     """
 
     user = _user(role)
@@ -232,6 +225,27 @@ def test_visible_projects_query_scopes_every_role_to_owner(role: UserRole) -> No
     assert "EXISTS" not in sql.upper()
     assert any(value == user.id for value in compiled.params.values())
     assert "projects.id" in sql
+
+
+@pytest.mark.parametrize("role", [UserRole.LEAD_ENGINEER, UserRole.SUPERUSER])
+def test_visible_projects_query_gives_oversight_roles_every_workspace(role: UserRole) -> None:
+    """Lead engineers and superusers keep the cross-user oversight listing."""
+
+    user = _user(role)
+    query = _visible_projects_query(user)
+    compiled = cast(Select[Any], query).compile()
+    assert not any(value == user.id for value in compiled.params.values())
+    assert "projects.id" in str(compiled)
+
+
+def test_visible_projects_query_gives_flagged_accounts_oversight() -> None:
+    """The local ``is_superuser`` flag grants oversight without a lead role."""
+
+    user = _user(UserRole.ENGINEER)
+    user.is_superuser = True
+    query = _visible_projects_query(user)
+    compiled = cast(Select[Any], query).compile()
+    assert not any(value == user.id for value in compiled.params.values())
 
 
 @pytest.mark.anyio

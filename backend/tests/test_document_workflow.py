@@ -14,6 +14,7 @@ from api.documents import (
 )
 from domain.enums import DocumentStatus, DocumentWorkflowStatus, UserRole
 from models.document import Document
+from models.project import Project
 from models.user import User
 from schemas.documents import DocumentWorkflowUpdate
 
@@ -78,9 +79,68 @@ async def test_assigned_engineer_can_mark_reviewed() -> None:
 
 
 @pytest.mark.anyio
+async def test_project_owner_can_mark_document_reviewed() -> None:
+    """The workspace owner may finish the review of a document they did not upload."""
+
+    uploader = _user(UserRole.ENGINEER)
+    project_owner = _user(UserRole.LEAD_ENGINEER)
+    document = _document(uploader)
+    document.project = Project(
+        id=uuid4(),
+        name="Plant Upgrade",
+        owner_id=project_owner.id,
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+    document.project_id = document.project.id
+    session = AsyncMock()
+
+    result = await mark_document_reviewed(document.id, session, project_owner, document)
+
+    assert result.workflow_status == DocumentWorkflowStatus.REVIEWED_BY_ENGINEER
+    assert document.reviewed_at is not None
+    session.commit.assert_awaited_once()
+
+
+@pytest.mark.anyio
+async def test_local_superuser_can_mark_document_reviewed() -> None:
+    """A locally flagged superuser bypasses the ownership rules entirely."""
+
+    uploader = _user(UserRole.ENGINEER)
+    superuser = _user(UserRole.ENGINEER)
+    superuser.is_superuser = True
+    document = _document(uploader)
+    session = AsyncMock()
+
+    result = await mark_document_reviewed(document.id, session, superuser, document)
+
+    assert result.workflow_status == DocumentWorkflowStatus.REVIEWED_BY_ENGINEER
+    assert document.reviewed_at is not None
+    session.commit.assert_awaited_once()
+
+
+@pytest.mark.anyio
+async def test_unrelated_engineer_cannot_mark_document_reviewed() -> None:
+    """An unrelated engineer still cannot submit someone else's review."""
+
+    owner = _user(UserRole.ENGINEER)
+    document = _document(owner)
+    session = AsyncMock()
+
+    with pytest.raises(HTTPException) as error:
+        await mark_document_reviewed(document.id, session, _user(UserRole.ENGINEER), document)
+
+    assert error.value.status_code == 403
+    assert "superuser" in str(error.value.detail)
+    session.commit.assert_not_awaited()
+
+
+@pytest.mark.anyio
 async def test_non_owner_cannot_mark_document_reviewed() -> None:
     owner = _user(UserRole.ENGINEER)
     document = _document(owner)
+    document.assigned_to_id = None
+    document.assigned_to = None
     session = AsyncMock()
 
     with pytest.raises(HTTPException) as error:

@@ -100,6 +100,38 @@ def test_document_read_access_isolated_for_engineer_and_global_for_lead_roles() 
     assert check_document_read_access(document, superuser)
 
 
+def test_local_superuser_flag_grants_document_read_access() -> None:
+    """The local flag grants oversight to an account with a plain engineer role."""
+
+    owner = User(
+        id=uuid4(),
+        email="owner@example.test",
+        hashed_password="unused",
+        full_name="Owner",
+        role=UserRole.ENGINEER,
+    )
+    flagged = User(
+        id=uuid4(),
+        email="m.alghifari@reksolindo.co.id",
+        hashed_password="unused",
+        full_name="Flagged Engineer",
+        role=UserRole.ENGINEER,
+        is_superuser=True,
+    )
+    plain = User(
+        id=uuid4(),
+        email="plain@example.test",
+        hashed_password="unused",
+        full_name="Plain Engineer",
+        role=UserRole.ENGINEER,
+        is_superuser=False,
+    )
+    document = Document(owner_id=owner.id, assigned_to_id=None)
+
+    assert check_document_read_access(document, flagged)
+    assert not check_document_read_access(document, plain)
+
+
 def test_document_read_access_project_aware_for_engineers() -> None:
     from models.project import Project
 

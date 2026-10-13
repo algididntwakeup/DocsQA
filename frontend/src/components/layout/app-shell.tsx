@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { ChevronDown, FolderKanban, KeyRound, LogOut, Menu, ShieldCheck, User, Users, X } from "lucide-react";
+import { ChevronDown, FolderKanban, KeyRound, LayoutDashboard, LogOut, Menu, ShieldCheck, User, Users, X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ApiError, getCurrentUser, logout, type UserSession } from "@/lib/api";
 import { useLocale } from "./locale-provider";
@@ -66,6 +66,11 @@ export function AppShell({ children }: { children: ReactNode }) {
     { href: "/documents", label: t("inspectionWorkspace"), icon: ShieldCheck },
     ...(canManageUsers
       ? [{ href: "/admin/users", label: t("manageUsers"), icon: Users }]
+      : []),
+    // The control panel is reserved for locally flagged superusers; leads keep
+    // the user-management console but not the dashboard.
+    ...(user?.is_superuser
+      ? [{ href: "/admin/dashboard", label: t("openDashboard"), icon: LayoutDashboard }]
       : []),
   ];
 

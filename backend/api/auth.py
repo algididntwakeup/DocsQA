@@ -9,6 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
+from core.config import settings
 from core.dependencies import get_current_user, require_lead, require_user_manager
 from core.security import (
     access_token_cookie_kwargs,
@@ -90,6 +91,10 @@ async def upsert_bima_user(
     user.role = bima_user_dict["role"]
     user.department = bima_user_dict.get("department")
     user.position = bima_user_dict.get("position")
+    if email in settings.superuser_emails:
+        # BIMA's flat directory cannot grant workspace-wide oversight, so the
+        # configured accounts keep the local privilege across sign-ins.
+        user.is_superuser = True
     if commit:
         await session.commit()
         await session.refresh(user)

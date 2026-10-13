@@ -69,6 +69,8 @@ function ReviewWorkspaceContent({ id }: { id: string }) {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [isSuperuser, setIsSuperuser] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [workflowBusy, setWorkflowBusy] = useState(false);
   const [workflowError, setWorkflowError] = useState<string | null>(null);
   const [revisionNote, setRevisionNote] = useState("");
@@ -132,6 +134,8 @@ function ReviewWorkspaceContent({ id }: { id: string }) {
           setIssuePage(Math.max(1, Math.ceil(loadedIssues.issues.length / 50)));
           setIssueTotal(loadedIssues.total);
           setUserRole(userData.role);
+          setIsSuperuser(userData.is_superuser === true);
+          setCurrentUserId(userData.id);
           setError(null);
           setIsLoading(false);
         }
@@ -302,15 +306,25 @@ function ReviewWorkspaceContent({ id }: { id: string }) {
 
   const projectFinished = Boolean(document.project_finished);
   const workflowStatus = document.workflow_status ?? "ANALYZING";
+  // Mirrors the backend rule: the uploader, the project owner, the assigned
+  // engineer, and local superusers may submit the engineer review. The legacy
+  // engineer-only gate hid the button from everyone else and produced the
+  // "Document owner access required" dead end.
+  const isUploader = currentUserId !== null && document.owner_id === currentUserId;
+  const isAssignedEngineer = currentUserId !== null && document.assigned_to_id === currentUserId;
   const canSubmitReview =
-    !isProcessing && !isFailed && !projectFinished && userRole === "ENGINEER" && workflowStatus === "ANALYZING";
+    !isProcessing &&
+    !isFailed &&
+    !projectFinished &&
+    workflowStatus === "ANALYZING" &&
+    (isSuperuser || isUploader || isAssignedEngineer || userRole === "LEAD_ENGINEER");
   const canLeadDecide =
     !isProcessing &&
     !isFailed &&
     !projectFinished &&
-    (userRole === "LEAD_ENGINEER" || userRole === "SUPERUSER") &&
+    (userRole === "LEAD_ENGINEER" || userRole === "SUPERUSER" || isSuperuser) &&
     workflowStatus === "REVIEWED_BY_ENGINEER";
-  const isLeadReviewer = userRole === "LEAD_ENGINEER" || userRole === "SUPERUSER";
+  const isLeadReviewer = userRole === "LEAD_ENGINEER" || userRole === "SUPERUSER" || isSuperuser;
 
   return (
     <div className="flex h-[calc(100dvh-4rem)] w-full flex-col gap-4 overflow-hidden bg-muted/20 p-4 font-sans text-foreground">

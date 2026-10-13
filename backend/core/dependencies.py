@@ -97,6 +97,10 @@ async def require_user_manager(
 
 def check_document_read_access(document: Document, current_user: User) -> bool:
     """Return whether a user may read and review a document."""
+    # The local superuser flag grants cross-workspace oversight because BIMA's
+    # flat directory cannot express it; leads keep their role-based access.
+    if getattr(current_user, "is_superuser", False):
+        return True
     if current_user.role in {UserRole.LEAD_ENGINEER, UserRole.SUPERUSER}:
         return True
     # 1. Direct PIC

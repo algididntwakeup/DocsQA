@@ -12,7 +12,7 @@ vi.mock("@/lib/api", async () => {
 
 const user = {
   id: "user-1", email: "engineer@example.test", full_name: "Engineer One", role: "ENGINEER" as const,
-  is_active: true, created_at: "2026-09-10T00:00:00Z", total_documents_owned: 2,
+  is_active: true, is_superuser: false, created_at: "2026-09-10T00:00:00Z", total_documents_owned: 2,
 };
 
 describe("UserProjectsModal", () => {
