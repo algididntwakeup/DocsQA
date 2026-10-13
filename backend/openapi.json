@@ -1693,6 +1693,81 @@
         "title": "PageInfo",
         "type": "object"
       },
+      "PortfolioOwnerCount": {
+        "additionalProperties": false,
+        "description": "One owner's workspace footprint.",
+        "properties": {
+          "document_count": {
+            "default": 0,
+            "title": "Document Count",
+            "type": "integer"
+          },
+          "owner_id": {
+            "format": "uuid",
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "owner_name": {
+            "title": "Owner Name",
+            "type": "string"
+          },
+          "project_count": {
+            "default": 0,
+            "title": "Project Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "owner_id",
+          "owner_name"
+        ],
+        "title": "PortfolioOwnerCount",
+        "type": "object"
+      },
+      "PortfolioStatsRead": {
+        "additionalProperties": false,
+        "description": "Cross-workspace counters for the superuser control panel.",
+        "properties": {
+          "documents_by_status": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Documents By Status",
+            "type": "object"
+          },
+          "documents_by_workflow": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Documents By Workflow",
+            "type": "object"
+          },
+          "finished_projects": {
+            "default": 0,
+            "title": "Finished Projects",
+            "type": "integer"
+          },
+          "projects_by_owner": {
+            "items": {
+              "$ref": "#/components/schemas/PortfolioOwnerCount"
+            },
+            "title": "Projects By Owner",
+            "type": "array"
+          },
+          "total_documents": {
+            "default": 0,
+            "title": "Total Documents",
+            "type": "integer"
+          },
+          "total_projects": {
+            "default": 0,
+            "title": "Total Projects",
+            "type": "integer"
+          }
+        },
+        "title": "PortfolioStatsRead",
+        "type": "object"
+      },
       "ProblemDetail": {
         "additionalProperties": false,
         "description": "RFC 9457-style error response with a stable application code.",
@@ -3058,6 +3133,21 @@
         "title": "UserStatusUpdate",
         "type": "object"
       },
+      "UserSuperuserUpdate": {
+        "additionalProperties": false,
+        "description": "Explicit local superuser flag update.",
+        "properties": {
+          "is_superuser": {
+            "title": "Is Superuser",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "is_superuser"
+        ],
+        "title": "UserSuperuserUpdate",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -3618,6 +3708,65 @@
           }
         ],
         "summary": "Update User Status",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/users/{user_id}/superuser": {
+      "patch": {
+        "description": "Grant or revoke the local superuser flag.",
+        "operationId": "update_user_superuser_api_v1_auth_users__user_id__superuser_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserSuperuserUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserManagementRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update User Superuser",
         "tags": [
           "auth"
         ]
@@ -5372,6 +5521,33 @@
           }
         ],
         "summary": "Import Bima Project",
+        "tags": [
+          "projects"
+        ]
+      }
+    },
+    "/api/v1/projects/stats": {
+      "get": {
+        "description": "Return cross-workspace counters for the superuser control panel.",
+        "operationId": "get_portfolio_stats_api_v1_projects_stats_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortfolioStatsRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Portfolio Stats",
         "tags": [
           "projects"
         ]

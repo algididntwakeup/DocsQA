@@ -10,7 +10,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from core.config import settings
-from core.dependencies import get_current_user, require_lead, require_user_manager
+from core.dependencies import (
+    get_current_user,
+    require_lead,
+    require_superuser,
+    require_user_manager,
+)
 from core.security import (
     access_token_cookie_kwargs,
     create_access_token,
@@ -30,6 +35,7 @@ from schemas.user import (
     UserProfileUpdate,
     UserRead,
     UserStatusUpdate,
+    UserSuperuserUpdate,
 )
 from services import bima_client
 
@@ -398,6 +404,40 @@ async def update_user_status(
                 detail="Cannot deactivate the last active lead engineer",
             )
     user.is_active = payload.is_active
+    await session.commit()
+    await session.refresh(user)
+    return await _managed_user_read(session, user)
+
+
+@router.patch("/users/{user_id}/superuser", response_model=UserManagementRead)
+async def update_user_superuser(
+    user_id: UUID,
+    payload: UserSuperuserUpdate,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    current_user: Annotated[User, Depends(require_superuser)],
+) -> UserManagementRead:
+    """Grant or revoke the local superuser flag."""
+    user = (await session.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+    if user_id == current_user.id and not payload.is_superuser:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot revoke your own superuser access",
+        )
+    if user.is_superuser and not payload.is_superuser:
+        remaining = await session.scalar(
+            select(func.count(User.id)).where(
+                User.is_superuser.is_(True),
+                User.id != user_id,
+            )
+        )
+        if int(remaining or 0) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot revoke the last superuser",
+            )
+    user.is_superuser = payload.is_superuser
     await session.commit()
     await session.refresh(user)
     return await _managed_user_read(session, user)

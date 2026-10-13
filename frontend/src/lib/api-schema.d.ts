@@ -206,6 +206,26 @@ export interface paths {
         patch: operations["update_user_status_api_v1_auth_users__user_id__status_patch"];
         trace?: never;
     };
+    "/api/v1/auth/users/{user_id}/superuser": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update User Superuser
+         * @description Grant or revoke the local superuser flag.
+         */
+        patch: operations["update_user_superuser_api_v1_auth_users__user_id__superuser_patch"];
+        trace?: never;
+    };
     "/api/v1/bima/catalog": {
         parameters: {
             query?: never;
@@ -704,6 +724,26 @@ export interface paths {
          *     the calling user as its owner and gets an empty workspace directory.
          */
         post: operations["import_bima_project_api_v1_projects_import_bima_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Portfolio Stats
+         * @description Return cross-workspace counters for the superuser control panel.
+         */
+        get: operations["get_portfolio_stats_api_v1_projects_stats_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1495,6 +1535,60 @@ export interface components {
             total: number;
         };
         /**
+         * PortfolioOwnerCount
+         * @description One owner's workspace footprint.
+         */
+        PortfolioOwnerCount: {
+            /**
+             * Document Count
+             * @default 0
+             */
+            document_count: number;
+            /**
+             * Owner Id
+             * Format: uuid
+             */
+            owner_id: string;
+            /** Owner Name */
+            owner_name: string;
+            /**
+             * Project Count
+             * @default 0
+             */
+            project_count: number;
+        };
+        /**
+         * PortfolioStatsRead
+         * @description Cross-workspace counters for the superuser control panel.
+         */
+        PortfolioStatsRead: {
+            /** Documents By Status */
+            documents_by_status?: {
+                [key: string]: number;
+            };
+            /** Documents By Workflow */
+            documents_by_workflow?: {
+                [key: string]: number;
+            };
+            /**
+             * Finished Projects
+             * @default 0
+             */
+            finished_projects: number;
+            /** Projects By Owner */
+            projects_by_owner?: components["schemas"]["PortfolioOwnerCount"][];
+            /**
+             * Total Documents
+             * @default 0
+             */
+            total_documents: number;
+            /**
+             * Total Projects
+             * @default 0
+             */
+            total_projects: number;
+        };
+        /**
          * ProblemDetail
          * @description RFC 9457-style error response with a stable application code.
          * @example {
@@ -2052,6 +2146,14 @@ export interface components {
             /** Is Active */
             is_active: boolean;
         };
+        /**
+         * UserSuperuserUpdate
+         * @description Explicit local superuser flag update.
+         */
+        UserSuperuserUpdate: {
+            /** Is Superuser */
+            is_superuser: boolean;
+        };
         /** ValidationError */
         ValidationError: {
             /** Context */
@@ -2408,6 +2510,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["UserStatusUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserManagementRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_user_superuser_api_v1_auth_users__user_id__superuser_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserSuperuserUpdate"];
             };
         };
         responses: {
@@ -3465,6 +3602,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_portfolio_stats_api_v1_projects_stats_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PortfolioStatsRead"];
                 };
             };
         };

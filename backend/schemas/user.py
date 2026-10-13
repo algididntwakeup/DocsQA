@@ -64,6 +64,12 @@ class UserStatusUpdate(ApiModel):
     is_active: bool
 
 
+class UserSuperuserUpdate(ApiModel):
+    """Explicit local superuser flag update."""
+
+    is_superuser: bool
+
+
 class UserPasswordReset(ApiModel):
     """Password replacement requested by an authorized administrator."""
 

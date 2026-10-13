@@ -13,6 +13,9 @@ const workspaceKeys = [
   "bimaCloseDialog", "bimaEmptyTitle", "bimaEmptyHint", "bimaAddToFolder", "bimaAddingToFolder",
   "bimaBadgeInFolder", "bimaOpenWorkspaceTitle", "openWorkspace", "bimaLoading", "bimaLoadFailed", "bimaImportSuccess", "bimaImportFailed",
   "bimaMyProjectBadge", "bimaFilterMine",
+  "department", "grantSuperuser", "revokeSuperuser", "superuserGranted", "superuserRevoked",
+  "portfolioOverview", "totalProjects", "totalDocuments", "finishedProjects",
+  "projectsByOwner", "owner", "projectCount", "documentCount",
   "relativeJustNow", "relativeMinuteAgo", "relativeMinutesAgo", "relativeHourAgo", "relativeHoursAgo",
   "relativeYesterday", "relativeDaysAgo", "relativeMonthAgo", "relativeMonthsAgo", "relativeYearAgo", "relativeYearsAgo",
 ] as const;

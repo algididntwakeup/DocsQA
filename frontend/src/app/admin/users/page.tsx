@@ -3,6 +3,7 @@
 import { AlertTriangle, LoaderCircle, Plus, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import {
   ApiError,
   createManagedUser,
@@ -10,6 +11,7 @@ import {
   listManagedUsers,
   resetManagedUserPassword,
   updateManagedUserStatus,
+  updateManagedUserSuperuser,
   type CreateManagedUserPayload,
   type ManagedUser,
 } from "@/lib/api";
@@ -34,7 +36,11 @@ export default function AdminUsersPage() {
     void (async () => {
       try {
         const user = await getCurrentUser();
-        if (user.role !== "LEAD_ENGINEER" && user.role !== "SUPERUSER") {
+        if (
+          !user.is_superuser &&
+          user.role !== "LEAD_ENGINEER" &&
+          user.role !== "SUPERUSER"
+        ) {
           router.replace("/");
           return;
         }
@@ -77,6 +83,20 @@ export default function AdminUsersPage() {
     try {
       const updated = await updateManagedUserStatus(user.id, !user.is_active);
       setUsers((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : t("couldNotUpdateStatus"));
+    } finally {
+      setBusyUserId(null);
+    }
+  }
+
+  async function toggleSuperuser(user: ManagedUser) {
+    setBusyUserId(user.id);
+    setError(null);
+    try {
+      const updated = await updateManagedUserSuperuser(user.id, !user.is_superuser);
+      setUsers((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      toast.success(t(updated.is_superuser ? "superuserGranted" : "superuserRevoked"));
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : t("couldNotUpdateStatus"));
     } finally {
@@ -151,6 +171,7 @@ export default function AdminUsersPage() {
           onToggleStatus={(user) => void toggleStatus(user)}
           onResetPassword={(user) => void resetPassword(user)}
           onViewProjects={setProjectsUser}
+          onToggleSuperuser={(user) => void toggleSuperuser(user)}
         />
       )}
 

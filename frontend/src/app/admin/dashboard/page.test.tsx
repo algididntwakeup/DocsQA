@@ -19,8 +19,32 @@ vi.mock("next/link", () => ({
 
 vi.mock("@/lib/api", async () => {
   const actual = await vi.importActual<typeof api>("@/lib/api");
-  return { ...actual, getCurrentUser: vi.fn(), listManagedUsers: vi.fn() };
+  return {
+    ...actual,
+    getCurrentUser: vi.fn(),
+    listManagedUsers: vi.fn(),
+    fetchPortfolioStats: vi.fn(),
+  };
 });
+
+function stats(overrides: Partial<api.PortfolioStats> = {}): api.PortfolioStats {
+  return {
+    total_projects: 3,
+    finished_projects: 0,
+    total_documents: 4,
+    documents_by_status: { COMPLETED: 4 },
+    documents_by_workflow: { ANALYZING: 4 },
+    projects_by_owner: [
+      {
+        owner_id: "owner-1",
+        owner_name: "Local Lead Engineer",
+        project_count: 2,
+        document_count: 2,
+      },
+    ],
+    ...overrides,
+  };
+}
 
 function session(overrides: Partial<UserSession> = {}): UserSession {
   return {
@@ -58,6 +82,7 @@ describe("SuperuserDashboardPage", () => {
   it("renders the control panel for a locally flagged superuser", async () => {
     vi.mocked(api.getCurrentUser).mockResolvedValue(session());
     vi.mocked(api.listManagedUsers).mockResolvedValue([managedUser()]);
+    vi.mocked(api.fetchPortfolioStats).mockResolvedValue(stats());
 
     render(<SuperuserDashboardPage />);
 
@@ -65,6 +90,47 @@ describe("SuperuserDashboardPage", () => {
     expect(screen.getByText("Muhammad Al Ghifari · m.alghifari@reksolindo.co.id")).toBeDefined();
     expect(screen.getByRole("link", { name: /Manage Users/i })).toBeDefined();
     expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("shows the real user and portfolio counts instead of zero", async () => {
+    vi.mocked(api.getCurrentUser).mockResolvedValue(session());
+    vi.mocked(api.listManagedUsers).mockResolvedValue([
+      managedUser({ id: "u-2", full_name: "Engineer One" }),
+      managedUser({ id: "u-3", full_name: "Engineer Two" }),
+      managedUser({ id: "u-4", full_name: "Lead One", role: "LEAD_ENGINEER" }),
+    ]);
+    vi.mocked(api.fetchPortfolioStats).mockResolvedValue(stats());
+
+    render(<SuperuserDashboardPage />);
+
+    await screen.findByText(/PRISM Control Panel/i);
+    // 3 accounts, 1 lead, and the portfolio totals from the stats payload.
+    // Counts are read from the card headings so the assertions stay unambiguous.
+    const userCard = screen.getByRole("heading", { name: "Manage Users" }).closest("article");
+    expect(userCard?.textContent).toContain("3");
+    const leadCard = screen.getByRole("heading", { name: "Lead Engineer" }).closest("article");
+    expect(leadCard?.textContent).toContain("1");
+    expect(leadCard?.textContent).toContain("2 Engineer");
+    const portfolioCard = screen
+      .getByRole("heading", { name: "Portfolio Overview" })
+      .closest("article");
+    expect(portfolioCard?.textContent).toContain("3");
+    expect(portfolioCard?.textContent).toContain("4 Total documents");
+    // The cross-owner table exposes the portfolio detail.
+    expect(screen.getByText("Local Lead Engineer")).toBeDefined();
+  });
+
+  it("surfaces a refusal instead of silently rendering zeros", async () => {
+    vi.mocked(api.getCurrentUser).mockResolvedValue(session());
+    vi.mocked(api.listManagedUsers).mockRejectedValue(
+      new api.ApiError("User management access required.", 403),
+    );
+    vi.mocked(api.fetchPortfolioStats).mockResolvedValue(stats());
+
+    render(<SuperuserDashboardPage />);
+
+    expect(await screen.findByRole("alert")).toBeDefined();
+    expect(screen.getByText("User management access required.")).toBeDefined();
   });
 
   it("redirects non-superusers to the project explorer", async () => {
