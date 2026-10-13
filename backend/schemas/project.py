@@ -65,6 +65,8 @@ class BimaCatalogItem(ApiModel):
     client_name: str | None = None
     is_imported: bool = False
     prism_project_id: str | None = None
+    is_mine: bool = False
+    bima_owner_known: bool = True
 
 
 class ImportBimaProjectRequest(ApiModel):

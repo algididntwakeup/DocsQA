@@ -20,7 +20,7 @@ from fastapi import (
 from sqlalchemy import exists, func, or_, select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import aliased, joinedload, selectinload
+from sqlalchemy.orm import joinedload, selectinload
 
 from core.dependencies import get_current_user, get_storage, get_upload_service, require_lead
 from db.session import get_session
@@ -124,8 +124,10 @@ async def import_bima_project(
 ) -> ProjectRead:
     """Import one BIMA catalog project on demand and assign its PRISM owner.
 
-    Importing is idempotent on ``bima_project_id``: a project that is already in
-    PRISM is returned unchanged with ``200 OK``. A new project is created with
+    Importing is idempotent per owner: the same BIMA project may exist once in
+    each user's workspace. A project already owned by the caller is returned
+    unchanged with ``200 OK``; a second user importing the same BIMA project
+    receives ``201`` with a new project they own. A new project is created with
     the calling user as its owner and gets an empty workspace directory.
     """
 
@@ -133,7 +135,10 @@ async def import_bima_project(
         await session.execute(
             select(Project)
             .options(joinedload(Project.owner))
-            .where(Project.bima_project_id == payload.bima_project_id)
+            .where(
+                Project.bima_project_id == payload.bima_project_id,
+                Project.owner_id == current_user.id,
+            )
         )
     ).scalar_one_or_none()
     if existing is not None:
@@ -175,7 +180,10 @@ async def import_bima_project(
             await session.execute(
                 select(Project)
                 .options(joinedload(Project.owner))
-                .where(Project.bima_project_id == payload.bima_project_id)
+                .where(
+                    Project.bima_project_id == payload.bima_project_id,
+                    Project.owner_id == current_user.id,
+                )
             )
         ).scalar_one_or_none()
         if winner is None:
@@ -234,13 +242,13 @@ async def create_project(
     return _project_read(project)
 
 
-def _visible_projects_query(current_user: User, user_id: UUID | None) -> Any:
+def _visible_projects_query(current_user: User) -> Any:
     """Build the project listing query with the caller's visibility scope.
 
-    The ``Document`` entity is already part of the outer join used for the
-    document count, so the correlated EXISTS must be built from an alias;
-    reusing ``Document`` here triggers SQLAlchemy auto-correlation and strips
-    the FROM clause, which surfaces as a 500 on the project listing.
+    Visibility is strictly the caller's own projects: PRISM has no hierarchical
+    role that may read another user's workspace, so leads and superusers have no
+    cross-user project read either. The admin screen uses
+    ``/api/v1/auth/users/{user_id}/projects``, which is guarded separately.
     """
 
     query = select(
@@ -253,22 +261,7 @@ def _visible_projects_query(current_user: User, user_id: UUID | None) -> Any:
         # GroupingError ("column users_1.id must appear in the GROUP BY clause").
         selectinload(Project.owner),
     )
-    if user_id is not None:
-        query = query.where(Project.owner_id == user_id)
-        if not is_privileged(current_user.role) and user_id != current_user.id:
-            query = query.where(Project.id == UUID(int=0))
-    elif not is_privileged(current_user.role):
-        document_alias = aliased(Document)
-        query = query.where(
-            (Project.owner_id == current_user.id)
-            | exists().where(
-                document_alias.project_id == Project.id,
-                or_(
-                    document_alias.assigned_to_id == current_user.id,
-                    document_alias.owner_id == current_user.id,
-                ),
-            )
-        )
+    query = query.where(Project.owner_id == current_user.id)
     return query
 
 
@@ -276,10 +269,9 @@ def _visible_projects_query(current_user: User, user_id: UUID | None) -> Any:
 async def list_projects(
     session: Annotated[AsyncSession, Depends(get_session)],
     current_user: Annotated[User, Depends(get_current_user)],
-    user_id: UUID | None = None,
 ) -> list[ProjectRead]:
-    """List projects visible to the authenticated user."""
-    query = _visible_projects_query(current_user, user_id)
+    """List the caller's own projects."""
+    query = _visible_projects_query(current_user)
     project_result = await session.execute(
         query.group_by(Project.id).order_by(Project.created_at.desc())
     )

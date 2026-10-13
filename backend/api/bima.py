@@ -8,10 +8,10 @@ on-demand action on the project endpoints.
 
 import logging
 from typing import Annotated, Any
-from uuid import UUID
 
 from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.dependencies import get_current_user
@@ -119,12 +119,16 @@ def _catalog_fields(record: dict[str, Any]) -> tuple[int, str, str, str | None]:
 @router.get("/bima/catalog", response_model=list[BimaCatalogItem])
 async def list_bima_catalog(
     session: Annotated[AsyncSession, Depends(get_session)],
-    _current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
     bima_service: Annotated[BimaService, Depends(get_bima_service)],
     authorization: Annotated[str | None, Header()] = None,
     bima_cookie: Annotated[str | None, Cookie(alias="bima_access_token")] = None,
 ) -> list[BimaCatalogItem]:
-    """Return the flat BIMA project catalog annotated with its local import state."""
+    """Return the flat BIMA project catalog annotated with the caller's import state.
+
+    Import flags describe the calling user's own workspace only, and rows that
+    BIMA reports as the caller's ongoing projects are marked with ``is_mine``.
+    """
 
     token = _resolve_bima_token(authorization, bima_cookie, endpoint="/bima/catalog")
     try:
@@ -137,16 +141,69 @@ async def list_bima_catalog(
     normalized = [_catalog_fields(record) for record in remote_records]
     bima_ids = [bima_id for bima_id, _, _, _ in normalized]
 
-    imported_by_id: dict[int, UUID] = {}
-    if bima_ids:
-        result = await session.execute(
-            select(Project.bima_project_id, Project.id).where(
-                Project.bima_project_id.in_(bima_ids)
-            )
+    # The caller's own ongoing BIMA projects are a UI hint only: a failure here
+    # must not take down the catalog, so ownership markers are dropped instead.
+    mine_ids: set[int] | None = None
+    try:
+        mine_records = await bima_service.list_my_projects(token)
+        mine_ids = {bima_id for bima_id, _, _, _ in map(_catalog_fields, mine_records)}
+    except HTTPException as exc:
+        logger.warning(
+            "BIMA ongoing-project lookup failed (status=%s); serving the catalog without "
+            "ownership markers.",
+            exc.status_code,
         )
-        imported_by_id = {
-            row[0]: row[1] for row in result.all() if row[0] is not None
-        }
+    except Exception:
+        logger.exception("Unexpected failure while listing the caller's ongoing BIMA projects.")
+
+    owned_projects: list[Project] = []
+    if bima_ids:
+        owned_projects = list(
+            (
+                await session.execute(
+                    select(Project).where(
+                        Project.owner_id == current_user.id,
+                        Project.bima_project_id.in_(bima_ids),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+    imported_by_id = {
+        project.bima_project_id: project.id
+        for project in owned_projects
+        if project.bima_project_id is not None
+    }
+
+    # Rows imported before ``20261007_0019_bima_project_metadata`` carry NULL
+    # project_number/client_name, which the workspace grid renders as fallback
+    # text. Fill only the caller's own empty fields from the catalog row.
+    catalog_by_id: dict[int, tuple[str, str | None]] = {
+        bima_id: (number, client_name) for bima_id, number, _, client_name in normalized
+    }
+    repaired = False
+    for project in owned_projects:
+        if project.bima_project_id is None:
+            continue
+        entry = catalog_by_id.get(project.bima_project_id)
+        if entry is None:
+            continue
+        number, client_name = entry
+        if project.project_number is None:
+            project.project_number = number
+            repaired = True
+        if project.client_name is None and client_name is not None:
+            project.client_name = client_name
+            repaired = True
+    if repaired:
+        try:
+            await session.commit()
+        except SQLAlchemyError:
+            await session.rollback()
+            logger.warning(
+                "Could not backfill BIMA project metadata; serving the catalog unchanged."
+            )
 
     return [
         BimaCatalogItem(
@@ -158,6 +215,8 @@ async def list_bima_catalog(
             prism_project_id=(
                 str(imported_by_id[bima_id]) if bima_id in imported_by_id else None
             ),
+            is_mine=mine_ids is not None and bima_id in mine_ids,
+            bima_owner_known=mine_ids is not None,
         )
         for bima_id, number, name, client_name in normalized
     ]

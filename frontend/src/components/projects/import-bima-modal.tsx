@@ -19,6 +19,7 @@ export function ImportBimaModal({ role = null }: ImportBimaModalProps) {
   const { t } = useLocale();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [mineOnly, setMineOnly] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const projectsQuery = useBimaProjects(open);
@@ -35,16 +36,22 @@ export function ImportBimaModal({ role = null }: ImportBimaModalProps) {
   const projects = useMemo(() => {
     const query = search.trim().toLowerCase();
     const items = projectsQuery.data ?? [];
-    if (!query) return items;
+    const matched = !query
+      ? items
+      : items.filter((project) =>
+          [project.number, project.name, project.client_name ?? ""].some((value) =>
+            value.toLowerCase().includes(query),
+          ),
+        );
+    if (!mineOnly) return matched;
 
-    return items.filter((project) =>
-      [project.number, project.name, project.client_name ?? ""].some((value) => value.toLowerCase().includes(query)),
-    );
-  }, [projectsQuery.data, search]);
+    return matched.filter((project) => project.is_mine);
+  }, [projectsQuery.data, search, mineOnly]);
 
   function closeDialog() {
     setOpen(false);
     setImportError(null);
+    setMineOnly(false);
   }
 
   function openImportedProject(project: BimaCatalogItem) {
@@ -121,6 +128,17 @@ export function ImportBimaModal({ role = null }: ImportBimaModalProps) {
               className="h-10 w-full rounded-lg border border-border bg-background pl-9 pr-3 text-sm outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/30"
             />
           </div>
+          {projectsQuery.data?.some((project) => project.bima_owner_known) && (
+            <label className="mt-2 inline-flex cursor-pointer items-center gap-2 text-xs font-semibold text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={mineOnly}
+                onChange={(event) => setMineOnly(event.target.checked)}
+                className="size-3.5 rounded border-border"
+              />
+              {t("bimaFilterMine")}
+            </label>
+          )}
         </div>
 
         <div className="max-h-[calc(85vh-11rem)] overflow-y-auto p-4">
@@ -175,6 +193,11 @@ export function ImportBimaModal({ role = null }: ImportBimaModalProps) {
                       <p className="line-clamp-1 text-sm font-semibold text-foreground" title={project.name}>{project.name}</p>
                       <p className="mt-1 line-clamp-1 text-xs text-muted-foreground" title={project.client_name ?? undefined}>{project.client_name}</p>
                     </div>
+                    {project.is_mine && (
+                      <span className="shrink-0 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-[10px] font-bold text-primary">
+                        {t("bimaMyProjectBadge")}
+                      </span>
+                    )}
                     <div className="flex shrink-0 items-center gap-2">
                       {project.is_imported ? (
                         <button

@@ -3,12 +3,14 @@
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
+from fastapi import HTTPException
 from httpx import ASGITransport, AsyncClient
 
 from api.bima import get_bima_service
@@ -36,13 +38,26 @@ def _engineer() -> User:
 class _StubBimaService:
     """Minimal stand-in exposing only the flat catalog call PRISM still makes."""
 
-    def __init__(self, projects: list[dict[str, Any]] | None = None) -> None:
+    def __init__(
+        self,
+        projects: list[dict[str, Any]] | None = None,
+        my_projects: list[dict[str, Any]] | None = None,
+    ) -> None:
         self.projects = projects or []
+        self.my_projects = my_projects or []
         self.list_calls: list[str] = []
+        self.my_list_calls: list[str] = []
+        self.my_error: Exception | None = None
 
     async def list_projects(self, token: str) -> list[dict[str, Any]]:
         self.list_calls.append(token)
         return self.projects
+
+    async def list_my_projects(self, token: str) -> list[dict[str, Any]]:
+        self.my_list_calls.append(token)
+        if self.my_error is not None:
+            raise self.my_error
+        return self.my_projects
 
 
 def _install_overrides(
@@ -67,13 +82,26 @@ def _restore_overrides(previous: dict[Callable[..., Any], Callable[..., Any]]) -
 
 @pytest.mark.anyio
 async def test_catalog_marks_imported_projects() -> None:
-    """The flat catalog annotates local import state and tolerates a missing client."""
+    """The flat catalog annotates the caller's import state and ongoing projects."""
 
     user = _engineer()
     prism_id = uuid4()
+    now = datetime.now(UTC)
+    owned = Project(
+        id=prism_id,
+        name="Plant Upgrade",
+        bima_project_id=627,
+        project_number="13726486.01",
+        client_name="Example Client",
+        owner_id=user.id,
+        created_at=now,
+        updated_at=now,
+    )
     session = MagicMock()
     session.execute = AsyncMock()
-    session.execute.return_value = SimpleNamespace(all=lambda: [(627, prism_id)])
+    session.execute.return_value = SimpleNamespace(
+        scalars=lambda: SimpleNamespace(all=lambda: [owned])
+    )
     service = _StubBimaService(
         projects=[
             {
@@ -83,7 +111,15 @@ async def test_catalog_marks_imported_projects() -> None:
                 "client_name": "Example Client",
             },
             {"id": 628, "number": "13726486.02", "name": "New Facility"},
-        ]
+        ],
+        my_projects=[
+            {
+                "id": 628,
+                "number": "13726486.02",
+                "name": "New Facility",
+                "client_name": None,
+            }
+        ],
     )
     previous = _install_overrides(session, user, service)
 
@@ -109,12 +145,159 @@ async def test_catalog_marks_imported_projects() -> None:
         "client_name": "Example Client",
         "is_imported": True,
         "prism_project_id": str(prism_id),
+        "is_mine": False,
+        "bima_owner_known": True,
     }
-    assert fresh["id"] == 628
-    assert fresh["is_imported"] is False
-    assert fresh["prism_project_id"] is None
-    assert fresh["client_name"] is None
+    assert fresh == {
+        "id": 628,
+        "number": "13726486.02",
+        "name": "New Facility",
+        "client_name": None,
+        "is_imported": False,
+        "prism_project_id": None,
+        "is_mine": True,
+        "bima_owner_known": True,
+    }
     assert service.list_calls == ["engineer-token"]
+    assert service.my_list_calls == ["engineer-token"]
+    # The import annotation is scoped to the calling user's own workspace.
+    statement = str(session.execute.call_args.args[0])
+    assert "projects.owner_id" in statement
+    # The row already carries the BIMA metadata, so no repair write happens.
+    session.commit.assert_not_called()
+
+
+@pytest.mark.anyio
+async def test_catalog_degrades_when_my_projects_fails() -> None:
+    """A failing /api/projects/mine lookup must not take down the catalog."""
+
+    user = _engineer()
+    session = MagicMock()
+    session.execute = AsyncMock()
+    session.execute.return_value = SimpleNamespace(
+        scalars=lambda: SimpleNamespace(all=lambda: [])
+    )
+    service = _StubBimaService(
+        projects=[{"id": 627, "number": "13726486.01", "name": "Plant Upgrade"}]
+    )
+    service.my_error = HTTPException(
+        status_code=502, detail="BIMA is unreachable."
+    )
+    previous = _install_overrides(session, user, service)
+
+    try:
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            response = await client.get(
+                "/api/v1/bima/catalog",
+                headers={"Authorization": "Bearer engineer-token"},
+            )
+    finally:
+        _restore_overrides(previous)
+
+    assert response.status_code == 200
+    (item,) = response.json()
+    assert item["is_mine"] is False
+    assert item["bima_owner_known"] is False
+    assert item["is_imported"] is False
+
+
+@pytest.mark.anyio
+async def test_catalog_repairs_missing_metadata_for_owned_rows() -> None:
+    """Rows imported before the metadata migration are backfilled from BIMA."""
+
+    user = _engineer()
+    prism_id = uuid4()
+    now = datetime.now(UTC)
+    stale = Project(
+        id=prism_id,
+        name="Plant Upgrade",
+        bima_project_id=627,
+        owner_id=user.id,
+        created_at=now,
+        updated_at=now,
+    )
+    session = MagicMock()
+    session.execute = AsyncMock()
+    session.execute.return_value = SimpleNamespace(
+        scalars=lambda: SimpleNamespace(all=lambda: [stale])
+    )
+    session.commit = AsyncMock()
+    service = _StubBimaService(
+        projects=[
+            {
+                "id": 627,
+                "number": "13726486.01",
+                "name": "Plant Upgrade",
+                "client_name": "Example Client",
+            }
+        ]
+    )
+    previous = _install_overrides(session, user, service)
+
+    try:
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            response = await client.get(
+                "/api/v1/bima/catalog",
+                headers={"Authorization": "Bearer engineer-token"},
+            )
+    finally:
+        _restore_overrides(previous)
+
+    assert response.status_code == 200
+    assert stale.project_number == "13726486.01"
+    assert stale.client_name == "Example Client"
+    session.commit.assert_awaited_once()
+
+
+@pytest.mark.anyio
+async def test_import_lookup_is_owner_scoped() -> None:
+    """The idempotency lookup must not return another user's imported row."""
+
+    user = _engineer()
+    now = datetime.now(UTC)
+    session = MagicMock()
+    session.execute = AsyncMock()
+    session.execute.return_value = SimpleNamespace(scalar_one_or_none=lambda: None)
+    session.flush = AsyncMock()
+    session.commit = AsyncMock()
+
+    async def refresh(value: Any, *args: Any, **kwargs: Any) -> None:
+        value.created_at = now
+        value.updated_at = now
+        value.owner = user
+        value.documents = []
+
+    session.refresh.side_effect = refresh
+    service = _StubBimaService()
+    with TemporaryDirectory() as workspace_root:
+        storage = LocalStorage(Path(workspace_root))
+        previous = _install_overrides(session, user, service, storage)
+
+        try:
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client:
+                response = await client.post(
+                    "/api/v1/projects/import-bima",
+                    headers={"Authorization": "Bearer prism-session-jwt"},
+                    json={
+                        "bima_project_id": 627,
+                        "project_number": "13726486.01",
+                        "name": "Plant Upgrade",
+                        "client_name": "Example Client",
+                    },
+                )
+        finally:
+            _restore_overrides(previous)
+
+    assert response.status_code == 201
+    statement = str(session.execute.call_args.args[0])
+    assert "projects.owner_id" in statement
+    assert "projects.bima_project_id" in statement
 
 
 @pytest.mark.anyio

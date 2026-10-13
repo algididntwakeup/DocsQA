@@ -15,6 +15,8 @@ export interface BimaCatalogItem {
   client_name: string | null;
   is_imported: boolean;
   prism_project_id: string | null;
+  is_mine: boolean;
+  bima_owner_known: boolean;
 }
 
 /** Payload for the on-demand import; the catalog row carries every field PRISM needs. */

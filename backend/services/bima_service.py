@@ -36,6 +36,19 @@ class BimaService:
         """Return the BIMA project directory, unwrapping the supported response envelopes."""
 
         payload = await self._get_json("/api/projects", token, resource="project directory")
+        return self._unwrap_project_list(payload, "project directory")
+
+    async def list_my_projects(self, token: str) -> list[dict[str, Any]]:
+        """Return the caller's own ongoing BIMA projects."""
+
+        payload = await self._get_json(
+            "/api/projects/mine", token, resource="ongoing project directory"
+        )
+        return self._unwrap_project_list(payload, "ongoing project directory")
+
+    def _unwrap_project_list(self, payload: Any, resource: str) -> list[dict[str, Any]]:
+        """Return the project rows from a BIMA list response envelope."""
+
         data = payload.get("data", payload) if isinstance(payload, dict) else payload
         if isinstance(data, dict):
             data = next(
@@ -45,7 +58,7 @@ class BimaService:
         if not isinstance(data, list) or not all(isinstance(item, dict) for item in data):
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="BIMA project directory response is malformed.",
+                detail=f"BIMA {resource} response is malformed.",
             )
         return data
 
