@@ -17,7 +17,12 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+# Resolving celery[redis] makes pip fetch several redis metadata files before it
+# settles (8.x metadata, then the celery-compatible 6.4.0). A dropped connection
+# during those fetches makes pip exhaust its candidates and fail the build with a
+# misleading "Could not find a version that satisfies the requirement redis>=5.0.0".
+# Retry generously so a flaky corporate network does not break the image build.
+RUN pip install --no-cache-dir --retries 10 --timeout 60 -r requirements.txt
 
 # Fail the image build early if the headless office runtime needed for DOCX
 # coordinate extraction and report rendering is missing or not executable.

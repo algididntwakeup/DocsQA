@@ -1,7 +1,6 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useLocale } from "@/components/layout/locale-provider";
 import { fetchBimaProjects, importBimaProject } from "@/lib/api/projects";
@@ -21,19 +20,19 @@ export function useBimaProjects(enabled = true) {
 
 export function useImportBimaProject() {
   const queryClient = useQueryClient();
-  const router = useRouter();
   const { t } = useLocale();
 
   return useMutation({
     mutationFn: (payload: ImportBimaPayload) => importBimaProject(payload),
-    onSuccess: async (project) => {
+    onSuccess: async () => {
+      // No navigation: the folder only appears on /projects once the user
+      // chooses to open it, so the modal stays put and the row flips to the
+      // "already in folder" badge via the invalidated catalog query.
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: bimaCatalogQueryKey }),
         queryClient.invalidateQueries({ queryKey: projectsQueryKey }),
       ]);
       toast.success(t("bimaImportSuccess"));
-      // The new project is owned by the caller, so drop them straight into it.
-      router.push(`/workspace/${project.id}`);
     },
   });
 }
