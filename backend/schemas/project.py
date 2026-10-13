@@ -76,3 +76,23 @@ class ImportBimaProjectRequest(ApiModel):
     project_number: str = Field(min_length=1, max_length=100)
     name: str = Field(min_length=1, max_length=200)
     client_name: str | None = Field(default=None, max_length=255)
+
+
+class PortfolioOwnerCount(ApiModel):
+    """One owner's workspace footprint."""
+
+    owner_id: UUID
+    owner_name: str
+    project_count: int = 0
+    document_count: int = 0
+
+
+class PortfolioStatsRead(ApiModel):
+    """Cross-workspace counters for the superuser control panel."""
+
+    total_projects: int = 0
+    finished_projects: int = 0
+    total_documents: int = 0
+    documents_by_status: dict[str, int] = Field(default_factory=dict)
+    documents_by_workflow: dict[str, int] = Field(default_factory=dict)
+    projects_by_owner: list[PortfolioOwnerCount] = Field(default_factory=list)

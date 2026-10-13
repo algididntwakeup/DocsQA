@@ -87,10 +87,23 @@ async def require_lead(
 async def require_user_manager(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> User:
-    """Require a lead engineer or superuser for account administration."""
+    """Require a lead engineer, or an account carrying the local superuser flag."""
+    if getattr(current_user, "is_superuser", False):
+        return current_user
     if current_user.role not in {UserRole.LEAD_ENGINEER, UserRole.SUPERUSER}:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="User management access required."
+        )
+    return current_user
+
+
+async def require_superuser(
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> User:
+    """Require the local superuser flag for privileged control-panel actions."""
+    if not getattr(current_user, "is_superuser", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Superuser access required."
         )
     return current_user
 

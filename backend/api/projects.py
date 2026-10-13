@@ -22,7 +22,13 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
-from core.dependencies import get_current_user, get_storage, get_upload_service, require_lead
+from core.dependencies import (
+    get_current_user,
+    get_storage,
+    get_upload_service,
+    require_lead,
+    require_superuser,
+)
 from db.session import get_session
 from domain.enums import DocumentStatus, Severity
 from models.document import Document
@@ -33,6 +39,8 @@ from schemas.common import PageInfo
 from schemas.documents import DocumentListResponse, DocumentRead, DocumentUploadResponse
 from schemas.project import (
     ImportBimaProjectRequest,
+    PortfolioOwnerCount,
+    PortfolioStatsRead,
     ProjectCreate,
     ProjectHeaderConfigUpdate,
     ProjectRead,
@@ -282,6 +290,55 @@ async def list_projects(
         return [_project_read(project, count) for project, count in rows]
     projects = project_result.unique().scalars().all()
     return [_project_read(project, len(project.documents)) for project in projects]
+
+
+@router.get("/stats", response_model=PortfolioStatsRead)
+async def get_portfolio_stats(
+    session: Annotated[AsyncSession, Depends(get_session)],
+    current_user: Annotated[User, Depends(require_superuser)],
+) -> PortfolioStatsRead:
+    """Return cross-workspace counters for the superuser control panel."""
+    total_projects = await session.scalar(select(func.count(Project.id)))
+    finished_projects = await session.scalar(
+        select(func.count(Project.id)).where(Project.finished_at.isnot(None))
+    )
+    total_documents = await session.scalar(select(func.count(Document.id)))
+    by_status = await session.execute(
+        select(Document.status, func.count(Document.id)).group_by(Document.status)
+    )
+    by_workflow = await session.execute(
+        select(Document.workflow_status, func.count(Document.id)).group_by(Document.workflow_status)
+    )
+    owner_rows = (
+        await session.execute(
+            select(
+                User.id,
+                User.full_name,
+                func.count(func.distinct(Project.id)).label("project_count"),
+                func.count(func.distinct(Document.id)).label("document_count"),
+            )
+            .outerjoin(Project, Project.owner_id == User.id)
+            .outerjoin(Document, Document.owner_id == User.id)
+            .group_by(User.id, User.full_name)
+            .order_by(func.count(func.distinct(Project.id)).desc(), User.full_name.asc())
+        )
+    ).all()
+    return PortfolioStatsRead(
+        total_projects=int(total_projects or 0),
+        finished_projects=int(finished_projects or 0),
+        total_documents=int(total_documents or 0),
+        documents_by_status={str(key): int(count) for key, count in by_status.all()},
+        documents_by_workflow={str(key): int(count) for key, count in by_workflow.all()},
+        projects_by_owner=[
+            PortfolioOwnerCount(
+                owner_id=row[0],
+                owner_name=row[1],
+                project_count=int(row[2] or 0),
+                document_count=int(row[3] or 0),
+            )
+            for row in owner_rows
+        ],
+    )
 
 
 @router.put("/{project_id}/header-config", response_model=ProjectRead)

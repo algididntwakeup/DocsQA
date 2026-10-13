@@ -101,6 +101,22 @@ export interface ManagedUser extends UserSession {
   total_documents_owned: number;
 }
 
+export interface PortfolioOwnerCount {
+  owner_id: string;
+  owner_name: string;
+  project_count: number;
+  document_count: number;
+}
+
+export interface PortfolioStats {
+  total_projects: number;
+  finished_projects: number;
+  total_documents: number;
+  documents_by_status: Record<string, number>;
+  documents_by_workflow: Record<string, number>;
+  projects_by_owner: PortfolioOwnerCount[];
+}
+
 export interface CreateManagedUserPayload {
   email: string;
   full_name: string;
@@ -304,6 +320,18 @@ export function updateManagedUserStatus(userId: string, isActive: boolean): Prom
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ is_active: isActive }),
   });
+}
+
+export function updateManagedUserSuperuser(userId: string, isSuperuser: boolean): Promise<ManagedUser> {
+  return request<ManagedUser>(`/auth/users/${encodeURIComponent(userId)}/superuser`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ is_superuser: isSuperuser }),
+  });
+}
+
+export function fetchPortfolioStats(): Promise<PortfolioStats> {
+  return request<PortfolioStats>("/projects/stats", { cache: "no-store" });
 }
 
 export function resetManagedUserPassword(userId: string, temporaryPassword: string): Promise<ManagedUser> {
