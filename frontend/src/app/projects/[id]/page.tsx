@@ -210,7 +210,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-sm font-semibold text-foreground">Pengaturan header ekspor</h2>
           <button type="button" className="button button-primary btn-sm inline-flex items-center gap-1.5" onClick={() => void saveHeaderConfig()} disabled={savingHeader}>
-            <Save size={13} />{savingHeader ? "Menyimpan…" : "Simpan default project"}
+            <Save size={13} />{savingHeader ? "Saving..." : "Save as default project"}
           </button>
         </div>
         <HeaderTemplateConfigEditor value={headerConfig} onChange={setHeaderConfig} />

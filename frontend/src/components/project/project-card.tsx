@@ -98,7 +98,7 @@ export function ProjectCard({
             type="button"
             aria-label={`Delete ${project.name}`}
             disabled={documentCount > 0}
-            title={documentCount > 0 ? "Hanya project kosong yang dapat dihapus" : "Delete project"}
+            title={documentCount > 0 ? "Only empty projects can be deleted" : "Delete project"}
             onClick={() => onDelete(project.id)}
             className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground shadow-2xs transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-40"
           >

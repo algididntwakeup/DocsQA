@@ -67,7 +67,7 @@ describe("ReviewWorkspaceView workflow actions", () => {
     vi.mocked(api.getCurrentUser).mockResolvedValue(mockUser());
     render(<ReviewWorkspaceView id="doc-1" />);
 
-    const button = await screen.findByRole("button", { name: /tandai selesai/i });
+    const button = await screen.findByRole("button", { name: /mark as reviewed/i });
     fireEvent.click(button);
     await waitFor(() => expect(fetch).toHaveBeenCalledWith(expect.stringContaining("/mark-reviewed"), expect.objectContaining({ credentials: "include" })));
   });
@@ -77,8 +77,8 @@ describe("ReviewWorkspaceView workflow actions", () => {
     vi.mocked(api.getCurrentUser).mockResolvedValue(mockUser({ role: "LEAD_ENGINEER" }));
     render(<ReviewWorkspaceView id="doc-1" />);
 
-    expect(await screen.findByRole("button", { name: /verifikasi/i })).not.toBeNull();
-    expect(screen.queryByRole("button", { name: /tandai selesai/i })).toBeNull();
+    expect(await screen.findByRole("button", { name: /verify & approve/i })).not.toBeNull();
+    expect(screen.queryByRole("button", { name: /mark as reviewed/i })).toBeNull();
   });
 
   it("keeps exports available but disables workflow actions for finished projects", async () => {
@@ -91,8 +91,8 @@ describe("ReviewWorkspaceView workflow actions", () => {
     render(<ReviewWorkspaceView id="doc-1" />);
 
     expect(await screen.findByText(/project finished/i)).not.toBeNull();
-    expect(screen.queryByRole("button", { name: /verifikasi/i })).toBeNull();
-    expect(screen.queryByRole("button", { name: /minta revisi/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /verify & approve/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /request revision/i })).toBeNull();
     expect(screen.getByRole("button", { name: /export docx/i })).not.toBeNull();
   });
 
@@ -112,7 +112,7 @@ describe("ReviewWorkspaceView workflow actions", () => {
     expect(screen.getByRole("progressbar").getAttribute("aria-valuenow")).toBe("42");
     const exportButton = screen.getByRole("button", { name: /export docx/i }) as HTMLButtonElement;
     expect(exportButton.disabled).toBe(true);
-    expect(exportButton.getAttribute("title")).toBe("Fitur ekspor aktif setelah analisis selesai.");
+    expect(exportButton.getAttribute("title")).toBe("Export is available once analysis finishes.");
   });
 
   it("shows the failure message and retries analysis", async () => {

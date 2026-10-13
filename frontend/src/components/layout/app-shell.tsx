@@ -6,7 +6,6 @@ import { ChevronDown, FolderKanban, KeyRound, LayoutDashboard, LogOut, Menu, Shi
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ApiError, getCurrentUser, logout, type UserSession } from "@/lib/api";
 import { useLocale } from "./locale-provider";
-import { LanguageToggle } from "./language-toggle";
 import { ThemeToggle } from "./theme-toggle";
 import { ReksolindoLogo } from "./reksolindo-logo";
 
@@ -115,7 +114,6 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         <div className="flex shrink-0 items-center gap-3">
           <ThemeToggle />
-          <LanguageToggle />
           <div className="h-4 w-[1px] bg-border" />
           <div className="relative" ref={profileRef}>
             <button

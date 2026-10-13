@@ -12,7 +12,7 @@ const workspaceKeys = [
   "bimaIntegration", "bimaModalTitle", "bimaModalDesc", "bimaSearchLabel", "bimaSearchPlaceholder",
   "bimaCloseDialog", "bimaEmptyTitle", "bimaEmptyHint", "bimaAddToFolder", "bimaAddingToFolder",
   "bimaBadgeInFolder", "bimaOpenWorkspaceTitle", "openWorkspace", "bimaLoading", "bimaLoadFailed", "bimaImportSuccess", "bimaImportFailed",
-  "bimaMyProjectBadge", "bimaFilterMine",
+  "bimaMyProjectBadge", "bimaFilterMine", "bimaScopeLabel", "bimaTabMine", "bimaTabAll",
   "department", "grantSuperuser", "revokeSuperuser", "superuserGranted", "superuserRevoked",
   "portfolioOverview", "totalProjects", "totalDocuments", "finishedProjects",
   "projectsByOwner", "owner", "projectCount", "documentCount",

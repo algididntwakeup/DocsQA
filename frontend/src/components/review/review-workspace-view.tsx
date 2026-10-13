@@ -335,7 +335,7 @@ function ReviewWorkspaceContent({ id }: { id: string }) {
             href={document.project_id ? `/projects/${document.project_id}` : "/projects"}
             className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground"
           >
-            <ArrowLeft size={14} /> Kembali
+            <ArrowLeft size={14} /> Back
           </Link>
           <span className="text-border">|</span>
           <h1 className="min-w-0 truncate text-xs sm:text-sm font-bold text-foreground" title={document.filename}>
@@ -350,7 +350,7 @@ function ReviewWorkspaceContent({ id }: { id: string }) {
           <button
             type="button"
             disabled={isProcessing}
-            title={isProcessing ? "Scorecard dan temuan sedang dikompilasi..." : undefined}
+            title={isProcessing ? "The scorecard and findings are still being compiled..." : undefined}
             className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground shadow-sm transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
             onClick={() => setIsScorecardOpen(true)}
           >
@@ -359,7 +359,7 @@ function ReviewWorkspaceContent({ id }: { id: string }) {
           <button
             type="button"
             disabled={isProcessing}
-            title={isProcessing ? "Fitur ekspor aktif setelah analisis selesai." : undefined}
+            title={isProcessing ? "Export is available once analysis finishes." : undefined}
             className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
             onClick={() => setIsExportOpen(true)}
           >
@@ -368,7 +368,7 @@ function ReviewWorkspaceContent({ id }: { id: string }) {
           <a
             aria-disabled={isProcessing}
             tabIndex={isProcessing ? -1 : undefined}
-            title={isProcessing ? "Fitur ekspor aktif setelah analisis selesai." : undefined}
+            title={isProcessing ? "Export is available once analysis finishes." : undefined}
             className={`hidden lg:inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground shadow-sm transition hover:bg-muted ${isProcessing ? "pointer-events-none opacity-50" : ""}`}
             href={getPdfUrl(document.id)}
             download
@@ -536,7 +536,7 @@ function ReviewWorkspaceContent({ id }: { id: string }) {
         <div className="flex shrink-0 items-center gap-2">
           {canSubmitReview && (
             <button
-              aria-label="Tandai selesai di-review"
+              aria-label="Mark as reviewed"
               className="rounded-lg bg-emerald-600 px-4 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50"
               type="button"
               disabled={workflowBusy}
@@ -554,7 +554,7 @@ function ReviewWorkspaceContent({ id }: { id: string }) {
                 disabled={workflowBusy}
                 onClick={() => void updateWorkflow("verify")}
               >
-                {workflowBusy ? "Saving..." : "Verifikasi & Setujui Dokumen"}
+                {workflowBusy ? "Saving..." : "Verify & Approve Document"}
               </button>
               <input
                 className="hidden w-44 rounded-lg border border-input bg-card px-2.5 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:border-amber-500 focus:outline-none sm:block"
@@ -569,7 +569,7 @@ function ReviewWorkspaceContent({ id }: { id: string }) {
                 disabled={workflowBusy}
                 onClick={() => void updateWorkflow("request-revision")}
               >
-                Minta Revisi
+                Request Revision
               </button>
             </>
           )}

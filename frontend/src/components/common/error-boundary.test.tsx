@@ -54,8 +54,8 @@ describe("ErrorBoundary", () => {
     expect(screen.getByText(/Kode pelacak:/).textContent).toContain(report.correlation_id);
     expect(report.timestamp).toBeTruthy();
 
-    await fireEvent.click(screen.getByRole("button", { name: "Salin Kode Pelacak" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Copy Tracking Code" }));
     expect(writeText).toHaveBeenCalledWith(expect.any(String));
-    expect(await screen.findByRole("button", { name: "Kode Pelacak Disalin" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Tracking Code Copied" })).toBeTruthy();
   });
 });

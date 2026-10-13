@@ -45,14 +45,16 @@ describe("ExplorerToolbar localization", () => {
     expect(screen.queryByText(/Tampilan|Urutkan/)).toBeNull();
   });
 
-  it("renders Indonesian copy when locale is id", () => {
+  it("stays English even when the stored locale is id", () => {
+    // i18n is pinned to English, so a stored Indonesian preference is ignored.
     renderWithLocale(<ExplorerToolbar {...toolbarProps} />, "id");
 
-    expect(screen.getByPlaceholderText("Cari proyek berdasarkan nama, nomor, atau klien...")).toBeDefined();
-    expect(screen.getByRole("button", { name: "Tampilan Grid" })).toBeDefined();
-    expect(screen.getByRole("button", { name: "Tampilan Tabel" })).toBeDefined();
-    expect(screen.getByRole("option", { name: "Nama Proyek" })).toBeDefined();
-    expect(screen.getByRole("option", { name: "Terakhir Diperbarui" })).toBeDefined();
+    expect(screen.getByPlaceholderText("Search projects by name, number, or client...")).toBeDefined();
+    expect(screen.getByRole("button", { name: "Grid View" })).toBeDefined();
+    expect(screen.getByRole("button", { name: "Table View" })).toBeDefined();
+    expect(screen.getByRole("option", { name: "Project Name" })).toBeDefined();
+    expect(screen.getByRole("option", { name: "Last Modified" })).toBeDefined();
+    expect(screen.queryByText(/Tampilan|Urutkan/)).toBeNull();
   });
 });
 
@@ -66,10 +68,11 @@ describe("ImportBimaModal localization", () => {
     expect(screen.queryByText("Tambah dari BIMA")).toBeNull();
   });
 
-  it("renders Indonesian copy when locale is id", () => {
+  it("stays English even when the stored locale is id", () => {
+    // i18n is pinned to English, so a stored Indonesian preference is ignored.
     renderWithLocale(<ImportBimaModal />, "id");
 
-    expect(screen.getByRole("button", { name: /Tambah dari BIMA/ })).toBeDefined();
-    expect(screen.queryByText("Add from BIMA")).toBeNull();
+    expect(screen.getByRole("button", { name: /Add from BIMA/ })).toBeDefined();
+    expect(screen.queryByText("Tambah dari BIMA")).toBeNull();
   });
 });

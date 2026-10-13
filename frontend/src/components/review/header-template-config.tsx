@@ -5,10 +5,10 @@ import { useRef, useState } from "react";
 import type { HeaderPlacement, HeaderTemplateConfig } from "@/lib/api";
 
 const placementOptions: { id: HeaderPlacement; title: string; description: string }[] = [
-  { id: "split_standard", title: "Split", description: "Kiri: Reksolindo · Kanan: Klien" },
-  { id: "split_inverted", title: "Split terbalik", description: "Kiri: Klien · Kanan: Reksolindo" },
-  { id: "both_left", title: "Keduanya di kiri", description: "Logo berpasangan di kiri" },
-  { id: "both_right", title: "Keduanya di kanan", description: "Logo berpasangan di kanan" },
+  { id: "split_standard", title: "Split", description: "Left: Reksolindo · Right: Client" },
+  { id: "split_inverted", title: "Inverted split", description: "Left: Client · Right: Reksolindo" },
+  { id: "both_left", title: "Both on the left", description: "Paired logos on the left" },
+  { id: "both_right", title: "Both on the right", description: "Paired logos on the right" },
 ];
 
 interface HeaderTemplateConfigProps {
@@ -46,7 +46,7 @@ export function HeaderTemplateConfigEditor({ value, onChange }: HeaderTemplateCo
       </label>
       {value.enabled && <>
         <label className="block space-y-1 text-xs font-medium text-ink">
-          <span>Judul tengah</span>
+          <span>Center title</span>
           <input className="w-full rounded-md border border-line bg-background px-3 py-2" value={value.title} maxLength={180} onChange={(event) => onChange({ ...value, title: event.target.value })} />
         </label>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -74,12 +74,12 @@ export function HeaderTemplateConfigEditor({ value, onChange }: HeaderTemplateCo
           <input type="checkbox" checked={value.show_divider} onChange={(event) => onChange({ ...value, show_divider: event.target.checked })} />
           Tampilkan garis pemisah bawah
         </label>
-        <div className="rounded-lg border border-line bg-muted/10 p-3" aria-label="Pratinjau header">
+        <div className="rounded-lg border border-line bg-muted/10 p-3" aria-label="Header preview">
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Live preview</p>
           <div className="grid min-h-12 grid-cols-[1fr_2fr_1fr] items-center gap-2">
-            <div className="flex items-center justify-start gap-1">{(logoColumn === "both-left") ? <><HeaderLogo src={shownCompanyLogo} alt="Reksolindo" /><HeaderLogo src={value.client_logo} alt="Klien" /></> : logoColumn === "both-right" ? null : logoColumn === "client-left" ? <HeaderLogo src={value.client_logo} alt="Klien" /> : <HeaderLogo src={shownCompanyLogo} alt="Reksolindo" />}</div>
-            <div className="break-words text-center text-[9px] font-bold text-ink">{value.title || "Judul dokumen"}</div>
-            <div className="flex items-center justify-end gap-1">{logoColumn === "both-right" ? <><HeaderLogo src={shownCompanyLogo} alt="Reksolindo" /><HeaderLogo src={value.client_logo} alt="Klien" /></> : logoColumn === "both-left" ? null : logoColumn === "client-left" ? <HeaderLogo src={shownCompanyLogo} alt="Reksolindo" /> : <HeaderLogo src={value.client_logo} alt="Klien" />}</div>
+            <div className="flex items-center justify-start gap-1">{(logoColumn === "both-left") ? <><HeaderLogo src={shownCompanyLogo} alt="Reksolindo" /><HeaderLogo src={value.client_logo} alt="Client" /></> : logoColumn === "both-right" ? null : logoColumn === "client-left" ? <HeaderLogo src={value.client_logo} alt="Client" /> : <HeaderLogo src={shownCompanyLogo} alt="Reksolindo" />}</div>
+            <div className="break-words text-center text-[9px] font-bold text-ink">{value.title || "Document title"}</div>
+            <div className="flex items-center justify-end gap-1">{logoColumn === "both-right" ? <><HeaderLogo src={shownCompanyLogo} alt="Reksolindo" /><HeaderLogo src={value.client_logo} alt="Client" /></> : logoColumn === "both-left" ? null : logoColumn === "client-left" ? <HeaderLogo src={shownCompanyLogo} alt="Reksolindo" /> : <HeaderLogo src={value.client_logo} alt="Client" />}</div>
           </div>
           {value.show_divider && <div className="mt-2 border-b border-slate-300" />}
         </div>
