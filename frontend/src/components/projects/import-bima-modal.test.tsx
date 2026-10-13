@@ -32,6 +32,8 @@ const importedProject = {
   client_name: "Example Client",
   is_imported: true,
   prism_project_id: "prism-project-1",
+  is_mine: true,
+  bima_owner_known: true,
 };
 
 const freshProject = {
@@ -41,6 +43,8 @@ const freshProject = {
   client_name: "Example Client",
   is_imported: false,
   prism_project_id: null,
+  is_mine: false,
+  bima_owner_known: true,
 };
 
 const internalProject = {
@@ -50,6 +54,8 @@ const internalProject = {
   client_name: "Internal",
   is_imported: false,
   prism_project_id: null,
+  is_mine: false,
+  bima_owner_known: true,
 };
 
 function mockQueries(projects: unknown[], mutateAsync = vi.fn().mockResolvedValue(undefined)) {
@@ -213,5 +219,38 @@ describe("ImportBimaModal", () => {
 
     expect(screen.getByText("Katalog proyek BIMA tidak dapat dimuat.")).toBeDefined();
     expect(screen.getByRole("button", { name: "Coba lagi" })).toBeDefined();
+  });
+
+  it("marks the caller's own BIMA projects without offering a navigation action", async () => {
+    mockQueries([importedProject, freshProject]);
+    await renderAndOpen("en");
+    await screen.findByText(importedProject.name);
+
+    // The ownership marker stays, but adding to the folder is the modal's only
+    // action: opening a workspace happens on /projects.
+    expect(screen.getByText("My Project")).toBeDefined();
+    expect(screen.getByText("Already in Folder")).toBeDefined();
+    expect(screen.queryByRole("button", { name: /Open Workspace/i })).toBeNull();
+  });
+
+  it("filters the catalog down to the caller's own projects", async () => {
+    mockQueries([importedProject, freshProject]);
+    await renderAndOpen("en");
+    await screen.findByText(importedProject.name);
+    expect(screen.getByText(freshProject.name)).toBeDefined();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "My projects only" }));
+
+    expect(screen.getByText(importedProject.name)).toBeDefined();
+    expect(screen.queryByText(freshProject.name)).toBeNull();
+  });
+
+  it("hides the ownership filter when BIMA ownership is unknown", async () => {
+    mockQueries([{ ...importedProject, is_mine: false, bima_owner_known: false }]);
+    await renderAndOpen("en");
+    await screen.findByText(importedProject.name);
+
+    expect(screen.queryByRole("checkbox", { name: "My projects only" })).toBeNull();
+    expect(screen.queryByText("My Project")).toBeNull();
   });
 });

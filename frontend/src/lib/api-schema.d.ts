@@ -215,7 +215,10 @@ export interface paths {
         };
         /**
          * List Bima Catalog
-         * @description Return the flat BIMA project catalog annotated with its local import state.
+         * @description Return the flat BIMA project catalog annotated with the caller's import state.
+         *
+         *     Import flags describe the calling user's own workspace only, and rows that
+         *     BIMA reports as the caller's ongoing projects are marked with ``is_mine``.
          */
         get: operations["list_bima_catalog_api_v1_bima_catalog_get"];
         put?: never;
@@ -657,7 +660,7 @@ export interface paths {
         };
         /**
          * List Projects
-         * @description List projects visible to the authenticated user.
+         * @description List the caller's own projects.
          */
         get: operations["list_projects_api_v1_projects_get"];
         put?: never;
@@ -689,8 +692,10 @@ export interface paths {
          * Import Bima Project
          * @description Import one BIMA catalog project on demand and assign its PRISM owner.
          *
-         *     Importing is idempotent on ``bima_project_id``: a project that is already in
-         *     PRISM is returned unchanged with ``200 OK``. A new project is created with
+         *     Importing is idempotent per owner: the same BIMA project may exist once in
+         *     each user's workspace. A project already owned by the caller is returned
+         *     unchanged with ``200 OK``; a second user importing the same BIMA project
+         *     receives ``201`` with a new project they own. A new project is created with
          *     the calling user as its owner and gets an empty workspace directory.
          */
         post: operations["import_bima_project_api_v1_projects_import_bima_post"];
@@ -876,6 +881,11 @@ export interface components {
          * @description One BIMA directory row with its local import state.
          */
         BimaCatalogItem: {
+            /**
+             * Bima Owner Known
+             * @default true
+             */
+            bima_owner_known: boolean;
             /** Client Name */
             client_name?: string | null;
             /** Id */
@@ -885,6 +895,11 @@ export interface components {
              * @default false
              */
             is_imported: boolean;
+            /**
+             * Is Mine
+             * @default false
+             */
+            is_mine: boolean;
             /** Name */
             name: string;
             /** Number */
@@ -3355,9 +3370,7 @@ export interface operations {
     };
     list_projects_api_v1_projects_get: {
         parameters: {
-            query?: {
-                user_id?: string | null;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -3371,15 +3384,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProjectRead"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

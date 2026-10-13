@@ -7,7 +7,7 @@ Covers the folder RBAC matrix (engineering prefix ``13`` vs internal prefix
 from datetime import UTC, datetime
 from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import pytest
 from fastapi import HTTPException, Response
@@ -209,36 +209,29 @@ def _compiled(query: Any) -> str:
 
 @pytest.mark.parametrize(
     "role",
-    [UserRole.ENGINEER, UserRole.HRGA, UserRole.FINANCE],
+    [
+        UserRole.ENGINEER,
+        UserRole.HRGA,
+        UserRole.FINANCE,
+        UserRole.LEAD_ENGINEER,
+        UserRole.SUPERUSER,
+    ],
 )
-def test_visible_projects_query_compiles_for_restricted_roles(role: UserRole) -> None:
-    """Regression: the correlated EXISTS must compile for non-lead roles.
+def test_visible_projects_query_scopes_every_role_to_owner(role: UserRole) -> None:
+    """Regression: every role lists only its own projects.
 
-    Reusing ``Document`` inside the EXISTS produced a SQLAlchemy
-    auto-correlation error and a 500 on ``GET /api/v1/projects`` for engineers.
+    PRISM has no hierarchical role that may read another user's workspace, so
+    the listing must filter by ``projects.owner_id`` and must never widen the
+    scope with the old cross-user document EXISTS.
     """
 
-    query = _visible_projects_query(_user(role), None)
-    sql = _compiled(query)
-    assert "EXISTS" in sql.upper()
-    assert "FROM documents" in sql
-
-
-def test_visible_projects_query_scopes_cross_user_filter() -> None:
-    engineer = _user(UserRole.ENGINEER)
-    query = _visible_projects_query(engineer, user_id=uuid4())
+    user = _user(role)
+    query = _visible_projects_query(user)
     compiled = cast(Select[Any], query).compile()
     sql = str(compiled)
-    # The foreign user filter collapses to an impossible match (UUID(int=0)).
-    assert any(value == UUID(int=0) for value in compiled.params.values())
-    assert "projects.id" in sql
-
-
-def test_visible_projects_query_has_no_scope_for_leads() -> None:
-    lead = _user(UserRole.LEAD_ENGINEER)
-    query = _visible_projects_query(lead, None)
-    sql = _compiled(query)
     assert "EXISTS" not in sql.upper()
+    assert any(value == user.id for value in compiled.params.values())
+    assert "projects.id" in sql
 
 
 @pytest.mark.anyio
