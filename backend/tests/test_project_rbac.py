@@ -253,6 +253,36 @@ def test_visible_projects_query_gives_flagged_lead_oversight() -> None:
     assert not any(value == user.id for value in compiled.params.values())
 
 
+def test_visible_projects_query_never_widens_on_document_assignment() -> None:
+    """Regression: assigned documents must not leak another owner's workspace.
+
+    The listing previously OR'd in a correlated ``EXISTS`` over ``documents``,
+    so an engineer who had a single document assigned inside someone else's
+    project saw that project on /projects even though they had not added it to
+    their own folder. Visibility is now owner-or-flag only, so the compiled
+    query must reference neither ``documents`` nor ``EXISTS``.
+    """
+
+    engineer = _user(UserRole.ENGINEER)
+    query = _visible_projects_query(engineer)
+    sql = _compiled(query).upper()
+
+    assert "EXISTS" not in sql
+    assert "ASSIGNED_TO_ID" not in sql
+    # The only scope predicate is the owner filter.
+    assert "PROJECTS.OWNER_ID" in sql
+
+
+def test_visible_projects_query_ignores_documents_for_every_regular_role() -> None:
+    """No non-flagged role may widen its scope through document membership."""
+
+    for role in (UserRole.ENGINEER, UserRole.HRGA, UserRole.FINANCE, UserRole.LEAD_ENGINEER):
+        user = _user(role)
+        sql = _compiled(_visible_projects_query(user)).upper()
+        assert "EXISTS" not in sql, role
+        assert "ASSIGNED_TO_ID" not in sql, role
+
+
 @pytest.mark.anyio
 async def test_bima_import_rejects_role_project_mismatch() -> None:
     """Folder RBAC still gates the on-demand import by project-number prefix."""
