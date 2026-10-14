@@ -5457,7 +5457,7 @@
         ]
       },
       "post": {
-        "description": "Create a project and its workspace folder under the folder RBAC rules.\n\nNumbered projects are restricted by prefix: ``13`` engineering projects are\nowned by engineering roles, ``03`` internal projects by HR/GA and finance.\nUnnumbered projects keep the legacy lead-only rule.",
+        "description": "Create a project and its workspace folder under the folder RBAC rules.\n\nNumbered projects are restricted by prefix: ``13`` engineering projects are\nowned by engineering roles, ``03`` internal projects by HR/GA and finance.\nUnnumbered projects keep the legacy lead-only rule. Accounts carrying the\nlocal superuser flag bypass every rule: BIMA's flat directory cannot express\ncross-department oversight, so the flag is the only way to create a project\noutside the caller's own prefix.",
         "operationId": "create_project_api_v1_projects_post",
         "requestBody": {
           "content": {
@@ -5578,7 +5578,7 @@
     },
     "/api/v1/projects/{project_id}": {
       "delete": {
-        "description": "Delete an empty project; documents are never deleted implicitly.",
+        "description": "Delete an empty custom project; documents are never deleted implicitly.\n\nProjects imported from BIMA are permanent: they represent a real upstream\ndirectory entry, so removing the local folder would desynchronise PRISM from\nBIMA. Only custom projects (``bima_project_id is None``) may be deleted, and\nonly by their owner or a locally flagged superuser.",
         "operationId": "delete_project_api_v1_projects__project_id__delete",
         "parameters": [
           {
