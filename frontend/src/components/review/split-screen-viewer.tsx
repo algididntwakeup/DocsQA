@@ -493,7 +493,7 @@ export function SplitScreenViewer({
               className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground shadow-sm hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Download size={13} />
-              <span>Export DOCX</span>
+              <span>Export</span>
             </button>
             <button
               type="button"
