@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { AlertTriangle, CheckCircle2, ExternalLink, LoaderCircle, RotateCw } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ExternalLink, FileText, LoaderCircle, RotateCw } from "lucide-react";
 import Link from "next/link";
 import {
   ApiError,
@@ -133,17 +133,24 @@ export function ProcessingStage({
   return (
     <div className="flex flex-col gap-6">
       <Card className="p-6 sm:p-8">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-accent-foreground">
-              Step 03 · Pipeline telemetry
-            </p>
-            <h2 className="mt-1 truncate text-lg font-bold text-foreground" title={filename}>
-              {filename}
-            </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {projectName ? `Filed under ${projectName}` : "Processing started"}
-            </p>
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex min-w-0 items-start gap-4">
+            <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-accent text-accent-foreground">
+              <FileText size={20} />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-accent-foreground">
+                Step 03 · Pipeline telemetry
+              </p>
+              <h2 className="mt-1 truncate text-lg font-bold text-foreground" title={filename}>
+                {filename}
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {projectName
+                  ? `Filed under ${projectName}`
+                  : "Standalone inspection — it will appear in the Inspection Workspace."}
+              </p>
+            </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             {scan && <StatusBadge status={scan.status} />}

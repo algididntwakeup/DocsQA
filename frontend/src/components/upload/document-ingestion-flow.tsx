@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { AlertTriangle, ArrowLeft, ArrowRight, FileText, FolderKanban, ShieldCheck, Upload } from "lucide-react";
-import { ApiError, listProjects, uploadProjectDocument, type ProjectItem } from "@/lib/api";
+import { ApiError, listProjects, uploadDocument, uploadProjectDocument, type ProjectItem } from "@/lib/api";
 import { useLocale } from "@/components/layout/locale-provider";
 import { Card } from "@/components/ui/card";
 import { DropZone } from "./drop-zone";
@@ -58,15 +58,24 @@ export function DocumentIngestionFlow() {
 
   const selectedProject = projects.find((project) => project.id === selectedProjectId) ?? null;
 
+  /**
+   * Upload and start the pipeline.
+   *
+   * A target project is optional: when one is chosen the document is filed into
+   * that workspace folder, otherwise it is uploaded standalone and appears only
+   * in the Inspection Workspace. The local step transition is identical either
+   * way, so the status view still morphs in place.
+   */
   async function beginInspection() {
     const file = files[0];
-    if (!file || !selectedProjectId) return;
+    if (!file) return;
     setUploading(true);
     setError(null);
     try {
-      const uploaded = await uploadProjectDocument(selectedProjectId, file);
+      const uploaded = selectedProjectId
+        ? await uploadProjectDocument(selectedProjectId, file)
+        : await uploadDocument(file);
       setDocumentId(uploaded.id);
-      // Local transition: no router.push, so the status view morphs in place.
       setStep("PROCESSING");
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : t("uploadCouldNotComplete"));
@@ -149,20 +158,22 @@ export function DocumentIngestionFlow() {
               <div className="mb-6 flex items-start justify-between gap-4">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
-                    Step 02
+                    Step 02 · Optional
                   </p>
                   <h2 className="mt-1 text-lg font-bold text-foreground">
                     Choose a destination project
                   </h2>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    The document is filed into this workspace folder.
+                    Filing the document into a folder keeps it with that project. Skip
+                    this to inspect it on its own — it will appear in the Inspection
+                    Workspace only.
                   </p>
                 </div>
               </div>
 
               <div className="mb-6 flex items-center gap-3 rounded-xl border border-border/70 bg-muted/30 px-4 py-3">
                 <FileText size={17} className="shrink-0 text-muted-foreground" />
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-foreground">
                     {files[0]?.name}
                   </p>
@@ -170,6 +181,11 @@ export function DocumentIngestionFlow() {
                     {files.length} file{files.length === 1 ? "" : "s"} ready to upload
                   </p>
                 </div>
+                {selectedProject && (
+                  <span className="shrink-0 rounded-full border border-primary/30 bg-accent px-3 py-1 text-[11px] font-bold text-accent-foreground">
+                    {selectedProject.name}
+                  </span>
+                )}
               </div>
 
               <ProjectSelector
@@ -188,15 +204,28 @@ export function DocumentIngestionFlow() {
                   <ArrowLeft size={16} />
                   Back
                 </button>
-                <button
-                  type="button"
-                  disabled={!selectedProjectId || uploading}
-                  onClick={() => void beginInspection()}
-                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <Upload size={16} />
-                  {uploading ? "Uploading..." : t("beginInspection")}
-                </button>
+                <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+                  <button
+                    type="button"
+                    disabled={uploading}
+                    onClick={() => {
+                      setSelectedProjectId(null);
+                      void beginInspection();
+                    }}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-border px-5 py-2.5 text-sm font-semibold text-foreground transition hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Skip — inspect without a project
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!selectedProjectId || uploading}
+                    onClick={() => void beginInspection()}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <Upload size={16} />
+                    {uploading ? "Uploading..." : t("beginInspection")}
+                  </button>
+                </div>
               </div>
             </Card>
           </motion.div>

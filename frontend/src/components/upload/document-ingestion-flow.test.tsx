@@ -22,6 +22,7 @@ vi.mock("@/lib/api", async () => {
     ...actual,
     listProjects: vi.fn(),
     uploadProjectDocument: vi.fn(),
+    uploadDocument: vi.fn(),
     getDocument: vi.fn(),
     getDocumentStatus: vi.fn(),
     subscribeDocumentEvents: vi.fn(),
@@ -99,9 +100,30 @@ describe("DocumentIngestionFlow", () => {
     await selectFileAndContinue();
 
     expect(await screen.findByText("Central Plant")).toBeDefined();
-    // Begin Inspection stays disabled until a project is chosen.
+    // A destination is optional: the skip action is always available.
+    expect(screen.getByRole("button", { name: /skip/i })).toBeDefined();
+    // Begin Inspection only unlocks once a project is picked.
     const begin = screen.getByRole("button", { name: /begin inspection/i }) as HTMLButtonElement;
     expect(begin.disabled).toBe(true);
+  });
+
+  it("skips the project step and inspects standalone", async () => {
+    vi.mocked(api.uploadDocument).mockResolvedValue({
+      id: "doc-9",
+      filename: "inspection.pdf",
+      deduplicated: false,
+    } as api.DocumentUpload);
+
+    renderFlow();
+    await selectFileAndContinue();
+
+    fireEvent.click(screen.getByRole("button", { name: /skip/i }));
+
+    await waitFor(() => expect(api.uploadDocument).toHaveBeenCalledWith(expect.any(File)));
+    // The project-scoped endpoint is never used on the skip path.
+    expect(api.uploadProjectDocument).not.toHaveBeenCalled();
+    expect(await screen.findByText(/standalone inspection/i)).toBeDefined();
+    expect(push).not.toHaveBeenCalled();
   });
 
   it("uploads into the selected project and morphs to processing without navigating", async () => {
