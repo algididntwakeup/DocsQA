@@ -218,7 +218,7 @@ def _compiled(query: Any) -> str:
     ],
 )
 def test_visible_projects_query_scopes_every_role_to_owner(role: UserRole) -> None:
-    """Only the local flag widens visibility; no role does.
+    """No role widens visibility: /projects is always the caller's own folders.
 
     BIMA's flat directory has no lead-engineer concept, so a lead role must not
     leak other users' workspaces into the listing.
@@ -233,24 +233,28 @@ def test_visible_projects_query_scopes_every_role_to_owner(role: UserRole) -> No
     assert "projects.id" in sql
 
 
-def test_visible_projects_query_gives_flagged_accounts_oversight() -> None:
-    """The local ``is_superuser`` flag grants oversight without a lead role."""
+@pytest.mark.parametrize(
+    "role",
+    [
+        UserRole.ENGINEER,
+        UserRole.LEAD_ENGINEER,
+        UserRole.SUPERUSER,
+    ],
+)
+def test_visible_projects_query_scopes_flagged_accounts_to_owner(role: UserRole) -> None:
+    """The superuser flag does NOT widen /projects.
 
-    user = _user(UserRole.ENGINEER)
+    A fresh account must open onto an empty workspace even when it carries the
+    local flag; cross-user oversight lives in the Dashboard's portfolio
+    statistics and the BIMA modal's "All Projects" scope instead.
+    """
+
+    user = _user(role)
     user.is_superuser = True
     query = _visible_projects_query(user)
     compiled = cast(Select[Any], query).compile()
-    assert not any(value == user.id for value in compiled.params.values())
-
-
-def test_visible_projects_query_gives_flagged_lead_oversight() -> None:
-    """A flagged lead still sees every workspace."""
-
-    user = _user(UserRole.LEAD_ENGINEER)
-    user.is_superuser = True
-    query = _visible_projects_query(user)
-    compiled = cast(Select[Any], query).compile()
-    assert not any(value == user.id for value in compiled.params.values())
+    assert any(value == user.id for value in compiled.params.values())
+    assert "PROJECTS.OWNER_ID" in str(compiled).upper()
 
 
 def test_visible_projects_query_never_widens_on_document_assignment() -> None:
