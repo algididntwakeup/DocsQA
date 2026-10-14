@@ -41,10 +41,19 @@ export function canManageFolders(
   return allowed.includes(role);
 }
 
+/**
+ * Whether the role may create a project with the given number.
+ *
+ * ``isSuperuser`` mirrors the local PRISM superuser flag (not the BIMA role):
+ * accounts carrying it bypass every prefix rule on the server, so the client
+ * must not block them before the request is sent.
+ */
 export function canCreateProject(
   role: UserRole | null | undefined,
   projectNumber: string | null | undefined,
+  isSuperuser = false,
 ): boolean {
+  if (isSuperuser) return true;
   if (projectKind(projectNumber) === "UNCLASSIFIED") return isPrivileged(role);
   return canManageFolders(role, projectNumber);
 }

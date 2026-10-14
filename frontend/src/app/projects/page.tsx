@@ -7,7 +7,8 @@ import type { SortingState } from "@tanstack/react-table";
 import { ApiError, createProject, deleteProject, finishProject, getCurrentUser, listProjectDocuments, listProjects, type UserRole } from "@/lib/api";
 import { useLocale } from "@/components/layout/locale-provider";
 import { canCreateAnyProject, canCreateProject, createPermissionMessage, createScopeHint, isPrivileged } from "@/lib/project-permissions";
-import { ExplorerToolbar } from "@/components/projects/explorer-toolbar";
+import { ExplorerToolbar, type ProjectOriginFilter } from "@/components/projects/explorer-toolbar";
+import { AlertDialog } from "@/components/ui/alert-dialog";
 import { ProjectGridSkeleton, ProjectGridView } from "@/components/projects/project-grid-view";
 import { ProjectTableSkeleton, ProjectTableView, useProjectTable } from "@/components/projects/project-table-view";
 import { useViewMode } from "@/hooks/use-view-mode";
@@ -32,9 +33,12 @@ export default function ProjectsPage() {
   const [search, setSearch] = useState("");
   const [sorting, setSorting] = useState<SortingState>([{ id: "updated_at", desc: true }]);
   const [viewMode, setViewMode] = useViewMode();
+  const [origin, setOrigin] = useState<ProjectOriginFilter>("all");
+  const [pendingDelete, setPendingDelete] = useState<Project | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const { t } = useLocale();
   const canManage = isPrivileged(currentRole);
-  const createAllowed = canCreateProject(currentRole, projectNumber);
+  const createAllowed = canCreateProject(currentRole, projectNumber, isSuperuser);
   const createBlockedReason = createAllowed ? null : createPermissionMessage(projectNumber);
   const sortBy = (sorting[0]?.id ?? "updated_at") as ProjectSortField;
   const sortDirection = sorting[0]?.desc ? "desc" : "asc";
@@ -48,11 +52,13 @@ export default function ProjectsPage() {
         documents_count: counts[project.id] ?? project.documents_count ?? project.total_documents ?? 0,
       }))
       .filter((project) => {
+        if (origin === "bima" && project.bima_project_id == null) return false;
+        if (origin === "custom" && project.bima_project_id != null) return false;
         if (!query) return true;
         return [project.name, project.project_number ?? "", project.client_name ?? ""]
           .some((value) => value.toLowerCase().includes(query));
       });
-  }, [counts, projects, search]);
+  }, [counts, origin, projects, search]);
 
   const projectTable = useProjectTable({
     projects: filteredProjects,
@@ -131,13 +137,24 @@ export default function ProjectsPage() {
     }
   }
 
-  async function handleDelete(projectId: string) {
-    if (!window.confirm(t("deleteProjectConfirm"))) return;
+  /** Open the confirmation dialog; the actual DELETE runs from confirmDelete. */
+  function handleDelete(projectId: string) {
+    const target = projects.find((project) => project.id === projectId) ?? null;
+    if (target) setPendingDelete(target);
+  }
+
+  async function confirmDelete() {
+    if (!pendingDelete) return;
+    setDeleting(true);
     try {
-      await deleteProject(projectId);
+      await deleteProject(pendingDelete.id);
+      setPendingDelete(null);
       await load();
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : t("couldNotDeleteProject"));
+      setPendingDelete(null);
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -182,6 +199,8 @@ export default function ProjectsPage() {
         onToggleSortDirection={toggleSortDirection}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
+        origin={origin}
+        onOriginChange={setOrigin}
         rightSlot={(
           <div className="flex flex-wrap items-center justify-end gap-2">
             <ErrorBoundary>
@@ -221,7 +240,14 @@ export default function ProjectsPage() {
           <FolderKanban size={28} className="text-muted-foreground" />
           <p className="mt-3 text-sm font-semibold text-foreground">{t("emptySearch")}</p>
           <p className="mt-1 max-w-sm text-xs text-muted-foreground">{t("emptySearchHint")}</p>
-          <button type="button" onClick={() => setSearch("")} className="mt-4 rounded-lg border border-border px-3 py-2 text-xs font-semibold hover:bg-muted">
+          <button
+            type="button"
+            onClick={() => {
+              setSearch("");
+              setOrigin("all");
+            }}
+            className="mt-4 rounded-lg border border-border px-3 py-2 text-xs font-semibold hover:bg-muted"
+          >
             {t("clearSearch")}
           </button>
         </div>
@@ -230,6 +256,26 @@ export default function ProjectsPage() {
       ) : (
         <ProjectTableView table={projectTable} onOpen={(projectId) => router.push(`/workspace/${projectId}`)} />
       )}
+      <AlertDialog
+        open={pendingDelete !== null}
+        onOpenChange={(next) => {
+          if (!next) setPendingDelete(null);
+        }}
+        title={t("deleteProject")}
+        description={
+          <>
+            {t("deleteProjectConfirm")}
+            {pendingDelete && (
+              <span className="mt-2 block font-semibold text-foreground">{pendingDelete.name}</span>
+            )}
+          </>
+        }
+        confirmLabel={deleting ? t("deleting") : t("deleteProject")}
+        cancelLabel={t("cancel")}
+        busy={deleting}
+        onConfirm={() => void confirmDelete()}
+      />
+
       {/* Modal Create Project */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-xs">
@@ -285,7 +331,7 @@ export default function ProjectsPage() {
               </label>
             </div>
 
-            {!createAllowed && projectNumber.trim() !== "" && (
+            {!createAllowed && (
               <p role="alert" className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-[11px] font-medium text-amber-800">
                 {createBlockedReason}
               </p>

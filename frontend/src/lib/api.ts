@@ -68,6 +68,8 @@ export interface ProjectItem {
   plant_area?: string | null;
   project_number?: string | null;
   client_name?: string | null;
+  /** Set for projects imported from BIMA; null for user-created projects. */
+  bima_project_id?: number | null;
   owner_id: string;
   owner_name?: string | null;
   total_documents?: number;

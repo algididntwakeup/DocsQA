@@ -41,6 +41,29 @@ def _project(lead: User, documents: list[Document] | None = None) -> Project:
     )
 
 
+def _superuser() -> User:
+    """An account carrying the local PRISM superuser flag."""
+    user = _user(UserRole.ENGINEER)
+    user.is_superuser = True
+    return user
+
+
+def _bima_project(lead: User, bima_project_id: int = 4242) -> Project:
+    project = _project(lead)
+    project.bima_project_id = bima_project_id
+    return project
+
+
+def _stub_session(project: Project) -> AsyncMock:
+    session = AsyncMock()
+    result = type(
+        "Result", (), {"unique": lambda self: self, "scalar_one_or_none": lambda self: project}
+    )()
+    session.execute.return_value = result
+    session.add = MagicMock()
+    return session
+
+
 @pytest.mark.anyio
 async def test_only_lead_holds_project_admin_privileges() -> None:
     with pytest.raises(HTTPException) as error:
@@ -160,6 +183,91 @@ async def test_delete_rejects_project_with_documents() -> None:
 
     assert error.value.status_code == 409
     session.delete.assert_not_awaited()
+
+
+@pytest.mark.anyio
+async def test_delete_rejects_bima_imported_project() -> None:
+    """Imported folders mirror BIMA, so PRISM must refuse to drop them."""
+    lead = _user(UserRole.LEAD_ENGINEER)
+    project = _bima_project(lead)
+    session = _stub_session(project)
+
+    with pytest.raises(HTTPException) as error:
+        await delete_project(project.id, session, lead)
+
+    assert error.value.status_code == 403
+    assert "BIMA" in str(error.value.detail)
+    session.delete.assert_not_awaited()
+
+
+@pytest.mark.anyio
+async def test_delete_rejects_foreign_custom_project() -> None:
+    """A custom project is private to its owner unless a superuser asks."""
+    owner = _user(UserRole.LEAD_ENGINEER)
+    intruder = _user(UserRole.LEAD_ENGINEER)
+    project = _project(owner)
+    session = _stub_session(project)
+
+    with pytest.raises(HTTPException) as error:
+        await delete_project(project.id, session, intruder)
+
+    assert error.value.status_code == 403
+    session.delete.assert_not_awaited()
+
+
+@pytest.mark.anyio
+async def test_superuser_can_delete_foreign_custom_project() -> None:
+    owner = _user(UserRole.LEAD_ENGINEER)
+    project = _project(owner)
+    session = _stub_session(project)
+
+    await delete_project(project.id, session, _superuser())
+
+    session.delete.assert_awaited_once_with(project)
+
+
+@pytest.mark.anyio
+async def test_superuser_bypasses_prefix_validation_on_create() -> None:
+    """The local flag outranks the BIMA prefix rules, including no number."""
+    from api.projects import create_project
+    from schemas.project import ProjectCreate
+
+    admin = _superuser()
+    session = _stub_session(_project(admin))
+
+    async def refresh(value: Any, *args: Any, **kwargs: Any) -> None:
+        value.id = uuid4()
+        now = datetime.now(UTC)
+        value.created_at = now
+        value.updated_at = now
+        value.owner = admin
+        value.documents = []
+
+    session.refresh.side_effect = refresh
+
+    for number in ("03-2026-001", "13-9999", None):
+        created = await create_project(
+            ProjectCreate(name="Admin Project", project_number=number), session, admin
+        )
+        assert created.name == "Admin Project"
+
+
+@pytest.mark.anyio
+async def test_plain_engineer_still_blocked_by_prefix_rules() -> None:
+    """The bypass must not leak to accounts without the flag."""
+    from api.projects import create_project
+    from schemas.project import ProjectCreate
+
+    engineer = _user(UserRole.ENGINEER)
+    session = _stub_session(_project(engineer))
+
+    with pytest.raises(HTTPException) as error:
+        await create_project(
+            ProjectCreate(name="Internal", project_number="03-2026-001"), session, engineer
+        )
+
+    assert error.value.status_code == 403
+    session.commit.assert_not_awaited()
 
 
 def _document_owned_by(project: Project, owner: User) -> Document:

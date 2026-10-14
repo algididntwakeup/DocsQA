@@ -4,6 +4,7 @@ import Link from "next/link";
 import { CalendarClock, FileText, FolderOpen } from "lucide-react";
 import { useLocale } from "@/components/layout/locale-provider";
 import { ProjectActionsMenu } from "@/components/projects/project-actions-menu";
+import { ProjectOriginBadge } from "@/components/projects/project-origin-badge";
 import { formatRelativeTime } from "@/lib/format";
 import type { Project } from "@/types/project";
 
@@ -50,6 +51,7 @@ export function ProjectGridView({ projects, canManage, onFinish, onDelete }: Pro
               <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
                 {project.client_name || t("clientNotAvailable")}
               </p>
+              <ProjectOriginBadge project={project} className="mt-2" />
 
               <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-border/70 pt-3 text-[11px] text-muted-foreground">
                 <span className="inline-flex items-center gap-1.5">
