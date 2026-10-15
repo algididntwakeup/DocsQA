@@ -853,6 +853,29 @@
             ],
             "title": "Reviewed At"
           },
+          "reviewed_by_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed By Id"
+          },
+          "reviewed_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed By Name"
+          },
           "sha256": {
             "pattern": "^[a-f0-9]{64}$",
             "title": "Sha256",
@@ -5006,7 +5029,7 @@
     },
     "/api/v1/documents/{document_id}/request-revision": {
       "post": {
-        "description": "Return a document to an engineer for revision.",
+        "description": "Return a document to an engineer for revision.\n\nAllowed for lead engineers, the document uploader, and local superusers so\na superuser is never blocked by the legacy lead-only rule.",
         "operationId": "request_document_revision_api_v1_documents__document_id__request_revision_post",
         "parameters": [
           {
@@ -5239,7 +5262,7 @@
     },
     "/api/v1/documents/{document_id}/verify": {
       "post": {
-        "description": "Verify a document as a lead engineer.",
+        "description": "Verify a document as a lead engineer, the uploader, or a superuser.",
         "operationId": "verify_document_api_v1_documents__document_id__verify_post",
         "parameters": [
           {

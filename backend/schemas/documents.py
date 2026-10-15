@@ -55,6 +55,8 @@ class DocumentRead(ApiModel):
     assigned_to_name: str | None = None
     assigned_to_email: str | None = None
     verified_by_id: UUID | None = None
+    reviewed_by_id: UUID | None = None
+    reviewed_by_name: str | None = None
     workflow_status: DocumentWorkflowStatus
     reviewed_at: datetime | None = None
     verified_at: datetime | None = None

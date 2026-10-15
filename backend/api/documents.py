@@ -71,6 +71,7 @@ from services.export import (
     generate_ale_review_docx,
 )
 from services.permission_service import (
+    can_finalize_review,
     can_review_document,
     has_workspace_oversight,
 )
@@ -146,6 +147,7 @@ def _document_read(document: Document) -> DocumentRead:
             "uploaded_by_name": document.owner.full_name if document.owner else "Unknown",
             "assigned_to_name": document.assigned_to.full_name if document.assigned_to else None,
             "assigned_to_email": document.assigned_to.email if document.assigned_to else None,
+            "reviewed_by_name": document.reviewed_by.full_name if document.reviewed_by else None,
             "project_name": document.project.name if document.project else "Unassigned project",
             "project_plant": document.project.plant_area if document.project else None,
             "project_finished": bool(document.project and document.project.finished_at),
@@ -211,7 +213,13 @@ async def claim_document(
         document.assigned_to = current_user
         await session.commit()
         await session.refresh(
-            document, attribute_names=["updated_at", "owner", "assigned_to", "project"]
+            document, attribute_names=[
+            "updated_at",
+            "owner",
+            "assigned_to",
+            "project",
+            "reviewed_by",
+        ]
         )
         return _document_read(document)
     except HTTPException:
@@ -238,7 +246,13 @@ async def assign_document(
             document.assigned_to = None
             await session.commit()
             await session.refresh(
-                document, attribute_names=["updated_at", "owner", "assigned_to", "project"]
+                document, attribute_names=[
+            "updated_at",
+            "owner",
+            "assigned_to",
+            "project",
+            "reviewed_by",
+        ]
             )
             return _document_read(document)
         engineer = (
@@ -282,7 +296,13 @@ async def assign_document(
         document.assigned_to = engineer
         await session.commit()
         await session.refresh(
-            document, attribute_names=["updated_at", "owner", "assigned_to", "project"]
+            document, attribute_names=[
+            "updated_at",
+            "owner",
+            "assigned_to",
+            "project",
+            "reviewed_by",
+        ]
         )
         return _document_read(document)
     except HTTPException:
@@ -323,9 +343,17 @@ async def mark_document_reviewed(
         )
     document.workflow_status = DocumentWorkflowStatus.REVIEWED_BY_ENGINEER
     document.reviewed_at = datetime.now(UTC)
+    document.reviewed_by_id = current_user.id
+    document.reviewed_by = current_user
     await session.commit()
     await session.refresh(
-        document, attribute_names=["updated_at", "owner", "assigned_to", "project"]
+        document, attribute_names=[
+            "updated_at",
+            "owner",
+            "assigned_to",
+            "project",
+            "reviewed_by",
+        ]
     )
     return _document_read(document)
 
@@ -334,12 +362,20 @@ async def mark_document_reviewed(
 async def verify_document(
     document_id: UUID,
     session: Annotated[AsyncSession, Depends(get_session)],
-    current_user: Annotated[User, Depends(require_lead)],
+    current_user: Annotated[User, Depends(get_current_user)],
     document: Annotated[Document, Depends(get_accessible_document)],
     payload: DocumentWorkflowUpdate | None = None,
 ) -> DocumentRead:
-    """Verify a document as a lead engineer."""
+    """Verify a document as a lead engineer, the uploader, or a superuser."""
     _ensure_document_project_open(document)
+    if not can_finalize_review(current_user, document):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Akses ditolak. Hanya lead engineer, pengunggah dokumen, atau "
+                "superuser yang dapat memverifikasi dokumen."
+            ),
+        )
     document.verified_by_id = current_user.id
     document.verified_at = datetime.now(UTC)
     document.workflow_status = DocumentWorkflowStatus.VERIFIED_BY_LEAD
@@ -347,7 +383,13 @@ async def verify_document(
         document.verification_notes = payload.verification_notes
     await session.commit()
     await session.refresh(
-        document, attribute_names=["updated_at", "owner", "assigned_to", "project"]
+        document, attribute_names=[
+            "updated_at",
+            "owner",
+            "assigned_to",
+            "project",
+            "reviewed_by",
+        ]
     )
     return _document_read(document)
 
@@ -356,12 +398,24 @@ async def verify_document(
 async def request_document_revision(
     document_id: UUID,
     session: Annotated[AsyncSession, Depends(get_session)],
-    _: Annotated[User, Depends(require_lead)],
+    current_user: Annotated[User, Depends(get_current_user)],
     document: Annotated[Document, Depends(get_accessible_document)],
     payload: DocumentWorkflowUpdate | None = None,
 ) -> DocumentRead:
-    """Return a document to an engineer for revision."""
+    """Return a document to an engineer for revision.
+
+    Allowed for lead engineers, the document uploader, and local superusers so
+    a superuser is never blocked by the legacy lead-only rule.
+    """
     _ensure_document_project_open(document)
+    if not can_finalize_review(current_user, document):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Akses ditolak. Hanya lead engineer, pengunggah dokumen, atau "
+                "superuser yang dapat meminta revisi."
+            ),
+        )
     requested_status = (
         payload.workflow_status
         if payload is not None and payload.workflow_status is not None
@@ -383,7 +437,13 @@ async def request_document_revision(
         document.reviewed_at = None
     await session.commit()
     await session.refresh(
-        document, attribute_names=["updated_at", "owner", "assigned_to", "project"]
+        document, attribute_names=[
+            "updated_at",
+            "owner",
+            "assigned_to",
+            "project",
+            "reviewed_by",
+        ]
     )
     return _document_read(document)
 
@@ -695,7 +755,9 @@ async def retry_document_analysis(
     document.progress_pct = 0
     await session.commit()
     await enqueue_extraction(document, session)
-    await session.refresh(document, attribute_names=["owner", "assigned_to", "project"])
+    await session.refresh(
+        document, attribute_names=["owner", "assigned_to", "project", "reviewed_by"]
+    )
     return _document_read(document)
 
 

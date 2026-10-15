@@ -318,11 +318,15 @@ function ReviewWorkspaceContent({ id }: { id: string }) {
     !projectFinished &&
     workflowStatus === "ANALYZING" &&
     (isSuperuser || isUploader || isAssignedEngineer || userRole === "LEAD_ENGINEER");
+  // Godmode: verifying and requesting revisions is allowed for local superusers
+  // and the document uploader. The legacy lead-only gate is gone, so a
+  // superuser never meets "Lead engineer access required".
+  const canFinalizeReview = isSuperuser || isUploader;
   const canLeadDecide =
     !isProcessing &&
     !isFailed &&
     !projectFinished &&
-    (userRole === "LEAD_ENGINEER" || userRole === "SUPERUSER" || isSuperuser) &&
+    canFinalizeReview &&
     workflowStatus === "REVIEWED_BY_ENGINEER";
   const isLeadReviewer = userRole === "LEAD_ENGINEER" || userRole === "SUPERUSER" || isSuperuser;
 
@@ -542,7 +546,7 @@ function ReviewWorkspaceContent({ id }: { id: string }) {
               disabled={workflowBusy}
               onClick={() => void updateWorkflow("mark-reviewed")}
             >
-              {workflowBusy ? "Submitting..." : "Selesaikan Review Saya"}
+              {workflowBusy ? "Submitting..." : "Submit My Review"}
             </button>
           )}
 
@@ -560,7 +564,7 @@ function ReviewWorkspaceContent({ id }: { id: string }) {
                 className="hidden w-44 rounded-lg border border-input bg-card px-2.5 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:border-amber-500 focus:outline-none sm:block"
                 value={revisionNote}
                 onChange={(event) => setRevisionNote(event.target.value)}
-                placeholder="Catatan revisi..."
+                placeholder="Revision note..."
                 aria-label="Revision note"
               />
               <button
@@ -576,7 +580,7 @@ function ReviewWorkspaceContent({ id }: { id: string }) {
 
           {isLeadReviewer && workflowStatus === "ANALYZING" && (
             <span className="rounded-lg border border-primary/20 bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground">
-              Analisis masih berjalan. Pemantauan aktif.
+              Analysis is still running. Monitoring active.
             </span>
           )}
         </div>

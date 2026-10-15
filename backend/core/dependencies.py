@@ -136,6 +136,7 @@ def accessible_document_query(document_id: UUID, current_user: User) -> Any:
             joinedload(Document.owner),
             joinedload(Document.assigned_to),
             joinedload(Document.project),
+            joinedload(Document.reviewed_by),
         )
     )
     return query
