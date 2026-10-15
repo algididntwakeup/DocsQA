@@ -489,6 +489,7 @@ export function SplitScreenViewer({
               type="button"
               disabled={isProcessing}
               title={isProcessing ? "Fitur ekspor aktif setelah analisis selesai." : undefined}
+              aria-label="Export DOCX"
               onClick={() => void downloadExport(document.id, "docx", false, locale)}
               className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground shadow-sm hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
