@@ -251,11 +251,16 @@ async def create_project(
 
 
 def _visible_projects_query(current_user: User) -> Any:
-    """Build the project listing query with the caller's visibility scope.
+    """Build the project listing query for the caller's own workspace.
 
-    Visibility is strictly the caller's own projects, except for accounts that
-    carry workspace oversight (lead engineers and locally flagged superusers):
-    they see every workspace for cross-user review. The admin screen uses
+    ``/projects`` is the caller's personal folder list: it starts empty and
+    fills only as the user adds folders from BIMA. Every account is scoped to
+    its own projects, including locally flagged superusers, because a fresh
+    account must never open onto someone else's folders.
+
+    Cross-user oversight lives elsewhere: the Dashboard's portfolio statistics
+    (``/projects/stats``, ``require_superuser``) and the BIMA modal's
+    "All Projects" scope. The admin screen uses
     ``/api/v1/auth/users/{user_id}/projects``, which is guarded separately.
     """
 
@@ -269,8 +274,7 @@ def _visible_projects_query(current_user: User) -> Any:
         # GroupingError ("column users_1.id must appear in the GROUP BY clause").
         selectinload(Project.owner),
     )
-    if not has_workspace_oversight(current_user):
-        query = query.where(Project.owner_id == current_user.id)
+    query = query.where(Project.owner_id == current_user.id)
     return query
 
 
