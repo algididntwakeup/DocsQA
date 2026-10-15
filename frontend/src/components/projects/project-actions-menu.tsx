@@ -64,16 +64,23 @@ export function ProjectActionsMenu({ project, canManage = false, onFinish, onDel
           </button>
         )}
         {canManage && project.status !== "FINISHED" && onDelete && (
-          <button
-            type="button"
-            disabled={(project.documents_count ?? project.total_documents ?? 0) > 0}
-            title={(project.documents_count ?? project.total_documents ?? 0) > 0 ? t("emptyProjectDelete") : t("deleteProject")}
-            onClick={() => onDelete(project.id)}
-            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Trash2 size={14} />
-            {t("deleteProject")}
-          </button>
+          project.bima_project_id != null ? (
+            <p className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-muted-foreground">
+              <Trash2 size={14} />
+              {t("bimaProjectProtected")}
+            </p>
+          ) : (
+            <button
+              type="button"
+              disabled={(project.documents_count ?? project.total_documents ?? 0) > 0}
+              title={(project.documents_count ?? project.total_documents ?? 0) > 0 ? t("emptyProjectDelete") : t("deleteProject")}
+              onClick={() => onDelete(project.id)}
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Trash2 size={14} />
+              {t("deleteProject")}
+            </button>
+          )
         )}
       </div>
     </details>

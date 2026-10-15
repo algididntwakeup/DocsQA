@@ -15,8 +15,19 @@ interface ExplorerToolbarProps {
   onToggleSortDirection: () => void;
   viewMode: ProjectViewMode;
   onViewModeChange: (mode: ProjectViewMode) => void;
+  origin: ProjectOriginFilter;
+  onOriginChange: (origin: ProjectOriginFilter) => void;
   rightSlot?: ReactNode;
 }
+
+/** How the explorer narrows projects by where they came from. */
+export type ProjectOriginFilter = "all" | "bima" | "custom";
+
+const originOptions: Array<{ value: ProjectOriginFilter; labelKey: TranslationKey }> = [
+  { value: "all", labelKey: "originAll" },
+  { value: "bima", labelKey: "originBima" },
+  { value: "custom", labelKey: "originCustom" },
+];
 
 const sortOptions: Array<{ value: ProjectSortField; labelKey: TranslationKey }> = [
   { value: "name", labelKey: "sortName" },
@@ -35,6 +46,8 @@ export function ExplorerToolbar({
   onToggleSortDirection,
   viewMode,
   onViewModeChange,
+  origin,
+  onOriginChange,
   rightSlot,
 }: ExplorerToolbarProps) {
   const { t } = useLocale();
@@ -72,6 +85,18 @@ export function ExplorerToolbar({
         >
           {sortDirection === "asc" ? <ArrowUp size={16} /> : <ArrowDown size={16} />}
         </button>
+
+        <label className="sr-only" htmlFor="project-origin">{t("originFilterLabel")}</label>
+        <select
+          id="project-origin"
+          value={origin}
+          onChange={(event) => onOriginChange(event.target.value as ProjectOriginFilter)}
+          className="h-10 rounded-lg border border-border bg-background px-3 text-xs font-semibold text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
+        >
+          {originOptions.map((option) => (
+            <option key={option.value} value={option.value}>{t(option.labelKey)}</option>
+          ))}
+        </select>
 
         <div className="inline-flex rounded-lg border border-border bg-background p-1" role="group" aria-label={t("viewModeLabel")}>
           <button

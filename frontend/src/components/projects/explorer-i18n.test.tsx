@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LocaleProvider } from "@/components/layout/locale-provider";
@@ -28,6 +28,8 @@ const toolbarProps = {
   onToggleSortDirection: vi.fn(),
   viewMode: "grid" as const,
   onViewModeChange: vi.fn(),
+  origin: "all" as const,
+  onOriginChange: vi.fn(),
 };
 
 describe("ExplorerToolbar localization", () => {
@@ -55,6 +57,28 @@ describe("ExplorerToolbar localization", () => {
     expect(screen.getByRole("option", { name: "Project Name" })).toBeDefined();
     expect(screen.getByRole("option", { name: "Last Modified" })).toBeDefined();
     expect(screen.queryByText(/Tampilan|Urutkan/)).toBeNull();
+  });
+});
+
+describe("ExplorerToolbar origin filter", () => {
+  beforeEach(() => window.localStorage.clear());
+
+  it("reports the chosen origin and defaults to All", () => {
+    const onOriginChange = vi.fn();
+    window.localStorage.setItem("matqc-locale", "en");
+    render(
+      <LocaleProvider>
+        <ExplorerToolbar {...toolbarProps} onOriginChange={onOriginChange} />
+      </LocaleProvider>,
+    );
+
+    const select = screen.getByLabelText("Project origin") as HTMLSelectElement;
+    expect(select.value).toBe("all");
+    expect(screen.getByRole("option", { name: "BIMA Projects" })).toBeDefined();
+    expect(screen.getByRole("option", { name: "Custom Projects" })).toBeDefined();
+
+    fireEvent.change(select, { target: { value: "custom" } });
+    expect(onOriginChange).toHaveBeenCalledWith("custom");
   });
 });
 

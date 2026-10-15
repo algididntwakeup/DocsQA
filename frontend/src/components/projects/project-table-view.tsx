@@ -6,6 +6,7 @@ import type { Column, ColumnDef, OnChangeFn, SortingState, Table } from "@tansta
 import { ArrowDown, ArrowUp, ArrowUpDown, Folder } from "lucide-react";
 import { useLocale } from "@/components/layout/locale-provider";
 import { ProjectActionsMenu } from "@/components/projects/project-actions-menu";
+import { ProjectOriginBadge } from "@/components/projects/project-origin-badge";
 import { formatRelativeTime } from "@/lib/format";
 import type { Project } from "@/types/project";
 
@@ -50,6 +51,7 @@ export function useProjectTable({ projects, sorting, onSortingChange, canManage,
         <span className="flex min-w-48 items-center gap-2 font-semibold text-foreground">
           <Folder size={15} className="shrink-0 text-accent-foreground" />
           <span className="truncate">{row.original.name}</span>
+          <ProjectOriginBadge project={row.original} />
         </span>
       ),
     },

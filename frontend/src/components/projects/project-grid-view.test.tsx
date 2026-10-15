@@ -48,4 +48,18 @@ describe("ProjectGridView metadata", () => {
     expect(screen.getByText("Number not available")).toBeDefined();
     expect(screen.getByText("Client not available")).toBeDefined();
   });
+
+  it("marks an imported project as BIMA", () => {
+    renderGrid({ ...baseProject, bima_project_id: 4242 });
+
+    expect(screen.getByText("BIMA")).toBeDefined();
+    expect(screen.queryByText("Custom")).toBeNull();
+  });
+
+  it("marks a project without a BIMA id as Custom", () => {
+    renderGrid({ ...baseProject, bima_project_id: null });
+
+    expect(screen.getByText("Custom")).toBeDefined();
+    expect(screen.queryByText("BIMA")).toBeNull();
+  });
 });

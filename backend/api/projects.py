@@ -229,9 +229,14 @@ async def create_project(
 
     Numbered projects are restricted by prefix: ``13`` engineering projects are
     owned by engineering roles, ``03`` internal projects by HR/GA and finance.
-    Unnumbered projects keep the legacy lead-only rule.
+    Unnumbered projects keep the legacy lead-only rule. Accounts carrying the
+    local superuser flag bypass every rule: BIMA's flat directory cannot express
+    cross-department oversight, so the flag is the only way to create a project
+    outside the caller's own prefix.
     """
-    if not can_create_project(current_user.role, payload.project_number):
+    if not current_user.is_superuser and not can_create_project(
+        current_user.role, payload.project_number
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=create_permission_message(payload.project_number),
@@ -397,10 +402,26 @@ async def finish_project(
 async def delete_project(
     project_id: UUID,
     session: Annotated[AsyncSession, Depends(get_session)],
-    _: Annotated[User, Depends(require_lead)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> None:
-    """Delete an empty project; documents are never deleted implicitly."""
+    """Delete an empty custom project; documents are never deleted implicitly.
+
+    Projects imported from BIMA are permanent: they represent a real upstream
+    directory entry, so removing the local folder would desynchronise PRISM from
+    BIMA. Only custom projects (``bima_project_id is None``) may be deleted, and
+    only by their owner or a locally flagged superuser.
+    """
     project = await _load_project_for_mutation(session, project_id)
+    if project.bima_project_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="BIMA imported projects cannot be deleted.",
+        )
+    if not current_user.is_superuser and project.owner_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the project owner or a superuser can delete this project.",
+        )
     if project.documents:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,

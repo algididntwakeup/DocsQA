@@ -147,7 +147,7 @@ Object.assign(en, {
   // Explorer toolbar
   searchLabel: "Search projects",
   searchPlaceholder: "Search projects by name, number, or client...",
-  sortBy: "Sort by:",
+  sortBy: "Sort by:", originAll: "All Projects", originBima: "BIMA Projects", originCustom: "Custom Projects", originFilterLabel: "Project origin", bimaProjectProtected: "BIMA projects cannot be deleted",
   sortName: "Project Name",
   sortNumber: "Project Number",
   sortClient: "Client",
@@ -196,7 +196,7 @@ Object.assign(en, {
 Object.assign(id, {
   searchLabel: "Cari proyek",
   searchPlaceholder: "Cari proyek berdasarkan nama, nomor, atau klien...",
-  sortBy: "Urutkan:",
+  sortBy: "Urutkan:", originAll: "Semua Proyek", originBima: "Proyek BIMA", originCustom: "Proyek Kustom", originFilterLabel: "Asal proyek", bimaProjectProtected: "Proyek BIMA tidak dapat dihapus",
   sortName: "Nama Proyek",
   sortNumber: "Nomor Proyek",
   sortClient: "Klien",

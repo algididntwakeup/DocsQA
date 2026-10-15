@@ -466,7 +466,7 @@ progress::-webkit-progress-bar { background: var(--line); }
 progress::-webkit-progress-value { background: var(--primary-bright); }
 .table-progress progress { width: 86px; }
 .status-badge { width: max-content; display: inline-flex; align-items: center; gap: 7px; padding: 5px 7px; border: 1px solid currentColor; border-radius: 2px; font: 600 9px/1 "JetBrains Mono", monospace; text-transform: uppercase; white-space: nowrap; }
-.status-active { color: var(--brand-soft); background: rgba(0, 162, 230, .08); }
+.status-active { color: var(--brand); background: rgba(0, 162, 230, .08); }
 .status-success { color: var(--success); background: rgba(78, 222, 163, .08); }
 .status-warning { color: var(--warning); background: rgba(251, 191, 36, .08); }
 .status-danger { color: var(--danger); background: rgba(244, 63, 94, .08); }

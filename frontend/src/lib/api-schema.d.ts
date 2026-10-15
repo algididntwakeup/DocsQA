@@ -698,7 +698,10 @@ export interface paths {
          *
          *     Numbered projects are restricted by prefix: ``13`` engineering projects are
          *     owned by engineering roles, ``03`` internal projects by HR/GA and finance.
-         *     Unnumbered projects keep the legacy lead-only rule.
+         *     Unnumbered projects keep the legacy lead-only rule. Accounts carrying the
+         *     local superuser flag bypass every rule: BIMA's flat directory cannot express
+         *     cross-department oversight, so the flag is the only way to create a project
+         *     outside the caller's own prefix.
          */
         post: operations["create_project_api_v1_projects_post"];
         delete?: never;
@@ -765,7 +768,12 @@ export interface paths {
         post?: never;
         /**
          * Delete Project
-         * @description Delete an empty project; documents are never deleted implicitly.
+         * @description Delete an empty custom project; documents are never deleted implicitly.
+         *
+         *     Projects imported from BIMA are permanent: they represent a real upstream
+         *     directory entry, so removing the local folder would desynchronise PRISM from
+         *     BIMA. Only custom projects (``bima_project_id is None``) may be deleted, and
+         *     only by their owner or a locally flagged superuser.
          */
         delete: operations["delete_project_api_v1_projects__project_id__delete"];
         options?: never;
